@@ -6,7 +6,7 @@ CP Check คือแพลตฟอร์มระดับองค์กร�
 
 ## สถาปัตยกรรมระบบ
 
-โปรเจกต์นี้ใช้สถาปัตยกรรมแบบ Decoupled Architecture เพื่อให้ง่ายต่อการดูแลรักษาและรองรับการขยายระบบในอนาคต
+โปรเจกต์นี้ใช้สถาปัตยกรรมแบบ Decoupled Architecture เพื่อให้ง่ายต่อการดูแลรักษาและรองรับการขยายระบบในอนาคต           
 
 ### Backend (Core API)
 - **Framework:** NestJS (Node.js)
@@ -108,16 +108,16 @@ npm run dev
 │   │   ├── mail/             # ระบบส่งอีเมลแจ้งเตือน
 │   │   └── certificates/     # ระบบเกียรติบัตร
 │   └── test/                 # E2E และ Unit Tests
-├── frontend/                 # Next.js Application
-│   ├── app/                  # หน้าเพจและ Layouts (App Router)
-│   │   ├── about/            # หน้าเกี่ยวกับโปรเจกต์ (ภาพรวม)
-│   │   ├── auth/             # ระบบเข้าสู่ระบบ/สมัครใช้งาน
-│   │   ├── events/           # หน้าแสดงกิจกรรมทั้งหมด
-│   │   ├── organizer/        # แดชบอร์ดผู้จัดกิจกรรม
-│   │   └── student/          # แดชบอร์ดนักศึกษาและโปรไฟล์
-│   ├── components/           # UI Components ที่ใช้ซ้ำได้
-│   └── lib/                  # API Client และ Auth Context
-└── database_schema.sql       # Script สร้างฐานข้อมูล
+└── frontend/                 # Next.js Application
+    ├── app/                  # หน้าเพจและ Layouts (App Router)
+    │   ├── about/            # หน้าเกี่ยวกับโปรเจกต์ (ภาพรวม)
+    │   ├── auth/             # ระบบเข้าสู่ระบบ/สมัครใช้งาน
+    │   ├── events/           # หน้าแสดงกิจกรรมทั้งหมด
+    │   ├── organizer/        # แดชบอร์ดผู้จัดกิจกรรม
+    │   └── student/          # แดชบอร์ดนักศึกษาและโปรไฟล์
+    ├── components/           # UI Components ที่ใช้ซ้ำได้
+    └── lib/                  # API Client และ Auth Context
+
 ```
 
 ---
@@ -130,6 +130,3 @@ npm run dev
 - **คะแนนประสบการณ์ (XP):** คำนวณจาก `(คะแนนรวม × ตัวคูณ) + คะแนนพื้นฐานจากการเข้าร่วม`
 - **การเลื่อนระดับ:** ใช้อัลกอริทึมแบบ Non-linear เพื่อให้การเลื่อน Level ยากขึ้นตามลำดับ
 
----
-
-© 2026 CP Check Project. สงวนลิขสิทธิ์
