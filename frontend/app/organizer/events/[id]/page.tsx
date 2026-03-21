@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Edit, Star } from "lucide-react"
+import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Edit, CheckSquare, Download } from "lucide-react"
 import Link from "next/link"
 import { activitiesAPI, evaluationsAPI, registrationsAPI, Activity } from "@/lib/api"
 
@@ -32,7 +32,7 @@ interface Participant {
         communication: number;
         problemSolving: number;
         adaptability: number;
-        comment: string;
+        comment?: string;
     };
 }
 
@@ -50,18 +50,50 @@ export default function OrganizerEventDetailsPage() {
     const [selectedReg, setSelectedReg] = useState<Participant | null>(null)
     const [isEvalOpen, setIsEvalOpen] = useState(false)
     const [evalScores, setEvalScores] = useState({
-        teamwork: 5,
-        leadership: 5,
-        communication: 5,
-        problemSolving: 5,
-        adaptability: 5,
-        comment: ""
+        teamwork: 0,
+        leadership: 0,
+        communication: 0,
+        problemSolving: 0,
+        adaptability: 0,
     })
     const [submitting, setSubmitting] = useState(false)
 
     // Cancellation state
     const [isCancelOpen, setIsCancelOpen] = useState(false)
     const [cancelReason, setCancelReason] = useState("")
+
+    const exportCSV = () => {
+        if (!event?.registrations || event.registrations.length === 0) return
+
+        const headers = ['ลำดับ', 'ชื่อ-นามสกุล', 'รหัสนักศึกษา', 'อีเมล', 'สถานะการลงทะเบียน', 'เช็คอิน']
+        const rows = event.registrations.map((reg, idx) => [
+            idx + 1,
+            reg.student?.name || '-',
+            reg.student?.studentId || '-',
+            reg.student?.email || '-',
+            reg.status === 'confirmed' ? 'ยืนยันแล้ว' : 'รอดำเนินการ',
+            reg.attendance === 'attended' ? 'เข้าร่วมแล้ว' : 'ยังไม่เช็คอิน'
+        ])
+
+        const csvContent = [
+            `ชื่อกิจกรรม: ${event.name}`,
+            `วันที่จัด: ${event.date}  เวลา: ${event.startTime} - ${event.endTime}`,
+            `สถานที่: ${event.location}`,
+            `จำนวนผู้ลงทะเบียนทั้งหมด: ${event.registrations.length} คน`,
+            '',
+            headers.join(','),
+            ...rows.map(r => r.map(cell => `"${cell}"`).join(','))
+        ].join('\n')
+
+        const BOM = '\uFEFF'
+        const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `ผู้เข้าร่วม_${event.name.replace(/\s+/g, '_')}_${event.date}.csv`
+        link.click()
+        URL.revokeObjectURL(url)
+    }
 
     useEffect(() => {
         if (id) {
@@ -108,21 +140,19 @@ export default function OrganizerEventDetailsPage() {
         setSelectedReg(reg)
         if (reg.evaluation) {
             setEvalScores({
-                teamwork: reg.evaluation.teamwork,
-                leadership: reg.evaluation.leadership,
-                communication: reg.evaluation.communication,
-                problemSolving: reg.evaluation.problemSolving,
-                adaptability: reg.evaluation.adaptability,
-                comment: reg.evaluation.comment || ""
+                teamwork: reg.evaluation.teamwork || 0,
+                leadership: reg.evaluation.leadership || 0,
+                communication: reg.evaluation.communication || 0,
+                problemSolving: reg.evaluation.problemSolving || 0,
+                adaptability: reg.evaluation.adaptability || 0,
             })
         } else {
             setEvalScores({
-                teamwork: 5,
-                leadership: 5,
-                communication: 5,
-                problemSolving: 5,
-                adaptability: 5,
-                comment: ""
+                teamwork: 0,
+                leadership: 0,
+                communication: 0,
+                problemSolving: 0,
+                adaptability: 0,
             })
         }
         setIsEvalOpen(true)
@@ -229,7 +259,7 @@ export default function OrganizerEventDetailsPage() {
                                 <Badge className={event.status === 'open' ? "bg-green-500 hover:bg-green-600" : "bg-gray-500"}>
                                     {event.status === 'open' ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
                                 </Badge>
-                                {event.approvalStatus === 'pending' && (
+                                {event.approvalStatus === 'pending_approval' && (
                                     <Badge className="bg-orange-500 hover:bg-orange-600">รออนุมัติ</Badge>
                                 )}
                                 {event.approvalStatus === 'pending_cancel' && (
@@ -253,9 +283,24 @@ export default function OrganizerEventDetailsPage() {
                                     <TabsTrigger value="participants" className="flex-1">ผู้เข้าร่วม ({event.registrations?.length || 0})</TabsTrigger>
                                     <TabsTrigger value="details" className="flex-1">รายละเอียด</TabsTrigger>
                                     <TabsTrigger value="conditions" className="flex-1">เงื่อนไข</TabsTrigger>
+                                    <TabsTrigger value="benefits" className="flex-1">สิทธิประโยชน์</TabsTrigger>
+                                    <TabsTrigger value="softskills" className="flex-1">Soft Skills</TabsTrigger>
                                 </TabsList>
 
                                 <TabsContent value="participants" className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                                        <p className="text-sm text-gray-500">ผู้ลงทะเบียนทั้งหมด <span className="font-semibold text-gray-900">{event.registrations?.length || 0}</span> คน</p>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="border-green-200 text-green-700 hover:bg-green-50 gap-2"
+                                            onClick={exportCSV}
+                                            disabled={!event.registrations || event.registrations.length === 0}
+                                        >
+                                            <Download className="w-4 h-4" />
+                                            Export CSV
+                                        </Button>
+                                    </div>
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left">
                                             <thead>
@@ -318,7 +363,7 @@ export default function OrganizerEventDetailsPage() {
                                                                         onClick={() => handleOpenEval(reg)}
                                                                         title={reg.attendance !== 'attended' ? "ต้องเช็คอินก่อนจึงจะประเมินได้" : ""}
                                                                     >
-                                                                        <Star className="w-3 h-3 mr-1" /> {reg.evaluation ? "แก้ไขการประเมิน" : "ประเมิน"}
+                                                                        {reg.evaluation ? "แก้ไขการประเมิน" : "ประเมิน"}
                                                                     </Button>
                                                                 </div>
                                                             </td>
@@ -367,6 +412,46 @@ export default function OrganizerEventDetailsPage() {
                                     ) : (
                                         <div className="py-8 text-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
                                             <p className="text-gray-500">ไม่มีข้อมูลเงื่อนไขการเข้าร่วม</p>
+                                        </div>
+                                    )}
+                                </TabsContent>
+
+                                <TabsContent value="benefits" className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                                        <Info className="w-5 h-5 text-green-500" /> สิทธิประโยชน์ที่ได้รับ
+                                    </h3>
+                                    {event.benefits && event.benefits.length > 0 ? (
+                                        <ul className="space-y-3">
+                                            {event.benefits.map((item, i) => (
+                                                <li key={i} className="flex gap-3 text-gray-600">
+                                                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                                                    <span>{item.benefitText}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <div className="py-8 text-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                                            <p className="text-gray-500">ไม่มีข้อมูลสิทธิประโยชน์</p>
+                                        </div>
+                                    )}
+                                </TabsContent>
+
+                                <TabsContent value="softskills" className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                                        <CheckSquare className="w-5 h-5 text-purple-500" /> Soft Skills ที่จะได้รับ
+                                    </h3>
+                                    {event.softSkills && event.softSkills.length > 0 ? (
+                                        <div className="flex flex-wrap gap-3">
+                                            {event.softSkills.map((skill, i) => (
+                                                <div key={i} className="flex items-center gap-2 bg-purple-50 border border-purple-200 text-purple-700 px-4 py-2.5 rounded-xl font-medium">
+                                                    <CheckSquare className="w-4 h-4" />
+                                                    <span>{skill.skillName}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="py-8 text-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                                            <p className="text-gray-500">ไม่ได้ระบุ Soft Skills สำหรับกิจกรรมนี้</p>
                                         </div>
                                     )}
                                 </TabsContent>
@@ -443,7 +528,7 @@ export default function OrganizerEventDetailsPage() {
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <Star className="w-5 h-5 text-purple-600" /> ประเมิน Soft Skills
+                            <CheckSquare className="w-5 h-5 text-purple-600" /> ประเมิน Soft Skills
                         </DialogTitle>
                     </DialogHeader>
                     {selectedReg && (
@@ -458,38 +543,36 @@ export default function OrganizerEventDetailsPage() {
                                 </div>
                             </div>
 
-                            <div className="space-y-5">
+                            <div className="space-y-4">
+                                <p className="text-sm text-gray-500 mb-2">กรุณาติ๊กเลือกทักษะที่นักศึกษาแสดงออก:</p>
                                 {[
-                                    { key: 'teamwork', label: 'การทำงานเป็นทีม' },
-                                    { key: 'leadership', label: 'ภาวะผู้นำ' },
-                                    { key: 'communication', label: 'การสื่อสาร' },
-                                    { key: 'problemSolving', label: 'การแก้ปัญหา' },
-                                    { key: 'adaptability', label: 'การปรับตัว' },
-                                ].map((skill) => (
-                                    <div key={skill.key} className="space-y-2">
-                                        <div className="flex justify-between">
-                                            <Label className="font-medium">{skill.label}</Label>
-                                            <span className="font-bold text-blue-600">{(evalScores as Record<string, number | string>)[skill.key]}/10</span>
+                                    { key: 'teamwork', label: 'การทำงานเป็นทีม (Teamwork)' },
+                                    { key: 'leadership', label: 'ภาวะผู้นำ (Leadership)' },
+                                    { key: 'communication', label: 'การสื่อสาร (Communication)' },
+                                    { key: 'problemSolving', label: 'การแก้ปัญหา (Problem Solving)' },
+                                    { key: 'adaptability', label: 'การปรับตัว (Adaptability)' },
+                                ]
+                                    .filter(skill => {
+                                        // Only show soft skills provided by this activity
+                                        if (event?.softSkills && event.softSkills.length > 0) {
+                                            return event.softSkills.some(s => s.skillName.toLowerCase() === skill.label.toLowerCase() || s.skillName.toLowerCase() === skill.key.toLowerCase() || skill.label.includes(s.skillName));
+                                        }
+                                        return true; // fallback if no soft skills defined
+                                    })
+                                    .map((skill) => (
+                                        <div key={skill.key} className="flex items-center space-x-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
+                                            <input
+                                                type="checkbox"
+                                                id={`skill-${skill.key}`}
+                                                checked={evalScores[skill.key as keyof typeof evalScores] === 1}
+                                                onChange={(e) => setEvalScores({ ...evalScores, [skill.key]: e.target.checked ? 1 : 0 })}
+                                                className="w-5 h-5 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 cursor-pointer"
+                                            />
+                                            <Label htmlFor={`skill-${skill.key}`} className="font-medium cursor-pointer flex-1">
+                                                {skill.label}
+                                            </Label>
                                         </div>
-                                        <Input
-                                            type="range"
-                                            min="1"
-                                            max="10"
-                                            value={(evalScores as Record<string, number | string>)[skill.key]}
-                                            onChange={(e) => setEvalScores({ ...evalScores, [skill.key]: parseInt(e.target.value) })}
-                                            className="h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                                        />
-                                    </div>
-                                ))}
-
-                                <div className="space-y-2 pt-2">
-                                    <Label>ความคิดเห็นเพิ่มเติม (ถ้ามี)</Label>
-                                    <Input
-                                        placeholder="ระบุข้อเสนอแนะสำหรับการพัฒนา..."
-                                        value={evalScores.comment}
-                                        onChange={(e) => setEvalScores({ ...evalScores, comment: e.target.value })}
-                                    />
-                                </div>
+                                    ))}
                             </div>
 
                             <DialogFooter>

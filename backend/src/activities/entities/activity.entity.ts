@@ -11,6 +11,7 @@ import { User } from '../../users/entities/user.entity';
 import { ActivityTag } from './activity-tag.entity';
 import { ActivityCondition } from './activity-condition.entity';
 import { ActivityBenefit } from './activity-benefit.entity';
+import { ActivitySoftSkill } from './activity-soft-skill.entity';
 import { Registration } from '../../registrations/entities/registration.entity';
 import { ActivityStatus, ApprovalStatus } from '../../common/enums/status.enum';
 
@@ -95,6 +96,12 @@ export class Activity {
     eager: true,
   })
   benefits: ActivityBenefit[];
+
+  @OneToMany(() => ActivitySoftSkill, (softSkill) => softSkill.activity, {
+    cascade: true,
+    eager: true,
+  })
+  softSkills: ActivitySoftSkill[];
 
   @OneToMany(() => Registration, (registration) => registration.activity)
   registrations: Registration[];

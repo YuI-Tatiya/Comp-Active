@@ -98,4 +98,29 @@ export class AuthController {
   async getProfile(@CurrentUser('id') userId: number) {
     return this.authService.getProfile(userId);
   }
+
+  /**
+   * POST /api/auth/send-otp - ส่งอีเมล OTP ให้ผู้ใช้งานปัจจุบัน
+   */
+  @Post('send-otp')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'ส่ง OTP ยืนยันตัวตนไปยังอีเมลของบัญชีปัจจุบัน' })
+  async sendOtp(@CurrentUser('id') userId: number) {
+    return this.authService.sendVerificationOtp(userId);
+  }
+
+  /**
+   * POST /api/auth/verify-otp - ตรวจสอบ OTP ที่กรอก
+   */
+  @Post('verify-otp')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'ตรวจสอบรหัส OTP ที่ได้รับทางอีเมล' })
+  async verifyOtp(
+    @CurrentUser('id') userId: number,
+    @Body('otp') otp: string,
+  ) {
+    return this.authService.verifyOtp(userId, otp);
+  }
 }

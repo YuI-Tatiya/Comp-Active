@@ -11,6 +11,7 @@ import * as bcrypt from 'bcryptjs';
 import { User } from '../users/entities/user.entity';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -20,7 +21,55 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
+    private readonly mailService: MailService,
   ) {}
+
+  /**
+   * ส่ง OTP สำหรับยืนยันตัวตนไปทางอีเมล
+   */
+  async sendVerificationOtp(userId: number) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('ไม่พบผู้ใช้งาน');
+
+    // สร้าง OTP 6 หลัก
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 15); // อายุ 15 นาที
+
+    user.verificationOtp = otp;
+    user.verificationOtpExpiresAt = expiresAt;
+    await this.userRepository.save(user);
+
+    await this.mailService.sendVerificationOtp(user.email, otp);
+    this.logger.log(`Verification OTP requested for: ${user.email}`);
+
+    return { message: 'ส่งรหัส OTP ไปยังอีเมลแล้ว' };
+  }
+
+  /**
+   * ตรวจสอบความถูกต้องของ OTP
+   */
+  async verifyOtp(userId: number, otp: string) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('ไม่พบผู้ใช้งาน');
+
+    if (!user.verificationOtp || user.verificationOtp !== otp) {
+      throw new UnauthorizedException('รหัส OTP ไม่ถูกต้อง');
+    }
+
+    if (!user.verificationOtpExpiresAt || user.verificationOtpExpiresAt < new Date()) {
+      throw new UnauthorizedException('รหัส OTP หมดอายุแล้ว โปรดขอรหัสใหม่');
+    }
+
+    // Clear OTP หลังจากใช้เสร็จ
+    user.verificationOtp = null;
+    user.verificationOtpExpiresAt = null;
+    await this.userRepository.save(user);
+
+    this.logger.log(`User ${user.email} successfully verified OTP`);
+
+    return { message: 'ยืนยันรหัส OTP สำเร็จ' };
+  }
 
   /**
    * สมัครสมาชิก (Register)

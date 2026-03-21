@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { activitiesAPI, registrationsAPI, Activity } from '@/lib/api'
+import { activitiesAPI, Activity } from '@/lib/api'
 
 // ===== CATEGORIES =====
 const categories = [
@@ -17,13 +18,12 @@ const categories = [
 
 // ===== MAIN COMPONENT =====
 export default function EventsPage() {
+  const router = useRouter()
   const [events, setEvents] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [registeringId, setRegisteringId] = useState<number | null>(null)
-  const [message, setMessage] = useState("")
 
   useEffect(() => {
     loadActivities()
@@ -38,21 +38,6 @@ export default function EventsPage() {
       setEvents([])
     } finally {
       setLoading(false)
-    }
-  }
-
-  async function handleRegister(activityId: number) {
-    setRegisteringId(activityId)
-    setMessage("")
-    try {
-      await registrationsAPI.create(activityId)
-      setMessage("ลงทะเบียนสำเร็จ!")
-      loadActivities()
-    } catch (err: unknown) {
-      const e = err as Error;
-      setMessage(e.message || "ลงทะเบียนไม่สำเร็จ")
-    } finally {
-      setRegisteringId(null)
     }
   }
 
@@ -85,14 +70,6 @@ export default function EventsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Message */}
-        {message && (
-          <div className={`mb-4 p-3 rounded-lg text-sm ${message.includes("สำเร็จ") ? "bg-green-50 text-green-600 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"
-            }`}>
-            {message}
-          </div>
-        )}
-
         {/* Search & Filter Section */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
           <div className="flex gap-4 mb-4">
@@ -143,9 +120,8 @@ export default function EventsPage() {
 
         {/* Events Grid */}
         {filteredEvents.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <div className="text-6xl mb-4">📋</div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">ยังไม่มีกิจกรรม</h3>
+          <div className="bg-white rounded-lg shadow-sm p-12 text-center border-dashed border-2 border-gray-200">
+            <h3 className="text-xl font-bold text-gray-800 mb-2 mt-4">ยังไม่มีกิจกรรม</h3>
             <p className="text-gray-600">ยังไม่มีกิจกรรมที่เปิดรับสมัครในขณะนี้</p>
           </div>
         ) : (
@@ -176,21 +152,21 @@ export default function EventsPage() {
                   <p className="text-gray-600 text-sm mb-4 line-clamp-2">{event.description}</p>
 
                   <div className="space-y-2 text-sm text-gray-600 mb-4">
-                    <div className="flex items-center gap-2">
-                      <span>📅</span>
-                      <span>{event.date}</span>
+                    <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 sm:items-center">
+                      <span className="font-bold whitespace-nowrap w-16">วันที่:</span>
+                      <span className="font-medium text-gray-900">{event.date}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span>⏰</span>
-                      <span>{event.startTime} - {event.endTime}</span>
+                    <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 sm:items-center">
+                      <span className="font-bold whitespace-nowrap w-16">เวลา:</span>
+                      <span className="font-medium text-gray-900">{event.startTime} - {event.endTime}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span>📍</span>
-                      <span className="line-clamp-1">{event.location}</span>
+                    <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 sm:items-start">
+                      <span className="font-bold whitespace-nowrap w-16 mt-0.5">สถานที่:</span>
+                      <span className="font-medium text-gray-900 line-clamp-2">{event.location}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span>👥</span>
-                      <div className="flex-1 flex flex-col gap-1">
+                    <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 sm:items-center mt-3 pt-3 border-t border-gray-50">
+                      <span className="font-bold whitespace-nowrap w-16">ที่นั่ง:</span>
+                      <div className="flex-1 flex flex-col gap-1.5 w-full">
                         <div className="flex justify-between text-xs font-medium">
                           <span>{event.registeredCount ?? 0}/{event.capacity} คน</span>
                           <span>{Math.round(((event.registeredCount ?? 0) / (event.capacity || 1)) * 100)}%</span>
@@ -226,11 +202,10 @@ export default function EventsPage() {
                       ดูรายละเอียด
                     </Link>
                     <button
-                      onClick={() => handleRegister(event.id)}
-                      disabled={registeringId === event.id}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 font-medium disabled:opacity-50"
+                      onClick={() => router.push(`/student/events/${event.id}?register=true`)}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 font-medium"
                     >
-                      {registeringId === event.id ? "กำลังสมัคร..." : "สมัครเลย"}
+                      ลงทะเบียนเข้าร่วม
                     </button>
                   </div>
                 </div>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -10,25 +10,49 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Gift } from "lucide-react"
+import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Gift, CheckSquare } from "lucide-react"
 import Link from "next/link"
 import { activitiesAPI, registrationsAPI, Activity, Tag as TagType, Condition, Benefit } from "@/lib/api"
+import { useAuth } from "@/lib/auth-context"
 
 // Local types removed, using Activity from @/lib/api
 
 export default function EventDetailsPage() {
+    const { user } = useAuth()
     const [isRegisterOpen, setIsRegisterOpen] = useState(false)
     const params = useParams()
     const router = useRouter()
+    const searchParams = useSearchParams()
     const [event, setEvent] = useState<Activity | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
+    const [registerForm, setRegisterForm] = useState({ name: '', studentId: '', email: '' })
+    const [formError, setFormError] = useState("")
+    const [submitting, setSubmitting] = useState(false)
 
     useEffect(() => {
         if (params.id) {
             fetchEventDetails(Number(params.id))
         }
     }, [params.id])
+
+    // Auto-open register dialog if ?register=true
+    useEffect(() => {
+        if (!loading && event && searchParams.get('register') === 'true') {
+            openRegisterDialog()
+        }
+    }, [loading, event, searchParams])
+
+    const openRegisterDialog = () => {
+        // Pre-fill with profile data
+        setRegisterForm({
+            name: user?.name || '',
+            studentId: (user as { studentId?: string } | null)?.studentId || '',
+            email: user?.email || '',
+        })
+        setFormError("")
+        setIsRegisterOpen(true)
+    }
 
     const fetchEventDetails = async (id: number) => {
         try {
@@ -45,7 +69,33 @@ export default function EventDetailsPage() {
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault()
+        setFormError("")
+
+        // --- Validate against profile ---
+        const profileName = user?.name?.trim().toLowerCase() || ''
+        const profileStudentId = ((user as { studentId?: string } | null)?.studentId || '').trim()
+        const profileEmail = user?.email?.trim().toLowerCase() || ''
+
+        const enteredName = registerForm.name.trim().toLowerCase()
+        const enteredStudentId = registerForm.studentId.trim()
+        const enteredEmail = registerForm.email.trim().toLowerCase()
+
+        if (enteredName !== profileName) {
+            setFormError('ชื่อ-นามสกุลไม่ตรงกับบัญชีผู้ใช้ของคุณ')
+            return
+        }
+        if (profileStudentId && enteredStudentId !== profileStudentId) {
+            setFormError('รหัสนักศึกษาไม่ตรงกับบัญชีผู้ใช้ของคุณ')
+            return
+        }
+        if (enteredEmail !== profileEmail) {
+            setFormError('อีเมลไม่ตรงกับบัญชีผู้ใช้ของคุณ')
+            return
+        }
+
+        // --- Submit ---
         try {
+            setSubmitting(true)
             if (!event) return;
             await registrationsAPI.create(event.id)
             setIsRegisterOpen(false)
@@ -53,7 +103,9 @@ export default function EventDetailsPage() {
             fetchEventDetails(event.id) // Refresh data
         } catch (err: unknown) {
             const e = err as Error;
-            alert(e.message || "ลงทะเบียนไม่สำเร็จ")
+            setFormError(e.message || "ลงทะเบียนไม่สำเร็จ")
+        } finally {
+            setSubmitting(false)
         }
     }
 
@@ -146,6 +198,17 @@ export default function EventDetailsPage() {
                                                     <Tag className="w-3 h-3 mr-1" /> {tag.tagName}
                                                 </Badge>
                                             )) || <span className="text-sm text-gray-500">ไม่มี Tags</span>}
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-8 pt-6 border-t border-gray-100">
+                                        <h4 className="text-sm font-semibold mb-3 text-gray-900">Soft Skills ที่จะได้รับ</h4>
+                                        <div className="flex gap-2 flex-wrap">
+                                            {event.softSkills && event.softSkills.length > 0 ? event.softSkills.map((skill: { skillName: string }, idx: number) => (
+                                                <Badge key={idx} variant="outline" className="px-3 py-1 text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100">
+                                                    <CheckSquare className="w-3 h-3 mr-1" /> {skill.skillName}
+                                                </Badge>
+                                            )) : <span className="text-sm text-gray-500">ไม่ได้ระบุ Soft Skills</span>}
                                         </div>
                                     </div>
                                 </TabsContent>
@@ -243,7 +306,7 @@ export default function EventDetailsPage() {
                                 </div>
 
                                 <div className="space-y-3 pt-2">
-                                    <Button className="w-full bg-blue-600 hover:bg-blue-700 h-11 text-base font-semibold" onClick={() => setIsRegisterOpen(true)}>
+                                    <Button className="w-full bg-blue-600 hover:bg-blue-700 h-11 text-base font-semibold" onClick={openRegisterDialog}>
                                         ลงทะเบียนเข้าร่วม
                                     </Button>
                                     <Button variant="outline" className="w-full border-gray-200 hover:bg-gray-50 text-gray-600">
@@ -257,34 +320,59 @@ export default function EventDetailsPage() {
             </div>
 
             {/* Registration Modal */}
-            <Dialog open={isRegisterOpen} onOpenChange={setIsRegisterOpen}>
-                <DialogContent className="sm:max-w-[500px]">
+            <Dialog open={isRegisterOpen} onOpenChange={(open) => { setIsRegisterOpen(open); if (open) openRegisterDialog(); }}>
+                <DialogContent className="sm:max-w-[480px]">
                     <DialogHeader>
                         <DialogTitle>ลงทะเบียนเข้าร่วมกิจกรรม</DialogTitle>
-                        <p className="text-gray-500 text-sm">กรุณากรอกข้อมูลเพื่อลงทะเบียนเข้าร่วมกิจกรรม</p>
+                        <p className="text-gray-500 text-sm">กรุณายืนยันข้อมูลของคุณเพื่อยืนยันตัวตนก่อนลงทะเบียน</p>
                     </DialogHeader>
 
-                    <form onSubmit={handleRegister} className="space-y-4 py-4">
+                    <form onSubmit={handleRegister} className="space-y-4 py-2">
+                        {formError && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 text-sm font-medium px-4 py-3 rounded-lg flex items-center gap-2">
+                                <span>⚠️</span> {formError}
+                            </div>
+                        )}
+
                         <div className="space-y-2">
-                            <Label htmlFor="name">ชื่อ-นามสกุล <span className="text-red-500">*</span></Label>
-                            <Input id="name" placeholder="กรอกชื่อ-นามสกุล" required />
+                            <Label htmlFor="reg-name">ชื่อ-นามสกุล <span className="text-red-500">*</span></Label>
+                            <Input
+                                id="reg-name"
+                                value={registerForm.name}
+                                onChange={(e) => setRegisterForm(prev => ({ ...prev, name: e.target.value }))}
+                                placeholder="กรอกชื่อ-นามสกุล"
+                                required
+                            />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="studentId">รหัสนักศึกษา <span className="text-red-500">*</span></Label>
-                            <Input id="studentId" placeholder="กรอกรหัสนักศึกษา" required />
+                            <Label htmlFor="reg-studentId">รหัสนักศึกษา <span className="text-red-500">*</span></Label>
+                            <Input
+                                id="reg-studentId"
+                                value={registerForm.studentId}
+                                onChange={(e) => setRegisterForm(prev => ({ ...prev, studentId: e.target.value }))}
+                                placeholder="กรอกรหัสนักศึกษา"
+                                required
+                            />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="email">อีเมล <span className="text-red-500">*</span></Label>
-                            <Input id="email" type="email" placeholder="กรอกอีเมล" required />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="phone">เบอร์โทรศัพท์ <span className="text-red-500">*</span></Label>
-                            <Input id="phone" type="tel" placeholder="กรอกเบอร์โทรศัพท์" required />
+                            <Label htmlFor="reg-email">อีเมล <span className="text-red-500">*</span></Label>
+                            <Input
+                                id="reg-email"
+                                type="email"
+                                value={registerForm.email}
+                                onChange={(e) => setRegisterForm(prev => ({ ...prev, email: e.target.value }))}
+                                placeholder="กรอกอีเมล"
+                                required
+                            />
                         </div>
 
-                        <DialogFooter className="pt-4">
-                            <Button type="button" variant="outline" onClick={() => setIsRegisterOpen(false)}>ยกเลิก</Button>
-                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">ยืนยันการลงทะเบียน</Button>
+                        <p className="text-xs text-gray-400 bg-gray-50 px-3 py-2 rounded-lg">* ข้อมูลจะถูกตรวจสอบกับบัญชีผู้ใช้ที่ลงทะเบียนไว้ หากไม่ตรงกันจะไม่สามารถลงทะเบียนได้</p>
+
+                        <DialogFooter className="pt-2">
+                            <Button type="button" variant="outline" onClick={() => setIsRegisterOpen(false)} disabled={submitting}>ยกเลิก</Button>
+                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={submitting}>
+                                {submitting ? 'กำลังลงทะเบียน...' : 'ยืนยันการลงทะเบียน'}
+                            </Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>

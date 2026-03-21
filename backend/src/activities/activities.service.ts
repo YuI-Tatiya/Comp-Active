@@ -11,6 +11,7 @@ import { Activity } from './entities/activity.entity';
 import { ActivityTag } from './entities/activity-tag.entity';
 import { ActivityCondition } from './entities/activity-condition.entity';
 import { ActivityBenefit } from './entities/activity-benefit.entity';
+import { ActivitySoftSkill } from './entities/activity-soft-skill.entity';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 import { ActivityFilterDto } from './dto/activity-filter.dto';
@@ -30,6 +31,8 @@ export class ActivitiesService {
     private readonly conditionRepository: Repository<ActivityCondition>,
     @InjectRepository(ActivityBenefit)
     private readonly benefitRepository: Repository<ActivityBenefit>,
+    @InjectRepository(ActivitySoftSkill)
+    private readonly softSkillRepository: Repository<ActivitySoftSkill>,
   ) {}
 
   /**
@@ -41,7 +44,7 @@ export class ActivitiesService {
     createDto: CreateActivityDto,
   ): Promise<Activity> {
     this.logger.debug(`Creating activity with data: ${JSON.stringify(createDto)}`);
-    const { tags, conditions, benefits, ...activityData } = createDto;
+    const { tags, conditions, benefits, softSkills, ...activityData } = createDto;
 
     // Use a transaction to ensure all related records are saved
     return await this.activityRepository.manager.transaction(async (manager) => {
@@ -84,13 +87,24 @@ export class ActivitiesService {
         await manager.save(ActivityBenefit, benefitEntities);
       }
 
+      // สร้าง Soft Skills
+      if (softSkills?.length) {
+        const softSkillEntities = softSkills.map((skillName) =>
+          manager.create(ActivitySoftSkill, {
+            activityId: savedActivity.id,
+            skillName,
+          }),
+        );
+        await manager.save(ActivitySoftSkill, softSkillEntities);
+      }
+
       this.logger.log(
         `Activity created successfully: "${savedActivity.name}" (ID: ${savedActivity.id})`,
       );
 
       const finalActivity = await manager.findOne(Activity, {
         where: { id: savedActivity.id },
-        relations: ['tags', 'conditions', 'benefits', 'organizer'],
+        relations: ['tags', 'conditions', 'benefits', 'softSkills', 'organizer'],
       });
 
       if (!finalActivity) {
@@ -110,6 +124,7 @@ export class ActivitiesService {
       .leftJoinAndSelect('activity.tags', 'tags')
       .leftJoinAndSelect('activity.conditions', 'conditions')
       .leftJoinAndSelect('activity.benefits', 'benefits')
+      .leftJoinAndSelect('activity.softSkills', 'softSkills')
       .leftJoinAndSelect('activity.organizer', 'organizer')
       .loadRelationCountAndMap('activity.registeredCount', 'activity.registrations')
       .where('activity.approvalStatus = :status', {
@@ -120,6 +135,7 @@ export class ActivitiesService {
         'tags',
         'conditions',
         'benefits',
+        'softSkills',
         'organizer.id',
         'organizer.name',
         'organizer.email',
@@ -152,7 +168,7 @@ export class ActivitiesService {
   async findById(id: number): Promise<Activity> {
     const activity = await this.activityRepository.findOne({
       where: { id },
-      relations: ['tags', 'conditions', 'benefits', 'organizer', 'registrations', 'registrations.student', 'registrations.evaluation'],
+      relations: ['tags', 'conditions', 'benefits', 'softSkills', 'organizer', 'registrations', 'registrations.student', 'registrations.evaluation'],
     });
     
     if (!activity) {
@@ -171,6 +187,7 @@ export class ActivitiesService {
       .leftJoinAndSelect('activity.tags', 'tags')
       .leftJoinAndSelect('activity.conditions', 'conditions')
       .leftJoinAndSelect('activity.benefits', 'benefits')
+      .leftJoinAndSelect('activity.softSkills', 'softSkills')
       .loadRelationCountAndMap(
         'activity.registeredCount',
         'activity.registrations',
@@ -196,7 +213,7 @@ export class ActivitiesService {
       throw new ForbiddenException('คุณไม่มีสิทธิ์แก้ไขกิจกรรมนี้');
     }
 
-    const { tags, conditions, benefits, ...activityData } = updateDto;
+    const { tags, conditions, benefits, softSkills, ...activityData } = updateDto;
 
     return await this.activityRepository.manager.transaction(async (manager) => {
       // 1. Update basic activity data
@@ -236,11 +253,22 @@ export class ActivitiesService {
         }
       }
 
+      // 5. Update Soft Skills
+      if (softSkills !== undefined) {
+        await manager.delete(ActivitySoftSkill, { activityId: activityId });
+        if (softSkills.length) {
+          const softSkillEntities = softSkills.map((skillName) =>
+            manager.create(ActivitySoftSkill, { activityId, skillName }),
+          );
+          await manager.save(ActivitySoftSkill, softSkillEntities);
+        }
+      }
+
       this.logger.log(`Activity updated: "${activity.name}" (ID: ${activityId})`);
 
       const updated = await manager.findOne(Activity, {
         where: { id: activityId },
-        relations: ['tags', 'conditions', 'benefits', 'organizer', 'registrations'],
+        relations: ['tags', 'conditions', 'benefits', 'softSkills', 'organizer', 'registrations'],
       });
 
       if (!updated) {
@@ -275,7 +303,7 @@ export class ActivitiesService {
   async findPendingApproval(): Promise<Activity[]> {
     return this.activityRepository.find({
       where: { approvalStatus: ApprovalStatus.PENDING },
-      relations: ['tags', 'conditions', 'benefits', 'organizer'],
+      relations: ['tags', 'conditions', 'benefits', 'softSkills', 'organizer'],
       order: { createdAt: 'ASC' },
     });
   }

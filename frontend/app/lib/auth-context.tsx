@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { authAPI } from "./api"
+import { authAPI } from "@/lib/api"
 
 // ==================== TYPES ====================
 
@@ -92,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function login(email: string, password: string) {
         const res = await authAPI.login({ email, password })
-        const accessToken = res.accessToken || res.access_token || res.token
+        const accessToken = (res.accessToken || (res as unknown as { access_token?: string }).access_token || (res as unknown as { token?: string }).token) as string
         setToken(accessToken)
         localStorage.setItem("token", accessToken)
         // Profile may be in the response or we fetch it
@@ -108,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function register(data: RegisterData) {
         const res = await authAPI.register(data)
-        const accessToken = res.accessToken || res.access_token || res.token
+        const accessToken = (res.accessToken || (res as unknown as { access_token?: string }).access_token || (res as unknown as { token?: string }).token) as string
         setToken(accessToken)
         localStorage.setItem("token", accessToken)
         if (res.user) {

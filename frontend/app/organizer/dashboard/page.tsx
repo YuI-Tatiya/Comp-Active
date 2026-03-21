@@ -184,13 +184,13 @@ export default function OrganizerDashboard() {
                                             </td>
                                             <td className="px-6 py-5 text-sm">
                                                 {activity.approvalStatus === "approved" ? (
-                                                    <Badge className="text-[10px] font-bold px-2 rounded-lg border-none bg-green-50 text-green-600">✓ ออนไลน์</Badge>
+                                                    <Badge className="text-[10px] font-bold px-2 rounded-lg border-none bg-green-50 text-green-600">ออนไลน์</Badge>
                                                 ) : activity.approvalStatus === "pending_cancel" ? (
-                                                    <Badge className="text-[10px] font-bold px-2 rounded-lg border-none bg-red-50 text-red-600">⏳ รอยกเลิก</Badge>
+                                                    <Badge className="text-[10px] font-bold px-2 rounded-lg border-none bg-red-50 text-red-600">รอยกเลิก</Badge>
                                                 ) : activity.approvalStatus === "rejected" ? (
-                                                    <Badge className="text-[10px] font-bold px-2 rounded-lg border-none bg-gray-100 text-gray-500">❌ ยกเลิกแล้ว</Badge>
+                                                    <Badge className="text-[10px] font-bold px-2 rounded-lg border-none bg-gray-100 text-gray-500">ยกเลิกแล้ว</Badge>
                                                 ) : (
-                                                    <Badge className="text-[10px] font-bold px-2 rounded-lg border-none bg-orange-50 text-orange-600">⏳ รออนุมัติ</Badge>
+                                                    <Badge className="text-[10px] font-bold px-2 rounded-lg border-none bg-orange-50 text-orange-600">รออนุมัติ</Badge>
                                                 )}
                                             </td>
                                             <td className="px-6 py-5 text-right">

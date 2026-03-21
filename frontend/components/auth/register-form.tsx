@@ -14,7 +14,6 @@ export function RegisterForm() {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [confirmPassword, setConfirmPassword] = useState("")
-    const [role, setRole] = useState("student")
     const [error, setError] = useState("")
     const [loading, setLoading] = useState(false)
 
@@ -43,8 +42,8 @@ export function RegisterForm() {
                 name,
                 email,
                 password,
-                role,
-                ...(role === "student" && studentId ? { studentId } : {}),
+                role: "student",
+                ...(studentId ? { studentId } : {}),
             })
         } catch (err) {
             if (err instanceof Error) {
@@ -65,33 +64,6 @@ export function RegisterForm() {
                 </div>
             )}
 
-            {/* Role selector */}
-            <div className="space-y-2">
-                <Label>ประเภทบัญชี</Label>
-                <div className="grid grid-cols-2 gap-2">
-                    <button
-                        type="button"
-                        onClick={() => setRole("student")}
-                        className={`py-2.5 px-4 rounded-lg text-sm font-medium border-2 transition-all ${role === "student"
-                            ? "border-blue-600 bg-blue-50 text-blue-700"
-                            : "border-gray-200 text-gray-500 hover:border-gray-300"
-                            }`}
-                    >
-                        🎓 นักศึกษา
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setRole("organizer")}
-                        className={`py-2.5 px-4 rounded-lg text-sm font-medium border-2 transition-all ${role === "organizer"
-                            ? "border-purple-600 bg-purple-50 text-purple-700"
-                            : "border-gray-200 text-gray-500 hover:border-gray-300"
-                            }`}
-                    >
-                        📅 ผู้จัดกิจกรรม
-                    </button>
-                </div>
-            </div>
-
             <div className="space-y-2">
                 <Label htmlFor="name">ชื่อ-นามสกุล</Label>
                 <div className="relative">
@@ -101,16 +73,14 @@ export function RegisterForm() {
                 </div>
             </div>
 
-            {role === "student" && (
-                <div className="space-y-2">
-                    <Label htmlFor="student-id">รหัสนักศึกษา</Label>
-                    <div className="relative">
-                        <GraduationCap className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Input id="student-id" placeholder="กรอกรหัสนักศึกษา" className="pl-10"
-                            value={studentId} onChange={(e) => setStudentId(e.target.value)} disabled={loading} />
-                    </div>
+            <div className="space-y-2">
+                <Label htmlFor="student-id">รหัสนักศึกษา</Label>
+                <div className="relative">
+                    <GraduationCap className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input id="student-id" placeholder="กรอกรหัสนักศึกษา" className="pl-10"
+                        value={studentId} onChange={(e) => setStudentId(e.target.value)} disabled={loading} />
                 </div>
-            )}
+            </div>
 
             <div className="space-y-2">
                 <Label htmlFor="register-email">อีเมล</Label>

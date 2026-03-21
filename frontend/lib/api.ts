@@ -46,6 +46,7 @@ export interface Activity<T = unknown> {
   tags: Tag[];
   conditions: Condition[];
   benefits: Benefit[];
+  softSkills?: { skillName: string }[];
   organizer?: User;
   registrations?: T[];
 }

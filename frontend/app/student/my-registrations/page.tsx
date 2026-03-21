@@ -8,7 +8,7 @@ interface Registration {
   id: number
   status: string
   attendance: string
-  registeredAt: string
+  registerDate: string
   evaluation?: unknown
   activity: {
     id: number
@@ -101,7 +101,6 @@ export default function MyRegistrationsPage() {
         {message && (
           <div className={`mb-6 p-4 rounded-xl text-sm font-medium flex items-center gap-3 animate-in fade-in slide-in-from-top-2 ${message.includes("สำเร็จ") ? "bg-green-50 text-green-700 border border-green-100" : "bg-red-50 text-red-700 border border-red-100"
             }`}>
-            <span className="text-lg">{message.includes("สำเร็จ") ? "✅" : "❌"}</span>
             {message}
           </div>
         )}
@@ -129,7 +128,7 @@ export default function MyRegistrationsPage() {
           {filteredRegs.length === 0 ? (
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-16 text-center">
               <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <span className="text-4xl text-gray-300">📋</span>
+                <span className="text-sm font-bold text-gray-400">ว่างเปล่า</span>
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">ไม่มีรายการกิจกรรม</h3>
               <p className="text-gray-500 mb-8 max-w-sm mx-auto">คุณยังไม่มีกิจกรรมในหมวดนี้ เริ่มสำรวจกิจกรรมใหม่ๆ ได้เลย!</p>
@@ -183,7 +182,7 @@ export default function MyRegistrationsPage() {
 
                       {!!reg.evaluation && (
                         <span className="text-[11px] px-3 py-1 rounded-full font-bold uppercase tracking-tight bg-purple-50 text-purple-600 border border-purple-100 shadow-sm flex items-center gap-1">
-                          ✨ ประเมินแล้ว
+                          ประเมินแล้ว
                         </span>
                       )}
                     </div>
@@ -192,21 +191,18 @@ export default function MyRegistrationsPage() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-12 mb-6">
                       <div className="flex items-center gap-3 text-sm text-gray-600">
-                        <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">📅</div>
+                        <span className="font-bold">วันที่:</span>
                         <span className="font-medium">{reg.activity.date}</span>
                       </div>
                       <div className="flex items-center gap-3 text-sm text-gray-600">
-                        <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">📍</div>
+                        <span className="font-bold">สถานที่:</span>
                         <span className="font-medium truncate max-w-[150px]">{reg.activity.location}</span>
                       </div>
                       <div className="flex items-center gap-3 text-sm text-gray-600">
-                        <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">⏰</div>
+                        <span className="font-bold">เวลา:</span>
                         <span className="font-medium">{reg.activity.startTime} - {reg.activity.endTime}</span>
                       </div>
-                      <div className="flex items-center gap-3 text-sm text-gray-400">
-                        <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-xs opacity-50">#</div>
-                        <span className="text-[11px]">ID: {reg.id} • {new Date(reg.registeredAt).toLocaleDateString('th-TH')}</span>
-                      </div>
+
                     </div>
 
                     <div className="flex flex-wrap gap-4 pt-2">
@@ -228,10 +224,10 @@ export default function MyRegistrationsPage() {
 
                       {!!reg.evaluation && (
                         <button
-                          onClick={() => router.push('/student/soft-skills')}
+                          onClick={() => router.push('/student/profile')}
                           className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-200 font-bold text-xs transition-all flex items-center gap-2"
                         >
-                          ดูผลประเมิน Soft Skills ✨
+                          ดูผลประเมิน Soft Skills
                         </button>
                       )}
                     </div>

@@ -58,6 +58,14 @@ export class CreateActivityDto {
   tags?: string[];
 
   @ApiPropertyOptional({
+    example: ['Teamwork', 'Communication'],
+    description: 'Soft Skills ที่ได้รับจากกิจกรรม',
+  })
+  @IsArray()
+  @IsOptional()
+  softSkills?: string[];
+
+  @ApiPropertyOptional({
     example: ['นักศึกษาชั้นปีที่ 2 ขึ้นไป'],
     description: 'เงื่อนไขการเข้าร่วม',
   })

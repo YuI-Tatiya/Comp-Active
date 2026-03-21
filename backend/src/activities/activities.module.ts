@@ -6,6 +6,7 @@ import { Activity } from './entities/activity.entity';
 import { ActivityTag } from './entities/activity-tag.entity';
 import { ActivityCondition } from './entities/activity-condition.entity';
 import { ActivityBenefit } from './entities/activity-benefit.entity';
+import { ActivitySoftSkill } from './entities/activity-soft-skill.entity';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { ActivityBenefit } from './entities/activity-benefit.entity';
       ActivityTag,
       ActivityCondition,
       ActivityBenefit,
+      ActivitySoftSkill,
     ]),
   ],
   controllers: [ActivitiesController],

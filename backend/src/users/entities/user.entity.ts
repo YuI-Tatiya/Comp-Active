@@ -45,4 +45,10 @@ export class User {
 
   @OneToMany(() => Registration, (registration) => registration.student)
   registrations: Registration[];
+
+  @Column({ name: 'verification_otp', type: 'varchar', length: 10, nullable: true })
+  verificationOtp: string | null;
+
+  @Column({ name: 'verification_otp_expires_at', type: 'timestamp', nullable: true })
+  verificationOtpExpiresAt: Date | null;
 }
