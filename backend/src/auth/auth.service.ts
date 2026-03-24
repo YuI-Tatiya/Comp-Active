@@ -135,48 +135,7 @@ export class AuthService {
     return this.generateAuthResponse(user);
   }
 
-  /**
-   * จัดการ Google OAuth callback
-   * - ถ้ามี email ในระบบแล้ว → login ได้เลย
-   * - ถ้ายังไม่มี → ส่งข้อมูล Google กลับไปให้ frontend ทำ register
-   */
-  async handleGoogleLogin(googleUser: {
-    googleId: string;
-    email: string;
-    name: string;
-    picture?: string;
-  }) {
-    // ตรวจสอบว่า email มีในระบบหรือไม่
-    const existingUser = await this.userRepository.findOne({
-      where: { email: googleUser.email },
-    });
 
-    if (existingUser) {
-      // อัพเดท google_id ถ้ายังไม่มี
-      if (!existingUser.googleId) {
-        existingUser.googleId = googleUser.googleId;
-        await this.userRepository.save(existingUser);
-      }
-
-      this.logger.log(`Google login: ${existingUser.email}`);
-      return {
-        isRegistered: true,
-        ...this.generateAuthResponse(existingUser),
-      };
-    }
-
-    // ยังไม่ได้สมัคร → ส่งข้อมูลกลับให้ frontend
-    this.logger.log(`Google user not registered: ${googleUser.email}`);
-    return {
-      isRegistered: false,
-      googleData: {
-        googleId: googleUser.googleId,
-        email: googleUser.email,
-        name: googleUser.name,
-        picture: googleUser.picture,
-      },
-    };
-  }
 
   /**
    * ดึงข้อมูล profile ปัจจุบัน

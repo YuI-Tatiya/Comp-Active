@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts"
-import { registrationsAPI, evaluationsAPI, SkillsData, Activity } from "@/lib/api"
+import { registrationsAPI, evaluationsAPI, SkillsData, Activity, usersAPI } from "@/lib/api"
 
 interface Registration {
     id: number;
@@ -87,11 +87,30 @@ export default function StudentProfilePage() {
         setIsConfirmModalOpen(true)
     }
 
-    const handleConfirmSave = () => {
-        // In reality, you would verify the password and save to the database here
-        console.log("Saving new profile data:", editForm)
-        setIsConfirmModalOpen(false)
-        alert("บันทึกข้อมูลส่วนตัวเรียบร้อยแล้ว")
+    const handleConfirmSave = async () => {
+        if (!confirmPassword) {
+            alert("กรุณากรอกรหัสผ่านปัจจุบันเพื่อยืนยัน")
+            return
+        }
+
+        try {
+            const body = {
+                name: `${editForm.firstName} ${editForm.lastName}`.trim(),
+                studentId: editForm.studentId,
+                ...(editForm.password ? { newPassword: editForm.password } : {}),
+                currentPassword: confirmPassword
+            }
+            await usersAPI.updateMe(body)
+            alert("บันทึกข้อมูลส่วนตัวและรหัสผ่านเรียบร้อยแล้ว")
+            setIsConfirmModalOpen(false)
+            setConfirmPassword("")
+            setEditForm(prev => ({ ...prev, password: '' })) // Clear password field
+            
+            // Reload user data
+            fetchData()
+        } catch (error: unknown) {
+            alert(error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการบันทึกข้อมูล")
+        }
     }
 
     return (

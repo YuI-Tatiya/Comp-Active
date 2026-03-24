@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, MinLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateUserDto {
@@ -11,4 +11,15 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   studentId?: string;
+
+  @ApiPropertyOptional({ description: 'รหัสผ่านใหม่' })
+  @IsString()
+  @IsOptional()
+  @MinLength(6)
+  newPassword?: string;
+
+  @ApiPropertyOptional({ description: 'รหัสผ่านปัจจุบัน (สำหรับยืนยัน)' })
+  @IsString()
+  @IsOptional()
+  currentPassword?: string;
 }

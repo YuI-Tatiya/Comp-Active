@@ -44,7 +44,6 @@ export default function OrganizerEventDetailsPage() {
     const [event, setEvent] = useState<Activity<Participant> | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
-    const [isRegisterOpen, setIsRegisterOpen] = useState(false)
 
     // Evaluation state
     const [selectedReg, setSelectedReg] = useState<Participant | null>(null)
@@ -61,6 +60,13 @@ export default function OrganizerEventDetailsPage() {
     // Cancellation state
     const [isCancelOpen, setIsCancelOpen] = useState(false)
     const [cancelReason, setCancelReason] = useState("")
+
+    const handleShare = () => {
+        if (!event) return
+        const publicUrl = `${window.location.origin}/events/${event.id}`
+        navigator.clipboard.writeText(publicUrl)
+        alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")
+    }
 
     const exportCSV = () => {
         if (!event?.registrations || event.registrations.length === 0) return
@@ -510,10 +516,7 @@ export default function OrganizerEventDetailsPage() {
 
                                 {/* Organizer View Actions */}
                                 <div className="space-y-3 pt-2">
-                                    <Button className="w-full bg-blue-600 hover:bg-blue-700 h-11 text-base font-semibold" onClick={() => setIsRegisterOpen(true)}>
-                                        ทดสอบลงทะเบียน (Preview)
-                                    </Button>
-                                    <Button variant="outline" className="w-full border-gray-200 hover:bg-gray-50 text-gray-600">
+                                    <Button variant="outline" className="w-full border-gray-200 hover:bg-gray-50 text-gray-600" onClick={handleShare}>
                                         <Share2 className="w-4 h-4 mr-2" /> แชร์กิจกรรม
                                     </Button>
                                 </div>
@@ -625,40 +628,6 @@ export default function OrganizerEventDetailsPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Modal - Same as student for previewing */}
-            <Dialog open={isRegisterOpen} onOpenChange={setIsRegisterOpen}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle>ลงทะเบียนเข้าร่วมกิจกรรม (Preview)</DialogTitle>
-                        <p className="text-gray-500 text-sm">นี่คือตัวอย่างหน้าต่างลงทะเบียน</p>
-                    </DialogHeader>
-
-                    <form className="space-y-4 py-4" onSubmit={(e) => { e.preventDefault(); setIsRegisterOpen(false); }}>
-                        <div className="space-y-2">
-                            <Label htmlFor="name">ชื่อ-นามสกุล <span className="text-red-500">*</span></Label>
-                            <Input id="name" placeholder="กรอกชื่อ-นามสกุล" required />
-                        </div>
-                        {/* Other fields... Keeping it consistent */}
-                        <div className="space-y-2">
-                            <Label htmlFor="studentId">รหัสนักศึกษา <span className="text-red-500">*</span></Label>
-                            <Input id="studentId" placeholder="กรอกรหัสนักศึกษา" required />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="email">อีเมล <span className="text-red-500">*</span></Label>
-                            <Input id="email" type="email" placeholder="กรอกอีเมล" required />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="phone">เบอร์โทรศัพท์ <span className="text-red-500">*</span></Label>
-                            <Input id="phone" type="tel" placeholder="กรอกเบอร์โทรศัพท์" required />
-                        </div>
-
-                        <DialogFooter className="pt-4">
-                            <Button type="button" variant="outline" onClick={() => setIsRegisterOpen(false)}>ยกเลิก</Button>
-                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">ยืนยันการลงทะเบียน</Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
         </div>
     )
 }

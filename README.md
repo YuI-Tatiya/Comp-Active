@@ -28,7 +28,8 @@ CP Check คือแพลตฟอร์มระดับองค์กร�
 ## โมดูลหลักของระบบ
 
 ### 1. ระบบยืนยันตัวตน (Authentication)
-รองรับทั้งการเข้าสู่ระบบด้วยอีเมล/รหัสผ่าน และ Google OAuth 2.0 พร้อมระบบส่งอีเมล บทบาทผู้ใช้งานถูกควบคุมอย่างเข้มงวดผ่าน JWT Guards
+รองรับทั้งการเข้าสู่ระบบด้วยอีเมล/รหัสผ่าน
+บทบาทผู้ใช้งานถูกควบคุมอย่างเข้มงวดผ่าน JWT Guards
 
 ### 2. การจัดการวงจรชีวิตกิจกรรม
 - **ผู้จัดกิจกรรม:** สร้าง แก้ไข และบริหารกิจกรรม แสดงข้อมูล About หรือรายละเอียดแบบฟอร์ม
@@ -62,8 +63,6 @@ CP Check คือแพลตฟอร์มระดับองค์กร�
 PORT=3001
 DATABASE_URL=postgres://user:password@localhost:5432/cpcheck
 JWT_SECRET=your_secure_random_string
-GOOGLE_CLIENT_ID=your_id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your_secret
 ```
 
 ### 2. ติดตั้ง Dependencies

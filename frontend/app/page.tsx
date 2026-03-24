@@ -173,7 +173,7 @@ export default function RootPage() {
                     </div>
 
                     <div className="flex gap-3">
-                      <Link href={`/auth`} className="flex-1">
+                      <Link href={`/events/${ev.id}`} className="flex-1">
                         <Button variant="outline" className="w-full bg-white hover:bg-slate-50 border-slate-200 text-slate-700 font-bold rounded-xl h-11">ดูรายละเอียด</Button>
                       </Link>
                       <Link href={`/auth`} className="flex-1">

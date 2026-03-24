@@ -113,7 +113,7 @@ export const authAPI = {
 
 export const usersAPI = {
   getMe: () => fetchAPI<User>('/api/users/me'),
-  updateMe: (body: { name?: string; studentId?: string }) =>
+  updateMe: (body: { name?: string; studentId?: string; newPassword?: string; currentPassword?: string }) =>
     fetchAPI<User>('/api/users/me', { method: 'PATCH', body: JSON.stringify(body) }),
   getAll: () => fetchAPI<User[]>('/api/users'),
   changeRole: (id: number, role: string) =>

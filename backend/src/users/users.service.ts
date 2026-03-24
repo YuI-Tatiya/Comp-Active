@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserRole } from '../common/enums/role.enum';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class UsersService {
@@ -49,10 +50,40 @@ export class UsersService {
    * อัพเดทข้อมูลโปรไฟล์ตัวเอง
    */
   async updateProfile(userId: number, updateDto: UpdateUserDto): Promise<User> {
-    const user = await this.findById(userId);
-    Object.assign(user, updateDto);
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'name', 'email', 'role', 'studentId', 'googleId', 'createdAt', 'password'],
+    });
+
+    if (!user) {
+      throw new NotFoundException(`ไม่พบผู้ใช้งาน ID: ${userId}`);
+    }
+
+    // ตรวจสอบรหัสผ่านปัจจุบันก่อนแก้ไข
+    if (!updateDto.currentPassword) {
+      throw new ForbiddenException('กรุณาระบุรหัสผ่านปัจจุบันเพื่อยืนยันการแก้ไขข้อมูล');
+    }
+
+    if (user.password) {
+      const isPasswordValid = await bcrypt.compare(updateDto.currentPassword, user.password);
+      if (!isPasswordValid) {
+        throw new ForbiddenException('รหัสผ่านปัจจุบันไม่ถูกต้อง');
+      }
+    }
+
+    if (updateDto.name !== undefined) user.name = updateDto.name;
+    if (updateDto.studentId !== undefined) user.studentId = updateDto.studentId;
+
+    if (updateDto.newPassword) {
+      user.password = await bcrypt.hash(updateDto.newPassword, 12);
+    }
+
     const updatedUser = await this.userRepository.save(user);
     this.logger.log(`User profile updated: ${updatedUser.email}`);
+    
+    // ลบรหัสผ่านออกจาก object ก่อนส่งกลับ (ปลอดภัย)
+    delete (updatedUser as any).password;
+    
     return updatedUser;
   }
 
