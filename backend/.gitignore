@@ -1,0 +1,47 @@
+# ============================================================
+#  Backend .gitignore (NestJS)
+# ============================================================
+
+# === Build Output ===
+/dist
+/build
+
+# === Dependencies ===
+/node_modules
+
+# === Environment Variables (ห้าม push — ใช้ .env.example แทน) ===
+.env
+.env.local
+.env.production
+.env.staging
+.env.test
+
+# ไฟล์เหล่านี้ไม่ควรอยู่ใน repo ใช้ cloud storage ใน production
+/public/uploads/
+uploads/
+
+# === TypeScript Cache ===
+*.tsbuildinfo
+*.js.map
+
+# === Test Coverage ===
+/coverage
+
+# === Logs ===
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# === OS Files ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === IDE ===
+/.idea
+.vscode/
+*.swp
+*~
+
+/generated/prisma

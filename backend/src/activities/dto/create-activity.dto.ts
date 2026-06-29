@@ -1,0 +1,91 @@
+import {
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  Min,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class CreateActivityDto {
+  @ApiProperty({ example: 'อบรม React Workshop', description: 'ชื่อกิจกรรม' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ description: 'รายละเอียดกิจกรรม' })
+  @IsString()
+  @IsNotEmpty()
+  description: string;
+
+  @ApiProperty({ example: 'workshop', description: 'หมวดหมู่' })
+  @IsString()
+  @IsNotEmpty()
+  category: string;
+
+  @ApiProperty({ example: '2026-03-15', description: 'วันที่จัดกิจกรรม' })
+  @IsString()
+  @IsNotEmpty()
+  date: string;
+
+  @ApiProperty({ example: '09:00', description: 'เวลาเริ่ม' })
+  @IsString()
+  @IsNotEmpty()
+  startTime: string;
+
+  @ApiProperty({ example: '16:00', description: 'เวลาสิ้นสุด' })
+  @IsString()
+  @IsNotEmpty()
+  endTime: string;
+
+  @ApiProperty({ example: 'ห้อง 101 ตึก IT', description: 'สถานที่' })
+  @IsString()
+  @IsNotEmpty()
+  location: string;
+
+  @ApiProperty({ example: 50, description: 'จำนวนที่นั่ง' })
+  @IsNumber()
+  @Min(1)
+  capacity: number;
+
+  @ApiPropertyOptional({
+    example: ['React', 'Frontend'],
+    description: 'แท็ก',
+  })
+  @IsArray()
+  @IsOptional()
+  tags?: string[];
+
+  @ApiPropertyOptional({
+    example: ['Teamwork', 'Communication'],
+    description: 'Soft Skills ที่ได้รับจากกิจกรรม',
+  })
+  @IsArray()
+  @IsOptional()
+  softSkills?: string[];
+
+  @ApiPropertyOptional({
+    example: ['นักศึกษาชั้นปีที่ 2 ขึ้นไป'],
+    description: 'เงื่อนไขการเข้าร่วม',
+  })
+  @IsArray()
+  @IsOptional()
+  conditions?: string[];
+
+  @ApiPropertyOptional({
+    example: ['ได้รับเกียรติบัตร', 'ชั่วโมงอาสาสมัคร 8 ชั่วโมง'],
+    description: 'สิทธิประโยชน์',
+  })
+  @IsArray()
+  @IsOptional()
+  benefits?: string[];
+
+  @ApiPropertyOptional({
+    example: 'https://example.com/image.jpg',
+    description: 'URL รูปภาพโปสเตอร์กิจกรรม',
+  })
+  @IsString()
+  @IsOptional()
+  imageUrl?: string;
+}

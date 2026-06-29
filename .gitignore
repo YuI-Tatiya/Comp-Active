@@ -1,0 +1,71 @@
+# === Dependencies (ติดตั้งได้ใหม่ด้วย npm install) ===
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# === Environment Variables (เก็บ secrets — ห้าม push เด็ดขาด) ===
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.env.development.local
+.env.test.local
+.env.production.local
+# หมายเหตุ: .env.example ยังคง push ได้ เพราะเป็นแค่ตัวอย่างไม่มี secret จริง
+
+# === Build Output (สร้างได้ใหม่ด้วย npm run build) ===
+dist/
+out/
+build/
+.next/
+
+# === TypeScript Cache (สร้างใหม่อัตโนมัติ) ===
+*.tsbuildinfo
+next-env.d.ts
+
+# === Uploaded Files (ไฟล์ที่ user อัปโหลด ไม่ควรอยู่ใน repository) ===
+backend/public/uploads/
+# หมายเหตุ: โฟลเดอร์ uploads/ จะถูกสร้างอัตโนมัติเมื่อรัน backend ครั้งแรก
+
+# === Test Coverage ===
+coverage/
+
+# === OS Files ===
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# === IDE / Editor (ใช้ IDE ต่างกันในทีม ไม่ควรบังคับ config) ===
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# === Logs ===
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# === Certificates / Keys ===
+*.pem
+*.key
+*.crt
+
+# === Vercel ===
+.vercel
+
+# === Misc ===
+.cache/
+tmp/
+temp/
