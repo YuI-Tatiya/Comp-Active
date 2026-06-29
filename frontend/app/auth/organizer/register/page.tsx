@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 
 export default function OrganizerRegisterPage() {
     // ผู้พัฒนาระบบสามารถเปลี่ยน Link Google Form ตรงนี้ได้เลย
-    const GOOGLE_FORM_URL = "https://forms.google.com/"
+    const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdEiU9QXVovewJUFT0tcio8ASZ4v5v3Zm8kxASTV_yyJQzxRw/viewform?usp=publish-editor"
 
     const benefits = [
         {

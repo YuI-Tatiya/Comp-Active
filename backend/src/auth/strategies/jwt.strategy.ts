@@ -2,9 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
+import { PrismaService } from '../../prisma/prisma.service';
 
 export interface JwtPayload {
   sub: number;
@@ -16,8 +14,7 @@ export interface JwtPayload {
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
     configService: ConfigService,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
+    private readonly prisma: PrismaService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -27,20 +24,15 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   async validate(payload: JwtPayload) {
-    const user = await this.userRepository.findOne({
+    const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
+      select: { id: true, email: true, name: true, role: true, studentId: true },
     });
 
     if (!user) {
       throw new UnauthorizedException('ไม่พบผู้ใช้งาน');
     }
 
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      studentId: user.studentId,
-    };
+    return user;
   }
 }

@@ -4,35 +4,22 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Certificate } from './entities/certificate.entity';
-import { Registration } from '../registrations/entities/registration.entity';
+import { PrismaService } from '../prisma/prisma.service';
 import { AttendanceStatus } from '../common/enums/status.enum';
 
 @Injectable()
 export class CertificatesService {
   private readonly logger = new Logger(CertificatesService.name);
 
-  constructor(
-    @InjectRepository(Certificate)
-    private readonly certificateRepository: Repository<Certificate>,
-    @InjectRepository(Registration)
-    private readonly registrationRepository: Repository<Registration>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * ออกเกียรติบัตร (Organizer)
-   */
-  async issue(registrationId: number): Promise<Certificate> {
-    const registration = await this.registrationRepository.findOne({
+  async issue(registrationId: number) {
+    const registration = await this.prisma.registration.findUnique({
       where: { id: registrationId },
-      relations: ['activity', 'student'],
+      include: { activity: true, student: true },
     });
 
-    if (!registration) {
-      throw new NotFoundException('ไม่พบรายการลงทะเบียน');
-    }
+    if (!registration) throw new NotFoundException('ไม่พบรายการลงทะเบียน');
 
     if (registration.attendance !== AttendanceStatus.ATTENDED) {
       throw new BadRequestException(
@@ -40,54 +27,41 @@ export class CertificatesService {
       );
     }
 
-    // ตรวจสอบว่าออกเกียรติบัตรแล้วหรือยัง
-    const existing = await this.certificateRepository.findOne({
+    const existing = await this.prisma.certificate.findUnique({
       where: { registrationId },
     });
 
-    if (existing) {
-      throw new BadRequestException('ออกเกียรติบัตรให้รายการนี้แล้ว');
-    }
+    if (existing) throw new BadRequestException('ออกเกียรติบัตรให้รายการนี้แล้ว');
 
-    // สร้าง URL ของเกียรติบัตร (placeholder - ต้องเปลี่ยนเป็น URL จริงเมื่อมีระบบ generate)
     const certificateUrl = `/certificates/${registrationId}-${Date.now()}.pdf`;
 
-    const certificate = this.certificateRepository.create({
-      registrationId,
-      certificateUrl,
+    const certificate = await this.prisma.certificate.create({
+      data: { registrationId, certificateUrl },
     });
 
-    const saved = await this.certificateRepository.save(certificate);
     this.logger.log(`Certificate issued: registration ID ${registrationId}`);
-    return saved;
+    return certificate;
   }
 
-  /**
-   * ดูเกียรติบัตรของ Student
-   */
-  async findByStudent(studentId: number): Promise<Certificate[]> {
-    return this.certificateRepository
-      .createQueryBuilder('cert')
-      .innerJoinAndSelect('cert.registration', 'reg')
-      .innerJoinAndSelect('reg.activity', 'activity')
-      .where('reg.studentId = :studentId', { studentId })
-      .orderBy('cert.issueDate', 'DESC')
-      .getMany();
+  async findByStudent(studentId: number) {
+    return this.prisma.certificate.findMany({
+      where: { registration: { studentId } },
+      include: {
+        registration: { include: { activity: true } },
+      },
+      orderBy: { issueDate: 'desc' },
+    });
   }
 
-  /**
-   * ดึงเกียรติบัตรตาม ID
-   */
-  async findById(id: number): Promise<Certificate> {
-    const certificate = await this.certificateRepository.findOne({
+  async findById(id: number) {
+    const certificate = await this.prisma.certificate.findUnique({
       where: { id },
-      relations: ['registration', 'registration.activity', 'registration.student'],
+      include: {
+        registration: { include: { activity: true, student: true } },
+      },
     });
 
-    if (!certificate) {
-      throw new NotFoundException('ไม่พบเกียรติบัตร');
-    }
-
+    if (!certificate) throw new NotFoundException('ไม่พบเกียรติบัตร');
     return certificate;
   }
 }

@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  student
+  organizer
+  admin
+}
+
+enum ActivityStatus {
+  open
+  closed
+  completed
+}
+
+enum ApprovalStatus {
+  pending_approval
+  approved
+  rejected
+  pending_cancel
+}
+
+enum RegistrationStatus {
+  pending
+  confirmed
+  cancelled
+}
+
+enum AttendanceStatus {
+  attended
+  absent
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id                       Int       @id @default(autoincrement())
+  name                     String    @db.VarChar(255)
+  studentId                String?   @db.VarChar(20) @map("student_id")
+  email                    String    @unique @db.VarChar(255)
+  password                 String?   @db.VarChar(255)
+  googleId                 String?   @db.VarChar(255) @map("google_id")
+  role                     UserRole  @default(student)
+  createdAt                DateTime  @default(now()) @map("created_at")
+  verificationOtp          String?   @db.VarChar(10) @map("verification_otp")
+  verificationOtpExpiresAt DateTime? @map("verification_otp_expires_at")
+
+  activities    Activity[]
+  registrations Registration[]
+  evaluations   Evaluation[]
+
+  @@map("users")
+}
+
+model Activity {
+  id                 Int            @id @default(autoincrement())
+  organizerId        Int            @map("organizer_id")
+  name               String         @db.VarChar(255)
+  description        String
+  category           String         @db.VarChar(100)
+  date               DateTime       @db.Date
+  startTime          String         @db.VarChar(10) @map("start_time")
+  endTime            String         @db.VarChar(10) @map("end_time")
+  location           String         @db.VarChar(255)
+  capacity           Int
+  status             ActivityStatus @default(open)
+  approvalStatus     ApprovalStatus @default(pending_approval) @map("approval_status")
+  rejectionReason    String?        @map("rejection_reason")
+  cancellationReason String?        @map("cancellation_reason")
+  imageUrl           String?        @db.VarChar(500) @map("image_url")
+  createdAt          DateTime       @default(now()) @map("created_at")
+
+  organizer     User                @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  tags          ActivityTag[]
+  conditions    ActivityCondition[]
+  benefits      ActivityBenefit[]
+  softSkills    ActivitySoftSkill[]
+  registrations Registration[]
+
+  @@map("activities")
+}
+
+model ActivityTag {
+  id         Int    @id @default(autoincrement())
+  activityId Int    @map("activity_id")
+  tagName    String @db.VarChar(100) @map("tag_name")
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@map("activity_tags")
+}
+
+model ActivityCondition {
+  id            Int    @id @default(autoincrement())
+  activityId    Int    @map("activity_id")
+  conditionText String @map("condition_text")
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@map("activity_conditions")
+}
+
+model ActivityBenefit {
+  id          Int    @id @default(autoincrement())
+  activityId  Int    @map("activity_id")
+  benefitText String @map("benefit_text")
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@map("activity_benefits")
+}
+
+model ActivitySoftSkill {
+  id         Int    @id @default(autoincrement())
+  activityId Int    @map("activity_id")
+  skillName  String @db.VarChar(100) @map("skill_name")
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@map("activity_soft_skills")
+}
+
+model Registration {
+  id           Int                @id @default(autoincrement())
+  activityId   Int                @map("activity_id")
+  studentId    Int                @map("student_id")
+  registerDate DateTime           @default(now()) @map("register_date")
+  status       RegistrationStatus @default(pending)
+  attendance   AttendanceStatus   @default(absent)
+  checkInTime  DateTime?          @map("check_in_time")
+
+  activity    Activity     @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  student     User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  certificate Certificate?
+  evaluation  Evaluation?
+
+  @@map("registrations")
+}
+
+model Certificate {
+  id             Int      @id @default(autoincrement())
+  registrationId Int      @unique @map("registration_id")
+  issueDate      DateTime @default(now()) @map("issue_date")
+  certificateUrl String   @db.VarChar(255) @map("certificate_url")
+
+  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@map("certificates")
+}
+
+model Evaluation {
+  id             Int      @id @default(autoincrement())
+  registrationId Int      @unique @map("registration_id")
+  evaluatorId    Int      @map("evaluator_id")
+  teamwork       Int      @default(0)
+  leadership     Int      @default(0)
+  communication  Int      @default(0)
+  problemSolving Int      @default(0) @map("problem_solving")
+  adaptability   Int      @default(0)
+  comment        String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  evaluator    User         @relation(fields: [evaluatorId], references: [id])
+
+  @@map("evaluations")
+}

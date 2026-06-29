@@ -1,25 +1,27 @@
-// src/common/enums/status.enum.ts
+export const ActivityStatus = {
+  OPEN: 'open',
+  CLOSED: 'closed',
+  COMPLETED: 'completed',
+} as const;
+export type ActivityStatus = (typeof ActivityStatus)[keyof typeof ActivityStatus];
 
-export enum ActivityStatus {
-  OPEN = 'open',
-  CLOSED = 'closed',
-  COMPLETED = 'completed',
-}
+export const ApprovalStatus = {
+  PENDING: 'pending_approval',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+  PENDING_CANCEL: 'pending_cancel',
+} as const;
+export type ApprovalStatus = (typeof ApprovalStatus)[keyof typeof ApprovalStatus];
 
-export enum ApprovalStatus {
-  PENDING = 'pending_approval',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-  PENDING_CANCEL = 'pending_cancel',
-}
+export const RegistrationStatus = {
+  PENDING: 'pending',
+  CONFIRMED: 'confirmed',
+  CANCELLED: 'cancelled',
+} as const;
+export type RegistrationStatus = (typeof RegistrationStatus)[keyof typeof RegistrationStatus];
 
-export enum RegistrationStatus {
-  PENDING = 'pending',
-  CONFIRMED = 'confirmed',
-  CANCELLED = 'cancelled',
-}
-
-export enum AttendanceStatus {
-  ATTENDED = 'attended',
-  ABSENT = 'absent',
-}
+export const AttendanceStatus = {
+  ATTENDED: 'attended',
+  ABSENT: 'absent',
+} as const;
+export type AttendanceStatus = (typeof AttendanceStatus)[keyof typeof AttendanceStatus];

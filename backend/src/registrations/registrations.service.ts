@@ -5,11 +5,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Registration } from './entities/registration.entity';
-import { Activity } from '../activities/entities/activity.entity';
-import { Evaluation } from '../evaluations/entities/evaluation.entity';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   RegistrationStatus,
   AttendanceStatus,
@@ -21,28 +17,16 @@ import {
 export class RegistrationsService {
   private readonly logger = new Logger(RegistrationsService.name);
 
-  constructor(
-    @InjectRepository(Registration)
-    private readonly registrationRepository: Repository<Registration>,
-    @InjectRepository(Activity)
-    private readonly activityRepository: Repository<Activity>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * ลงทะเบียนเข้าร่วมกิจกรรม (Student)
-   */
-  async create(studentId: number, activityId: number): Promise<Registration> {
-    // ตรวจสอบว่ากิจกรรมมีอยู่จริง
-    const activity = await this.activityRepository.findOne({
+  async create(studentId: number, activityId: number) {
+    const activity = await this.prisma.activity.findUnique({
       where: { id: activityId },
-      relations: ['registrations'],
+      include: { _count: { select: { registrations: { where: { status: { not: RegistrationStatus.CANCELLED as any } } } } } },
     });
 
-    if (!activity) {
-      throw new NotFoundException('ไม่พบกิจกรรม');
-    }
+    if (!activity) throw new NotFoundException('ไม่พบกิจกรรม');
 
-    // ตรวจสอบว่ากิจกรรมเปิดรับ + อนุมัติแล้ว
     if (activity.approvalStatus !== ApprovalStatus.APPROVED) {
       throw new BadRequestException('กิจกรรมนี้ยังไม่ได้รับการอนุมัติ');
     }
@@ -51,142 +35,107 @@ export class RegistrationsService {
       throw new BadRequestException('กิจกรรมนี้ปิดรับสมัครแล้ว');
     }
 
-    // ตรวจสอบจำนวนที่นั่ง
-    const currentCount = activity.registrations?.filter(
-      (r) => r.status !== RegistrationStatus.CANCELLED,
-    ).length || 0;
-
-    if (currentCount >= activity.capacity) {
+    if (activity._count.registrations >= activity.capacity) {
       throw new BadRequestException('กิจกรรมนี้เต็มแล้ว');
     }
 
-    // ตรวจสอบว่าลงทะเบียนซ้ำหรือไม่
-    const existing = await this.registrationRepository.findOne({
+    const existing = await this.prisma.registration.findFirst({
       where: {
         studentId,
         activityId,
-        status: RegistrationStatus.PENDING,
+        status: { in: [RegistrationStatus.PENDING as any, RegistrationStatus.CONFIRMED as any] },
       },
     });
 
-    if (existing) {
-      throw new ConflictException('คุณลงทะเบียนกิจกรรมนี้แล้ว');
-    }
+    if (existing) throw new ConflictException('คุณลงทะเบียนกิจกรรมนี้แล้ว');
 
-    const confirmedExisting = await this.registrationRepository.findOne({
-      where: {
+    const registration = await this.prisma.registration.create({
+      data: {
         studentId,
         activityId,
-        status: RegistrationStatus.CONFIRMED,
+        status: RegistrationStatus.PENDING as any,
       },
     });
 
-    if (confirmedExisting) {
-      throw new ConflictException('คุณลงทะเบียนกิจกรรมนี้แล้ว');
-    }
-
-    // สร้างการลงทะเบียน
-    const registration = this.registrationRepository.create({
-      studentId,
-      activityId,
-      status: RegistrationStatus.PENDING,
-    });
-
-    const saved = await this.registrationRepository.save(registration);
-    this.logger.log(
-      `Registration created: student ${studentId} → activity ${activityId}`,
-    );
-    return saved;
+    this.logger.log(`Registration created: student ${studentId} → activity ${activityId}`);
+    return registration;
   }
 
-  /**
-   * ยกเลิกการลงทะเบียน (Student)
-   */
-  async cancel(registrationId: number, studentId: number): Promise<void> {
-    const registration = await this.registrationRepository.findOne({
+  async cancel(registrationId: number, studentId: number) {
+    const registration = await this.prisma.registration.findFirst({
       where: { id: registrationId, studentId },
     });
 
-    if (!registration) {
-      throw new NotFoundException('ไม่พบรายการลงทะเบียน');
-    }
+    if (!registration) throw new NotFoundException('ไม่พบรายการลงทะเบียน');
 
     if (registration.status === RegistrationStatus.CANCELLED) {
       throw new BadRequestException('รายการนี้ถูกยกเลิกแล้ว');
     }
 
-    registration.status = RegistrationStatus.CANCELLED;
-    await this.registrationRepository.save(registration);
+    await this.prisma.registration.update({
+      where: { id: registrationId },
+      data: { status: RegistrationStatus.CANCELLED as any },
+    });
+
     this.logger.log(`Registration cancelled: ID ${registrationId}`);
   }
 
-  /**
-   * ดูประวัติการลงทะเบียนของ Student
-   */
-  async findByStudent(studentId: number): Promise<Registration[]> {
-    return this.registrationRepository.find({
+  async findByStudent(studentId: number) {
+    return this.prisma.registration.findMany({
       where: { studentId },
-      relations: ['activity', 'evaluation'],
-      order: { registerDate: 'DESC' },
+      include: { activity: true, evaluation: true },
+      orderBy: { registerDate: 'desc' },
     });
   }
 
-  /**
-   * ดูรายชื่อผู้สมัครของกิจกรรม (Organizer)
-   */
-  async findByActivity(activityId: number): Promise<Registration[]> {
-    return this.registrationRepository.find({
+  async findByActivity(activityId: number) {
+    return this.prisma.registration.findMany({
       where: { activityId },
-      relations: ['student'],
-      order: { registerDate: 'ASC' },
+      include: { student: true },
+      orderBy: { registerDate: 'asc' },
     });
   }
 
-  /**
-   * ยืนยันผู้เข้าร่วม (Organizer)
-   */
-  async confirm(registrationId: number): Promise<Registration> {
-    const registration = await this.registrationRepository.findOne({
+  async confirm(registrationId: number) {
+    const registration = await this.prisma.registration.findUnique({
       where: { id: registrationId },
     });
 
-    if (!registration) {
-      throw new NotFoundException('ไม่พบรายการลงทะเบียน');
-    }
+    if (!registration) throw new NotFoundException('ไม่พบรายการลงทะเบียน');
 
-    registration.status = RegistrationStatus.CONFIRMED;
-    const saved = await this.registrationRepository.save(registration);
+    const saved = await this.prisma.registration.update({
+      where: { id: registrationId },
+      data: { status: RegistrationStatus.CONFIRMED as any },
+    });
+
     this.logger.log(`Registration confirmed: ID ${registrationId}`);
     return saved;
   }
 
-  /**
-   * เช็คอิน / Mark Attendance (Organizer)
-   */
-  async checkIn(registrationId: number): Promise<Registration> {
-    const registration = await this.registrationRepository.findOne({
+  async checkIn(registrationId: number) {
+    const registration = await this.prisma.registration.findUnique({
       where: { id: registrationId },
     });
 
-    if (!registration) {
-      throw new NotFoundException('ไม่พบรายการลงทะเบียน');
-    }
+    if (!registration) throw new NotFoundException('ไม่พบรายการลงทะเบียน');
 
     if (registration.status !== RegistrationStatus.CONFIRMED) {
       throw new BadRequestException('ต้องยืนยันการลงทะเบียนก่อนเช็คอิน');
     }
 
-    registration.attendance = AttendanceStatus.ATTENDED;
-    registration.checkInTime = new Date();
-    const saved = await this.registrationRepository.save(registration);
+    const saved = await this.prisma.registration.update({
+      where: { id: registrationId },
+      data: {
+        attendance: AttendanceStatus.ATTENDED as any,
+        checkInTime: new Date(),
+      },
+    });
+
     this.logger.log(`Check-in: registration ID ${registrationId}`);
     return saved;
   }
 
-  /**
-   * นับจำนวนการลงทะเบียนทั้งหมด
-   */
-  async countAll(): Promise<number> {
-    return this.registrationRepository.count();
+  async countAll() {
+    return this.prisma.registration.count();
   }
 }

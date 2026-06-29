@@ -2,13 +2,9 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ConflictException,
   Logger,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Evaluation } from './entities/evaluation.entity';
-import { Registration } from '../registrations/entities/registration.entity';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateEvaluationDto } from './dto/create-evaluation.dto';
 import { AttendanceStatus } from '../common/enums/status.enum';
 
@@ -16,71 +12,50 @@ import { AttendanceStatus } from '../common/enums/status.enum';
 export class EvaluationsService {
   private readonly logger = new Logger(EvaluationsService.name);
 
-  constructor(
-    @InjectRepository(Evaluation)
-    private readonly evaluationRepository: Repository<Evaluation>,
-    @InjectRepository(Registration)
-    private readonly registrationRepository: Repository<Registration>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * สร้างการประเมินผล (Organizer)
-   */
-  async create(evaluatorId: number, createDto: CreateEvaluationDto): Promise<Evaluation> {
+  async create(evaluatorId: number, createDto: CreateEvaluationDto) {
     const { registrationId, ...scores } = createDto;
 
-    // 1. ตรวจสอบการลงทะเบียน
-    const registration = await this.registrationRepository.findOne({
+    const registration = await this.prisma.registration.findUnique({
       where: { id: registrationId },
-      relations: ['activity'],
+      include: { activity: true },
     });
 
-    if (!registration) {
-      throw new NotFoundException('ไม่พบข้อมูลการลงทะเบียน');
-    }
+    if (!registration) throw new NotFoundException('ไม่พบข้อมูลการลงทะเบียน');
 
-    // 2. ตรวจสอบสิทธิ์ (ต้องเป็นเจ้าของกิจกรรม)
     if (registration.activity.organizerId !== evaluatorId) {
       throw new BadRequestException('คุณไม่มีสิทธิ์ประเมินผู้ใช้ในกิจกรรมนี้');
     }
 
-    // 3. ตรวจสอบการเข้าเรียน (เฉพาะคนที่ ATTENDED เท่านั้นที่ประเมินได้)
     if (registration.attendance !== AttendanceStatus.ATTENDED) {
       throw new BadRequestException('สามารถประเมินผลได้เฉพาะผู้ที่เข้าร่วมกิจกรรมแล้วเท่านั้น');
     }
 
-    // 4. ตรวจสอบว่าเคยประเมินไปแล้วหรือยัง
-    const existing = await this.evaluationRepository.findOne({
+    const existing = await this.prisma.evaluation.findUnique({
       where: { registrationId },
     });
 
     if (existing) {
-      // อัปเดตแทนถ้ามีอยู่แล้ว
-      Object.assign(existing, scores);
-      return this.evaluationRepository.save(existing);
+      const updated = await this.prisma.evaluation.update({
+        where: { registrationId },
+        data: scores,
+      });
+      return updated;
     }
 
-    // 5. สร้างการประเมิน
-    const evaluation = this.evaluationRepository.create({
-      registrationId,
-      evaluatorId,
-      ...scores,
+    const evaluation = await this.prisma.evaluation.create({
+      data: { registrationId, evaluatorId, ...scores },
     });
 
-    const saved = await this.evaluationRepository.save(evaluation);
     this.logger.log(`Evaluation created for registration ID: ${registrationId}`);
-    return saved;
+    return evaluation;
   }
 
-  /**
-   * ดึงข้อมูลทักษะของตนเอง (Student)
-   */
   async getMySkills(studentId: number) {
-    const evaluations = await this.evaluationRepository.find({
-      where: {
-        registration: { studentId },
-      },
-      relations: ['registration', 'registration.activity'],
+    const evaluations = await this.prisma.evaluation.findMany({
+      where: { registration: { studentId } },
+      include: { registration: { include: { activity: true } } },
     });
 
     if (evaluations.length === 0) {
@@ -120,12 +95,12 @@ export class EvaluationsService {
       adaptability: Number((total.adaptability / count).toFixed(2)),
     };
 
-    // Gamification Logic
-    const totalScore = total.teamwork + total.leadership + total.communication + total.problemSolving + total.adaptability;
+    const totalScore =
+      total.teamwork + total.leadership + total.communication +
+      total.problemSolving + total.adaptability;
     const points = totalScore * 10;
     const level = Math.floor(points / 500) + 1;
 
-    // Simple Badges logic
     const badges: { name: string; icon: string; description: string }[] = [];
     if (count >= 1) badges.push({ name: 'First Step', icon: '🌱', description: 'เข้าร่วมกิจกรรมครั้งแรก' });
     if (count >= 5) badges.push({ name: 'Active Student', icon: '🔥', description: 'เข้าร่วมกิจกรรมมากกว่า 5 ครั้ง' });
@@ -138,7 +113,7 @@ export class EvaluationsService {
       points,
       level,
       badges,
-      history: evaluations.map(ev => ({
+      history: evaluations.map((ev) => ({
         id: ev.id,
         activityName: ev.registration.activity.name,
         date: ev.createdAt,
@@ -147,21 +122,16 @@ export class EvaluationsService {
           leadership: ev.leadership,
           communication: ev.communication,
           problemSolving: ev.problemSolving,
-          adaptability: ev.adaptability
-        }
-      }))
+          adaptability: ev.adaptability,
+        },
+      })),
     };
   }
 
-  /**
-   * ดึงการประเมินของกิจกรรม (Organizer)
-   */
   async findByActivity(activityId: number) {
-    return this.evaluationRepository.find({
-      where: {
-        registration: { activityId },
-      },
-      relations: ['registration', 'registration.student'],
+    return this.prisma.evaluation.findMany({
+      where: { registration: { activityId } },
+      include: { registration: { include: { student: true } } },
     });
   }
 }

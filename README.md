@@ -81,6 +81,8 @@ npm install
 # Terminal 1: Backend
 cd backend
 npm run start:dev
+# Database 
+
 
 # Terminal 2: Frontend
 cd frontend

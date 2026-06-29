@@ -5,419 +5,302 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Activity } from './entities/activity.entity';
-import { ActivityTag } from './entities/activity-tag.entity';
-import { ActivityCondition } from './entities/activity-condition.entity';
-import { ActivityBenefit } from './entities/activity-benefit.entity';
-import { ActivitySoftSkill } from './entities/activity-soft-skill.entity';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 import { ActivityFilterDto } from './dto/activity-filter.dto';
 import { ActivityStatus, ApprovalStatus } from '../common/enums/status.enum';
 import { UserRole } from '../common/enums/role.enum';
 
+const activityInclude = {
+  tags: true,
+  conditions: true,
+  benefits: true,
+  softSkills: true,
+  organizer: { select: { id: true, name: true, email: true } },
+} as const;
+
 @Injectable()
 export class ActivitiesService {
   private readonly logger = new Logger(ActivitiesService.name);
 
-  constructor(
-    @InjectRepository(Activity)
-    private readonly activityRepository: Repository<Activity>,
-    @InjectRepository(ActivityTag)
-    private readonly tagRepository: Repository<ActivityTag>,
-    @InjectRepository(ActivityCondition)
-    private readonly conditionRepository: Repository<ActivityCondition>,
-    @InjectRepository(ActivityBenefit)
-    private readonly benefitRepository: Repository<ActivityBenefit>,
-    @InjectRepository(ActivitySoftSkill)
-    private readonly softSkillRepository: Repository<ActivitySoftSkill>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * สร้างกิจกรรมใหม่ (Organizer)
-   * สถานะเริ่มต้น = pending_approval
-   */
-  async create(
-    organizerId: number,
-    createDto: CreateActivityDto,
-  ): Promise<Activity> {
-    this.logger.debug(`Creating activity with data: ${JSON.stringify(createDto)}`);
-    const { tags, conditions, benefits, softSkills, ...activityData } = createDto;
+  async create(organizerId: number, createDto: CreateActivityDto) {
+    const { tags, conditions, benefits, softSkills, date, ...activityData } = createDto;
 
-    // Use a transaction to ensure all related records are saved
-    return await this.activityRepository.manager.transaction(async (manager) => {
-      // สร้าง Activity
-      const activity = manager.create(Activity, {
+    const activity = await this.prisma.activity.create({
+      data: {
         ...activityData,
+        date: new Date(date),
         organizerId,
-        approvalStatus: ApprovalStatus.PENDING,
-      });
-
-      const savedActivity = await manager.save(Activity, activity);
-
-      // สร้าง Tags
-      if (tags?.length) {
-        const tagEntities = tags.map((tagName) =>
-          manager.create(ActivityTag, { activityId: savedActivity.id, tagName }),
-        );
-        await manager.save(ActivityTag, tagEntities);
-      }
-
-      // สร้าง Conditions
-      if (conditions?.length) {
-        const conditionEntities = conditions.map((conditionText) =>
-          manager.create(ActivityCondition, {
-            activityId: savedActivity.id,
-            conditionText,
-          }),
-        );
-        await manager.save(ActivityCondition, conditionEntities);
-      }
-
-      // สร้าง Benefits
-      if (benefits?.length) {
-        const benefitEntities = benefits.map((benefitText) =>
-          manager.create(ActivityBenefit, {
-            activityId: savedActivity.id,
-            benefitText,
-          }),
-        );
-        await manager.save(ActivityBenefit, benefitEntities);
-      }
-
-      // สร้าง Soft Skills
-      if (softSkills?.length) {
-        const softSkillEntities = softSkills.map((skillName) =>
-          manager.create(ActivitySoftSkill, {
-            activityId: savedActivity.id,
-            skillName,
-          }),
-        );
-        await manager.save(ActivitySoftSkill, softSkillEntities);
-      }
-
-      this.logger.log(
-        `Activity created successfully: "${savedActivity.name}" (ID: ${savedActivity.id})`,
-      );
-
-      const finalActivity = await manager.findOne(Activity, {
-        where: { id: savedActivity.id },
-        relations: ['tags', 'conditions', 'benefits', 'softSkills', 'organizer'],
-      });
-
-      if (!finalActivity) {
-        throw new NotFoundException(`Activity with ID ${savedActivity.id} not found after creation`);
-      }
-
-      return finalActivity;
+        approvalStatus: ApprovalStatus.PENDING as any,
+        tags: { create: tags?.map((tagName) => ({ tagName })) ?? [] },
+        conditions: { create: conditions?.map((conditionText) => ({ conditionText })) ?? [] },
+        benefits: { create: benefits?.map((benefitText) => ({ benefitText })) ?? [] },
+        softSkills: { create: softSkills?.map((skillName) => ({ skillName })) ?? [] },
+      },
+      include: { ...activityInclude, registrations: true },
     });
-  }
 
-  /**
-   * ดึงกิจกรรมทั้งหมดที่ approved (Public)
-   */
-  async findAllApproved(filterDto?: ActivityFilterDto): Promise<Activity[]> {
-    const query = this.activityRepository
-      .createQueryBuilder('activity')
-      .leftJoinAndSelect('activity.tags', 'tags')
-      .leftJoinAndSelect('activity.conditions', 'conditions')
-      .leftJoinAndSelect('activity.benefits', 'benefits')
-      .leftJoinAndSelect('activity.softSkills', 'softSkills')
-      .leftJoinAndSelect('activity.organizer', 'organizer')
-      .loadRelationCountAndMap('activity.registeredCount', 'activity.registrations')
-      .where('activity.approvalStatus = :status', {
-        status: ApprovalStatus.APPROVED,
-      })
-      .select([
-        'activity',
-        'tags',
-        'conditions',
-        'benefits',
-        'softSkills',
-        'organizer.id',
-        'organizer.name',
-        'organizer.email',
-      ]);
-
-    if (filterDto?.search) {
-      query.andWhere('activity.name ILIKE :search', {
-        search: `%${filterDto.search}%`,
-      });
-    }
-
-    if (filterDto?.category) {
-      query.andWhere('activity.category = :category', {
-        category: filterDto.category,
-      });
-    }
-
-    if (filterDto?.status) {
-      query.andWhere('activity.status = :actStatus', {
-        actStatus: filterDto.status,
-      });
-    }
-
-    return query.orderBy('activity.date', 'ASC').getMany();
-  }
-
-  /**
-   * ดึงกิจกรรมตาม ID
-   */
-  async findById(id: number): Promise<Activity> {
-    const activity = await this.activityRepository.findOne({
-      where: { id },
-      relations: ['tags', 'conditions', 'benefits', 'softSkills', 'organizer', 'registrations', 'registrations.student', 'registrations.evaluation'],
-    });
-    
-    if (!activity) {
-      throw new NotFoundException(`ไม่พบกิจกรรม ID: ${id}`);
-    }
-    
+    this.logger.log(`Activity created: "${activity.name}" (ID: ${activity.id})`);
     return activity;
   }
 
-  /**
-   * ดึงกิจกรรมของ Organizer
-   */
-  async findByOrganizer(organizerId: number): Promise<Activity[]> {
-    return this.activityRepository
-      .createQueryBuilder('activity')
-      .leftJoinAndSelect('activity.tags', 'tags')
-      .leftJoinAndSelect('activity.conditions', 'conditions')
-      .leftJoinAndSelect('activity.benefits', 'benefits')
-      .leftJoinAndSelect('activity.softSkills', 'softSkills')
-      .loadRelationCountAndMap(
-        'activity.registeredCount',
-        'activity.registrations',
-      )
-      .where('activity.organizerId = :organizerId', { organizerId })
-      .orderBy('activity.createdAt', 'DESC')
-      .getMany();
+  async findAllApproved(filterDto?: ActivityFilterDto) {
+    const activities = await this.prisma.activity.findMany({
+      where: {
+        approvalStatus: ApprovalStatus.APPROVED as any,
+        ...(filterDto?.search && {
+          name: { contains: filterDto.search, mode: 'insensitive' },
+        }),
+        ...(filterDto?.category && { category: filterDto.category }),
+        ...(filterDto?.status && { status: filterDto.status as any }),
+      },
+      include: {
+        ...activityInclude,
+        _count: { select: { registrations: true } },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    return activities.map(({ _count, ...a }) => ({
+      ...a,
+      registeredCount: _count.registrations,
+    }));
   }
 
-  /**
-   * แก้ไขกิจกรรม (Organizer owner หรือ Admin)
-   */
+  async findById(id: number) {
+    const activity = await this.prisma.activity.findUnique({
+      where: { id },
+      include: {
+        ...activityInclude,
+        registrations: {
+          include: {
+            student: true,
+            evaluation: true,
+          },
+        },
+      },
+    });
+
+    if (!activity) {
+      throw new NotFoundException(`ไม่พบกิจกรรม ID: ${id}`);
+    }
+
+    return activity;
+  }
+
+  async findByOrganizer(organizerId: number) {
+    const activities = await this.prisma.activity.findMany({
+      where: { organizerId },
+      include: {
+        tags: true,
+        conditions: true,
+        benefits: true,
+        softSkills: true,
+        _count: { select: { registrations: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return activities.map(({ _count, ...a }) => ({
+      ...a,
+      registeredCount: _count.registrations,
+    }));
+  }
+
   async update(
     activityId: number,
     userId: number,
     userRole: UserRole,
     updateDto: UpdateActivityDto,
-  ): Promise<Activity> {
+  ) {
     const activity = await this.findById(activityId);
 
-    // ตรวจสอบสิทธิ์
     if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
       throw new ForbiddenException('คุณไม่มีสิทธิ์แก้ไขกิจกรรมนี้');
     }
 
-    const { tags, conditions, benefits, softSkills, ...activityData } = updateDto;
+    const { tags, conditions, benefits, softSkills, date, ...activityData } = updateDto;
 
-    return await this.activityRepository.manager.transaction(async (manager) => {
-      // 1. Update basic activity data
-      Object.assign(activity, activityData);
-      await manager.save(Activity, activity);
-
-      // 2. Update Tags
-      if (tags !== undefined) {
-        await manager.delete(ActivityTag, { activityId: activityId });
-        if (tags.length) {
-          const tagEntities = tags.map((tagName) =>
-            manager.create(ActivityTag, { activityId, tagName }),
-          );
-          await manager.save(ActivityTag, tagEntities);
-        }
-      }
-
-      // 3. Update Conditions
-      if (conditions !== undefined) {
-        await manager.delete(ActivityCondition, { activityId: activityId });
-        if (conditions.length) {
-          const conditionEntities = conditions.map((conditionText) =>
-            manager.create(ActivityCondition, { activityId, conditionText }),
-          );
-          await manager.save(ActivityCondition, conditionEntities);
-        }
-      }
-
-      // 4. Update Benefits
-      if (benefits !== undefined) {
-        await manager.delete(ActivityBenefit, { activityId: activityId });
-        if (benefits.length) {
-          const benefitEntities = benefits.map((benefitText) =>
-            manager.create(ActivityBenefit, { activityId, benefitText }),
-          );
-          await manager.save(ActivityBenefit, benefitEntities);
-        }
-      }
-
-      // 5. Update Soft Skills
-      if (softSkills !== undefined) {
-        await manager.delete(ActivitySoftSkill, { activityId: activityId });
-        if (softSkills.length) {
-          const softSkillEntities = softSkills.map((skillName) =>
-            manager.create(ActivitySoftSkill, { activityId, skillName }),
-          );
-          await manager.save(ActivitySoftSkill, softSkillEntities);
-        }
-      }
-
-      this.logger.log(`Activity updated: "${activity.name}" (ID: ${activityId})`);
-
-      const updated = await manager.findOne(Activity, {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.activity.update({
         where: { id: activityId },
-        relations: ['tags', 'conditions', 'benefits', 'softSkills', 'organizer', 'registrations'],
+        data: {
+          ...activityData,
+          ...(date && { date: new Date(date) }),
+        },
       });
 
-      if (!updated) {
-        throw new NotFoundException(`Activity with ID ${activityId} not found after update`);
+      if (tags !== undefined) {
+        await tx.activityTag.deleteMany({ where: { activityId } });
+        if (tags.length) {
+          await tx.activityTag.createMany({
+            data: tags.map((tagName) => ({ activityId, tagName })),
+          });
+        }
       }
 
+      if (conditions !== undefined) {
+        await tx.activityCondition.deleteMany({ where: { activityId } });
+        if (conditions.length) {
+          await tx.activityCondition.createMany({
+            data: conditions.map((conditionText) => ({ activityId, conditionText })),
+          });
+        }
+      }
+
+      if (benefits !== undefined) {
+        await tx.activityBenefit.deleteMany({ where: { activityId } });
+        if (benefits.length) {
+          await tx.activityBenefit.createMany({
+            data: benefits.map((benefitText) => ({ activityId, benefitText })),
+          });
+        }
+      }
+
+      if (softSkills !== undefined) {
+        await tx.activitySoftSkill.deleteMany({ where: { activityId } });
+        if (softSkills.length) {
+          await tx.activitySoftSkill.createMany({
+            data: softSkills.map((skillName) => ({ activityId, skillName })),
+          });
+        }
+      }
+
+      const updated = await tx.activity.findUnique({
+        where: { id: activityId },
+        include: { ...activityInclude, registrations: true },
+      });
+
+      this.logger.log(`Activity updated: "${activity.name}" (ID: ${activityId})`);
       return updated;
     });
   }
 
-  /**
-   * ลบกิจกรรม
-   */
-  async delete(
-    activityId: number,
-    userId: number,
-    userRole: UserRole,
-  ): Promise<void> {
+  async delete(activityId: number, userId: number, userRole: UserRole) {
     const activity = await this.findById(activityId);
 
     if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
       throw new ForbiddenException('คุณไม่มีสิทธิ์ลบกิจกรรมนี้');
     }
 
-    await this.activityRepository.remove(activity);
+    await this.prisma.activity.delete({ where: { id: activityId } });
     this.logger.log(`Activity deleted: "${activity.name}" (ID: ${activityId})`);
   }
 
-  /**
-   * ดึงกิจกรรมที่รอการอนุมัติ (Admin)
-   */
-  async findPendingApproval(): Promise<Activity[]> {
-    return this.activityRepository.find({
-      where: { approvalStatus: ApprovalStatus.PENDING },
-      relations: ['tags', 'conditions', 'benefits', 'softSkills', 'organizer'],
-      order: { createdAt: 'ASC' },
+  async findPendingApproval() {
+    return this.prisma.activity.findMany({
+      where: { approvalStatus: ApprovalStatus.PENDING as any },
+      include: activityInclude,
+      orderBy: { createdAt: 'asc' },
     });
   }
 
-  /**
-   * อนุมัติกิจกรรม (Admin)
-   */
-  async approve(activityId: number): Promise<Activity> {
-    const activity = await this.findById(activityId);
-    activity.approvalStatus = ApprovalStatus.APPROVED;
-    activity.rejectionReason = null;
-    const savedActivity = await this.activityRepository.save(activity);
+  async approve(activityId: number) {
+    const activity = await this.prisma.activity.update({
+      where: { id: activityId },
+      data: {
+        approvalStatus: ApprovalStatus.APPROVED as any,
+        rejectionReason: null,
+      },
+      include: { ...activityInclude, registrations: true },
+    });
     this.logger.log(`Activity approved: "${activity.name}" (ID: ${activityId})`);
-    return savedActivity;
+    return activity;
   }
 
-  /**
-   * ปฏิเสธกิจกรรม (Admin)
-   */
-  async reject(activityId: number, reason: string): Promise<Activity> {
-    const activity = await this.findById(activityId);
-    activity.approvalStatus = ApprovalStatus.REJECTED;
-    activity.rejectionReason = reason;
-    const savedActivity = await this.activityRepository.save(activity);
+  async reject(activityId: number, reason: string) {
+    const activity = await this.prisma.activity.update({
+      where: { id: activityId },
+      data: {
+        approvalStatus: ApprovalStatus.REJECTED as any,
+        rejectionReason: reason,
+      },
+      include: { ...activityInclude, registrations: true },
+    });
     this.logger.log(`Activity rejected: "${activity.name}" (ID: ${activityId})`);
-    return savedActivity;
+    return activity;
   }
 
-  /**
-   * นับจำนวนกิจกรรมทั้งหมด
-   */
-  async countAll(): Promise<number> {
-    return this.activityRepository.count();
+  async countAll() {
+    return this.prisma.activity.count();
   }
 
-  /**
-   * นับจำนวนกิจกรรมที่รอการอนุมัติ
-   */
-  async countPending(): Promise<number> {
-    return this.activityRepository.count({
-      where: { approvalStatus: ApprovalStatus.PENDING },
+  async countPending() {
+    return this.prisma.activity.count({
+      where: { approvalStatus: ApprovalStatus.PENDING as any },
     });
   }
 
-  /**
-   * ดึงกิจกรรมทั้งหมด (Admin - ไม่กรอง approval)
-   */
-  /**
-   * ร้องขอการยกเลิกกิจกรรม (Organizer)
-   */
-  async requestCancellation(
-    activityId: number,
-    organizerId: number,
-    reason: string,
-  ): Promise<Activity> {
+  async requestCancellation(activityId: number, organizerId: number, reason: string) {
     const activity = await this.findById(activityId);
 
     if (activity.organizerId !== organizerId) {
       throw new ForbiddenException('คุณไม่มีสิทธิ์ยกเลิกกิจกรรมนี้');
     }
 
-    // ถ้าไม่มีคนลงทะเบียน หรือกิจกรรมยังไม่ถูก approve สามารถยกเลิกได้ทันที
     if (
       activity.registrations.length === 0 ||
       activity.approvalStatus !== ApprovalStatus.APPROVED
     ) {
-      activity.approvalStatus = ApprovalStatus.REJECTED;
-      activity.status = ActivityStatus.CLOSED;
-      activity.cancellationReason = reason;
-      return this.activityRepository.save(activity);
+      return this.prisma.activity.update({
+        where: { id: activityId },
+        data: {
+          approvalStatus: ApprovalStatus.REJECTED as any,
+          status: ActivityStatus.CLOSED as any,
+          cancellationReason: reason,
+        },
+        include: { ...activityInclude, registrations: true },
+      });
     }
 
-    // มีคนลงทะเบียนแล้ว ต้องรอ Admin อนุมัติ
-    activity.approvalStatus = ApprovalStatus.PENDING_CANCEL;
-    activity.cancellationReason = reason;
-    const saved = await this.activityRepository.save(activity);
+    const saved = await this.prisma.activity.update({
+      where: { id: activityId },
+      data: {
+        approvalStatus: ApprovalStatus.PENDING_CANCEL as any,
+        cancellationReason: reason,
+      },
+      include: { ...activityInclude, registrations: true },
+    });
     this.logger.log(`Cancellation requested: "${activity.name}" (ID: ${activityId})`);
     return saved;
   }
 
-  /**
-   * ดึงรายการที่รอยกเลิก (Admin)
-   */
-  async findPendingCancellation(): Promise<Activity[]> {
-    return this.activityRepository.find({
-      where: { approvalStatus: ApprovalStatus.PENDING_CANCEL },
-      relations: ['organizer', 'registrations'],
-      order: { createdAt: 'ASC' },
+  async findPendingCancellation() {
+    return this.prisma.activity.findMany({
+      where: { approvalStatus: ApprovalStatus.PENDING_CANCEL as any },
+      include: {
+        organizer: { select: { id: true, name: true, email: true } },
+        registrations: true,
+      },
+      orderBy: { createdAt: 'asc' },
     });
   }
 
-  /**
-   * อนุมัติการยกเลิกกิจกรรม (Admin)
-   */
-  async approveCancellation(activityId: number): Promise<Activity> {
+  async approveCancellation(activityId: number) {
     const activity = await this.findById(activityId);
     if (activity.approvalStatus !== ApprovalStatus.PENDING_CANCEL) {
       throw new BadRequestException('กิจกรรมนี้ไม่ได้อยู่ระหว่างการขอรอยกเลิก');
     }
 
-    activity.approvalStatus = ApprovalStatus.REJECTED;
-    activity.status = ActivityStatus.CLOSED;
-    const saved = await this.activityRepository.save(activity);
+    const saved = await this.prisma.activity.update({
+      where: { id: activityId },
+      data: {
+        approvalStatus: ApprovalStatus.REJECTED as any,
+        status: ActivityStatus.CLOSED as any,
+      },
+      include: { ...activityInclude, registrations: true },
+    });
     this.logger.log(`Cancellation approved by Admin: "${activity.name}" (ID: ${activityId})`);
     return saved;
   }
 
-  /**
-   * ดึงสถิติสำหรับผู้จัดงาน
-   */
   async getOrganizerStats(organizerId: number) {
-    const activities = await this.activityRepository.find({
+    const activities = await this.prisma.activity.findMany({
       where: { organizerId },
-      relations: ['registrations'],
+      include: { _count: { select: { registrations: true } } },
     });
 
     const totalActivities = activities.length;
@@ -425,40 +308,29 @@ export class ActivitiesService {
       (a) => a.approvalStatus === ApprovalStatus.APPROVED,
     ).length;
     const totalRegistrations = activities.reduce(
-      (sum, a) => sum + (a.registrations?.length || 0),
+      (sum, a) => sum + a._count.registrations,
       0,
     );
     const pendingApprovals = activities.filter(
       (a) => a.approvalStatus === ApprovalStatus.PENDING,
     ).length;
 
-    return {
-      totalActivities,
-      activeActivities,
-      totalRegistrations,
-      pendingApprovals,
-    };
+    return { totalActivities, activeActivities, totalRegistrations, pendingApprovals };
   }
 
-  /**
-   * ดึงสถิติรวมของแพลตฟอร์ม
-   */
   async getPlatformStats() {
-    const totalActivities = await this.activityRepository.count({
-      where: { approvalStatus: ApprovalStatus.APPROVED },
+    const totalActivities = await this.prisma.activity.count({
+      where: { approvalStatus: ApprovalStatus.APPROVED as any },
     });
 
-    // ในระบบจริงอาจจะนับจากตาราง User ที่มีบทบาท STUDENT
-    // แต่เพื่อความง่าย เราจะนับผู้ที่เคยสมัครกิจกรรมอย่างน้อย 1 ครั้ง
-    const result = await this.activityRepository
-      .createQueryBuilder('activity')
-      .leftJoin('activity.registrations', 'registration')
-      .select('COUNT(DISTINCT registration.studentId)', 'totalStudents')
-      .getRawOne();
+    const distinctStudents = await this.prisma.registration.findMany({
+      distinct: ['studentId'],
+      select: { studentId: true },
+    });
 
     return {
       totalActivities,
-      totalParticipants: parseInt(result.totalStudents) || 0,
+      totalParticipants: distinctStudents.length,
     };
   }
 }

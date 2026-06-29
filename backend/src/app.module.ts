@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-import { getDatabaseConfig } from './config/database.config';
+import { PrismaModule } from './prisma/prisma.module';
 
 // Feature Modules
 import { AuthModule } from './auth/auth.module';
@@ -23,17 +22,13 @@ import { MailModule } from './mail/mail.module';
       envFilePath: '.env',
     }),
 
-    // Database (PostgreSQL via TypeORM)
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: getDatabaseConfig,
-    }),
+    // Database (PostgreSQL via Prisma)
+    PrismaModule,
 
     // Serve Static Files (For Uploaded Images)
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
-      serveRoot: '/', // serve urls like /uploads/activities/...
+      serveRoot: '/',
     }),
 
     // Feature Modules

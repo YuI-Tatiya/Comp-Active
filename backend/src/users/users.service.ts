@@ -4,39 +4,43 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from './entities/user.entity';
+import * as bcrypt from 'bcryptjs';
+import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserRole } from '../common/enums/role.enum';
-import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
-  constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * ดึงข้อมูลผู้ใช้ทั้งหมด (Admin)
-   */
-  async findAll(): Promise<User[]> {
-    return this.userRepository.find({
-      select: ['id', 'name', 'email', 'role', 'studentId', 'createdAt'],
-      order: { createdAt: 'DESC' },
+  async findAll() {
+    return this.prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        studentId: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
-  /**
-   * ดึงข้อมูลผู้ใช้ตาม ID
-   */
-  async findById(id: number): Promise<User> {
-    const user = await this.userRepository.findOne({
+  async findById(id: number) {
+    const user = await this.prisma.user.findUnique({
       where: { id },
-      select: ['id', 'name', 'email', 'role', 'studentId', 'googleId', 'createdAt'],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        studentId: true,
+        googleId: true,
+        createdAt: true,
+      },
     });
 
     if (!user) {
@@ -46,20 +50,25 @@ export class UsersService {
     return user;
   }
 
-  /**
-   * อัพเดทข้อมูลโปรไฟล์ตัวเอง
-   */
-  async updateProfile(userId: number, updateDto: UpdateUserDto): Promise<User> {
-    const user = await this.userRepository.findOne({
+  async updateProfile(userId: number, updateDto: UpdateUserDto) {
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: ['id', 'name', 'email', 'role', 'studentId', 'googleId', 'createdAt', 'password'],
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        studentId: true,
+        googleId: true,
+        createdAt: true,
+        password: true,
+      },
     });
 
     if (!user) {
       throw new NotFoundException(`ไม่พบผู้ใช้งาน ID: ${userId}`);
     }
 
-    // ตรวจสอบรหัสผ่านปัจจุบันก่อนแก้ไข
     if (!updateDto.currentPassword) {
       throw new ForbiddenException('กรุณาระบุรหัสผ่านปัจจุบันเพื่อยืนยันการแก้ไขข้อมูล');
     }
@@ -71,62 +80,69 @@ export class UsersService {
       }
     }
 
-    if (updateDto.name !== undefined) user.name = updateDto.name;
-    if (updateDto.studentId !== undefined) user.studentId = updateDto.studentId;
-
+    const data: Record<string, any> = {};
+    if (updateDto.name !== undefined) data.name = updateDto.name;
+    if (updateDto.studentId !== undefined) data.studentId = updateDto.studentId;
     if (updateDto.newPassword) {
-      user.password = await bcrypt.hash(updateDto.newPassword, 12);
+      data.password = await bcrypt.hash(updateDto.newPassword, 12);
     }
 
-    const updatedUser = await this.userRepository.save(user);
-    this.logger.log(`User profile updated: ${updatedUser.email}`);
-    
-    // ลบรหัสผ่านออกจาก object ก่อนส่งกลับ (ปลอดภัย)
-    delete (updatedUser as any).password;
-    
-    return updatedUser;
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        studentId: true,
+        googleId: true,
+        createdAt: true,
+      },
+    });
+
+    this.logger.log(`User profile updated: ${updated.email}`);
+    return updated;
   }
 
-  /**
-   * เปลี่ยน Role ผู้ใช้ (Admin only)
-   */
-  async changeRole(userId: number, newRole: UserRole): Promise<User> {
+  async changeRole(userId: number, newRole: UserRole) {
     const user = await this.findById(userId);
-    user.role = newRole;
-    const updatedUser = await this.userRepository.save(user);
-    this.logger.log(`User role changed: ${updatedUser.email} → ${newRole}`);
-    return updatedUser;
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: { role: newRole as any },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        studentId: true,
+        googleId: true,
+        createdAt: true,
+      },
+    });
+    this.logger.log(`User role changed: ${updated.email} → ${newRole}`);
+    return updated;
   }
 
-  /**
-   * ลบผู้ใช้ (Admin only)
-   */
-  async deleteUser(userId: number, adminId: number): Promise<void> {
+  async deleteUser(userId: number, adminId: number) {
     if (userId === adminId) {
       throw new ForbiddenException('ไม่สามารถลบบัญชีตัวเองได้');
     }
 
     const user = await this.findById(userId);
-    await this.userRepository.remove(user);
+    await this.prisma.user.delete({ where: { id: user.id } });
     this.logger.log(`User deleted: ${user.email} (by admin ID: ${adminId})`);
   }
 
-  /**
-   * นับจำนวนผู้ใช้ตาม Role
-   */
-  async countByRole(): Promise<{ role: string; count: number }[]> {
-    return this.userRepository
-      .createQueryBuilder('user')
-      .select('user.role', 'role')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy('user.role')
-      .getRawMany();
+  async countByRole() {
+    const result = await this.prisma.user.groupBy({
+      by: ['role'],
+      _count: { role: true },
+    });
+    return result.map((r) => ({ role: r.role, count: r._count.role }));
   }
 
-  /**
-   * นับจำนวนผู้ใช้ทั้งหมด
-   */
-  async countAll(): Promise<number> {
-    return this.userRepository.count();
+  async countAll() {
+    return this.prisma.user.count();
   }
 }
