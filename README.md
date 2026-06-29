@@ -1,133 +1,223 @@
-# CP Check: ระบบจัดการกิจกรรมและติดตาม Soft Skills
+# CP Check — Activity Management & Soft Skills Tracking System
 
-CP Check คือแพลตฟอร์มระดับองค์กรที่ออกแบบมาเพื่อบริหารจัดการกิจกรรมนอกหลักสูตร และวิเคราะห์การพัฒนา Soft Skills ของนักศึกษาอย่างเป็นระบบ ระบบรองรับการทำงานร่วมกันระหว่างนักศึกษา ผู้จัดกิจกรรม และผู้ดูแลระบบผ่าน UI ที่ทันสมัยและ Backend ที่มีประสิทธิภาพสูง
-
----
-
-## สถาปัตยกรรมระบบ
-
-โปรเจกต์นี้ใช้สถาปัตยกรรมแบบ Decoupled Architecture เพื่อให้ง่ายต่อการดูแลรักษาและรองรับการขยายระบบในอนาคต           
-
-### Backend (Core API)
-- **Framework:** NestJS (Node.js)
-- **ภาษา:** TypeScript
-- **ฐานข้อมูล:** PostgreSQL ร่วมกับ TypeORM
-- **ความปลอดภัย:** Passport.js (JWT และ Google OAuth 2.0), เข้ารหัสด้วย Bcrypt
-- **อีเมล:** รองรับระบบ Notification และ OTP ทางอีเมล
-- **เอกสาร API:** รองรับ Swagger / OpenAPI แบบ Built-in
-
-### Frontend (User Interface)
-- **Framework:** Next.js 16 (App Router)
-- **Library:** React 19
-- **Styling:** Tailwind CSS 4 พร้อม Lucide Icons
-- **UI Components:** Radix UI ที่ปรับแต่งสำหรับความสวยงามระดับ Premium
-- **กราฟ:** Recharts สำหรับการแสดงผลข้อมูล
+CP Check is an enterprise-grade platform built for managing extracurricular activities and systematically tracking student soft skill development. The system supports collaboration between students, organizers, and administrators through a modern UI and a high-performance backend.
 
 ---
 
-## โมดูลหลักของระบบ
+## Tech Stack
 
-### 1. ระบบยืนยันตัวตน (Authentication)
-รองรับทั้งการเข้าสู่ระบบด้วยอีเมล/รหัสผ่าน
-บทบาทผู้ใช้งานถูกควบคุมอย่างเข้มงวดผ่าน JWT Guards
+### Backend
+| Layer | Technology |
+|-------|-----------|
+| Framework | NestJS 11 (Node.js) |
+| Language | TypeScript |
+| Database | PostgreSQL 14+ |
+| ORM | Prisma 7 |
+| Authentication | Passport.js — JWT + Google OAuth 2.0 |
+| Password Hashing | bcryptjs |
+| Email | Nodemailer (SMTP) |
+| API Docs | Swagger / OpenAPI (built-in) |
 
-### 2. การจัดการวงจรชีวิตกิจกรรม
-- **ผู้จัดกิจกรรม:** สร้าง แก้ไข และบริหารกิจกรรม แสดงข้อมูล About หรือรายละเอียดแบบฟอร์ม
-- **ขั้นตอนการอนุมัติ:** กิจกรรมใหม่ต้องผ่านการอนุมัติจาก Admin ก่อนเผยแพร่ (รอดำเนินการ → อนุมัติ / ปฏิเสธ)
-- **การยกเลิก:** รองรับคำขอยกเลิกกิจกรรมพร้อมการตรวจสอบจาก Admin
-
-### 3. การลงทะเบียนและเข้าร่วมกิจกรรมของนักศึกษา
-- **ค้นหา:** ระบบค้นหาและกรองกิจกรรมตามหมวดหมู่
-- **ลงทะเบียน:** ติดตามจำนวนที่นั่งแบบ Real-time และจัดการสถานะการลงทะเบียนอัตโนมัติ
-- **เกียรติบัตร:** ออกเกียรติบัตรอัตโนมัติเมื่อนักศึกษาเข้าร่วมกิจกรรมครบถ้วน
-- **โปรไฟล์:** นักศึกษาสามารถจัดการโปรไฟล์และติดตามประวัติกิจกรรมของตนเอง
-
-### 4. ระบบประเมิน Soft Skills
-ฟีเจอร์หลักของแพลตฟอร์ม ผู้จัดกิจกรรมประเมินทักษะนักศึกษาหลังจบกิจกรรมใน 5 ด้าน ได้แก่ การทำงานเป็นทีม ภาวะผู้นำ การสื่อสาร การแก้ปัญหา และการปรับตัว
-- **คะแนนสะสม:** นักศึกษาได้รับ XP และ Level จากการเข้าร่วมและผลการประเมิน
-- **Skill Matrix:** แสดงผลพัฒนาการของทักษะด้วยกราฟ Radar แบบ Real-time
+### Frontend
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js (App Router) |
+| UI Library | React |
+| Styling | Tailwind CSS + Lucide Icons |
+| Components | Radix UI |
+| Charts | Recharts |
 
 ---
 
-## เริ่มต้นใช้งาน
+## System Modules
 
-### ความต้องการของระบบ
-- Node.js เวอร์ชัน 18.x ขึ้นไป
-- PostgreSQL เวอร์ชัน 14.x ขึ้นไป
-- npm หรือ yarn
+### 1. Authentication
+- Email/password login with JWT
+- OTP verification via email
+- Role-based access control (Student / Organizer / Admin)
 
-### 1. ตั้งค่าสภาพแวดล้อม
-สร้างไฟล์ `.env` ในโฟลเดอร์ `backend` ตามตัวอย่างด้านล่าง
+### 2. Activity Lifecycle Management
+- **Organizers** create, edit, and manage activities
+- **Approval flow:** new activities require Admin approval before going public (`pending_approval` → `approved` / `rejected`)
+- **Cancellation:** organizers can request cancellation; Admin reviews before confirming
+
+### 3. Student Registration & Participation
+- Search and filter activities by category, status, and keyword
+- Real-time seat tracking with automatic status management
+- Check-in system for attendance marking
+- Certificate issuance upon activity completion
+
+### 4. Soft Skills Evaluation
+Organizers evaluate students across 5 dimensions after each activity:
+
+| Skill | Scale |
+|-------|-------|
+| Teamwork | 1 – 10 |
+| Leadership | 1 – 10 |
+| Communication | 1 – 10 |
+| Problem Solving | 1 – 10 |
+| Adaptability | 1 – 10 |
+
+- Students earn **XP points** and **level up** based on accumulated scores
+- Radar chart visualization of skill development history
+- Badges awarded for reaching milestones
+
+---
+
+## Getting Started
+
+### Prerequisites
+- Node.js 18+
+- PostgreSQL 14+
+- npm
+
+### 1. Clone & Install
+
+```bash
+# Backend
+cd backend
+npm install
+
+# Frontend (new terminal)
+cd frontend
+npm install
+```
+
+### 2. Configure Environment
+
+Create `backend/.env` based on the example below:
 
 ```env
+# Server
 PORT=3001
-DATABASE_URL=postgres://user:password@localhost:5432/cpcheck
-JWT_SECRET=your_secure_random_string
+NODE_ENV=development
+
+# Database (PostgreSQL via Prisma)
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/cpcheck_db"
+
+# JWT
+JWT_SECRET=your-super-secret-jwt-key
+JWT_EXPIRES_IN=7d
+
+# Frontend URL (CORS)
+FRONTEND_URL=http://localhost:3000
+
+# SMTP / Email
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your.email@gmail.com
+SMTP_PASS=your-app-password
+SMTP_FROM=no-reply@cpc.kku.ac.th
 ```
 
-### 2. ติดตั้ง Dependencies
+### 3. Set Up Database
+
 ```bash
-# ติดตั้ง Backend
 cd backend
-npm install
 
-# ติดตั้ง Frontend
-cd ../frontend
-npm install
+# Create the database (run once)
+psql -U postgres -h localhost -c "CREATE DATABASE cpcheck_db;"
+
+# Push Prisma schema to database
+npx prisma db push
+
+# (Optional) Open Prisma Studio to browse data
+npx prisma studio
 ```
 
-### 3. รันระบบ
+### 4. Run the Application
+
 ```bash
-# Terminal 1: Backend
+# Terminal 1 — Backend
 cd backend
 npm run start:dev
-# Database 
 
-
-# Terminal 2: Frontend
+# Terminal 2 — Frontend
 cd frontend
 npm run dev
 ```
 
-ระบบจะพร้อมใช้งานที่
-- Frontend: `http://localhost:3000`
-- Backend API (`/api` สำหรับเอกสาร API): `http://localhost:3001`
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:3001 |
+| Swagger Docs | http://localhost:3001/api |
 
 ---
 
-## โครงสร้างโปรเจกต์
+## Project Structure
 
-```text
-.
-├── backend/                  # NestJS Application
-│   ├── src/
-│   │   ├── activities/       # ตรรกะกิจกรรมและสถิติ
-│   │   ├── evaluations/      # ระบบประเมิน Soft Skills
-│   │   ├── auth/             # ระบบความปลอดภัยและ JWT
-│   │   ├── registrations/    # การลงทะเบียนกิจกรรม
-│   │   ├── admin/            # เครื่องมือดูแลระบบ
-│   │   ├── mail/             # ระบบส่งอีเมลแจ้งเตือน
-│   │   └── certificates/     # ระบบเกียรติบัตร
-│   └── test/                 # E2E และ Unit Tests
-└── frontend/                 # Next.js Application
-    ├── app/                  # หน้าเพจและ Layouts (App Router)
-    │   ├── about/            # หน้าเกี่ยวกับโปรเจกต์ (ภาพรวม)
-    │   ├── auth/             # ระบบเข้าสู่ระบบ/สมัครใช้งาน
-    │   ├── events/           # หน้าแสดงกิจกรรมทั้งหมด
-    │   ├── organizer/        # แดชบอร์ดผู้จัดกิจกรรม
-    │   └── student/          # แดชบอร์ดนักศึกษาและโปรไฟล์
-    ├── components/           # UI Components ที่ใช้ซ้ำได้
-    └── lib/                  # API Client และ Auth Context
-
+```
+CP_Check/
+├── backend/                        # NestJS Application
+│   ├── prisma/
+│   │   └── schema.prisma           # Database schema & models
+│   ├── generated/
+│   │   └── prisma/                 # Auto-generated Prisma client
+│   └── src/
+│       ├── prisma/                 # PrismaService & PrismaModule
+│       ├── auth/                   # JWT strategy, login, register, OTP
+│       ├── users/                  # User profile management
+│       ├── activities/             # Activity CRUD & approval flow
+│       ├── registrations/          # Registration, check-in, attendance
+│       ├── evaluations/            # Soft skills scoring
+│       ├── certificates/           # Certificate issuance
+│       ├── admin/                  # Admin dashboard & stats
+│       ├── mail/                   # Email notification service
+│       └── common/                 # Guards, decorators, enums, filters
+└── frontend/                       # Next.js Application
+    ├── app/
+    │   ├── auth/                   # Login / Register pages
+    │   ├── events/                 # Public activity listing
+    │   ├── organizer/              # Organizer dashboard
+    │   └── student/                # Student dashboard & profile
+    ├── components/                 # Reusable UI components
+    └── lib/                        # API client & auth context
 ```
 
 ---
 
-## ตรรกะการคำนวณ Soft Skills
+## Database Schema
 
-คะแนน Soft Skills คำนวณจากค่าเฉลี่ยถ่วงน้ำหนักจากกิจกรรมที่เข้าร่วม
+```
+User ──< Activity ──< Registration >── Certificate
+                           │
+                           └── Evaluation
+```
 
-- **คะแนนพื้นฐาน:** ค่าเฉลี่ยของคะแนนที่ผู้ประเมินให้ (1–10 คะแนน)
-- **คะแนนประสบการณ์ (XP):** คำนวณจาก `(คะแนนรวม × ตัวคูณ) + คะแนนพื้นฐานจากการเข้าร่วม`
-- **การเลื่อนระดับ:** ใช้อัลกอริทึมแบบ Non-linear เพื่อให้การเลื่อน Level ยากขึ้นตามลำดับ
+| Model | Key Relations |
+|-------|--------------|
+| `User` | has many Activities (as organizer), has many Registrations |
+| `Activity` | has Tags, Conditions, Benefits, SoftSkills; has many Registrations |
+| `Registration` | belongs to Activity + User; has one Certificate, one Evaluation |
+| `Certificate` | issued when attendance is confirmed |
+| `Evaluation` | soft skill scores recorded per registration |
 
+---
+
+## User Roles
+
+| Role | Permissions |
+|------|-------------|
+| `student` | Browse activities, register, view own certificates & skill stats |
+| `organizer` | Create/manage own activities, confirm registrations, evaluate students |
+| `admin` | Approve/reject activities, manage all users, view platform statistics |
+
+---
+
+## Useful Commands
+
+```bash
+# Generate Prisma client after schema changes
+npx prisma generate
+
+# Push schema changes to database (dev)
+npx prisma db push
+
+# Reset database and re-push schema
+npx prisma db push --force-reset
+
+# Open Prisma Studio (GUI)
+npx prisma studio
+```
