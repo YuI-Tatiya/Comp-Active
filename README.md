@@ -66,43 +66,57 @@ Organizers evaluate students across 5 dimensions after each activity:
 
 ## Getting Started
 
-### Prerequisites
-- Node.js 18+
-- PostgreSQL 14+
-- npm
+### Option A — Docker (Recommended)
 
-### 1. Clone & Install
+**Prerequisites:** Docker Desktop
 
 ```bash
-# Backend
-cd backend
-npm install
-
-# Frontend (new terminal)
-cd frontend
-npm install
+# Start everything with one command
+docker compose up --build
 ```
 
-### 2. Configure Environment
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:3001 |
+| Swagger Docs | http://localhost:3001/api |
+| PostgreSQL | localhost:**5433** (host access) |
 
-Create `backend/.env` based on the example below:
+> The backend waits for PostgreSQL to be healthy, then runs `prisma db push` automatically before starting.
+
+**Useful Docker commands:**
+```bash
+docker compose up --build          # First run (build images + start)
+docker compose up                  # Start without rebuilding
+docker compose down                # Stop all containers
+docker compose down -v             # Stop and delete database volume
+docker compose logs -f backend     # Stream backend logs
+```
+
+---
+
+### Option B — Local Development (without Docker)
+
+**Prerequisites:** Node.js 18+, PostgreSQL 14+, npm
+
+#### 1. Install Dependencies
+
+```bash
+cd backend && npm install
+cd ../frontend && npm install
+```
+
+#### 2. Configure Environment
+
+Create `backend/.env`:
 
 ```env
-# Server
 PORT=3001
 NODE_ENV=development
-
-# Database (PostgreSQL via Prisma)
 DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/cpcheck_db"
-
-# JWT
 JWT_SECRET=your-super-secret-jwt-key
 JWT_EXPIRES_IN=7d
-
-# Frontend URL (CORS)
 FRONTEND_URL=http://localhost:3000
-
-# SMTP / Email
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -111,7 +125,7 @@ SMTP_PASS=your-app-password
 SMTP_FROM=no-reply@cpc.kku.ac.th
 ```
 
-### 3. Set Up Database
+#### 3. Set Up Database
 
 ```bash
 cd backend
@@ -121,28 +135,17 @@ psql -U postgres -h localhost -c "CREATE DATABASE cpcheck_db;"
 
 # Push Prisma schema to database
 npx prisma db push
-
-# (Optional) Open Prisma Studio to browse data
-npx prisma studio
 ```
 
-### 4. Run the Application
+#### 4. Run the Application
 
 ```bash
 # Terminal 1 — Backend
-cd backend
-npm run start:dev
+cd backend && npm run start:dev
 
 # Terminal 2 — Frontend
-cd frontend
-npm run dev
+cd frontend && npm run dev
 ```
-
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:3000 |
-| Backend API | http://localhost:3001 |
-| Swagger Docs | http://localhost:3001/api |
 
 ---
 
