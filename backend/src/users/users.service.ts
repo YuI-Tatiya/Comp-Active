@@ -23,6 +23,7 @@ export class UsersService {
         email: true,
         role: true,
         studentId: true,
+        isBlocked: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
@@ -132,6 +133,45 @@ export class UsersService {
     const user = await this.findById(userId);
     await this.prisma.user.delete({ where: { id: user.id } });
     this.logger.log(`User deleted: ${user.email} (by admin ID: ${adminId})`);
+  }
+
+  async blockUser(userId: number) {
+    await this.findById(userId);
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { isBlocked: true },
+      select: { id: true, name: true, email: true, role: true, isBlocked: true },
+    });
+    this.logger.log(`User blocked: ${updated.email}`);
+    return updated;
+  }
+
+  async unblockUser(userId: number) {
+    await this.findById(userId);
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { isBlocked: false },
+      select: { id: true, name: true, email: true, role: true, isBlocked: true },
+    });
+    this.logger.log(`User unblocked: ${updated.email}`);
+    return updated;
+  }
+
+  async generatePassword(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, name: true, email: true, role: true },
+    });
+    if (!user) throw new NotFoundException(`ไม่พบผู้ใช้งานอีเมล: ${email}`);
+
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    const plain = Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const hashed = await bcrypt.hash(plain, 10);
+
+    await this.prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
+    this.logger.log(`Password generated for: ${email}`);
+
+    return { name: user.name, email: user.email, generatedPassword: plain };
   }
 
   async countByRole() {

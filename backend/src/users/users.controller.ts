@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Delete,
   Param,
@@ -72,6 +73,42 @@ export class UsersController {
     @Body('role') role: UserRole,
   ) {
     return this.usersService.changeRole(id, role);
+  }
+
+  /**
+   * PATCH /api/users/:id/block - บล็อกผู้ใช้ (Admin)
+   */
+  @Patch(':id/block')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'บล็อกผู้ใช้ (Admin)' })
+  async blockUser(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.blockUser(id);
+  }
+
+  /**
+   * PATCH /api/users/:id/unblock - ปลดบล็อกผู้ใช้ (Admin)
+   */
+  @Patch(':id/unblock')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'ปลดบล็อกผู้ใช้ (Admin)' })
+  async unblockUser(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.unblockUser(id);
+  }
+
+  /**
+   * POST /api/users/generate-password - สร้างรหัสผ่านให้ organizer (Admin)
+   */
+  @Post('generate-password')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'สร้างรหัสผ่านให้ผู้ใช้ (Admin)' })
+  async generatePassword(@Body('email') email: string) {
+    return this.usersService.generatePassword(email);
   }
 
   /**
