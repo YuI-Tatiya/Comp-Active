@@ -13,6 +13,7 @@ import { CertificatesModule } from './certificates/certificates.module';
 import { AdminModule } from './admin/admin.module';
 import { EvaluationsModule } from './evaluations/evaluations.module';
 import { MailModule } from './mail/mail.module';
+import { SeedModule } from './seed/seed.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { MailModule } from './mail/mail.module';
     AdminModule,
     EvaluationsModule,
     MailModule,
+    SeedModule,
   ],
 })
 export class AppModule {}
