@@ -50,6 +50,7 @@ model User {
   googleId                 String?   @db.VarChar(255) @map("google_id")
   role                     UserRole  @default(student)
   createdAt                DateTime  @default(now()) @map("created_at")
+  isBlocked                Boolean   @default(false) @map("is_blocked")
   verificationOtp          String?   @db.VarChar(10) @map("verification_otp")
   verificationOtpExpiresAt DateTime? @map("verification_otp_expires_at")
 

@@ -34,7 +34,7 @@ export class ActivitiesService {
         ...activityData,
         date: new Date(date),
         organizerId,
-        approvalStatus: ApprovalStatus.PENDING as any,
+        approvalStatus: ApprovalStatus.APPROVED as any,
         tags: { create: tags?.map((tagName) => ({ tagName })) ?? [] },
         conditions: { create: conditions?.map((conditionText) => ({ conditionText })) ?? [] },
         benefits: { create: benefits?.map((benefitText) => ({ benefitText })) ?? [] },

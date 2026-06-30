@@ -10,6 +10,8 @@ export interface User {
   email: string;
   role: "student" | "organizer" | "admin";
   studentId?: string;
+  isBlocked?: boolean;
+  createdAt?: string;
 }
 
 export interface AuthResponse {
@@ -118,6 +120,13 @@ export const usersAPI = {
   getAll: () => fetchAPI<User[]>('/api/users'),
   changeRole: (id: number, role: string) =>
     fetchAPI(`/api/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }),
+  blockUser: (id: number) => fetchAPI(`/api/users/${id}/block`, { method: 'PATCH' }),
+  unblockUser: (id: number) => fetchAPI(`/api/users/${id}/unblock`, { method: 'PATCH' }),
+  generatePassword: (email: string) =>
+    fetchAPI<{ name: string; email: string; generatedPassword: string }>(
+      '/api/users/generate-password',
+      { method: 'POST', body: JSON.stringify({ email }) },
+    ),
   deleteUser: (id: number) => fetchAPI(`/api/users/${id}`, { method: 'DELETE' }),
 };
 
