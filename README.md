@@ -1,3 +1,6 @@
+<<<<<<< HEAD
+# CP_Check
+=======
 # CP Check — Activity Management & Soft Skills Tracking System
 
 CP Check is an enterprise-grade platform built for managing extracurricular activities and systematically tracking student soft skill development. The system supports collaboration between students, organizers, and administrators through a modern UI and a high-performance backend.
@@ -224,3 +227,4 @@ npx prisma db push --force-reset
 # Open Prisma Studio (GUI)
 npx prisma studio
 ```
+>>>>>>> main
