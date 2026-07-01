@@ -1,23 +1,40 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { organizerRequestsAPI } from "@/lib/api"
 import { LayoutDashboard, Users, CalendarDays, LogOut, Shield, ClipboardList, Loader2 } from "lucide-react"
-
-const navItems = [
-    { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-    { label: "จัดการผู้ใช้", href: "/admin/users", icon: Users },
-    { label: "คำขอ Organizer", href: "/admin/organizer-requests", icon: ClipboardList },
-    { label: "กิจกรรมทั้งหมด", href: "/admin/all-activities", icon: CalendarDays },
-]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     const { user, logout } = useAuth()
     const [showConfirm, setShowConfirm] = useState(false)
     const [loggingOut, setLoggingOut] = useState(false)
+    const [pendingCount, setPendingCount] = useState(0)
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+    useEffect(() => {
+        async function fetchCount() {
+            try {
+                const count = await organizerRequestsAPI.getPendingCount()
+                setPendingCount(typeof count === "number" ? count : 0)
+            } catch {
+                // silently ignore — user may not be authenticated yet
+            }
+        }
+        fetchCount()
+        intervalRef.current = setInterval(fetchCount, 60_000)
+        return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+    }, [])
+
+    const navItems = [
+        { label: "Dashboard", href: "/admin", icon: LayoutDashboard, badge: 0 },
+        { label: "จัดการผู้ใช้", href: "/admin/users", icon: Users, badge: 0 },
+        { label: "คำขอ Organizer", href: "/admin/organizer-requests", icon: ClipboardList, badge: pendingCount },
+        { label: "กิจกรรมทั้งหมด", href: "/admin/all-activities", icon: CalendarDays, badge: 0 },
+    ]
 
     async function handleLogout() {
         setLoggingOut(true)
@@ -62,8 +79,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 onMouseEnter={(e) => { if (!isActive) { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLAnchorElement).style.color = "#fff" } }}
                                 onMouseLeave={(e) => { if (!isActive) { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; (e.currentTarget as HTMLAnchorElement).style.color = "#7fa8c9" } }}
                             >
-                                <Icon className="w-4.5 h-4.5 shrink-0" style={{ width: "18px", height: "18px" }} />
-                                {item.label}
+                                <Icon className="shrink-0" style={{ width: "18px", height: "18px" }} />
+                                <span className="flex-1">{item.label}</span>
+                                {item.badge > 0 && (
+                                    <span
+                                        className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center"
+                                        style={{ background: "#e53e3e", color: "#fff", fontSize: "11px" }}
+                                    >
+                                        {item.badge > 99 ? "99+" : item.badge}
+                                    </span>
+                                )}
                             </Link>
                         )
                     })}

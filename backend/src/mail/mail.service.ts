@@ -78,6 +78,57 @@ export class MailService {
     }
   }
 
+  async sendAdminNewOrganizerRequest(
+    adminEmail: string,
+    applicantName: string,
+    applicantEmail: string,
+    department: string,
+  ) {
+    try {
+      await this.mailerService.sendMail({
+        to: adminEmail,
+        subject: '🔔 มีคำขอเป็น Organizer ใหม่ - CP Check',
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
+            <div style="background:linear-gradient(135deg,#1f4066,#16304d);padding:32px;border-radius:16px 16px 0 0;">
+              <h1 style="color:#fff;margin:0;font-size:22px;">🔔 คำขอเป็น Organizer ใหม่</h1>
+              <p style="color:#7fa8c9;margin:8px 0 0;font-size:14px;">CP Check Admin Notification</p>
+            </div>
+            <div style="background:#fff;padding:32px;border:1px solid #dce6f2;border-top:none;border-radius:0 0 16px 16px;">
+              <p style="margin:0 0 20px;">มีผู้ยื่นคำขอเป็น Organizer ใหม่เข้ามาในระบบ กรุณาตรวจสอบและดำเนินการ</p>
+              <div style="background:#f7f9fc;border:1px solid #dce6f2;border-radius:12px;padding:20px;margin-bottom:24px;">
+                <p style="margin:0 0 12px;font-size:12px;color:#5f7691;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">ข้อมูลผู้ยื่นคำขอ</p>
+                <table style="width:100%;border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:5px 0;color:#5f7691;font-size:14px;width:120px;">ชื่อ</td>
+                    <td style="padding:5px 0;font-weight:600;font-size:14px;color:#14263c;">${applicantName}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:5px 0;color:#5f7691;font-size:14px;">อีเมล</td>
+                    <td style="padding:5px 0;font-size:14px;color:#14263c;">${applicantEmail}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:5px 0;color:#5f7691;font-size:14px;">หน่วยงาน</td>
+                    <td style="padding:5px 0;font-size:14px;color:#14263c;">${department}</td>
+                  </tr>
+                </table>
+              </div>
+              <a href="http://localhost:3000/admin/organizer-requests"
+                 style="display:inline-block;background:linear-gradient(135deg,#1f4066,#3a72ad);color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-size:14px;font-weight:600;">
+                ดูคำขอใน Admin Panel →
+              </a>
+              <p style="font-size:12px;color:#94a3b8;margin-top:28px;">ขอบคุณครับ<br/>ระบบอัตโนมัติ CP Check · College of Computing</p>
+            </div>
+          </div>
+        `,
+      });
+      this.logger.log(`Admin notification sent to ${adminEmail} for new organizer request from ${applicantEmail}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to send admin notification: ${msg}`);
+    }
+  }
+
   async sendOrganizerRejected(email: string, name: string, reason: string) {
     try {
       await this.mailerService.sendMail({

@@ -278,4 +278,7 @@ export const organizerRequestsAPI = {
 
   reject: (id: number, reason: string) =>
     fetchAPI(`/api/organizer-requests/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
+
+  getPendingCount: () =>
+    fetchAPI<number>('/api/organizer-requests/pending-count'),
 };

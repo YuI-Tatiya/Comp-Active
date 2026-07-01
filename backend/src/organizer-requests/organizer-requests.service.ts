@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { CreateOrganizerRequestDto } from './dto/create-organizer-request.dto';
@@ -11,6 +12,7 @@ export class OrganizerRequestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
+    private readonly config: ConfigService,
   ) {}
 
   async create(dto: CreateOrganizerRequestDto) {
@@ -24,6 +26,12 @@ export class OrganizerRequestsService {
 
     const request = await this.prisma.organizerRequest.create({ data: dto as any });
     this.logger.log(`Organizer request submitted: ${dto.email}`);
+
+    const adminEmail = this.config.get<string>('ADMIN_EMAIL');
+    if (adminEmail) {
+      this.mail.sendAdminNewOrganizerRequest(adminEmail, dto.name, dto.email, dto.department).catch(() => {});
+    }
+
     return request;
   }
 

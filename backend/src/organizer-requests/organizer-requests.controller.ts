@@ -47,4 +47,13 @@ export class OrganizerRequestsController {
   ) {
     return this.service.reject(id, reason);
   }
+
+  @Get('pending-count')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'จำนวนคำขอที่รออนุมัติ (Admin)' })
+  countPending() {
+    return this.service.countPending();
+  }
 }

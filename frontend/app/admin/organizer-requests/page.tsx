@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { CheckCircle, XCircle, Clock, User, Mail, Phone, Building2, FileText, ChevronDown, ChevronUp, Loader2 } from "lucide-react"
+import { CheckCircle, XCircle, Clock, User, Mail, Phone, Building2, FileText, ChevronDown, ChevronUp, Loader2, X } from "lucide-react"
 import { organizerRequestsAPI, OrganizerRequest } from "@/lib/api"
 
 const statusConfig = {
@@ -17,14 +17,21 @@ const filterTabs = [
     { key: "all", label: "ทั้งหมด" },
 ] as const
 
+type ModalState =
+    | { type: "approve-confirm"; req: OrganizerRequest }
+    | { type: "approve-success"; req: OrganizerRequest }
+    | { type: "reject"; req: OrganizerRequest }
+    | { type: "reject-success"; req: OrganizerRequest }
+    | null
+
 export default function OrganizerRequestsPage() {
     const [requests, setRequests] = useState<OrganizerRequest[]>([])
     const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending")
     const [expanded, setExpanded] = useState<number | null>(null)
-    const [rejectId, setRejectId] = useState<number | null>(null)
+    const [modal, setModal] = useState<ModalState>(null)
     const [rejectReason, setRejectReason] = useState("")
-    const [actionLoading, setActionLoading] = useState<number | null>(null)
+    const [submitting, setSubmitting] = useState(false)
 
     useEffect(() => { loadRequests() }, [filter])
 
@@ -40,33 +47,50 @@ export default function OrganizerRequestsPage() {
         }
     }
 
-    async function handleApprove(id: number) {
-        if (!confirm("อนุมัติคำขอนี้และส่ง credentials ทางอีเมล?")) return
-        setActionLoading(id)
+    async function confirmApprove() {
+        if (!modal || modal.type !== "approve-confirm") return
+        const req = modal.req
+        setSubmitting(true)
         try {
-            await organizerRequestsAPI.approve(id)
-            setRequests((prev) => prev.map((r) => r.id === id ? { ...r, status: "approved" } : r))
+            await organizerRequestsAPI.approve(req.id)
+            setRequests((prev) => prev.map((r) => r.id === req.id ? { ...r, status: "approved" } : r))
+            setModal({ type: "approve-success", req })
         } catch (err) {
             alert(err instanceof Error ? err.message : "เกิดข้อผิดพลาด")
+            setModal(null)
         } finally {
-            setActionLoading(null)
+            setSubmitting(false)
         }
     }
 
-    async function handleReject() {
-        if (!rejectId || !rejectReason.trim()) return
-        setActionLoading(rejectId)
+    async function confirmReject() {
+        if (!modal || modal.type !== "reject" || !rejectReason.trim()) return
+        const req = modal.req
+        setSubmitting(true)
         try {
-            await organizerRequestsAPI.reject(rejectId, rejectReason.trim())
-            setRequests((prev) => prev.map((r) => r.id === rejectId ? { ...r, status: "rejected", rejectionReason: rejectReason } : r))
-            setRejectId(null)
+            await organizerRequestsAPI.reject(req.id, rejectReason.trim())
+            setRequests((prev) => prev.map((r) => r.id === req.id ? { ...r, status: "rejected", rejectionReason: rejectReason } : r))
+            setModal({ type: "reject-success", req })
             setRejectReason("")
         } catch (err) {
             alert(err instanceof Error ? err.message : "เกิดข้อผิดพลาด")
+            setModal(null)
         } finally {
-            setActionLoading(null)
+            setSubmitting(false)
         }
     }
+
+    function closeModal() {
+        if (submitting) return
+        setModal(null)
+        setRejectReason("")
+    }
+
+    const Overlay = ({ children }: { children: React.ReactNode }) => (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(16,31,51,0.55)", backdropFilter: "blur(4px)" }}>
+            {children}
+        </div>
+    )
 
     return (
         <div className="p-8 space-y-6">
@@ -84,14 +108,7 @@ export default function OrganizerRequestsPage() {
                             key={tab.key}
                             onClick={() => setFilter(tab.key)}
                             className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
-                            style={active ? {
-                                background: "#3a72ad",
-                                color: "#fff",
-                            } : {
-                                background: "#fff",
-                                color: "#5f7691",
-                                border: "1px solid #dce6f2",
-                            }}
+                            style={active ? { background: "#3a72ad", color: "#fff" } : { background: "#fff", color: "#5f7691", border: "1px solid #dce6f2" }}
                         >
                             {tab.label}
                         </button>
@@ -166,20 +183,16 @@ export default function OrganizerRequestsPage() {
                                         {req.status === "pending" && (
                                             <div className="flex gap-3 pt-1">
                                                 <button
-                                                    onClick={() => handleApprove(req.id)}
-                                                    disabled={actionLoading === req.id}
-                                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
+                                                    onClick={() => setModal({ type: "approve-confirm", req })}
+                                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
                                                     style={{ background: "#3fa0ac", color: "#fff" }}
                                                 >
-                                                    {actionLoading === req.id
-                                                        ? <Loader2 className="w-4 h-4 animate-spin" />
-                                                        : <CheckCircle className="w-4 h-4" />}
+                                                    <CheckCircle className="w-4 h-4" />
                                                     อนุมัติ + ส่ง Email
                                                 </button>
                                                 <button
-                                                    onClick={() => { setRejectId(req.id); setRejectReason("") }}
-                                                    disabled={actionLoading === req.id}
-                                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
+                                                    onClick={() => { setRejectReason(""); setModal({ type: "reject", req }) }}
+                                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
                                                     style={{ border: "1px solid rgba(239,68,68,0.3)", color: "#dc2626" }}
                                                 >
                                                     <XCircle className="w-4 h-4" />
@@ -195,43 +208,162 @@ export default function OrganizerRequestsPage() {
                 </div>
             )}
 
-            {/* Reject modal */}
-            {rejectId !== null && (
-                <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: "rgba(16,31,51,0.5)", backdropFilter: "blur(4px)" }}>
-                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4">
-                        <h3 className="font-bold text-lg" style={{ color: "#14263c" }}>ระบุเหตุผลที่ปฏิเสธ</h3>
-                        <p className="text-sm" style={{ color: "#5f7691" }}>เหตุผลนี้จะถูกส่งไปยังอีเมลของผู้สมัคร</p>
-                        <textarea
-                            rows={4}
-                            autoFocus
-                            placeholder="เช่น ข้อมูลไม่ครบถ้วน / ไม่ตรงตามเงื่อนไข..."
-                            value={rejectReason}
-                            onChange={(e) => setRejectReason(e.target.value)}
-                            className="w-full px-3.5 py-2.5 text-sm rounded-xl resize-none outline-none"
-                            style={{ border: "1px solid #dce6f2", color: "#14263c" }}
-                        />
-                        <div className="flex gap-3">
+            {/* ── Approve confirmation modal ── */}
+            {modal?.type === "approve-confirm" && (
+                <Overlay>
+                    <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+                        <div className="h-1.5" style={{ background: "linear-gradient(90deg,#3fa0ac,#3a72ad)" }} />
+                        <div className="p-7 flex flex-col items-center text-center">
+                            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: "rgba(63,160,172,0.12)" }}>
+                                <CheckCircle className="w-8 h-8" style={{ color: "#3fa0ac" }} />
+                            </div>
+                            <h3 className="text-lg font-bold mb-1" style={{ color: "#14263c" }}>ยืนยันการอนุมัติ</h3>
+                            <p className="text-sm mb-1" style={{ color: "#5f7691" }}>
+                                อนุมัติคำขอของ <span className="font-semibold" style={{ color: "#14263c" }}>{modal.req.name}</span>
+                            </p>
+                            <p className="text-xs mb-6" style={{ color: "#5f7691" }}>
+                                ระบบจะสร้างบัญชีและส่ง credentials ไปที่<br />
+                                <span className="font-medium" style={{ color: "#3a72ad" }}>{modal.req.email}</span>
+                            </p>
+                            <div className="flex gap-3 w-full">
+                                <button
+                                    onClick={closeModal}
+                                    disabled={submitting}
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                                    style={{ border: "1px solid #dce6f2", color: "#5f7691" }}
+                                >
+                                    ยกเลิก
+                                </button>
+                                <button
+                                    onClick={confirmApprove}
+                                    disabled={submitting}
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-60"
+                                    style={{ background: "#3fa0ac", color: "#fff" }}
+                                >
+                                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                                    {submitting ? "กำลังดำเนินการ..." : "ยืนยันอนุมัติ"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </Overlay>
+            )}
+
+            {/* ── Approve success modal ── */}
+            {modal?.type === "approve-success" && (
+                <Overlay>
+                    <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+                        <div className="h-1.5" style={{ background: "linear-gradient(90deg,#3fa0ac,#22c55e)" }} />
+                        <div className="p-7 flex flex-col items-center text-center">
+                            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: "rgba(34,197,94,0.12)" }}>
+                                <CheckCircle className="w-9 h-9" style={{ color: "#16a34a" }} />
+                            </div>
+                            <h3 className="text-lg font-bold mb-1" style={{ color: "#14263c" }}>อนุมัติเรียบร้อยแล้ว!</h3>
+                            <p className="text-sm mb-1" style={{ color: "#5f7691" }}>
+                                บัญชี Organizer ของ <span className="font-semibold" style={{ color: "#14263c" }}>{modal.req.name}</span> ถูกสร้างแล้ว
+                            </p>
+                            <p className="text-xs mb-6" style={{ color: "#5f7691" }}>
+                                ส่ง credentials ไปที่<br />
+                                <span className="font-medium" style={{ color: "#3a72ad" }}>{modal.req.email}</span> เรียบร้อย
+                            </p>
                             <button
-                                onClick={() => setRejectId(null)}
-                                className="flex-1 py-2.5 rounded-xl text-sm font-medium"
-                                style={{ border: "1px solid #dce6f2", color: "#5f7691" }}
+                                onClick={closeModal}
+                                className="w-full py-2.5 rounded-xl text-sm font-medium text-white transition-all hover:opacity-90"
+                                style={{ background: "linear-gradient(135deg,#3fa0ac,#3a72ad)" }}
                             >
-                                ยกเลิก
-                            </button>
-                            <button
-                                onClick={handleReject}
-                                disabled={!rejectReason.trim() || actionLoading !== null}
-                                className="flex-1 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
-                                style={{ background: "#dc2626", color: "#fff" }}
-                            >
-                                {actionLoading !== null
-                                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                                    : <XCircle className="w-4 h-4" />}
-                                ปฏิเสธและส่ง Email
+                                ตกลง
                             </button>
                         </div>
                     </div>
-                </div>
+                </Overlay>
+            )}
+
+            {/* ── Reject modal ── */}
+            {modal?.type === "reject" && (
+                <Overlay>
+                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+                        <div className="h-1.5" style={{ background: "linear-gradient(90deg,#dc2626,#ef4444)" }} />
+                        <div className="p-6">
+                            <div className="flex items-start justify-between mb-4">
+                                <div>
+                                    <h3 className="text-lg font-bold" style={{ color: "#14263c" }}>ระบุเหตุผลที่ปฏิเสธ</h3>
+                                    <p className="text-sm mt-0.5" style={{ color: "#5f7691" }}>
+                                        ส่งให้ <span className="font-medium" style={{ color: "#14263c" }}>{modal.req.name}</span> ทาง {modal.req.email}
+                                    </p>
+                                </div>
+                                <button onClick={closeModal} disabled={submitting} className="p-1.5 rounded-lg transition-colors" style={{ color: "#5f7691" }}
+                                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f0f4f9" }}
+                                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}>
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+
+                            <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "#5f7691" }}>
+                                เหตุผล <span style={{ color: "#dc2626" }}>*</span>
+                            </label>
+                            <textarea
+                                rows={4}
+                                autoFocus
+                                placeholder="เช่น ข้อมูลไม่ครบถ้วน, ไม่ตรงตามเงื่อนไข, ไม่ใช่บุคลากรของวิทยาลัย..."
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                className="w-full px-3.5 py-2.5 text-sm rounded-xl resize-none outline-none mb-4"
+                                style={{ border: "1px solid #dce6f2", color: "#14263c", background: "#f7f9fc" }}
+                                onFocus={(e) => { e.currentTarget.style.border = "1px solid #3a72ad" }}
+                                onBlur={(e) => { e.currentTarget.style.border = "1px solid #dce6f2" }}
+                            />
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={closeModal}
+                                    disabled={submitting}
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-medium disabled:opacity-50"
+                                    style={{ border: "1px solid #dce6f2", color: "#5f7691" }}
+                                >
+                                    ยกเลิก
+                                </button>
+                                <button
+                                    onClick={confirmReject}
+                                    disabled={!rejectReason.trim() || submitting}
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-all hover:opacity-90"
+                                    style={{ background: "#dc2626", color: "#fff" }}
+                                >
+                                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                                    {submitting ? "กำลังส่ง..." : "ปฏิเสธและส่ง Email"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </Overlay>
+            )}
+
+            {/* ── Reject success modal ── */}
+            {modal?.type === "reject-success" && (
+                <Overlay>
+                    <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+                        <div className="h-1.5" style={{ background: "linear-gradient(90deg,#dc2626,#ef4444)" }} />
+                        <div className="p-7 flex flex-col items-center text-center">
+                            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: "rgba(239,68,68,0.08)" }}>
+                                <XCircle className="w-9 h-9" style={{ color: "#dc2626" }} />
+                            </div>
+                            <h3 className="text-lg font-bold mb-1" style={{ color: "#14263c" }}>ส่งผลการพิจารณาแล้ว</h3>
+                            <p className="text-sm mb-1" style={{ color: "#5f7691" }}>
+                                ปฏิเสธคำขอของ <span className="font-semibold" style={{ color: "#14263c" }}>{modal.req.name}</span>
+                            </p>
+                            <p className="text-xs mb-6" style={{ color: "#5f7691" }}>
+                                ส่งอีเมลแจ้งเหตุผลไปที่<br />
+                                <span className="font-medium" style={{ color: "#3a72ad" }}>{modal.req.email}</span> เรียบร้อย
+                            </p>
+                            <button
+                                onClick={closeModal}
+                                className="w-full py-2.5 rounded-xl text-sm font-medium text-white transition-all hover:opacity-90"
+                                style={{ background: "#dc2626" }}
+                            >
+                                ตกลง
+                            </button>
+                        </div>
+                    </div>
+                </Overlay>
             )}
         </div>
     )
