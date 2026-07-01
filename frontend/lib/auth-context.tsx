@@ -12,7 +12,7 @@ interface AuthContextType {
     isLoading: boolean
     login: (email: string, password: string) => Promise<void>
     register: (data: RegisterData) => Promise<void>
-    logout: () => void
+    logout: () => Promise<void>
 }
 
 interface RegisterData {
@@ -113,10 +113,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }
 
-    function logout() {
+    async function logout() {
         setUser(null)
         setToken(null)
         localStorage.removeItem("token")
+        await new Promise((r) => setTimeout(r, 400))
         router.push("/")
     }
 

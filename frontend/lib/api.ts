@@ -242,3 +242,40 @@ export const certificatesAPI = {
 export const adminAPI = {
   getDashboardStats: () => fetchAPI('/api/admin/dashboard/stats'),
 };
+
+// ==================== ORGANIZER REQUESTS ====================
+
+export interface OrganizerRequest {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  department: string;
+  reason: string;
+  experience?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+  createdAt: string;
+}
+
+export const organizerRequestsAPI = {
+  submit: (body: {
+    name: string;
+    email: string;
+    phone: string;
+    department: string;
+    reason: string;
+    experience?: string;
+  }) => fetchAPI<OrganizerRequest>('/api/organizer-requests', { method: 'POST', body: JSON.stringify(body) }),
+
+  getAll: (status?: string) => {
+    const q = status ? `?status=${status}` : '';
+    return fetchAPI<OrganizerRequest[]>(`/api/organizer-requests${q}`);
+  },
+
+  approve: (id: number) =>
+    fetchAPI(`/api/organizer-requests/${id}/approve`, { method: 'PATCH' }),
+
+  reject: (id: number, reason: string) =>
+    fetchAPI(`/api/organizer-requests/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
+};

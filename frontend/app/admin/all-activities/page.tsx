@@ -4,13 +4,17 @@ import { useState, useEffect } from "react"
 import { Calendar, MapPin, Users, Activity } from "lucide-react"
 import { activitiesAPI } from "@/lib/api"
 
+const approvalStyle: Record<string, { label: string; bg: string; color: string }> = {
+    approved: { label: "อนุมัติแล้ว", bg: "rgba(63,160,172,0.12)", color: "#3fa0ac" },
+    rejected: { label: "ปฏิเสธ", bg: "rgba(239,68,68,0.1)", color: "#dc2626" },
+    pending: { label: "รออนุมัติ", bg: "rgba(224,169,74,0.14)", color: "#c88e2a" },
+}
+
 export default function AdminAllActivitiesPage() {
     const [activities, setActivities] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
 
-    useEffect(() => {
-        loadActivities()
-    }, [])
+    useEffect(() => { loadActivities() }, [])
 
     async function loadActivities() {
         try {
@@ -26,81 +30,81 @@ export default function AdminAllActivitiesPage() {
 
     if (loading) {
         return (
-            <div className="p-8 flex items-center justify-center min-h-screen">
-                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="w-8 h-8 rounded-full animate-spin" style={{ border: "4px solid #dce6f2", borderTopColor: "#3a72ad" }} />
             </div>
         )
     }
 
     return (
-        <div className="p-8">
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-gray-900">กิจกรรมทั้งหมด</h1>
-                <p className="text-gray-500 mt-1">ดูกิจกรรมทั้งหมดในระบบ</p>
+        <div className="p-8 space-y-6">
+            <div>
+                <h1 className="text-2xl font-bold" style={{ color: "#14263c" }}>กิจกรรมทั้งหมด</h1>
+                <p className="text-sm mt-1" style={{ color: "#5f7691" }}>ดูกิจกรรมทั้งหมดในระบบ</p>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #dce6f2" }}>
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="bg-gray-50 border-b border-gray-100">
-                                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-6 py-4">กิจกรรม</th>
-                                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-6 py-4">วันที่</th>
-                                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-6 py-4">สถานที่</th>
-                                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-6 py-4">ผู้ลงทะเบียน</th>
-                                <th className="text-left text-xs font-semibold text-gray-500 uppercase px-6 py-4">สถานะ</th>
+                            <tr style={{ background: "#f7f9fc", borderBottom: "1px solid #dce6f2" }}>
+                                {["กิจกรรม", "วันที่", "สถานที่", "ผู้ลงทะเบียน", "สถานะ"].map((h) => (
+                                    <th key={h} className="text-left px-6 py-3.5 text-xs font-semibold uppercase tracking-wider" style={{ color: "#5f7691" }}>{h}</th>
+                                ))}
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-50">
+                        <tbody>
                             {activities.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500">ยังไม่มีกิจกรรมในระบบ</td>
+                                    <td colSpan={5} className="px-6 py-14 text-center text-sm" style={{ color: "#5f7691" }}>ยังไม่มีกิจกรรมในระบบ</td>
                                 </tr>
                             ) : (
-                                activities.map((activity) => {
+                                activities.map((activity, i) => {
                                     const progress = activity.capacity > 0 ? Math.round(((activity.registeredCount ?? 0) / activity.capacity) * 100) : 0
-
+                                    const statusStyle = approvalStyle[activity.approvalStatus] ?? approvalStyle.pending
                                     return (
-                                        <tr key={activity.id} className="hover:bg-gray-50 transition-colors">
+                                        <tr
+                                            key={activity.id}
+                                            className="transition-colors"
+                                            style={{ borderBottom: i < activities.length - 1 ? "1px solid #f0f4f9" : "none" }}
+                                            onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "#f7f9fc" }}
+                                            onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "transparent" }}
+                                        >
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
-                                                        <Activity className="w-5 h-5 text-blue-500" />
+                                                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(58,114,173,0.1)" }}>
+                                                        <Activity className="w-4 h-4" style={{ color: "#3a72ad" }} />
                                                     </div>
                                                     <div>
-                                                        <div className="font-medium text-gray-900 text-sm">{activity.name}</div>
-                                                        <div className="text-xs text-gray-500">{activity.category}</div>
+                                                        <div className="font-medium text-sm" style={{ color: "#14263c" }}>{activity.name}</div>
+                                                        <div className="text-xs mt-0.5" style={{ color: "#5f7691" }}>{activity.category}</div>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                                                    <Calendar className="w-4 h-4" />
+                                                <div className="flex items-center gap-1.5 text-sm" style={{ color: "#5f7691" }}>
+                                                    <Calendar className="w-4 h-4 shrink-0" />
                                                     {activity.date}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                                                    <MapPin className="w-4 h-4" />
+                                                <div className="flex items-center gap-1.5 text-sm" style={{ color: "#5f7691" }}>
+                                                    <MapPin className="w-4 h-4 shrink-0" />
                                                     <span className="line-clamp-1">{activity.location}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <Users className="w-4 h-4 text-gray-400" />
-                                                    <span className="text-sm font-medium text-gray-900">{activity.registeredCount ?? 0}/{activity.capacity}</span>
+                                                <div className="flex items-center gap-2 text-sm font-medium" style={{ color: "#14263c" }}>
+                                                    <Users className="w-4 h-4" style={{ color: "#5f7691" }} />
+                                                    {activity.registeredCount ?? 0}/{activity.capacity}
                                                 </div>
-                                                <div className="w-24 bg-gray-200 rounded-full h-1.5 mt-1">
-                                                    <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${Math.min(progress, 100)}%` }}></div>
+                                                <div className="w-20 rounded-full h-1.5 mt-1.5" style={{ background: "#dce6f2" }}>
+                                                    <div className="h-1.5 rounded-full" style={{ width: `${Math.min(progress, 100)}%`, background: "#3a72ad" }} />
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`text-xs font-medium px-3 py-1 rounded-full ${activity.approvalStatus === "approved" ? "bg-green-50 text-green-600" :
-                                                        activity.approvalStatus === "rejected" ? "bg-red-50 text-red-600" :
-                                                            "bg-orange-50 text-orange-600"
-                                                    }`}>
-                                                    {activity.approvalStatus === "approved" ? "อนุมัติแล้ว" :
-                                                        activity.approvalStatus === "rejected" ? "ปฏิเสธ" : "รออนุมัติ"}
+                                                <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ background: statusStyle.bg, color: statusStyle.color }}>
+                                                    {statusStyle.label}
                                                 </span>
                                             </td>
                                         </tr>
@@ -110,8 +114,8 @@ export default function AdminAllActivitiesPage() {
                         </tbody>
                     </table>
                 </div>
-                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
-                    <div className="text-sm text-gray-500">ทั้งหมด {activities.length} กิจกรรม</div>
+                <div className="px-6 py-3" style={{ borderTop: "1px solid #dce6f2", background: "#f7f9fc" }}>
+                    <span className="text-xs" style={{ color: "#5f7691" }}>ทั้งหมด {activities.length} กิจกรรม</span>
                 </div>
             </div>
         </div>

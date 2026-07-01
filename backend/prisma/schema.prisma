@@ -9,6 +9,12 @@ datasource db {
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
+enum RequestStatus {
+  pending
+  approved
+  rejected
+}
+
 enum UserRole {
   student
   organizer
@@ -40,6 +46,21 @@ enum AttendanceStatus {
 }
 
 // ─── Models ──────────────────────────────────────────────────────────────────
+
+model OrganizerRequest {
+  id               Int           @id @default(autoincrement())
+  name             String        @db.VarChar(255)
+  email            String        @db.VarChar(255)
+  phone            String        @db.VarChar(20)
+  department       String        @db.VarChar(255)
+  reason           String
+  experience       String?
+  status           RequestStatus @default(pending)
+  rejectionReason  String?       @map("rejection_reason")
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  @@map("organizer_requests")
+}
 
 model User {
   id                       Int       @id @default(autoincrement())

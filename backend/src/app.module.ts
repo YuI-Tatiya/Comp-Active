@@ -14,6 +14,7 @@ import { AdminModule } from './admin/admin.module';
 import { EvaluationsModule } from './evaluations/evaluations.module';
 import { MailModule } from './mail/mail.module';
 import { SeedModule } from './seed/seed.module';
+import { OrganizerRequestsModule } from './organizer-requests/organizer-requests.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { SeedModule } from './seed/seed.module';
     EvaluationsModule,
     MailModule,
     SeedModule,
+    OrganizerRequestsModule,
   ],
 })
 export class AppModule {}

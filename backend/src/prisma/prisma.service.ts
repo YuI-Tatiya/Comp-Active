@@ -23,6 +23,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get registration() { return this._client.registration; }
   get certificate() { return this._client.certificate; }
   get evaluation() { return this._client.evaluation; }
+  get organizerRequest() { return this._client.organizerRequest; }
 
   // ─── Prisma helpers ─────────────────────────────────────────────────────────
   $transaction: PrismaInstance['$transaction'] = (...args: any[]) =>

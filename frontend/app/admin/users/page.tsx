@@ -1,23 +1,21 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-    Search, MoreVertical, Trash2, Shield, GraduationCap, Megaphone,
-    Ban, CheckCircle, KeyRound, X, Copy, Check,
-} from "lucide-react"
+import { Search, MoreVertical, Trash2, Shield, GraduationCap, Megaphone, Ban, CheckCircle } from "lucide-react"
 import { usersAPI, User } from "@/lib/api"
 
-const roleLabels: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-    student: { label: "นักศึกษา", color: "bg-sky-50 text-sky-600 border-sky-200", icon: GraduationCap },
-    organizer: { label: "ผู้จัดกิจกรรม", color: "bg-amber-50 text-amber-600 border-amber-200", icon: Megaphone },
-    admin: { label: "ผู้ดูแลระบบ", color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: Shield },
+const roleLabels: Record<string, { label: string; icon: React.ElementType; color: string; dot: string }> = {
+    student: { label: "นักศึกษา", icon: GraduationCap, color: "rgba(14,165,233,0.12)", dot: "#0ea5e9" },
+    organizer: { label: "ผู้จัดกิจกรรม", icon: Megaphone, color: "rgba(224,169,74,0.14)", dot: "#c88e2a" },
+    admin: { label: "ผู้ดูแลระบบ", icon: Shield, color: "rgba(58,114,173,0.12)", dot: "#3a72ad" },
 }
 
-interface GeneratedResult {
-    name: string
-    email: string
-    generatedPassword: string
-}
+const filters = [
+    { key: "all", label: "ทั้งหมด" },
+    { key: "student", label: "นักศึกษา" },
+    { key: "organizer", label: "ผู้จัดกิจกรรม" },
+    { key: "admin", label: "ผู้ดูแลระบบ" },
+] as const
 
 export default function AdminUsersPage() {
     const [users, setUsers] = useState<User[]>([])
@@ -25,13 +23,6 @@ export default function AdminUsersPage() {
     const [searchTerm, setSearchTerm] = useState("")
     const [roleFilter, setRoleFilter] = useState("all")
     const [openMenuId, setOpenMenuId] = useState<number | null>(null)
-
-    // Generate password modal
-    const [genEmail, setGenEmail] = useState("")
-    const [genLoading, setGenLoading] = useState(false)
-    const [genResult, setGenResult] = useState<GeneratedResult | null>(null)
-    const [showGenModal, setShowGenModal] = useState(false)
-    const [copied, setCopied] = useState(false)
 
     useEffect(() => { loadUsers() }, [])
 
@@ -55,7 +46,7 @@ export default function AdminUsersPage() {
         return matchSearch && matchRole
     })
 
-    const roleCounts = {
+    const roleCounts: Record<string, number> = {
         all: users.length,
         student: users.filter((u) => u.role === "student").length,
         organizer: users.filter((u) => u.role === "organizer").length,
@@ -69,9 +60,7 @@ export default function AdminUsersPage() {
             } else {
                 await usersAPI.blockUser(userId)
             }
-            setUsers((prev) =>
-                prev.map((u) => (u.id === userId ? { ...u, isBlocked: !currentlyBlocked } : u)),
-            )
+            setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, isBlocked: !currentlyBlocked } : u)))
         } catch (err) {
             alert(err instanceof Error ? err.message : "เกิดข้อผิดพลาด")
         }
@@ -88,160 +77,147 @@ export default function AdminUsersPage() {
         }
     }
 
-    async function handleGeneratePassword() {
-        if (!genEmail.trim()) return
-        setGenLoading(true)
-        try {
-            const result = await usersAPI.generatePassword(genEmail.trim())
-            setGenResult(result)
-        } catch (err) {
-            alert(err instanceof Error ? err.message : "เกิดข้อผิดพลาด")
-        } finally {
-            setGenLoading(false)
-        }
-    }
-
-    function closeGenModal() {
-        setShowGenModal(false)
-        setGenEmail("")
-        setGenResult(null)
-        setCopied(false)
-    }
-
-    function handleCopy(text: string) {
-        navigator.clipboard.writeText(text)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-    }
-
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
-                <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 rounded-full animate-spin" style={{ border: "4px solid #dce6f2", borderTopColor: "#3a72ad" }} />
             </div>
         )
     }
 
     return (
         <div className="p-8 space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">จัดการผู้ใช้</h1>
-                    <p className="text-slate-500 mt-1 text-sm">ดูและจัดการบัญชีผู้ใช้ทั้งหมด</p>
-                </div>
-                <button
-                    onClick={() => setShowGenModal(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
-                >
-                    <KeyRound className="w-4 h-4" />
-                    สร้างรหัสผ่าน Organizer
-                </button>
+            <div>
+                <h1 className="text-2xl font-bold" style={{ color: "#14263c" }}>จัดการผู้ใช้</h1>
+                <p className="text-sm mt-1" style={{ color: "#5f7691" }}>ดูและจัดการบัญชีผู้ใช้ทั้งหมด</p>
             </div>
 
-            {/* Filters */}
-            <div className="bg-white rounded-2xl border border-slate-100 p-4">
+            {/* Search + Filter */}
+            <div className="bg-white rounded-2xl p-4" style={{ border: "1px solid #dce6f2" }}>
                 <div className="flex flex-col md:flex-row gap-3">
                     <div className="relative flex-1">
-                        <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                        <Search className="absolute left-3 top-2.5 w-4 h-4" style={{ color: "#5f7691" }} />
                         <input
                             type="text"
                             placeholder="ค้นหาชื่อหรืออีเมล..."
-                            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full pl-9 pr-4 py-2 rounded-xl text-sm outline-none"
+                            style={{ background: "#f0f4f9", border: "1px solid #dce6f2", color: "#14263c" }}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
                     <div className="flex gap-2 flex-wrap">
-                        {(["all", "student", "organizer", "admin"] as const).map((role) => (
-                            <button
-                                key={role}
-                                onClick={() => setRoleFilter(role)}
-                                className={`px-3 py-2 text-sm rounded-lg font-medium transition-colors ${roleFilter === role
-                                    ? "bg-indigo-600 text-white"
-                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                    }`}
-                            >
-                                {role === "all" ? "ทั้งหมด" : roleLabels[role]?.label}
-                                <span className="ml-1.5 text-xs opacity-75">({roleCounts[role]})</span>
-                            </button>
-                        ))}
+                        {filters.map((f) => {
+                            const active = roleFilter === f.key
+                            return (
+                                <button
+                                    key={f.key}
+                                    onClick={() => setRoleFilter(f.key)}
+                                    className="px-3.5 py-2 text-sm rounded-xl font-medium transition-all"
+                                    style={active ? {
+                                        background: "#3a72ad",
+                                        color: "#fff",
+                                    } : {
+                                        background: "#f0f4f9",
+                                        color: "#5f7691",
+                                        border: "1px solid #dce6f2",
+                                    }}
+                                >
+                                    {f.label}
+                                    <span className="ml-1.5 text-xs opacity-70">({roleCounts[f.key]})</span>
+                                </button>
+                            )
+                        })}
                     </div>
                 </div>
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+            <div className="bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #dce6f2" }}>
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="bg-slate-50 border-b border-slate-100">
-                                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3.5">ผู้ใช้</th>
-                                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3.5">บทบาท</th>
-                                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3.5">สถานะ</th>
-                                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3.5">รหัส นศ.</th>
-                                <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3.5">จัดการ</th>
+                            <tr style={{ background: "#f7f9fc", borderBottom: "1px solid #dce6f2" }}>
+                                {["ผู้ใช้", "บทบาท", "สถานะ", "รหัส นศ.", "จัดการ"].map((h, i) => (
+                                    <th key={h} className={`px-6 py-3.5 text-xs font-semibold uppercase tracking-wider ${i === 4 ? "text-right" : "text-left"}`} style={{ color: "#5f7691" }}>{h}</th>
+                                ))}
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50">
-                            {filtered.map((u) => {
+                        <tbody>
+                            {filtered.map((u, i) => {
                                 const roleInfo = roleLabels[u.role] || roleLabels.student
                                 const RoleIcon = roleInfo.icon
                                 return (
-                                    <tr key={u.id} className={`hover:bg-slate-50 transition-colors ${u.isBlocked ? "opacity-60" : ""}`}>
+                                    <tr
+                                        key={u.id}
+                                        className="transition-colors"
+                                        style={{
+                                            borderBottom: i < filtered.length - 1 ? "1px solid #f0f4f9" : "none",
+                                            opacity: u.isBlocked ? 0.55 : 1,
+                                        }}
+                                        onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "#f7f9fc" }}
+                                        onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "transparent" }}
+                                    >
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${u.isBlocked ? "bg-slate-400" : "bg-gradient-to-br from-indigo-400 to-indigo-600"}`}>
-                                                    {u.name?.[0] || "?"}
+                                                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0" style={{ background: u.isBlocked ? "#94a3b8" : "linear-gradient(135deg,#3a72ad,#2a5280)" }}>
+                                                    {u.name?.[0]?.toUpperCase() || "?"}
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium text-slate-900 text-sm">{u.name}</div>
-                                                    <div className="text-xs text-slate-500">{u.email}</div>
+                                                    <div className="font-medium text-sm" style={{ color: "#14263c" }}>{u.name}</div>
+                                                    <div className="text-xs" style={{ color: "#5f7691" }}>{u.email}</div>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${roleInfo.color}`}>
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: roleInfo.color, color: roleInfo.dot }}>
                                                 <RoleIcon className="w-3 h-3" />
                                                 {roleInfo.label}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
                                             {u.isBlocked ? (
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-600 border border-red-200">
-                                                    <Ban className="w-3 h-3" />
-                                                    ถูกระงับ
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: "rgba(239,68,68,0.1)", color: "#dc2626" }}>
+                                                    <Ban className="w-3 h-3" />ถูกระงับ
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600 border border-emerald-200">
-                                                    <CheckCircle className="w-3 h-3" />
-                                                    ปกติ
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: "rgba(63,160,172,0.12)", color: "#3fa0ac" }}>
+                                                    <CheckCircle className="w-3 h-3" />ปกติ
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-slate-500">{u.studentId || "-"}</td>
+                                        <td className="px-6 py-4 text-sm" style={{ color: "#5f7691" }}>{u.studentId || "—"}</td>
                                         <td className="px-6 py-4 text-right relative">
                                             <button
                                                 onClick={() => setOpenMenuId(openMenuId === u.id ? null : u.id)}
-                                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                                                className="p-2 rounded-lg transition-colors"
+                                                style={{ color: "#5f7691" }}
+                                                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f0f4f9" }}
+                                                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}
                                             >
-                                                <MoreVertical className="w-4 h-4 text-slate-400" />
+                                                <MoreVertical className="w-4 h-4" />
                                             </button>
                                             {openMenuId === u.id && (
-                                                <div className="absolute right-6 top-12 w-52 bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1.5 overflow-hidden">
+                                                <div className="absolute right-6 top-12 w-52 bg-white rounded-xl shadow-xl z-20 py-1.5 overflow-hidden" style={{ border: "1px solid #dce6f2" }}>
                                                     <button
                                                         onClick={() => handleBlock(u.id, !!u.isBlocked)}
-                                                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2.5 ${u.isBlocked ? "text-emerald-600" : "text-red-600"}`}
+                                                        className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 transition-colors"
+                                                        style={{ color: u.isBlocked ? "#3fa0ac" : "#dc2626" }}
+                                                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f7f9fc" }}
+                                                        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}
                                                     >
                                                         {u.isBlocked
                                                             ? <><CheckCircle className="w-4 h-4" /> ปลดระงับบัญชี</>
                                                             : <><Ban className="w-4 h-4" /> ระงับบัญชี</>
                                                         }
                                                     </button>
-                                                    <div className="border-t border-slate-100 my-1" />
+                                                    <div style={{ borderTop: "1px solid #f0f4f9", margin: "4px 0" }} />
                                                     <button
                                                         onClick={() => handleDeleteUser(u.id)}
-                                                        className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2.5"
+                                                        className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 transition-colors"
+                                                        style={{ color: "#dc2626" }}
+                                                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.06)" }}
+                                                        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                         ลบผู้ใช้
@@ -254,110 +230,17 @@ export default function AdminUsersPage() {
                             })}
                             {filtered.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="py-12 text-center text-slate-400 text-sm">ไม่พบผู้ใช้</td>
+                                    <td colSpan={5} className="py-14 text-center text-sm" style={{ color: "#5f7691" }}>ไม่พบผู้ใช้</td>
                                 </tr>
                             )}
                         </tbody>
                     </table>
                 </div>
-                <div className="px-6 py-3 border-t border-slate-100 bg-slate-50">
-                    <span className="text-xs text-slate-500">แสดง {filtered.length} จาก {users.length} ผู้ใช้</span>
+                <div className="px-6 py-3" style={{ borderTop: "1px solid #dce6f2", background: "#f7f9fc" }}>
+                    <span className="text-xs" style={{ color: "#5f7691" }}>แสดง {filtered.length} จาก {users.length} ผู้ใช้</span>
                 </div>
             </div>
 
-            {/* Generate Password Modal */}
-            {showGenModal && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 bg-indigo-50 rounded-xl flex items-center justify-center">
-                                    <KeyRound className="w-5 h-5 text-indigo-600" />
-                                </div>
-                                <div>
-                                    <h2 className="font-semibold text-slate-800">สร้างรหัสผ่าน</h2>
-                                    <p className="text-xs text-slate-500">สำหรับ Organizer ที่ต้องการเข้าระบบ</p>
-                                </div>
-                            </div>
-                            <button onClick={closeGenModal} className="p-2 hover:bg-slate-100 rounded-lg">
-                                <X className="w-4 h-4 text-slate-400" />
-                            </button>
-                        </div>
-
-                        <div className="p-6 space-y-4">
-                            {!genResult ? (
-                                <>
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                                            อีเมลของ Organizer
-                                        </label>
-                                        <input
-                                            type="email"
-                                            value={genEmail}
-                                            onChange={(e) => setGenEmail(e.target.value)}
-                                            onKeyDown={(e) => e.key === "Enter" && handleGeneratePassword()}
-                                            placeholder="example@kkumail.com"
-                                            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        />
-                                        <p className="text-xs text-slate-400 mt-1.5">
-                                            ผู้ใช้นี้ต้องมีอยู่ในระบบแล้ว
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={handleGeneratePassword}
-                                        disabled={genLoading || !genEmail.trim()}
-                                        className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                                    >
-                                        {genLoading ? (
-                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                        ) : (
-                                            <KeyRound className="w-4 h-4" />
-                                        )}
-                                        สร้างรหัสผ่าน
-                                    </button>
-                                </>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                                        <p className="text-sm font-medium text-emerald-700 mb-1">สร้างรหัสผ่านสำเร็จ</p>
-                                        <p className="text-xs text-emerald-600">{genResult.name} · {genResult.email}</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                                            รหัสผ่านใหม่
-                                        </label>
-                                        <div className="flex gap-2">
-                                            <div className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-lg font-bold text-slate-800 tracking-widest">
-                                                {genResult.generatedPassword}
-                                            </div>
-                                            <button
-                                                onClick={() => handleCopy(genResult.generatedPassword)}
-                                                className={`px-4 rounded-xl border transition-colors ${copied
-                                                    ? "bg-emerald-50 border-emerald-200 text-emerald-600"
-                                                    : "border-slate-200 hover:bg-slate-50 text-slate-600"
-                                                    }`}
-                                            >
-                                                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-                                        <p className="text-xs text-slate-400 mt-2">
-                                            โปรดแจ้งรหัสผ่านนี้ให้กับ Organizer ทันที ระบบจะไม่แสดงอีกครั้ง
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={closeGenModal}
-                                        className="w-full py-2.5 bg-slate-800 text-white rounded-xl text-sm font-medium hover:bg-slate-900 transition-colors"
-                                    >
-                                        ปิด
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Click outside to close menu */}
             {openMenuId !== null && (
                 <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
             )}
