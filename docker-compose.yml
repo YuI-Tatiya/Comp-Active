@@ -1,11 +1,11 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: cpcheck_db
+    container_name: compactive_db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: cpcheck_db
+      POSTGRES_DB: compactive_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -20,10 +20,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: cpcheck_backend
+    container_name: compactive_backend
     env_file: ./backend/.env
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/cpcheck_db
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/compactive_db
       PORT: 3001
       NODE_ENV: production
       FRONTEND_URL: http://localhost:3000
@@ -39,7 +39,7 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: http://localhost:3001
-    container_name: cpcheck_frontend
+    container_name: compactive_frontend
     ports:
       - "3000:3000"
     depends_on:

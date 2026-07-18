@@ -20,7 +20,7 @@ import { MailService } from './mail.service';
           tls: { rejectUnauthorized: false },
         },
         defaults: {
-          from: `"CP Check" <${configService.get<string>('SMTP_FROM') || 'no-reply@cpcheck.com'}>`,
+          from: `"Comp Active" <${configService.get<string>('SMTP_FROM') || 'no-reply@compactive.com'}>`,
         },
       }),
     }),

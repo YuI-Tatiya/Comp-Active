@@ -59,7 +59,7 @@ export default function AdminDashboardPage() {
         <div className="p-8 space-y-6">
             <div>
                 <h1 className="text-2xl font-bold" style={{ color: "#14263c" }}>Dashboard</h1>
-                <p className="text-sm mt-1" style={{ color: "#5f7691" }}>ภาพรวมระบบจัดการกิจกรรม CP Check</p>
+                <p className="text-sm mt-1" style={{ color: "#5f7691" }}>ภาพรวมระบบจัดการกิจกรรม Comp Active</p>
             </div>
 
             {/* KPI Cards */}

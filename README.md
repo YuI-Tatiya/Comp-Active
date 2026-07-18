@@ -1,9 +1,9 @@
 <<<<<<< HEAD
-# CP_Check
+# Comp_Active
 =======
-# CP Check — Activity Management & Soft Skills Tracking System
+# Comp Active — Activity Management & Soft Skills Tracking System
 
-CP Check is an enterprise-grade platform built for managing extracurricular activities and systematically tracking student soft skill development. The system supports collaboration between students, organizers, and administrators through a modern UI and a high-performance backend.
+Comp Active is an enterprise-grade platform built for managing extracurricular activities and systematically tracking student soft skill development. The system supports collaboration between students, organizers, and administrators through a modern UI and a high-performance backend.
 
 ---
 
@@ -116,7 +116,7 @@ Create `backend/.env`:
 ```env
 PORT=3001
 NODE_ENV=development
-DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/cpcheck_db"
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/compactive_db"
 JWT_SECRET=your-super-secret-jwt-key
 JWT_EXPIRES_IN=7d
 FRONTEND_URL=http://localhost:3000
@@ -134,7 +134,7 @@ SMTP_FROM=no-reply@cpc.kku.ac.th
 cd backend
 
 # Create the database (run once)
-psql -U postgres -h localhost -c "CREATE DATABASE cpcheck_db;"
+psql -U postgres -h localhost -c "CREATE DATABASE compactive_db;"
 
 # Push Prisma schema to database
 npx prisma db push
@@ -155,7 +155,7 @@ cd frontend && npm run dev
 ## Project Structure
 
 ```
-CP_Check/
+Comp_Active/
 ├── backend/                        # NestJS Application
 │   ├── prisma/
 │   │   └── schema.prisma           # Database schema & models

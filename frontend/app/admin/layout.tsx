@@ -51,7 +51,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             <Shield className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                            <div className="font-bold text-white text-sm tracking-wide">CP Check</div>
+                            <div className="font-bold text-white text-sm tracking-wide">Comp Active</div>
                             <div className="text-xs" style={{ color: "#7fa8c9" }}>Admin Panel</div>
                         </div>
                     </div>
@@ -146,7 +146,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                         <LogOut className="w-7 h-7" style={{ color: "#dc2626" }} />
                                     </div>
                                     <h3 className="text-lg font-bold mb-1.5" style={{ color: "#14263c" }}>ออกจากระบบ?</h3>
-                                    <p className="text-sm mb-7" style={{ color: "#5f7691" }}>คุณต้องการออกจากระบบ CP Check ใช่หรือไม่</p>
+                                    <p className="text-sm mb-7" style={{ color: "#5f7691" }}>คุณต้องการออกจากระบบ Comp Active ใช่หรือไม่</p>
                                     <div className="flex gap-3 w-full">
                                         <button
                                             onClick={() => setShowConfirm(false)}

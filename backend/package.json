@@ -1,7 +1,7 @@
 {
-  "name": "cpcheck-backend",
+  "name": "compactive-backend",
   "version": "1.0.0",
-  "description": "CP Check Event Management System - Backend API",
+  "description": "Comp Active Event Management System - Backend API",
   "author": "",
   "private": true,
   "license": "MIT",

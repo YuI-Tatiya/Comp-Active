@@ -42,7 +42,7 @@ async function bootstrap() {
 
   // Swagger API Documentation
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('CP Check API')
+    .setTitle('Comp Active API')
     .setDescription(
       'API สำหรับระบบจัดการกิจกรรม (Event Management System) - วิทยาลัยการคอมพิวเตอร์',
     )

@@ -1,8 +1,8 @@
-# Development Prompt: CP Check Backend (NestJS + TypeScript)
+# Development Prompt: Comp Active Backend (NestJS + TypeScript)
 
 ## บริบทของโปรเจค
 
-นี่คือ Backend API สำหรับระบบจัดการกิจกรรม "CP Check" ของวิทยาลัยการคอมพิวเตอร์  
+นี่คือ Backend API สำหรับระบบจัดการกิจกรรม "Comp Active" ของวิทยาลัยการคอมพิวเตอร์  
 เขียนด้วย **NestJS + TypeScript** เชื่อมกับ **Frontend (Next.js 16)** ที่อยู่ในโฟลเดอร์ `frontend/`
 
 ### เทคโนโลยีที่ใช้
@@ -54,7 +54,7 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_USERNAME=postgres
 DB_PASSWORD=<your_password>
-DB_DATABASE=cpcheck_db
+DB_DATABASE=compactive_db
 JWT_SECRET=<your_secret>
 JWT_EXPIRES_IN=7d
 GOOGLE_CLIENT_ID=<from_google_console>

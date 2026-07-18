@@ -11,10 +11,10 @@ export class MailService {
     try {
       await this.mailerService.sendMail({
         to: email,
-        subject: 'ยืนยันตัวตนสำหรับการเปลี่ยนแปลงข้อมูลส่วนตัว - CP Check',
+        subject: 'ยืนยันตัวตนสำหรับการเปลี่ยนแปลงข้อมูลส่วนตัว - Comp Active',
         html: `
           <div style="font-family: sans-serif; padding: 20px; color: #333;">
-            <h2 style="color: #4CAF50;">การยืนยันตัวตน CP Check</h2>
+            <h2 style="color: #4CAF50;">การยืนยันตัวตน Comp Active</h2>
             <p>สวัสดีครับ,</p>
             <p>คุณได้ทำการร้องขอเพื่อเปลี่ยนแปลงข้อมูลส่วนตัวของบัญชี <b>${email}</b></p>
             <p>โปรดใช้รหัส OTP ด้านล่างนี้เพื่อยืนยันตัวตน:</p>
@@ -24,7 +24,7 @@ export class MailService {
             <p>รหัสนี้มีอายุการใช้งาน <b>15 นาที</b></p>
             <p>หากคุณไม่ได้เป็นผู้ร้องขอ โปรดเพิกเฉยต่ออีเมลฉบับนี้ หรือทำการเปลี่ยนรหัสผ่านเพื่อความปลอดภัย</p>
             <br/>
-            <p style="font-size: 12px; color: #888;">ขอบคุณครับ<br/>ทีมงาน CP Check (College of Computing)</p>
+            <p style="font-size: 12px; color: #888;">ขอบคุณครับ<br/>ทีมงาน Comp Active (College of Computing)</p>
           </div>
         `,
       });
@@ -40,7 +40,7 @@ export class MailService {
     try {
       await this.mailerService.sendMail({
         to: email,
-        subject: '🎉 คำขอเป็น Organizer ได้รับการอนุมัติแล้ว - CP Check',
+        subject: '🎉 คำขอเป็น Organizer ได้รับการอนุมัติแล้ว - Comp Active',
         html: `
           <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
             <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:36px 32px;border-radius:16px 16px 0 0;">
@@ -49,7 +49,7 @@ export class MailService {
             </div>
             <div style="background:#fff;padding:32px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 16px 16px;">
               <p>สวัสดีคุณ <strong>${name}</strong>,</p>
-              <p>ทีมงาน CP Check ได้ทำการอนุมัติบัญชี Organizer ของคุณเรียบร้อยแล้ว คุณสามารถเข้าสู่ระบบและเริ่มสร้างกิจกรรมได้ทันที</p>
+              <p>ทีมงาน Comp Active ได้ทำการอนุมัติบัญชี Organizer ของคุณเรียบร้อยแล้ว คุณสามารถเข้าสู่ระบบและเริ่มสร้างกิจกรรมได้ทันที</p>
               <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin:24px 0;">
                 <p style="margin:0 0 12px;font-size:13px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">ข้อมูลเข้าสู่ระบบ</p>
                 <table style="width:100%;border-collapse:collapse;">
@@ -66,7 +66,7 @@ export class MailService {
                 </table>
               </div>
               <p style="color:#ef4444;font-size:13px;">⚠️ กรุณาเปลี่ยนรหัสผ่านหลังเข้าสู่ระบบครั้งแรก</p>
-              <p style="font-size:12px;color:#94a3b8;margin-top:32px;">ขอบคุณครับ<br/>ทีมงาน CP Check · College of Computing</p>
+              <p style="font-size:12px;color:#94a3b8;margin-top:32px;">ขอบคุณครับ<br/>ทีมงาน Comp Active · College of Computing</p>
             </div>
           </div>
         `,
@@ -87,12 +87,12 @@ export class MailService {
     try {
       await this.mailerService.sendMail({
         to: adminEmail,
-        subject: '🔔 มีคำขอเป็น Organizer ใหม่ - CP Check',
+        subject: '🔔 มีคำขอเป็น Organizer ใหม่ - Comp Active',
         html: `
           <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
             <div style="background:linear-gradient(135deg,#1f4066,#16304d);padding:32px;border-radius:16px 16px 0 0;">
               <h1 style="color:#fff;margin:0;font-size:22px;">🔔 คำขอเป็น Organizer ใหม่</h1>
-              <p style="color:#7fa8c9;margin:8px 0 0;font-size:14px;">CP Check Admin Notification</p>
+              <p style="color:#7fa8c9;margin:8px 0 0;font-size:14px;">Comp Active Admin Notification</p>
             </div>
             <div style="background:#fff;padding:32px;border:1px solid #dce6f2;border-top:none;border-radius:0 0 16px 16px;">
               <p style="margin:0 0 20px;">มีผู้ยื่นคำขอเป็น Organizer ใหม่เข้ามาในระบบ กรุณาตรวจสอบและดำเนินการ</p>
@@ -117,7 +117,7 @@ export class MailService {
                  style="display:inline-block;background:linear-gradient(135deg,#1f4066,#3a72ad);color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-size:14px;font-weight:600;">
                 ดูคำขอใน Admin Panel →
               </a>
-              <p style="font-size:12px;color:#94a3b8;margin-top:28px;">ขอบคุณครับ<br/>ระบบอัตโนมัติ CP Check · College of Computing</p>
+              <p style="font-size:12px;color:#94a3b8;margin-top:28px;">ขอบคุณครับ<br/>ระบบอัตโนมัติ Comp Active · College of Computing</p>
             </div>
           </div>
         `,
@@ -133,22 +133,22 @@ export class MailService {
     try {
       await this.mailerService.sendMail({
         to: email,
-        subject: 'ผลการพิจารณาคำขอเป็น Organizer - CP Check',
+        subject: 'ผลการพิจารณาคำขอเป็น Organizer - Comp Active',
         html: `
           <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
             <div style="background:#1e293b;padding:36px 32px;border-radius:16px 16px 0 0;">
               <h1 style="color:#fff;margin:0;font-size:24px;">ผลการพิจารณาคำขอ</h1>
-              <p style="color:#94a3b8;margin:8px 0 0;">CP Check · College of Computing</p>
+              <p style="color:#94a3b8;margin:8px 0 0;">Comp Active · College of Computing</p>
             </div>
             <div style="background:#fff;padding:32px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 16px 16px;">
               <p>สวัสดีคุณ <strong>${name}</strong>,</p>
-              <p>ขอบคุณที่สนใจสมัครเป็น Organizer กับระบบ CP Check อย่างไรก็ตาม ทีมงานขอแจ้งว่าคำขอของคุณยังไม่ผ่านการอนุมัติในขณะนี้</p>
+              <p>ขอบคุณที่สนใจสมัครเป็น Organizer กับระบบ Comp Active อย่างไรก็ตาม ทีมงานขอแจ้งว่าคำขอของคุณยังไม่ผ่านการอนุมัติในขณะนี้</p>
               <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:12px;padding:20px;margin:24px 0;">
                 <p style="margin:0 0 8px;font-size:13px;color:#dc2626;font-weight:600;">เหตุผล</p>
                 <p style="margin:0;color:#7f1d1d;font-size:14px;">${reason}</p>
               </div>
-              <p>หากต้องการสมัครใหม่หรือมีข้อสงสัย สามารถติดต่อทีมงานได้ที่อีเมล cpcheck@kku.ac.th</p>
-              <p style="font-size:12px;color:#94a3b8;margin-top:32px;">ขอบคุณครับ<br/>ทีมงาน CP Check · College of Computing</p>
+              <p>หากต้องการสมัครใหม่หรือมีข้อสงสัย สามารถติดต่อทีมงานได้ที่อีเมล compactive@kku.ac.th</p>
+              <p style="font-size:12px;color:#94a3b8;margin-top:32px;">ขอบคุณครับ<br/>ทีมงาน Comp Active · College of Computing</p>
             </div>
           </div>
         `,
