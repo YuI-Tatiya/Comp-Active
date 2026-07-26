@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# Comp_Active
-=======
 # Comp Active — Activity Management & Soft Skills Tracking System
 
 Comp Active is an enterprise-grade platform built for managing extracurricular activities and systematically tracking student soft skill development. The system supports collaboration between students, organizers, and administrators through a modern UI and a high-performance backend.
@@ -16,7 +13,7 @@ Comp Active is an enterprise-grade platform built for managing extracurricular a
 | Language | TypeScript |
 | Database | PostgreSQL 14+ |
 | ORM | Prisma 7 |
-| Authentication | Passport.js — JWT + Google OAuth 2.0 |
+| Authentication | Passport.js — JWT |
 | Password Hashing | bcryptjs |
 | Email | Nodemailer (SMTP) |
 | API Docs | Swagger / OpenAPI (built-in) |
@@ -163,7 +160,9 @@ Comp_Active/
 │   │   └── prisma/                 # Auto-generated Prisma client
 │   └── src/
 │       ├── prisma/                 # PrismaService & PrismaModule
-│       ├── auth/                   # JWT strategy, login, register, OTP
+│       ├── auth/                   # JWT strategy, login, register, admin invite accept
+│       ├── admin-invites/          # Admin-invites-a-new-admin flow
+│       ├── organizer-requests/     # Organizer application + approval flow
 │       ├── users/                  # User profile management
 │       ├── activities/             # Activity CRUD & approval flow
 │       ├── registrations/          # Registration, check-in, attendance
@@ -171,10 +170,15 @@ Comp_Active/
 │       ├── certificates/           # Certificate issuance
 │       ├── admin/                  # Admin dashboard & stats
 │       ├── mail/                   # Email notification service
-│       └── common/                 # Guards, decorators, enums, filters
+│       ├── seed/                   # First-admin bootstrap on app start
+│       └── common/                 # Guards, decorators, enums, utils, constants
 └── frontend/                       # Next.js Application
+    ├── proxy.ts                    # Admin-subdomain rewrite/isolation
     ├── app/
-    │   ├── auth/                   # Login / Register pages
+    │   ├── auth/                   # Student/organizer login + register
+    │   ├── admin/
+    │   │   ├── (public)/           # Admin login, invite-accept — no guard
+    │   │   └── (dashboard)/        # Guarded admin panel
     │   ├── events/                 # Public activity listing
     │   ├── organizer/              # Organizer dashboard
     │   └── student/                # Student dashboard & profile
@@ -227,4 +231,3 @@ npx prisma db push --force-reset
 # Open Prisma Studio (GUI)
 npx prisma studio
 ```
->>>>>>> main

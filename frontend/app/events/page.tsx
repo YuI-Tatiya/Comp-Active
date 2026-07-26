@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { activitiesAPI, Activity } from "@/lib/api"
+import { activitiesAPI, Activity, API_BASE_URL } from "@/lib/api"
 import { Calendar, MapPin, Users, Loader2, Search, Filter } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
@@ -132,7 +132,7 @@ export default function EventsPage() {
                                     )}
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img
-                                        src={ev.imageUrl ? `http://localhost:3001${ev.imageUrl}` : "/activity-placeholder.jpg"}
+                                        src={ev.imageUrl ? `${API_BASE_URL}${ev.imageUrl}` : "/activity-placeholder.jpg"}
                                         alt={ev.name}
                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                         onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop'; }}

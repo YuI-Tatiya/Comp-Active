@@ -101,7 +101,7 @@ export default function OrganizerRegisterPage() {
                             </div>
                         ))}
                     </div>
-                    <Link href="/auth/organizer" className="block w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-center">
+                    <Link href="/auth" className="block w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-center">
                         กลับหน้าเข้าสู่ระบบ
                     </Link>
                 </div>
@@ -113,7 +113,7 @@ export default function OrganizerRegisterPage() {
         <div className="min-h-screen bg-slate-50 py-10 px-4">
             <div className="max-w-5xl mx-auto">
                 <div className="mb-6">
-                    <Link href="/auth/organizer" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200">
+                    <Link href="/auth" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200">
                         <ArrowLeft className="w-4 h-4" /> ย้อนกลับ
                     </Link>
                 </div>

@@ -25,3 +25,10 @@ export const AttendanceStatus = {
   ABSENT: 'absent',
 } as const;
 export type AttendanceStatus = (typeof AttendanceStatus)[keyof typeof AttendanceStatus];
+
+export const InviteStatus = {
+  PENDING: 'pending',
+  ACCEPTED: 'accepted',
+  REVOKED: 'revoked',
+} as const;
+export type InviteStatus = (typeof InviteStatus)[keyof typeof InviteStatus];

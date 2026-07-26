@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { registrationsAPI } from '@/lib/api'
+import { registrationsAPI, API_BASE_URL } from '@/lib/api'
 
 interface Registration {
   id: number
@@ -148,7 +148,7 @@ export default function MyRegistrationsPage() {
                     {reg.activity?.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={`http://localhost:3001${reg.activity.imageUrl}`}
+                        src={`${API_BASE_URL}${reg.activity.imageUrl}`}
                         alt={reg.activity.name}
                         className="w-full h-full object-cover"
                       />

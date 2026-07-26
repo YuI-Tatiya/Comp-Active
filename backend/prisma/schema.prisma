@@ -45,19 +45,29 @@ enum AttendanceStatus {
   absent
 }
 
+enum InviteStatus {
+  pending
+  accepted
+  revoked
+}
+
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model OrganizerRequest {
-  id               Int           @id @default(autoincrement())
-  name             String        @db.VarChar(255)
-  email            String        @db.VarChar(255)
-  phone            String        @db.VarChar(20)
-  department       String        @db.VarChar(255)
-  reason           String
-  experience       String?
-  status           RequestStatus @default(pending)
-  rejectionReason  String?       @map("rejection_reason")
-  createdAt        DateTime      @default(now()) @map("created_at")
+  id              Int           @id @default(autoincrement())
+  name            String        @db.VarChar(255)
+  email           String        @db.VarChar(255)
+  phone           String        @db.VarChar(20)
+  department      String        @db.VarChar(255)
+  reason          String
+  experience      String?
+  status          RequestStatus @default(pending)
+  rejectionReason String?       @map("rejection_reason")
+  validDays       Int?          @map("valid_days")
+  approvedById    Int?          @map("approved_by_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  approvedBy User? @relation(fields: [approvedById], references: [id], onDelete: SetNull)
 
   @@map("organizer_requests")
 }
@@ -65,21 +75,41 @@ model OrganizerRequest {
 model User {
   id                       Int       @id @default(autoincrement())
   name                     String    @db.VarChar(255)
-  studentId                String?   @db.VarChar(20) @map("student_id")
+  studentId                String?   @map("student_id") @db.VarChar(20)
   email                    String    @unique @db.VarChar(255)
-  password                 String?   @db.VarChar(255)
-  googleId                 String?   @db.VarChar(255) @map("google_id")
+  password                 String    @db.VarChar(255)
+  username                 String?   @unique @db.VarChar(50)
   role                     UserRole  @default(student)
+  validUntil               DateTime? @map("valid_until")
   createdAt                DateTime  @default(now()) @map("created_at")
   isBlocked                Boolean   @default(false) @map("is_blocked")
-  verificationOtp          String?   @db.VarChar(10) @map("verification_otp")
+  verificationOtp          String?   @map("verification_otp") @db.VarChar(10)
   verificationOtpExpiresAt DateTime? @map("verification_otp_expires_at")
 
-  activities    Activity[]
-  registrations Registration[]
-  evaluations   Evaluation[]
+  activities                Activity[]
+  registrations             Registration[]
+  evaluations               Evaluation[]
+  sentAdminInvites          AdminInvite[]
+  approvedOrganizerRequests OrganizerRequest[]
+  apiKeys                   ApiKey[]
+  updatedSiteContents       SiteContent[]
 
   @@map("users")
+}
+
+model AdminInvite {
+  id          Int          @id @default(autoincrement())
+  email       String       @db.VarChar(255)
+  tokenHash   String       @unique @map("token_hash") @db.VarChar(64)
+  status      InviteStatus @default(pending)
+  invitedById Int?         @map("invited_by_id")
+  expiresAt   DateTime     @map("expires_at")
+  acceptedAt  DateTime?    @map("accepted_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  invitedBy User? @relation(fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@map("admin_invites")
 }
 
 model Activity {
@@ -89,15 +119,15 @@ model Activity {
   description        String
   category           String         @db.VarChar(100)
   date               DateTime       @db.Date
-  startTime          String         @db.VarChar(10) @map("start_time")
-  endTime            String         @db.VarChar(10) @map("end_time")
+  startTime          String         @map("start_time") @db.VarChar(10)
+  endTime            String         @map("end_time") @db.VarChar(10)
   location           String         @db.VarChar(255)
   capacity           Int
   status             ActivityStatus @default(open)
   approvalStatus     ApprovalStatus @default(pending_approval) @map("approval_status")
   rejectionReason    String?        @map("rejection_reason")
   cancellationReason String?        @map("cancellation_reason")
-  imageUrl           String?        @db.VarChar(500) @map("image_url")
+  imageUrl           String?        @map("image_url") @db.VarChar(500)
   createdAt          DateTime       @default(now()) @map("created_at")
 
   organizer     User                @relation(fields: [organizerId], references: [id], onDelete: Cascade)
@@ -113,7 +143,7 @@ model Activity {
 model ActivityTag {
   id         Int    @id @default(autoincrement())
   activityId Int    @map("activity_id")
-  tagName    String @db.VarChar(100) @map("tag_name")
+  tagName    String @map("tag_name") @db.VarChar(100)
 
   activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
@@ -143,7 +173,7 @@ model ActivityBenefit {
 model ActivitySoftSkill {
   id         Int    @id @default(autoincrement())
   activityId Int    @map("activity_id")
-  skillName  String @db.VarChar(100) @map("skill_name")
+  skillName  String @map("skill_name") @db.VarChar(100)
 
   activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
@@ -168,14 +198,44 @@ model Registration {
 }
 
 model Certificate {
-  id             Int      @id @default(autoincrement())
-  registrationId Int      @unique @map("registration_id")
-  issueDate      DateTime @default(now()) @map("issue_date")
-  certificateUrl String   @db.VarChar(255) @map("certificate_url")
+  id               Int      @id @default(autoincrement())
+  registrationId   Int      @unique @map("registration_id")
+  issueDate        DateTime @default(now()) @map("issue_date")
+  certificateUrl   String   @map("certificate_url") @db.VarChar(255)
+  verificationCode String?  @unique @map("verification_code") @db.VarChar(20)
 
   registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
 
   @@map("certificates")
+}
+
+model ApiKey {
+  id         Int       @id @default(autoincrement())
+  ownerId    Int       @map("owner_id")
+  label      String    @db.VarChar(100)
+  keyHash    String    @unique @map("key_hash") @db.VarChar(64)
+  keyPrefix  String    @map("key_prefix") @db.VarChar(12)
+  rateLimit  Int       @default(60) @map("rate_limit")
+  isActive   Boolean   @default(true) @map("is_active")
+  lastUsedAt DateTime? @map("last_used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}
+
+model SiteContent {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique @db.VarChar(100)
+  title       String?  @db.VarChar(255)
+  body        String?
+  updatedById Int?     @map("updated_by_id")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("site_contents")
 }
 
 model Evaluation {

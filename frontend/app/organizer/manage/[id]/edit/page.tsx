@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Check, Plus, X, ArrowLeft, Loader2, Edit, CheckSquare } from "lucide-react"
-import { activitiesAPI, Activity } from "@/lib/api"
+import { activitiesAPI, Activity, API_BASE_URL } from "@/lib/api"
 
 // Types for form data
 interface ActivityFormData {
@@ -90,7 +90,7 @@ export default function EditActivityPage() {
                     imageFile: null
                 });
                 if (data.imageUrl) {
-                    setImagePreview(`http://localhost:3001${data.imageUrl}`);
+                    setImagePreview(`${API_BASE_URL}${data.imageUrl}`);
                 }
             } catch (err) {
                 console.error("Failed to fetch activity", err);
