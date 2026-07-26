@@ -8,16 +8,22 @@ import jwtConfig from './config/jwt.config';
 import databaseConfig from './config/database.config';
 import gatewayConfig from './config/gateway.config';
 
-// Feature Modules
-import { AuthModule } from './modules/auth/auth.module';
-import { UsersModule } from './modules/users/users.module';
-import { ActivitiesModule } from './modules/activities/activities.module';
-import { RegistrationsModule } from './modules/registrations/registrations.module';
-import { VolunteerServicesModule } from './modules/volunteer-services/volunteer-services.module';
-import { AdminDashboardModule } from './modules/admin-dashboard/admin-dashboard.module';
-import { DeveloperPortalModule } from './modules/developer-portal/developer-portal.module';
-import { MailModule } from './modules/mail/mail.module';
-import { SeedModule } from './modules/seed/seed.module';
+// Role modules (own the role-specific controllers)
+import { AdminModule } from './modules/admin/admin.module';
+import { OrganizerModule } from './modules/organizer/organizer.module';
+import { StudentModule } from './modules/student/student.module';
+
+// Shared modules with their own public/cross-role controllers
+import { AuthModule } from './modules/shared/auth/auth.module';
+import { SeedModule } from './modules/shared/seed/seed.module';
+
+// Shared "public" modules — see activities-public.module.ts for why these are
+// imported directly here (not via Admin/Organizer/Student) and MUST be listed
+// after those three: they host a bare `GET /:id` route that would otherwise
+// register before the role modules' own literal-path routes (e.g. `/pending`,
+// `/my`) and swallow them.
+import { ActivitiesPublicModule } from './modules/shared/activities/activities-public.module';
+import { VolunteerServicesPublicModule } from './modules/shared/volunteer-services/volunteer-services-public.module';
 
 @Module({
   imports: [
@@ -40,16 +46,15 @@ import { SeedModule } from './modules/seed/seed.module';
     // Rate limiting bucket for the external developer API (see ApiKeyThrottlerGuard)
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 300 }]),
 
-    // Feature Modules
     AuthModule,
-    UsersModule,
-    ActivitiesModule,
-    RegistrationsModule,
-    VolunteerServicesModule,
-    AdminDashboardModule,
-    DeveloperPortalModule,
-    MailModule,
     SeedModule,
+
+    // Order matters from here down — see the import comment above.
+    AdminModule,
+    OrganizerModule,
+    StudentModule,
+    ActivitiesPublicModule,
+    VolunteerServicesPublicModule,
   ],
 })
 export class AppModule {}
