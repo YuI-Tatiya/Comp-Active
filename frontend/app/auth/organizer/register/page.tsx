@@ -1,158 +1,223 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, CheckCircle2, ClipboardList, Clock, Mail, ExternalLink, CalendarPlus, ShieldCheck, Zap, Users, FileText } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import {
+    ArrowLeft, CheckCircle2, ClipboardList, Clock, Mail,
+    CalendarPlus, ShieldCheck, Zap, Users, Send, Loader2,
+} from "lucide-react"
+import { organizerRequestsAPI } from "@/lib/api"
+
+const benefits = [
+    { icon: CalendarPlus, title: "สร้างและจัดการกิจกรรม", desc: "ระบบดูแลการจัดการกิจกรรมครบวงจรตั้งแต่เริ่มจนจบ" },
+    { icon: Users, title: "ระบบจัดการผู้เข้าร่วม", desc: "เช็คอินด้วย QR Code และติดตามสถานะผู้เข้าร่วมเรียลไทม์" },
+    { icon: Zap, title: "เครื่องมือวิเคราะห์สถิติ", desc: "ดูข้อมูลเชิงลึกและประสิทธิภาพของกิจกรรมที่คุณจัด" },
+    { icon: ShieldCheck, title: "ออกเกียรติบัตรอัตโนมัติ", desc: "ระบบสร้างและแจกจ่ายเกียรติบัตรออนไลน์ให้ผู้ผ่านกิจกรรม" },
+]
+
+type FormState = "idle" | "loading" | "success"
+
+function inputCls(error?: string) {
+    return `w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-colors ${
+        error ? "border-red-300 focus:ring-red-500 bg-red-50" : "border-slate-200 focus:ring-indigo-500 bg-white"
+    }`
+}
+
+function Field({ label, required, error, children }: {
+    label: string; required?: boolean; error?: string; children: React.ReactNode
+}) {
+    return (
+        <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                {label} {required && <span className="text-red-500">*</span>}
+            </label>
+            {children}
+            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+        </div>
+    )
+}
 
 export default function OrganizerRegisterPage() {
-    // ผู้พัฒนาระบบสามารถเปลี่ยน Link Google Form ตรงนี้ได้เลย
-    const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdEiU9QXVovewJUFT0tcio8ASZ4v5v3Zm8kxASTV_yyJQzxRw/viewform?usp=publish-editor"
+    const [form, setForm] = useState({ name: "", email: "", phone: "", department: "", reason: "", experience: "" })
+    const [errors, setErrors] = useState<Record<string, string>>({})
+    const [state, setState] = useState<FormState>("idle")
+    const [serverError, setServerError] = useState("")
 
-    const benefits = [
-        {
-            icon: <CalendarPlus className="w-6 h-6 text-indigo-500" />,
-            title: "สร้างและจัดการกิจกรรม",
-            description: "ระบบดูแลการจัดการกิจกรรมครบวงจรตั้งแต่เริ่มจนจบ"
-        },
-        {
-            icon: <Users className="w-6 h-6 text-blue-500" />,
-            title: "ระบบจัดการผู้เข้าร่วมที่รวดเร็ว",
-            description: "เช็คอินด้วย QR Code และติดตามสถานะผู้เข้าร่วมเรียลไทม์"
-        },
-        {
-            icon: <Zap className="w-6 h-6 text-amber-500" />,
-            title: "เครื่องมือวิเคราะห์สถิติ",
-            description: "ดูข้อมูลเชิงลึกและประสิทธิภาพของกิจกรรมที่คุณจัด"
-        },
-        {
-            icon: <ShieldCheck className="w-6 h-6 text-emerald-500" />,
-            title: "ออกเกียรติบัตรอัตโนมัติ",
-            description: "ระบบสร้างและแจกจ่ายเกียรติบัตรออนไลน์ให้ผู้ผ่านกิจกรรม"
-        }
-    ]
+    function set(field: string, value: string) {
+        setForm((prev) => ({ ...prev, [field]: value }))
+        setErrors((prev) => ({ ...prev, [field]: "" }))
+    }
 
-    const steps = [
-        {
-            icon: <ClipboardList className="w-5 h-5 text-indigo-600" />,
-            title: "กรอกแบบฟอร์มลงทะเบียน",
-            description: "ให้ข้อมูลเบื้องต้นและรายละเอียดหน่วยงานของคุณผ่าน Google Form"
-        },
-        {
-            icon: <Clock className="w-5 h-5 text-indigo-600" />,
-            title: "รอการตรวจสอบ",
-            description: "ผู้ดูแลระบบจะใช้เวลา 1-2 วันทำการในการตรวจสอบข้อมูลของคุณ"
-        },
-        {
-            icon: <Mail className="w-5 h-5 text-indigo-600" />,
-            title: "รับอีเมลยืนยัน",
-            description: "เมื่อผ่านการอนุมัติ คุณจะได้รับอีเมลพร้อมรหัสผ่านเพื่อเข้าสู่ระบบ"
-        },
-        {
-            icon: <CheckCircle2 className="w-5 h-5 text-indigo-600" />,
-            title: "เริ่มต้นใช้งานได้ทันที",
-            description: "เข้าสู่ระบบและเริ่มสร้างสรรค์กิจกรรมแรกของคุณได้เลย!"
+    function validate() {
+        const e: Record<string, string> = {}
+        if (!form.name.trim()) e.name = "กรุณากรอกชื่อ-นามสกุล"
+        if (!form.email.trim()) e.email = "กรุณากรอกอีเมล"
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "รูปแบบอีเมลไม่ถูกต้อง"
+        if (!form.phone.trim()) e.phone = "กรุณากรอกเบอร์โทรศัพท์"
+        if (!form.department.trim()) e.department = "กรุณากรอกสังกัด/หน่วยงาน"
+        if (!form.reason.trim()) e.reason = "กรุณากรอกเหตุผล"
+        else if (form.reason.trim().length < 20) e.reason = "กรุณากรอกเหตุผลอย่างน้อย 20 ตัวอักษร"
+        return e
+    }
+
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault()
+        const errs = validate()
+        if (Object.keys(errs).length > 0) { setErrors(errs); return }
+        setState("loading")
+        setServerError("")
+        try {
+            await organizerRequestsAPI.submit({
+                name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim(),
+                department: form.department.trim(), reason: form.reason.trim(),
+                experience: form.experience.trim() || undefined,
+            })
+            setState("success")
+        } catch (err) {
+            setServerError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด กรุณาลองใหม่")
+            setState("idle")
         }
-    ]
+    }
+
+    if (state === "success") {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-10 max-w-md w-full text-center">
+                    <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-3">ส่งคำขอสำเร็จแล้ว!</h2>
+                    <p className="text-slate-500 mb-2 leading-relaxed">ทีมงานจะตรวจสอบข้อมูลและแจ้งผลผ่านทางอีเมล</p>
+                    <p className="text-indigo-600 font-semibold mb-8">{form.email}</p>
+                    <div className="bg-slate-50 rounded-2xl p-4 mb-8 text-left space-y-3">
+                        {[
+                            { icon: Clock, text: "รอผล 1-2 วันทำการ" },
+                            { icon: Mail, text: "รับอีเมลแจ้งผลพร้อม credentials" },
+                            { icon: CheckCircle2, text: "เข้าสู่ระบบและเริ่มสร้างกิจกรรมได้เลย" },
+                        ].map(({ icon: Icon, text }) => (
+                            <div key={text} className="flex items-center gap-3 text-sm text-slate-600">
+                                <Icon className="w-4 h-4 text-indigo-500 shrink-0" />
+                                {text}
+                            </div>
+                        ))}
+                    </div>
+                    <Link href="/auth" className="block w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-center">
+                        กลับหน้าเข้าสู่ระบบ
+                    </Link>
+                </div>
+            </div>
+        )
+    }
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC] py-12 px-4 sm:px-6 lg:px-8 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+        <div className="min-h-screen bg-slate-50 py-10 px-4">
             <div className="max-w-5xl mx-auto">
-
-                {/* Header / Nav */}
-                <div className="mb-8">
-                    <Link
-                        href="/auth/organizer"
-                        className="inline-flex items-center text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200 hover:border-indigo-200"
-                    >
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        ย้อนกลับไปหน้าเข้าสู่ระบบ
+                <div className="mb-6">
+                    <Link href="/auth" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200">
+                        <ArrowLeft className="w-4 h-4" /> ย้อนกลับ
                     </Link>
                 </div>
 
-                {/* Main Content Area */}
-                <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
-                    <div className="grid lg:grid-cols-5 min-h-[600px]">
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div className="grid lg:grid-cols-5">
 
-                        {/* Left Side: Hero Information */}
-                        <div className="lg:col-span-3 p-10 lg:p-14 bg-gradient-to-br from-indigo-50 to-white relative overflow-hidden">
-                            {/* Decorative background blooms */}
-                            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-indigo-100/50 mix-blend-multiply blur-3xl pointer-events-none"></div>
-                            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-blue-100/50 mix-blend-multiply blur-3xl pointer-events-none"></div>
-
+                        {/* Left */}
+                        <div className="lg:col-span-2 p-10 bg-gradient-to-br from-indigo-600 to-violet-700 relative overflow-hidden">
+                            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 70% 20%, white 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
                             <div className="relative z-10">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-black uppercase tracking-wider mb-6">
-                                    <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-                                    </span>
-                                    เปิดรับสมัคร Organizer
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold uppercase tracking-wider mb-6">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                    เปิดรับสมัคร
                                 </div>
-                                <h1 className="text-4xl lg:text-5xl font-black text-slate-900 mb-6 leading-[1.15] tracking-tight">
-                                    ยกระดับการจัดกิจกรรม <br />
-                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-500">
-                                        แบบมืออาชีพ
-                                    </span>
+                                <h1 className="text-3xl font-black text-white mb-4 leading-tight">
+                                    สมัครเป็น<br />ผู้จัดกิจกรรม
                                 </h1>
-                                <p className="text-lg text-slate-600 font-medium mb-12 max-w-xl leading-relaxed">
-                                    ร่วมเป็นส่วนหนึ่งในฐานะผู้จัดกิจกรรมของวิทยาลัยการคอมพิวเตอร์ เพื่อเข้าถึงเครื่องมือจัดการที่ครบครัน และสร้างสรรค์ประสบการณ์ที่ดีให้กับผู้เข้าร่วม
+                                <p className="text-indigo-200 text-sm leading-relaxed mb-10">
+                                    กรอกข้อมูลด้านขวา ทีมงานจะตรวจสอบและแจ้งผลพร้อม credentials ทางอีเมล
                                 </p>
-
-                                <div className="grid sm:grid-cols-2 gap-x-6 gap-y-8 mt-12">
-                                    {benefits.map((benefit, idx) => (
-                                        <div key={idx} className="flex gap-4">
-                                            <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-white shadow-sm border border-slate-100 flex items-center justify-center">
-                                                {benefit.icon}
+                                <div className="space-y-5">
+                                    {benefits.map(({ icon: Icon, title, desc }) => (
+                                        <div key={title} className="flex gap-3">
+                                            <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+                                                <Icon className="w-4 h-4 text-white" />
                                             </div>
                                             <div>
-                                                <h3 className="font-bold text-slate-900 mb-1 leading-snug">{benefit.title}</h3>
-                                                <p className="text-sm text-slate-500 leading-relaxed font-medium">{benefit.description}</p>
+                                                <div className="text-white font-semibold text-sm">{title}</div>
+                                                <div className="text-indigo-300 text-xs leading-relaxed mt-0.5">{desc}</div>
                                             </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="mt-10 pt-8 border-t border-white/20 space-y-3">
+                                    {[
+                                        { icon: ClipboardList, text: "กรอกแบบฟอร์ม" },
+                                        { icon: Clock, text: "รอการตรวจสอบ 1-2 วันทำการ" },
+                                        { icon: Mail, text: "รับ credentials ทางอีเมล" },
+                                    ].map(({ icon: Icon, text }) => (
+                                        <div key={text} className="flex items-center gap-2.5 text-sm text-indigo-200">
+                                            <Icon className="w-4 h-4 text-indigo-300" />
+                                            {text}
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         </div>
 
-                        {/* Right Side: Process and CTA */}
-                        <div className="lg:col-span-2 p-10 lg:p-14 bg-white border-l border-slate-100 flex flex-col justify-center">
-                            <h2 className="text-2xl font-black text-slate-900 mb-8">ขั้นตอนการสมัคร</h2>
+                        {/* Right — Form */}
+                        <div className="lg:col-span-3 p-10">
+                            <h2 className="text-xl font-bold text-slate-900 mb-1">กรอกข้อมูลการสมัคร</h2>
+                            <p className="text-sm text-slate-500 mb-8">ช่องที่มี <span className="text-red-500">*</span> จำเป็นต้องกรอก</p>
 
-                            <div className="space-y-8 relative before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
-                                {steps.map((step, idx) => (
-                                    <div key={idx} className="relative flex items-start gap-4">
-                                        <div className="absolute left-0 w-[24px] h-[24px] rounded-full bg-indigo-50 border-[4px] border-white shadow-sm flex items-center justify-center z-10 ring-1 ring-slate-200 ring-offset-2 ring-offset-white">
-                                            <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-                                        </div>
-                                        <div className="pl-10">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                {step.icon}
-                                                <h4 className="font-bold text-slate-800 text-sm">{step.title}</h4>
-                                            </div>
-                                            <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                                                {step.description}
-                                            </p>
-                                        </div>
+                            <form onSubmit={handleSubmit} className="space-y-5">
+                                <Field label="ชื่อ-นามสกุล" required error={errors.name}>
+                                    <input type="text" placeholder="สมชาย ใจดี" value={form.name}
+                                        onChange={(e) => set("name", e.target.value)} className={inputCls(errors.name)} />
+                                </Field>
+
+                                <Field label="อีเมล" required error={errors.email}>
+                                    <input type="email" placeholder="example@kkumail.com" value={form.email}
+                                        onChange={(e) => set("email", e.target.value)} className={inputCls(errors.email)} />
+                                </Field>
+
+                                <Field label="เบอร์โทรศัพท์" required error={errors.phone}>
+                                    <input type="tel" placeholder="0812345678" value={form.phone}
+                                        onChange={(e) => set("phone", e.target.value)} className={inputCls(errors.phone)} />
+                                </Field>
+
+                                <Field label="สังกัด / หน่วยงาน" required error={errors.department}>
+                                    <input type="text" placeholder="สโมสรนักศึกษาวิทยาลัยการคอมพิวเตอร์" value={form.department}
+                                        onChange={(e) => set("department", e.target.value)} className={inputCls(errors.department)} />
+                                </Field>
+
+                                <Field label="เหตุผลที่ต้องการเป็น Organizer" required error={errors.reason}>
+                                    <textarea rows={3} placeholder="อธิบายวัตถุประสงค์และประเภทกิจกรรมที่ต้องการจัด..."
+                                        value={form.reason} onChange={(e) => set("reason", e.target.value)}
+                                        className={inputCls(errors.reason) + " resize-none"} />
+                                    <p className="text-xs text-slate-400 mt-1">{form.reason.length} ตัวอักษร (ขั้นต่ำ 20)</p>
+                                </Field>
+
+                                <Field label="ประสบการณ์การจัดกิจกรรม (ถ้ามี)">
+                                    <textarea rows={2} placeholder="เคยจัดกิจกรรมอะไรมาบ้าง..."
+                                        value={form.experience} onChange={(e) => set("experience", e.target.value)}
+                                        className={inputCls() + " resize-none"} />
+                                </Field>
+
+                                {serverError && (
+                                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600">
+                                        {serverError}
                                     </div>
-                                ))}
-                            </div>
+                                )}
 
-                            <div className="mt-12 pt-8 border-t border-slate-100">
-                                <Link href={GOOGLE_FORM_URL} target="_blank" rel="noopener noreferrer" className="block w-full">
-                                    <Button className="w-full h-14 bg-indigo-600 hover:bg-slate-900 text-white rounded-2xl font-bold text-lg shadow-xl shadow-indigo-200 transition-all hover:-translate-y-1 flex items-center justify-center gap-3">
-                                        <FileText className="w-5 h-5" />
-                                        ไปที่ฟอร์มลงทะเบียน
-                                        <ExternalLink className="w-4 h-4 ml-1 opacity-70" />
-                                    </Button>
-                                </Link>
-                                <p className="text-center text-xs text-slate-400 font-medium mt-4">
-                                    ลิงก์จะพาคุณไปยัง Google Form เพื่อกรอกข้อมูล
-                                </p>
-                            </div>
+                                <button type="submit" disabled={state === "loading"}
+                                    className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
+                                    {state === "loading"
+                                        ? <><Loader2 className="w-4 h-4 animate-spin" /> กำลังส่ง...</>
+                                        : <><Send className="w-4 h-4" /> ส่งคำขอ</>}
+                                </button>
+                            </form>
                         </div>
-
                     </div>
                 </div>
-
             </div>
         </div>
     )

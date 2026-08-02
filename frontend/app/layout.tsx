@@ -11,7 +11,7 @@ const kanit = Kanit({
 });
 
 export const metadata: Metadata = {
-  title: "CP Check — ระบบจัดการกิจกรรม",
+  title: "Comp Active — ระบบจัดการกิจกรรม",
   description: "ระบบจัดการกิจกรรมนอกหลักสูตร วิทยาลัยการคอมพิวเตอร์",
 };
 

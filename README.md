@@ -1,9 +1,6 @@
-<<<<<<< HEAD
-# CP_Check
-=======
-# CP Check — Activity Management & Soft Skills Tracking System
+# Comp Active — Activity Management & Soft Skills Tracking System
 
-CP Check is an enterprise-grade platform built for managing extracurricular activities and systematically tracking student soft skill development. The system supports collaboration between students, organizers, and administrators through a modern UI and a high-performance backend.
+Comp Active is an enterprise-grade platform built for managing extracurricular activities and systematically tracking student soft skill development. The system supports collaboration between students, organizers, and administrators through a modern UI and a high-performance backend.
 
 ---
 
@@ -16,7 +13,7 @@ CP Check is an enterprise-grade platform built for managing extracurricular acti
 | Language | TypeScript |
 | Database | PostgreSQL 14+ |
 | ORM | Prisma 7 |
-| Authentication | Passport.js — JWT + Google OAuth 2.0 |
+| Authentication | Passport.js — JWT |
 | Password Hashing | bcryptjs |
 | Email | Nodemailer (SMTP) |
 | API Docs | Swagger / OpenAPI (built-in) |
@@ -116,7 +113,7 @@ Create `backend/.env`:
 ```env
 PORT=3001
 NODE_ENV=development
-DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/cpcheck_db"
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/compactive_db"
 JWT_SECRET=your-super-secret-jwt-key
 JWT_EXPIRES_IN=7d
 FRONTEND_URL=http://localhost:3000
@@ -134,7 +131,7 @@ SMTP_FROM=no-reply@cpc.kku.ac.th
 cd backend
 
 # Create the database (run once)
-psql -U postgres -h localhost -c "CREATE DATABASE cpcheck_db;"
+psql -U postgres -h localhost -c "CREATE DATABASE compactive_db;"
 
 # Push Prisma schema to database
 npx prisma db push
@@ -155,7 +152,7 @@ cd frontend && npm run dev
 ## Project Structure
 
 ```
-CP_Check/
+Comp_Active/
 ├── backend/                        # NestJS Application
 │   ├── prisma/
 │   │   └── schema.prisma           # Database schema & models
@@ -163,7 +160,9 @@ CP_Check/
 │   │   └── prisma/                 # Auto-generated Prisma client
 │   └── src/
 │       ├── prisma/                 # PrismaService & PrismaModule
-│       ├── auth/                   # JWT strategy, login, register, OTP
+│       ├── auth/                   # JWT strategy, login, register, admin invite accept
+│       ├── admin-invites/          # Admin-invites-a-new-admin flow
+│       ├── organizer-requests/     # Organizer application + approval flow
 │       ├── users/                  # User profile management
 │       ├── activities/             # Activity CRUD & approval flow
 │       ├── registrations/          # Registration, check-in, attendance
@@ -171,10 +170,15 @@ CP_Check/
 │       ├── certificates/           # Certificate issuance
 │       ├── admin/                  # Admin dashboard & stats
 │       ├── mail/                   # Email notification service
-│       └── common/                 # Guards, decorators, enums, filters
+│       ├── seed/                   # First-admin bootstrap on app start
+│       └── common/                 # Guards, decorators, enums, utils, constants
 └── frontend/                       # Next.js Application
+    ├── proxy.ts                    # Admin-subdomain rewrite/isolation
     ├── app/
-    │   ├── auth/                   # Login / Register pages
+    │   ├── auth/                   # Student/organizer login + register
+    │   ├── admin/
+    │   │   ├── (public)/           # Admin login, invite-accept — no guard
+    │   │   └── (dashboard)/        # Guarded admin panel
     │   ├── events/                 # Public activity listing
     │   ├── organizer/              # Organizer dashboard
     │   └── student/                # Student dashboard & profile
@@ -227,4 +231,3 @@ npx prisma db push --force-reset
 # Open Prisma Studio (GUI)
 npx prisma studio
 ```
->>>>>>> main

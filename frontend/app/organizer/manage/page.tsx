@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { activitiesAPI, Activity } from "@/lib/api"
+import { activitiesAPI, Activity, API_BASE_URL } from "@/lib/api"
 
 // Using Activity from @/lib/api
 
@@ -121,7 +121,7 @@ export default function OrganizerManagePage() {
                   <div className="h-48 relative overflow-hidden bg-gray-200">
                     {event.imageUrl ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={`http://localhost:3001${event.imageUrl}`} alt={event.name} className="w-full h-full object-cover" />
+                      <img src={`${API_BASE_URL}${event.imageUrl}`} alt={event.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-purple-500 to-pink-600"></div>
                     )}

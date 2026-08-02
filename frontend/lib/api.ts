@@ -1,6 +1,6 @@
 // lib/api.ts — API Client สำหรับเชื่อมกับ Backend (NestJS)
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // ==================== TYPES ====================
 
@@ -10,6 +10,8 @@ export interface User {
   email: string;
   role: "student" | "organizer" | "admin";
   studentId?: string;
+  username?: string | null;
+  validUntil?: string | null;
   isBlocked?: boolean;
   createdAt?: string;
 }
@@ -98,17 +100,26 @@ export const authAPI = {
     name: string;
     email: string;
     password: string;
-    role: string;
     studentId?: string;
-    googleId?: string;
   }) => fetchAPI<AuthResponse>('/api/auth/register', { method: 'POST', body: JSON.stringify(body) }),
 
-  login: (body: { email: string; password: string }) =>
+  // identifier: email (student) or username (organizer)
+  login: (body: { identifier: string; password: string }) =>
     fetchAPI<AuthResponse>('/api/auth/login', { method: 'POST', body: JSON.stringify(body) }),
 
-  getProfile: () => fetchAPI<User>('/api/auth/profile'),
+  adminLogin: (body: { email: string; password: string }) =>
+    fetchAPI<AuthResponse>('/api/auth/admin/login', { method: 'POST', body: JSON.stringify(body) }),
 
-  googleLoginUrl: () => `${API_BASE_URL}/api/auth/google`,
+  getAdminInvite: (token: string) =>
+    fetchAPI<{ email: string; expiresAt: string }>(`/api/auth/admin/invite/${encodeURIComponent(token)}`),
+
+  acceptAdminInvite: (token: string, password: string) =>
+    fetchAPI<{ message: string }>('/api/auth/admin/invite/accept', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    }),
+
+  getProfile: () => fetchAPI<User>('/api/auth/profile'),
 };
 
 // ==================== USERS ====================
@@ -127,6 +138,8 @@ export const usersAPI = {
       '/api/users/generate-password',
       { method: 'POST', body: JSON.stringify({ email }) },
     ),
+  extendValidity: (id: number, validDays: number) =>
+    fetchAPI<User>(`/api/users/${id}/extend`, { method: 'PATCH', body: JSON.stringify({ validDays }) }),
   deleteUser: (id: number) => fetchAPI(`/api/users/${id}`, { method: 'DELETE' }),
 };
 
@@ -241,4 +254,66 @@ export const certificatesAPI = {
 
 export const adminAPI = {
   getDashboardStats: () => fetchAPI('/api/admin/dashboard/stats'),
+};
+
+// ==================== ORGANIZER REQUESTS ====================
+
+export interface OrganizerRequest {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  department: string;
+  reason: string;
+  experience?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+  createdAt: string;
+}
+
+export const organizerRequestsAPI = {
+  submit: (body: {
+    name: string;
+    email: string;
+    phone: string;
+    department: string;
+    reason: string;
+    experience?: string;
+  }) => fetchAPI<OrganizerRequest>('/api/organizer-requests', { method: 'POST', body: JSON.stringify(body) }),
+
+  getAll: (status?: string) => {
+    const q = status ? `?status=${status}` : '';
+    return fetchAPI<OrganizerRequest[]>(`/api/organizer-requests${q}`);
+  },
+
+  approve: (id: number, validDays: number) =>
+    fetchAPI<{ message: string; emailSent: boolean }>(`/api/organizer-requests/${id}/approve`, {
+      method: 'PATCH',
+      body: JSON.stringify({ validDays }),
+    }),
+
+  reject: (id: number, reason: string) =>
+    fetchAPI(`/api/organizer-requests/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
+
+  getPendingCount: () =>
+    fetchAPI<number>('/api/organizer-requests/pending-count'),
+};
+
+// ==================== ADMIN INVITES ====================
+
+export interface AdminInvite {
+  id: number;
+  email: string;
+  status: 'pending' | 'accepted' | 'revoked';
+  expiresAt: string;
+  acceptedAt?: string | null;
+  createdAt: string;
+  invitedBy?: { id: number; name: string; email: string } | null;
+}
+
+export const adminInvitesAPI = {
+  create: (email: string) =>
+    fetchAPI<AdminInvite>('/api/admin/invites', { method: 'POST', body: JSON.stringify({ email }) }),
+  getAll: () => fetchAPI<AdminInvite[]>('/api/admin/invites'),
+  revoke: (id: number) => fetchAPI(`/api/admin/invites/${id}/revoke`, { method: 'PATCH' }),
 };
