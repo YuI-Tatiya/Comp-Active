@@ -6,8 +6,8 @@ async function main() {
   const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
   const prisma = new (PrismaClient as any)({ adapter });
 
-  const email = process.env.ADMIN_EMAIL;
   const password = process.env.ADMIN_PASSWORD;
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
 
   if (!email || !password) {
     throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be set in .env');

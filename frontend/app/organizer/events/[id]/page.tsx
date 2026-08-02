@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Edit, CheckSquare, Download } from "lucide-react"
 import Link from "next/link"
-import { activitiesAPI, evaluationsAPI, registrationsAPI, Activity } from "@/lib/api"
+import { activitiesAPI, evaluationsAPI, registrationsAPI, Activity, API_BASE_URL } from "@/lib/api"
 
 interface Participant {
     id: number;
@@ -218,8 +218,8 @@ export default function OrganizerEventDetailsPage() {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50 flex-col gap-4">
                 <div className="text-red-500 font-medium">{error || "ไม่พบข้อมูลกิจกรรม"}</div>
-                <Link href="/organizer/events">
-                    <Button variant="outline">กลับไปหน้าค้นหากิจกรรม</Button>
+                <Link href="/organizer/manage">
+                    <Button variant="outline">กลับไปหน้าจัดการกิจกรรม</Button>
                 </Link>
             </div>
         )
@@ -254,7 +254,7 @@ export default function OrganizerEventDetailsPage() {
                         <div className="aspect-video w-full bg-gray-200 rounded-xl overflow-hidden relative">
                             {event.imageUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={`http://localhost:3001${event.imageUrl}`} alt={event.name} className="w-full h-full object-cover" />
+                                <img src={`${API_BASE_URL}${event.imageUrl}`} alt={event.name} className="w-full h-full object-cover" />
                             ) : (
                                 <div className="absolute inset-0 flex items-center justify-center text-white bg-gradient-to-br from-blue-500 to-purple-600">
                                     <span className="text-2xl font-bold opacity-50">{event.category}</span>

@@ -42,7 +42,6 @@ export function RegisterForm() {
                 name,
                 email,
                 password,
-                role: "student",
                 ...(studentId ? { studentId } : {}),
             })
         } catch (err) {
@@ -83,10 +82,10 @@ export function RegisterForm() {
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="register-email">อีเมล</Label>
+                <Label htmlFor="register-email">อีเมล (ต้องใช้ @kkumail.com เท่านั้น)</Label>
                 <div className="relative">
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input id="register-email" type="email" placeholder="your.email@example.com" className="pl-10"
+                    <Input id="register-email" type="email" placeholder="your.name@kkumail.com" className="pl-10"
                         value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
                 </div>
             </div>

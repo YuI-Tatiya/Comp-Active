@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Gift } from "lucide-react"
 import Link from "next/link"
-import { activitiesAPI, Activity, Tag as TagType, Condition, Benefit } from "@/lib/api"
+import { activitiesAPI, Activity, Tag as TagType, Condition, Benefit, API_BASE_URL } from "@/lib/api"
 
 export default function PublicEventDetailsPage() {
     const params = useParams()
@@ -125,7 +125,7 @@ export default function PublicEventDetailsPage() {
                         <div className="aspect-video w-full bg-slate-900 rounded-[24px] overflow-hidden relative shadow-md">
                             {event.imageUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={`http://localhost:3001${event.imageUrl}`} alt={event.name} className="w-full h-full object-cover" />
+                                <img src={`${API_BASE_URL}${event.imageUrl}`} alt={event.name} className="w-full h-full object-cover" />
                             ) : (
                                 <div className="absolute inset-0 flex items-center justify-center text-white/50 bg-gradient-to-br from-slate-800 to-slate-900 text-lg font-medium">
                                     ไม่มีรูปภาพ

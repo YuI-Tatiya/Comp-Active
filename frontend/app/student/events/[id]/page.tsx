@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Gift, CheckSquare } from "lucide-react"
 import Link from "next/link"
-import { activitiesAPI, registrationsAPI, Activity, Tag as TagType, Condition, Benefit } from "@/lib/api"
+import { activitiesAPI, registrationsAPI, Activity, Tag as TagType, Condition, Benefit, API_BASE_URL } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 
 // Local types removed, using Activity from @/lib/api
@@ -36,14 +36,7 @@ export default function EventDetailsPage() {
         }
     }, [params.id])
 
-    // Auto-open register dialog if ?register=true
-    useEffect(() => {
-        if (!loading && event && searchParams.get('register') === 'true') {
-            openRegisterDialog()
-        }
-    }, [loading, event, searchParams])
-
-    const openRegisterDialog = () => {
+    const openRegisterDialog = useCallback(() => {
         // Pre-fill with profile data
         setRegisterForm({
             name: user?.name || '',
@@ -52,7 +45,14 @@ export default function EventDetailsPage() {
         })
         setFormError("")
         setIsRegisterOpen(true)
-    }
+    }, [user])
+
+    // Auto-open register dialog if ?register=true
+    useEffect(() => {
+        if (!loading && event && searchParams.get('register') === 'true') {
+            openRegisterDialog()
+        }
+    }, [loading, event, searchParams, openRegisterDialog])
 
     const fetchEventDetails = async (id: number) => {
         try {
@@ -154,7 +154,7 @@ export default function EventDetailsPage() {
                         <div className="aspect-video w-full bg-gray-200 rounded-xl overflow-hidden relative">
                             {event.imageUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={`http://localhost:3001${event.imageUrl}`} alt={event.name} className="w-full h-full object-cover" />
+                                <img src={`${API_BASE_URL}${event.imageUrl}`} alt={event.name} className="w-full h-full object-cover" />
                             ) : (
                                 <div className="absolute inset-0 flex items-center justify-center text-white bg-gradient-to-br from-blue-500 to-purple-600">
                                     ไม่มีรูปภาพ

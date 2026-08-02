@@ -4,12 +4,12 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Mail, Lock, Loader2 } from "lucide-react"
+import { User, Lock, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 
 export function LoginForm() {
     const { login } = useAuth()
-    const [email, setEmail] = useState("")
+    const [identifier, setIdentifier] = useState("")
     const [password, setPassword] = useState("")
     const [error, setError] = useState("")
     const [loading, setLoading] = useState(false)
@@ -18,14 +18,14 @@ export function LoginForm() {
         e.preventDefault()
         setError("")
 
-        if (!email || !password) {
-            setError("กรุณากรอกอีเมลและรหัสผ่าน")
+        if (!identifier || !password) {
+            setError("กรุณากรอกอีเมล/Username และรหัสผ่าน")
             return
         }
 
         setLoading(true)
         try {
-            await login(email, password)
+            await login(identifier, password)
         } catch (err) {
             const message = err instanceof Error ? err.message : "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบข้อมูล"
             setError(message)
@@ -43,16 +43,16 @@ export function LoginForm() {
             )}
 
             <div className="space-y-2">
-                <Label htmlFor="email">อีเมล</Label>
+                <Label htmlFor="identifier">อีเมล (นักศึกษา) หรือ Username (ผู้จัดกิจกรรม)</Label>
                 <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <Input
-                        id="email"
-                        type="email"
-                        placeholder="your.email@example.com"
+                        id="identifier"
+                        type="text"
+                        placeholder="your.email@kkumail.com หรือ username"
                         className="pl-10"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        value={identifier}
+                        onChange={(e) => setIdentifier(e.target.value)}
                         disabled={loading}
                     />
                 </div>
@@ -70,9 +70,6 @@ export function LoginForm() {
                         onChange={(e) => setPassword(e.target.value)}
                         disabled={loading}
                     />
-                </div>
-                <div className="flex justify-end">
-                    <a href="#" className="text-xs text-blue-600 hover:text-blue-800">ลืมรหัสผ่าน?</a>
                 </div>
             </div>
             <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>

@@ -10,16 +10,16 @@ interface AuthContextType {
     user: User | null
     token: string | null
     isLoading: boolean
-    login: (email: string, password: string) => Promise<void>
+    login: (identifier: string, password: string) => Promise<void>
+    adminLogin: (email: string, password: string) => Promise<void>
     register: (data: RegisterData) => Promise<void>
-    logout: () => void
+    logout: () => Promise<void>
 }
 
 interface RegisterData {
     name: string
     email: string
     password: string
-    role: string
     studentId?: string
 }
 
@@ -82,8 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }
 
-    async function login(email: string, password: string) {
-        const res = await authAPI.login({ email, password })
+    async function login(identifier: string, password: string) {
+        const res = await authAPI.login({ identifier, password })
         const accessToken = res.accessToken
         setToken(accessToken)
         localStorage.setItem("token", accessToken)
@@ -96,6 +96,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(profile)
             redirectByRole(profile.role)
         }
+    }
+
+    // Separate from login(): admin accounts only ever authenticate through the
+    // admin subdomain, and always land at its root ("/", rewritten to /admin by middleware).
+    async function adminLogin(email: string, password: string) {
+        const res = await authAPI.adminLogin({ email, password })
+        const accessToken = res.accessToken
+        setToken(accessToken)
+        localStorage.setItem("token", accessToken)
+        if (res.user) {
+            setUser(res.user)
+        } else {
+            setUser(await authAPI.getProfile())
+        }
+        router.push("/")
     }
 
     async function register(data: RegisterData) {
@@ -113,15 +128,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }
 
-    function logout() {
+    async function logout() {
         setUser(null)
         setToken(null)
         localStorage.removeItem("token")
+        await new Promise((r) => setTimeout(r, 400))
         router.push("/")
     }
 
     return (
-        <AuthContext.Provider value={{ user, token, isLoading, login, register, logout }}>
+        <AuthContext.Provider value={{ user, token, isLoading, login, adminLogin, register, logout }}>
             {children}
         </AuthContext.Provider>
     )

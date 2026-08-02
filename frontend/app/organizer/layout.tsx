@@ -46,6 +46,7 @@ export default function OrganizerLayout({
               <Link href="/organizer/create" className={`pb-1 transition-colors ${isActive('/organizer/create') ? 'text-blue-600 font-bold border-b-2 border-blue-600' : 'text-gray-600 font-medium hover:text-blue-600'}`}>สร้างกิจกรรม</Link>
               <Link href="/organizer/dashboard" className={`pb-1 transition-colors ${isActive('/organizer/dashboard') ? 'text-blue-600 font-bold border-b-2 border-blue-600' : 'text-gray-600 font-medium hover:text-blue-600'}`}>แดชบอร์ด</Link>
               <Link href="/organizer/about" className={`pb-1 transition-colors ${isActive('/organizer/about') ? 'text-blue-600 font-bold border-b-2 border-blue-600' : 'text-gray-600 font-medium hover:text-blue-600'}`}>เกี่ยวกับเรา</Link>
+              <Link href="/organizer/settings" className={`pb-1 transition-colors ${isActive('/organizer/settings') ? 'text-blue-600 font-bold border-b-2 border-blue-600' : 'text-gray-600 font-medium hover:text-blue-600'}`}>ตั้งค่า</Link>
 
               <div className="bg-orange-50 text-orange-600 px-5 py-1.5 rounded-full text-xs font-bold ring-1 ring-orange-200 uppercase tracking-widest flex items-center gap-2">
                 ผู้จัดกิจกรรม <span className="font-normal opacity-70">({user?.name || "ผู้ใช้งาน"})</span>
