@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { CheckCircle, XCircle, Clock, User, Mail, Phone, Building2, FileText, ChevronDown, ChevronUp, Loader2, X } from "lucide-react"
 import { organizerRequestsAPI, OrganizerRequest } from "@/lib/api"
 
@@ -36,9 +36,7 @@ export default function OrganizerRequestsPage() {
     const [validDays, setValidDays] = useState(DEFAULT_VALID_DAYS)
     const [submitting, setSubmitting] = useState(false)
 
-    useEffect(() => { loadRequests() }, [filter])
-
-    async function loadRequests() {
+    const loadRequests = useCallback(async () => {
         setLoading(true)
         try {
             const data = await organizerRequestsAPI.getAll(filter === "all" ? undefined : filter)
@@ -48,7 +46,9 @@ export default function OrganizerRequestsPage() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [filter])
+
+    useEffect(() => { loadRequests() }, [loadRequests])
 
     async function confirmApprove() {
         if (!modal || modal.type !== "approve-confirm") return

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -36,14 +36,7 @@ export default function EventDetailsPage() {
         }
     }, [params.id])
 
-    // Auto-open register dialog if ?register=true
-    useEffect(() => {
-        if (!loading && event && searchParams.get('register') === 'true') {
-            openRegisterDialog()
-        }
-    }, [loading, event, searchParams])
-
-    const openRegisterDialog = () => {
+    const openRegisterDialog = useCallback(() => {
         // Pre-fill with profile data
         setRegisterForm({
             name: user?.name || '',
@@ -52,7 +45,14 @@ export default function EventDetailsPage() {
         })
         setFormError("")
         setIsRegisterOpen(true)
-    }
+    }, [user])
+
+    // Auto-open register dialog if ?register=true
+    useEffect(() => {
+        if (!loading && event && searchParams.get('register') === 'true') {
+            openRegisterDialog()
+        }
+    }, [loading, event, searchParams, openRegisterDialog])
 
     const fetchEventDetails = async (id: number) => {
         try {

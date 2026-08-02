@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { CheckCircle, XCircle, Clock, Eye, Calendar, MapPin, Users } from "lucide-react"
-import { activitiesAPI } from "@/lib/api"
+import { activitiesAPI, type Activity } from "@/lib/api"
 
 export default function AdminPendingActivitiesPage() {
-    const [activities, setActivities] = useState<any[]>([])
+    const [activities, setActivities] = useState<Activity[]>([])
     const [loading, setLoading] = useState(true)
-    const [selectedActivity, setSelectedActivity] = useState<any | null>(null)
+    const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
     const [rejectReason, setRejectReason] = useState("")
     const [showRejectModal, setShowRejectModal] = useState(false)
     const [rejectingId, setRejectingId] = useState<number | null>(null)
@@ -32,8 +32,8 @@ export default function AdminPendingActivitiesPage() {
         try {
             await activitiesAPI.approve(id)
             setActivities((prev) => prev.filter((a) => a.id !== id))
-        } catch (err: any) {
-            alert(err.message || "อนุมัติไม่สำเร็จ")
+        } catch (err) {
+            alert(err instanceof Error ? err.message : "อนุมัติไม่สำเร็จ")
         }
     }
 
@@ -42,8 +42,8 @@ export default function AdminPendingActivitiesPage() {
         try {
             await activitiesAPI.reject(rejectingId, rejectReason)
             setActivities((prev) => prev.filter((a) => a.id !== rejectingId))
-        } catch (err: any) {
-            alert(err.message || "ปฏิเสธไม่สำเร็จ")
+        } catch (err) {
+            alert(err instanceof Error ? err.message : "ปฏิเสธไม่สำเร็จ")
         }
         setShowRejectModal(false)
         setRejectReason("")

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Calendar, MapPin, Users, Activity } from "lucide-react"
-import { activitiesAPI } from "@/lib/api"
+import { activitiesAPI, type Activity as ActivityItem } from "@/lib/api"
 
 const approvalStyle: Record<string, { label: string; bg: string; color: string }> = {
     approved: { label: "อนุมัติแล้ว", bg: "rgba(63,160,172,0.12)", color: "#3fa0ac" },
@@ -11,7 +11,7 @@ const approvalStyle: Record<string, { label: string; bg: string; color: string }
 }
 
 export default function AdminAllActivitiesPage() {
-    const [activities, setActivities] = useState<any[]>([])
+    const [activities, setActivities] = useState<ActivityItem[]>([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => { loadActivities() }, [])
