@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
-  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { ActivitiesRepository } from './activities.repository';
@@ -111,28 +110,8 @@ export class ActivitiesService {
     this.logger.log(`Activity deleted: "${activity.name}" (ID: ${activityId})`);
   }
 
-  findPendingApproval() {
-    return this.activitiesRepository.findPendingApproval();
-  }
-
-  async approve(activityId: number) {
-    const activity = await this.activitiesRepository.approve(activityId);
-    this.logger.log(`Activity approved: "${activity.name}" (ID: ${activityId})`);
-    return activity;
-  }
-
-  async reject(activityId: number, reason: string) {
-    const activity = await this.activitiesRepository.reject(activityId, reason);
-    this.logger.log(`Activity rejected: "${activity.name}" (ID: ${activityId})`);
-    return activity;
-  }
-
   countAll() {
     return this.activitiesRepository.countAll();
-  }
-
-  countPending() {
-    return this.activitiesRepository.countPending();
   }
 
   async requestCancellation(activityId: number, organizerId: number, reason: string) {
@@ -142,30 +121,8 @@ export class ActivitiesService {
       throw new ForbiddenException('คุณไม่มีสิทธิ์ยกเลิกกิจกรรมนี้');
     }
 
-    if (
-      activity.registrations.length === 0 ||
-      activity.approvalStatus !== ApprovalStatus.APPROVED
-    ) {
-      return this.activitiesRepository.closeAndReject(activityId, reason);
-    }
-
-    const saved = await this.activitiesRepository.requestCancellation(activityId, reason);
-    this.logger.log(`Cancellation requested: "${activity.name}" (ID: ${activityId})`);
-    return saved;
-  }
-
-  findPendingCancellation() {
-    return this.activitiesRepository.findPendingCancellation();
-  }
-
-  async approveCancellation(activityId: number) {
-    const activity = await this.findById(activityId);
-    if (activity.approvalStatus !== ApprovalStatus.PENDING_CANCEL) {
-      throw new BadRequestException('กิจกรรมนี้ไม่ได้อยู่ระหว่างการขอรอยกเลิก');
-    }
-
-    const saved = await this.activitiesRepository.approveCancellation(activityId);
-    this.logger.log(`Cancellation approved by Admin: "${activity.name}" (ID: ${activityId})`);
+    const saved = await this.activitiesRepository.closeAndReject(activityId, reason);
+    this.logger.log(`Activity cancelled by organizer: "${activity.name}" (ID: ${activityId})`);
     return saved;
   }
 
@@ -180,11 +137,8 @@ export class ActivitiesService {
       (sum, a) => sum + a._count.registrations,
       0,
     );
-    const pendingApprovals = activities.filter(
-      (a) => a.approvalStatus === ApprovalStatus.PENDING,
-    ).length;
 
-    return { totalActivities, activeActivities, totalRegistrations, pendingApprovals };
+    return { totalActivities, activeActivities, totalRegistrations };
   }
 
   async getPlatformStats() {

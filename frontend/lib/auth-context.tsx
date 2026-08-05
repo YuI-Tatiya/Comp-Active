@@ -72,13 +72,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     function redirectByRole(role: string) {
         switch (role) {
             case "admin":
-                router.push("/admin")
+                router.replace("/admin")
                 break
             case "organizer":
-                router.push("/organizer")
+                router.replace("/organizer")
                 break
             default:
-                router.push("/student")
+                router.replace("/student")
         }
     }
 
@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
             setUser(await authAPI.getProfile())
         }
-        router.push("/")
+        router.replace("/")
     }
 
     async function register(data: RegisterData) {
@@ -133,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(null)
         localStorage.removeItem("token")
         await new Promise((r) => setTimeout(r, 400))
-        router.push("/")
+        router.replace("/")
     }
 
     return (

@@ -127,36 +127,8 @@ export class ActivitiesRepository {
     return this.prisma.activity.delete({ where: { id: activityId } });
   }
 
-  findPendingApproval() {
-    return this.prisma.activity.findMany({
-      where: { approvalStatus: ApprovalStatus.PENDING as any },
-      include: activityInclude,
-      orderBy: { createdAt: 'asc' },
-    });
-  }
-
-  approve(activityId: number) {
-    return this.prisma.activity.update({
-      where: { id: activityId },
-      data: { approvalStatus: ApprovalStatus.APPROVED as any, rejectionReason: null },
-      include: { ...activityInclude, registrations: true },
-    });
-  }
-
-  reject(activityId: number, reason: string) {
-    return this.prisma.activity.update({
-      where: { id: activityId },
-      data: { approvalStatus: ApprovalStatus.REJECTED as any, rejectionReason: reason },
-      include: { ...activityInclude, registrations: true },
-    });
-  }
-
   countAll() {
     return this.prisma.activity.count();
-  }
-
-  countPending() {
-    return this.prisma.activity.count({ where: { approvalStatus: ApprovalStatus.PENDING as any } });
   }
 
   closeAndReject(activityId: number, reason: string) {
@@ -167,33 +139,6 @@ export class ActivitiesRepository {
         status: ActivityStatus.CLOSED as any,
         cancellationReason: reason,
       },
-      include: { ...activityInclude, registrations: true },
-    });
-  }
-
-  requestCancellation(activityId: number, reason: string) {
-    return this.prisma.activity.update({
-      where: { id: activityId },
-      data: { approvalStatus: ApprovalStatus.PENDING_CANCEL as any, cancellationReason: reason },
-      include: { ...activityInclude, registrations: true },
-    });
-  }
-
-  findPendingCancellation() {
-    return this.prisma.activity.findMany({
-      where: { approvalStatus: ApprovalStatus.PENDING_CANCEL as any },
-      include: {
-        organizer: { select: { id: true, name: true, email: true } },
-        registrations: true,
-      },
-      orderBy: { createdAt: 'asc' },
-    });
-  }
-
-  approveCancellation(activityId: number) {
-    return this.prisma.activity.update({
-      where: { id: activityId },
-      data: { approvalStatus: ApprovalStatus.REJECTED as any, status: ActivityStatus.CLOSED as any },
       include: { ...activityInclude, registrations: true },
     });
   }
