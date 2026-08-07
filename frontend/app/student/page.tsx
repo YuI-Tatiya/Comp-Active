@@ -3,261 +3,291 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { activitiesAPI, Activity, API_BASE_URL } from "@/lib/api"
-import { Calendar, MapPin, Users, Loader2 } from "lucide-react"
+import { Container } from "@/components/layout/container"
+import { ActivityCard } from "@/components/ui/activity-card"
+import { ActivityCardSkeleton, Skeleton } from "@/components/ui/skeleton"
+import { EmptyState } from "@/components/ui/empty-state"
+import { SectionHeading } from "@/components/ui/section-heading"
+import { StatTile } from "@/components/ui/stat-tile"
+import { SkillRadar, SkillScoreList } from "@/components/ui/skill-radar"
+import { UpcomingItem, type UpcomingActivity } from "@/components/ui/upcoming-item"
+import {
+  activitiesAPI,
+  registrationsAPI,
+  evaluationsAPI,
+  certificatesAPI,
+  Activity,
+  SkillsData,
+} from "@/lib/api"
+import { useAuth } from "@/lib/auth-context"
+import { ArrowRight, CalendarCheck, CalendarX, Award, Sparkles, TrendingUp } from "lucide-react"
+
+interface MyRegistration {
+  id: number
+  status: string
+  activity: UpcomingActivity
+}
+
+const XP_PER_LEVEL = 500
 
 export default function StudentDashboardPage() {
-  const [activities, setActivities] = useState<Activity[]>([])
-  const [loading, setLoading] = useState(true)
-  const [category, setCategory] = useState<string>("")
+  const { user } = useAuth()
+  const [recommended, setRecommended] = useState<Activity[]>([])
+  const [registrations, setRegistrations] = useState<MyRegistration[]>([])
+  const [skills, setSkills] = useState<SkillsData | null>(null)
+  const [certCount, setCertCount] = useState<number | null>(null)
+  const [loadingActivities, setLoadingActivities] = useState(true)
+  const [loadingMine, setLoadingMine] = useState(true)
 
   useEffect(() => {
-    loadActivities(category)
-  }, [category])
+    activitiesAPI
+      .getAll()
+      .then((data) => setRecommended(Array.isArray(data) ? data.slice(0, 3) : []))
+      .catch((err) => console.error(err))
+      .finally(() => setLoadingActivities(false))
+  }, [])
 
-  async function loadActivities(cat: string) {
-    try {
-      setLoading(true)
-      const data = await activitiesAPI.getAll(cat ? { category: cat } : undefined)
-      // Show only up to 3 for the recommended section
-      setActivities(Array.isArray(data) ? data.slice(0, 3) : [])
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }
+  useEffect(() => {
+    Promise.allSettled([
+      registrationsAPI.getMy(),
+      evaluationsAPI.getMySkills(),
+      certificatesAPI.getMy(),
+    ])
+      .then(([regRes, skillRes, certRes]) => {
+        if (regRes.status === "fulfilled" && Array.isArray(regRes.value)) {
+          setRegistrations(regRes.value as MyRegistration[])
+        }
+        if (skillRes.status === "fulfilled") setSkills(skillRes.value)
+        if (certRes.status === "fulfilled" && Array.isArray(certRes.value)) {
+          setCertCount(certRes.value.length)
+        }
+      })
+      .finally(() => setLoadingMine(false))
+  }, [])
 
-  // Helper date formatter
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString)
-      return new Intl.DateTimeFormat('th-TH', {
-        day: 'numeric', month: 'short', year: 'numeric'
-      }).format(date)
-    } catch {
-      return dateString
-    }
-  }
+  // กิจกรรมที่ยังไม่ถึงวันจัด เรียงจากใกล้สุด
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+  const upcoming = registrations
+    .filter((r) => {
+      if (r.status === "cancelled" || !r.activity?.date) return false
+      const d = new Date(r.activity.date)
+      return !Number.isNaN(d.getTime()) && d >= startOfToday
+    })
+    .sort((a, b) => +new Date(a.activity.date) - +new Date(b.activity.date))
+    .slice(0, 3)
 
-  const categoryMap = [
-    { label: "เทคโนโลยี", value: "Technology" },
-    { label: "วิชาการ", value: "Academic" },
-    { label: "การแข่งขัน", value: "Competition" },
-    { label: "อาสาสมัคร", value: "Volunteer" },
-  ]
+  const level = skills?.level ?? 1
+  const points = skills?.points ?? 0
+  const xpInLevel = points % XP_PER_LEVEL
+  const xpPercent = (xpInLevel / XP_PER_LEVEL) * 100
 
   return (
-    <div className="font-sans">
-      {/* Hero Banner Section (Exactly like Root Page) */}
-      <section className="w-full h-[400px] md:h-[550px] relative overflow-hidden bg-slate-100">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/hero-banner.png"
-          alt="Hero Banner"
-          className="w-full h-full object-cover"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-        />
+    <>
+      {/* ── แถบทักทาย ────────────────────────────────────────────────────── */}
+      <section className="border-b border-border bg-surface">
+        <Container className="flex flex-col gap-3 py-8 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-fg">
+              สวัสดี {user?.name || "นักศึกษา"}
+            </h1>
+            <p className="mt-1 text-sm text-fg-muted">
+              {loadingMine
+                ? "กำลังโหลดข้อมูลของคุณ..."
+                : `ระดับ ${level} · เข้าร่วมมาแล้ว ${skills?.count ?? 0} กิจกรรม`}
+            </p>
+          </div>
+          <Button asChild>
+            <Link href="/student/events">
+              ค้นหากิจกรรม
+              <ArrowRight />
+            </Link>
+          </Button>
+        </Container>
       </section>
 
-      {/* Recommended Activities Section (Exactly like Root Page) */}
-      <section className="max-w-7xl mx-auto px-4 py-20 relative -mt-20 z-10">
-        <div className="bg-white rounded-[32px] shadow-2xl shadow-slate-200/50 p-8 md:p-12 border border-slate-100">
-          <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div>
-              <h2 className="text-3xl font-black text-gray-900 mb-2">กิจกรรมแนะนำ</h2>
-              <div className="h-1 w-20 bg-blue-600 rounded-full mb-4"></div>
-              <p className="text-gray-500 font-medium">กิจกรรมยอดนิยมที่กำลังเปิดรับสมัคร</p>
-            </div>
-            {/* Category Filter Pills */}
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setCategory("")}
-                className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${category === "" ? "bg-slate-900 text-white shadow-md shadow-slate-900/20" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-              >
-                ทั้งหมด
-              </button>
-              {categoryMap.map(cat => (
-                <button
-                  key={cat.value}
-                  onClick={() => setCategory(cat.value)}
-                  className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${category === cat.value ? "bg-blue-600 text-white shadow-md shadow-blue-600/20" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-                >
-                  {cat.label}
-                </button>
-              ))}
+      {/* ── สถิติของฉัน ───────────────────────────────────────────────────── */}
+      <section className="border-b border-border">
+        <Container className="py-8">
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+            <StatTile
+              label="กิจกรรมที่เข้าร่วม"
+              value={loadingMine ? "—" : (skills?.count ?? 0)}
+              icon={CalendarCheck}
+            />
+            <StatTile
+              label="คะแนนสะสม"
+              value={loadingMine ? "—" : points.toLocaleString("th-TH")}
+              icon={TrendingUp}
+            />
+            <StatTile
+              label="ระดับปัจจุบัน"
+              value={loadingMine ? "—" : `LV ${level}`}
+              icon={Sparkles}
+            />
+            <StatTile
+              label="เกียรติบัตร"
+              value={certCount === null ? "—" : certCount}
+              icon={Award}
+            />
+          </div>
+        </Container>
+      </section>
+
+      {/* ── กำลังจะถึง + ทักษะ ───────────────────────────────────────────── */}
+      <section>
+        <Container className="grid gap-6 py-10 lg:grid-cols-3">
+          {/* กำลังจะถึง */}
+          <div className="lg:col-span-2">
+            <SectionHeading
+              title="กำลังจะถึง"
+              description={
+                loadingMine
+                  ? undefined
+                  : upcoming.length > 0
+                    ? `${upcoming.length} กิจกรรมที่คุณลงทะเบียนไว้`
+                    : undefined
+              }
+              action={
+                <Button variant="link" asChild className="px-0">
+                  <Link href="/student/my-registrations">
+                    กิจกรรมของฉัน
+                    <ArrowRight />
+                  </Link>
+                </Button>
+              }
+            />
+
+            <div className="mt-5 space-y-3">
+              {loadingMine ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-20 w-full rounded-lg" />
+                ))
+              ) : upcoming.length > 0 ? (
+                upcoming.map((r) => (
+                  <UpcomingItem
+                    key={r.id}
+                    activity={r.activity}
+                    status={r.status}
+                    href={`/student/events/${r.activity.id}`}
+                  />
+                ))
+              ) : (
+                <EmptyState
+                  icon={CalendarX}
+                  title="ยังไม่มีกิจกรรมที่จะถึง"
+                  description="ลงทะเบียนกิจกรรมที่สนใจเพื่อเริ่มสะสมคะแนนทักษะ"
+                  action={
+                    <Button asChild>
+                      <Link href="/student/events">ดูกิจกรรมทั้งหมด</Link>
+                    </Button>
+                  }
+                />
+              )}
             </div>
           </div>
 
-          {loading ? (
-            <div className="py-20 flex flex-col items-center justify-center">
-              <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-              <p className="text-slate-500 font-medium animate-pulse">กำลังโหลดกิจกรรม...</p>
+          {/* ทักษะของคุณ */}
+          <div className="rounded-xl border border-border bg-bg p-5 shadow-xs">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-base font-semibold text-fg">ทักษะของคุณ</h2>
+              <Link
+                href="/student/profile"
+                className="text-sm text-brand-600 hover:underline"
+              >
+                ดูรายละเอียด
+              </Link>
             </div>
-          ) : activities.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {activities.map((ev) => (
-                <div key={ev.id} className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl border border-slate-100 flex flex-col transition-all duration-300 group hover:-translate-y-1">
-                  <div className="h-[220px] bg-slate-100 relative overflow-hidden">
-                    <div className="absolute top-4 right-4 z-10">
-                      <span className={`text-xs font-bold px-4 py-1.5 rounded-full shadow-md backdrop-blur-md ${ev.status === "open" || !ev.status ? "bg-green-500/90 text-white" : "bg-slate-500/90 text-white"}`}>
-                        {ev.status === "open" || !ev.status ? "กำลังเปิด" : "ปิดรับสมัคร"}
-                      </span>
-                    </div>
-                    <div className="absolute top-4 left-4 z-10">
-                      <span className="bg-white/95 text-blue-700 text-xs font-black uppercase tracking-wider px-3 py-1.5 rounded-lg shadow-sm">
-                        {ev.category}
-                      </span>
-                    </div>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={ev.imageUrl ? `${API_BASE_URL}${ev.imageUrl}` : "/activity-placeholder.jpg"}
-                      alt={ev.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop'; }}
+
+            {loadingMine ? (
+              <Skeleton className="mt-4 h-56 w-full rounded-lg" />
+            ) : skills && skills.count > 0 ? (
+              <>
+                <SkillRadar average={skills.average} />
+                <div className="mt-2 border-t border-border pt-4">
+                  <SkillScoreList average={skills.average} />
+                </div>
+
+                {/* ความคืบหน้าระดับ */}
+                <div className="mt-5 border-t border-border pt-4">
+                  <div className="mb-2 flex items-center justify-between text-xs">
+                    <span className="font-medium text-fg">ระดับ {level}</span>
+                    <span className="text-fg-muted tabular-nums">
+                      {xpInLevel} / {XP_PER_LEVEL} XP
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-surface-2">
+                    <div
+                      className="h-full rounded-full bg-brand-600 transition-all"
+                      style={{ width: `${xpPercent}%` }}
                     />
                   </div>
-                  <div className="p-6 flex-grow flex flex-col">
-                    <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors line-clamp-2 leading-tight">{ev.name}</h3>
-                    <p className="text-slate-500 text-sm mb-6 line-clamp-2">{ev.description || "ไม่ระบุรายละเอียด"}</p>
-
-                    <div className="space-y-2 mb-6 mt-auto">
-                      <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
-                        <Calendar className="w-4 h-4 mr-3 text-blue-500" />
-                        {formatDate(ev.date)} • {ev.startTime}
-                      </div>
-                      <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
-                        <MapPin className="w-4 h-4 mr-3 text-rose-500" />
-                        <span className="truncate">{ev.location}</span>
-                      </div>
-                      <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
-                        <Users className="w-4 h-4 mr-3 text-emerald-500" />
-                        {ev.registeredCount || 0} / {ev.capacity} ผู้เข้าร่วม
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3 mt-auto">
-                      <Link href={`/student/events/${ev.id}`} className="flex-1">
-                        <Button variant="outline" className="w-full bg-white hover:bg-slate-50 border-slate-200 text-slate-700 font-bold rounded-xl h-11">ดูรายละเอียด</Button>
-                      </Link>
-                      <Link href={`/student/events/${ev.id}`} className="flex-1">
-                        <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 font-bold rounded-xl h-11">ลงทะเบียน</Button>
-                      </Link>
-                    </div>
-                  </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-20 text-center bg-slate-50 rounded-[24px] border-2 border-dashed border-slate-200">
-              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                <Calendar className="w-8 h-8 text-slate-400" />
-              </div>
-              <p className="text-slate-500 font-bold text-lg">ไม่พบกิจกรรมในหมวดหมู่นี้</p>
-            </div>
-          )}
-        </div>
+
+                {skills.badges && skills.badges.length > 0 && (
+                  <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-border pt-4">
+                    {skills.badges.slice(0, 5).map((b) => (
+                      <span
+                        key={b.name}
+                        title={b.description}
+                        className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs text-fg-muted"
+                      >
+                        <span aria-hidden="true">{b.icon}</span>
+                        {b.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="mt-4 text-sm leading-relaxed text-fg-muted">
+                ยังไม่มีคะแนนทักษะ — เข้าร่วมกิจกรรมและรอผู้จัดประเมิน
+                คะแนนจะแสดงที่นี่โดยอัตโนมัติ
+              </p>
+            )}
+          </div>
+        </Container>
       </section>
 
-      {/* Categories Grid (Exactly like Root Page) */}
-      <section className="py-24 bg-white relative">
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
-        </div>
-        <div className="max-w-7xl mx-auto px-4 text-center relative z-10">
-          <h2 className="text-3xl font-black text-gray-900 mb-4 tracking-tight">สำรวจตามความสนใจ</h2>
-          <p className="text-slate-500 max-w-2xl mx-auto mb-16 text-lg font-medium">พัฒนาก้าวหน้าอย่างตรงจุดตามเป้าหมายของตัวคุณ เลือกเข้าร่วมกิจกรรมที่ช่วยเติมเต็มศักยภาพ Soft Skills ได้โดยตรง</p>
+      {/* ── แนะนำสำหรับคุณ ───────────────────────────────────────────────── */}
+      <section className="border-t border-border bg-surface">
+        <Container className="py-12">
+          <SectionHeading
+            title="แนะนำสำหรับคุณ"
+            description="กิจกรรมที่กำลังเปิดรับสมัคร"
+            action={
+              <Button variant="link" asChild className="px-0">
+                <Link href="/student/events">
+                  ดูทั้งหมด
+                  <ArrowRight />
+                </Link>
+              </Button>
+            }
+          />
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-            {categoryMap.map((cat, i) => {
-              const styles = [
-                { color: "text-blue-600", bg: "bg-blue-50/50", border: "hover:border-blue-300", shadow: "hover:shadow-blue-500/10" },
-                { color: "text-indigo-600", bg: "bg-indigo-50/50", border: "hover:border-indigo-300", shadow: "hover:shadow-indigo-500/10" },
-                { color: "text-amber-600", bg: "bg-amber-50/50", border: "hover:border-amber-300", shadow: "hover:shadow-amber-500/10" },
-                { color: "text-emerald-600", bg: "bg-emerald-50/50", border: "hover:border-emerald-300", shadow: "hover:shadow-emerald-500/10" }
-              ];
-              const style = styles[i % styles.length];
-
-              return (
-                <div
-                  key={cat.value}
-                  onClick={() => { setCategory(cat.value); window.scrollTo({ top: 500, behavior: 'smooth' }); }}
-                  className={`group bg-white rounded-[24px] p-6 cursor-pointer border border-slate-200 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${style.shadow} flex flex-col items-start justify-between min-h-[160px] relative overflow-hidden`}
-                >
-                  <div className={`absolute -right-6 -bottom-6 w-32 h-32 rounded-full opacity-20 transition-transform duration-500 group-hover:scale-150 ${style.bg.replace('/50', '')}`}></div>
-
-                  <div className="relative z-10 w-full flex justify-between items-start">
-                    <span className={`text-2xl font-black text-slate-800 transition-colors`}>{cat.label}</span>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0 ${style.bg.replace('/50', '')} ${style.color}`}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
-                    </div>
-                  </div>
-
-                  <div className="relative z-10 mt-auto">
-                    <span className="text-sm font-semibold text-slate-400 group-hover:text-slate-600 transition-colors">สำรวจกิจกรรม</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Ready Section (Exactly like Root Page) */}
-      <section className="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-24 relative overflow-hidden">
-        <div className="max-w-4xl mx-auto px-4 text-center relative z-10">
-          <h2 className="text-4xl md:text-5xl font-black text-white mb-6">เริ่มสะสมความสำเร็จได้เลย!</h2>
-          <p className="text-xl text-slate-300 mb-10 max-w-2xl mx-auto">บันทึกทุกก้าวของการเติบโตและพัฒนา Soft Skills อย่างเต็มรูปแบบ</p>
-          <Button size="lg" className="bg-white hover:bg-slate-100 text-slate-900 font-black rounded-xl px-10 h-16 text-lg shadow-2xl shadow-white/10" asChild>
-            <Link href="/student/events">สำรวจกิจกรรมทั้งหมด</Link>
-          </Button>
-        </div>
-      </section>
-
-      {/* Footer (Exactly like Root Page) */}
-      <footer className="bg-slate-950 text-slate-300 pt-20 pb-10 mt-auto">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16 border-b border-slate-800 pb-16">
-            <div className="md:col-span-2 space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white shrink-0 overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/logo.png" alt="Logo" className="w-full h-full object-cover fallback-bg" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                </div>
-                <span className="text-2xl font-bold text-white tracking-tight">ระบบจัดการกิจกรรม</span>
+          <div className="mt-6">
+            {loadingActivities ? (
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <ActivityCardSkeleton key={i} />
+                ))}
               </div>
-              <p className="text-slate-400 max-w-sm">แพลตฟอร์มศูนย์กลางสำหรับการเข้าร่วมและจัดการกิจกรรมของนักศึกษา เพื่อส่งเสริมการพัฒนาศักยภาพอย่างรอบด้าน</p>
-              <div className="h-16 w-auto relative flex items-center mt-8">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/computing-logo.png" alt="College of Computing Logo" className="h-full object-contain filter brightness-200 contrast-150 grayscale" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                <div className="absolute inset-0 flex items-center justify-center text-slate-600 text-[10px] font-bold -z-10 text-center">COLLEGE OF<br />COMPUTING<br /><span className="text-[8px] font-normal">KHON KAEN UNIVERSITY</span></div>
+            ) : recommended.length > 0 ? (
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {recommended.map((ev) => (
+                  <ActivityCard
+                    key={ev.id}
+                    activity={ev}
+                    href={`/student/events/${ev.id}`}
+                  />
+                ))}
               </div>
-            </div>
-
-            <div>
-              <h4 className="text-white font-bold mb-6 text-lg">เมนูหลักนักศึกษา</h4>
-              <ul className="space-y-4 font-medium">
-                <li><Link href="/student" className="hover:text-white hover:underline transition-colors">หน้าหลัก</Link></li>
-                <li><Link href="/student/events" className="hover:text-white hover:underline transition-colors">กิจกรรมทั้งหมด</Link></li>
-                <li><Link href="/student/my-registrations" className="hover:text-white hover:underline transition-colors">การลงทะเบียน</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-white font-bold mb-6 text-lg">ติดต่อเรา</h4>
-              <ul className="space-y-4 font-medium">
-                <li>วิทยาลัยการคอมพิวเตอร์ ขอนแก่น</li>
-                <li>อีเมล: info@computing.kku.ac.th</li>
-                <li>โทร: 043-000-000</li>
-              </ul>
-            </div>
+            ) : (
+              <EmptyState icon={CalendarX} title="ยังไม่มีกิจกรรมเปิดรับสมัคร" />
+            )}
           </div>
-
-          <div className="text-center md:text-left flex flex-col md:flex-row justify-between items-center text-sm font-medium text-slate-500">
-            <p>&copy; {new Date().getFullYear()} College of Computing, Khon Kaen University. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
-    </div>
+        </Container>
+      </section>
+    </>
   )
 }

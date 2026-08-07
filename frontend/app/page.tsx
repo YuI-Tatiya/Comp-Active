@@ -3,17 +3,60 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { activitiesAPI, Activity, API_BASE_URL } from "@/lib/api"
-import { Calendar, MapPin, Users, Loader2 } from "lucide-react"
+import { Container } from "@/components/layout/container"
+import { SiteHeader } from "@/components/layout/site-header"
+import { SiteFooter } from "@/components/layout/site-footer"
+import { ActivityCard } from "@/components/ui/activity-card"
+import { ActivityCardSkeleton } from "@/components/ui/skeleton"
+import { EmptyState } from "@/components/ui/empty-state"
+import { activitiesAPI, Activity, PlatformStats } from "@/lib/api"
+import { CATEGORIES } from "@/lib/categories"
+import {
+  ArrowRight,
+  CalendarX,
+  Users,
+  MessageSquare,
+  Lightbulb,
+  Repeat,
+  Crown,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+
+const SOFT_SKILLS = [
+  { icon: Users, label: "ทีมเวิร์ก", desc: "ทำงานร่วมกับผู้อื่นได้อย่างราบรื่น" },
+  { icon: Crown, label: "ภาวะผู้นำ", desc: "นำทีมและตัดสินใจอย่างมีความรับผิดชอบ" },
+  { icon: MessageSquare, label: "การสื่อสาร", desc: "ถ่ายทอดความคิดได้ชัดเจนและตรงประเด็น" },
+  { icon: Lightbulb, label: "การแก้ปัญหา", desc: "วิเคราะห์และหาทางออกอย่างเป็นระบบ" },
+  { icon: Repeat, label: "การปรับตัว", desc: "รับมือกับสถานการณ์ที่เปลี่ยนแปลงได้" },
+]
+
+/** ป้ายกำกับหัวข้อแบบมีเลข */
+function SectionLabel({ n, children }: { n: string; children: React.ReactNode }) {
+  return (
+    <p className="mb-3 flex items-center gap-2.5 text-xs font-medium tracking-wide text-fg-subtle">
+      <span className="tabular-nums text-brand-600">{n}</span>
+      <span className="h-px w-6 bg-border" aria-hidden="true" />
+      {children}
+    </p>
+  )
+}
 
 export default function RootPage() {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState<string>("")
+  const [stats, setStats] = useState<PlatformStats | null>(null)
 
   useEffect(() => {
     loadActivities(category)
   }, [category])
+
+  useEffect(() => {
+    activitiesAPI
+      .getPlatformStats()
+      .then(setStats)
+      .catch((err) => console.error(err))
+  }, [])
 
   async function loadActivities(cat: string) {
     try {
@@ -28,272 +71,249 @@ export default function RootPage() {
     }
   }
 
-  // Helper date formatter
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString)
-      return new Intl.DateTimeFormat('th-TH', {
-        day: 'numeric', month: 'short', year: 'numeric'
-      }).format(date)
-    } catch {
-      return dateString
-    }
-  }
-
-  const categoryMap = [
-    { label: "เทคโนโลยี", value: "Technology" },
-    { label: "วิชาการ", value: "Academic" },
-    { label: "การแข่งขัน", value: "Competition" },
-    { label: "อาสาสมัคร", value: "Volunteer" },
-  ]
-
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans">
-      {/* Navbar */}
-      <nav className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-20 items-center">
-            {/* Logo area */}
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white shrink-0 overflow-hidden shadow-md">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/logo.png" alt="Logo" className="w-full h-full object-cover fallback-bg" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerText = 'CP'; }} />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-700 leading-tight">ระบบจัดการกิจกรรม</span>
-                <span className="text-sm text-gray-500 font-medium leading-tight">วิทยาลัยการคอมพิวเตอร์</span>
-              </div>
-            </div>
+    <div className="flex min-h-screen flex-col">
+      <SiteHeader />
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
-              <Link href="/" className="text-blue-600 font-bold border-b-2 border-blue-600 pb-1">หน้าหลัก</Link>
-              <Link href="/events" className="text-gray-600 font-medium hover:text-blue-600 transition-colors">กิจกรรมทั้งหมด</Link>
-              <Link href="/about" className="text-gray-600 font-medium hover:text-blue-600 transition-colors">เกี่ยวกับเรา</Link>
+      {/* ── Hero (asymmetric) ───────────────────────────────────────────── */}
+      <section className="border-b border-border bg-surface">
+        <Container className="py-16 md:py-24">
+          <div className="grid items-center gap-12 lg:grid-cols-12">
+            <div className="lg:col-span-7">
+              <SectionLabel n="00">วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น</SectionLabel>
 
-              <div className="bg-blue-50 text-blue-700 px-5 py-1.5 rounded-full text-xs font-bold ring-1 ring-blue-200 uppercase tracking-widest">
-                ทั่วไป
-              </div>
+              <h1 className="text-4xl font-bold leading-[1.15] tracking-tight text-fg md:text-6xl">
+                พัฒนาทักษะ
+                <br />
+                <span className="text-brand-600">ผ่านกิจกรรม</span>
+                <br />
+                ที่คุณเลือกเอง
+              </h1>
 
-              <Link href="/auth">
-                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl px-8 shadow-lg shadow-blue-500/30 transition-all hover:-translate-y-0.5 font-bold">
-                  เข้าสู่ระบบ
+              <p className="mt-6 max-w-md text-base leading-relaxed text-fg-muted md:text-lg">
+                เข้าร่วมกิจกรรมนอกหลักสูตร สะสมคะแนน Soft Skills ทั้ง 5 ด้าน
+                และติดตามการเติบโตของตัวเองได้ในที่เดียว
+              </p>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Button size="xl" asChild>
+                  <Link href="/auth">เริ่มต้นใช้งาน</Link>
                 </Button>
+                <Button size="xl" variant="outline" asChild>
+                  <Link href="/events">
+                    ดูกิจกรรมทั้งหมด
+                    <ArrowRight />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            {/* การ์ดสถิติซ้อนเยื้อง */}
+            <div className="lg:col-span-5">
+              <div className="flex flex-col gap-4 sm:flex-row lg:flex-col">
+                <div className="flex-1 rounded-xl border border-border bg-bg p-6 shadow-sm lg:ml-8">
+                  <p className="text-4xl font-semibold tracking-tight text-fg tabular-nums">
+                    {stats ? stats.totalActivities.toLocaleString("th-TH") : "—"}
+                  </p>
+                  <p className="mt-1 text-sm text-fg-muted">กิจกรรมบนแพลตฟอร์ม</p>
+                </div>
+
+                <div className="flex-1 rounded-xl border border-border bg-bg p-6 shadow-sm lg:mr-8">
+                  <p className="text-4xl font-semibold tracking-tight text-fg tabular-nums">
+                    {stats ? stats.totalParticipants.toLocaleString("th-TH") : "—"}
+                  </p>
+                  <p className="mt-1 text-sm text-fg-muted">ผู้เข้าร่วมสะสม</p>
+                </div>
+
+                <div className="flex-1 rounded-xl border border-border bg-brand-600 p-6 shadow-sm lg:ml-8">
+                  <p className="text-4xl font-semibold tracking-tight text-white tabular-nums">5</p>
+                  <p className="mt-1 text-sm text-brand-100">ทักษะที่ติดตามได้</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      {/* ── 01 กิจกรรมแนะนำ ─────────────────────────────────────────────── */}
+      <section>
+        <Container className="py-16">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <SectionLabel n="01">กิจกรรมแนะนำ</SectionLabel>
+              <h2 className="text-3xl font-semibold tracking-tight text-fg">
+                กำลังเปิดรับสมัคร
+              </h2>
+            </div>
+            <Button variant="link" asChild className="px-0">
+              <Link href="/events">
+                ดูทั้งหมด
+                <ArrowRight />
               </Link>
-            </div>
+            </Button>
           </div>
-        </div>
-      </nav>
 
-      {/* Hero Banner Section */}
-      <section className="w-full h-[400px] md:h-[550px] relative overflow-hidden bg-slate-100">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/hero-banner.png"
-          alt="Hero Banner"
-          className="w-full h-full object-cover"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-        />
-      </section>
-
-      {/* Recommended Activities Section */}
-      <section className="max-w-7xl mx-auto px-4 py-20 relative -mt-20 z-10">
-        <div className="bg-white rounded-[32px] shadow-2xl shadow-slate-200/50 p-8 md:p-12 border border-slate-100">
-          <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div>
-              <h2 className="text-3xl font-black text-gray-900 mb-2">กิจกรรมแนะนำ</h2>
-              <div className="h-1 w-20 bg-blue-600 rounded-full mb-4"></div>
-              <p className="text-gray-500 font-medium">กิจกรรมยอดนิยมที่กำลังเปิดรับสมัคร</p>
-            </div>
-            {/* Category Filter Pills */}
-            <div className="flex flex-wrap gap-2">
+          {/* ตัวกรองหมวดหมู่ — มีจุดสีประจำหมวด */}
+          <div className="mt-6 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setCategory("")}
+              aria-pressed={category === ""}
+              className={cn(
+                "rounded-full border px-4 py-1.5 text-sm transition-colors",
+                category === ""
+                  ? "border-brand-600 bg-brand-600 font-medium text-white"
+                  : "border-border bg-bg text-fg-muted hover:border-border-strong hover:text-fg"
+              )}
+            >
+              ทั้งหมด
+            </button>
+            {CATEGORIES.map((cat) => (
               <button
-                onClick={() => setCategory("")}
-                className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${category === "" ? "bg-slate-900 text-white shadow-md shadow-slate-900/20" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                key={cat.value}
+                type="button"
+                onClick={() => setCategory(cat.value)}
+                aria-pressed={category === cat.value}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm transition-colors",
+                  category === cat.value
+                    ? "border-brand-600 bg-brand-600 font-medium text-white"
+                    : "border-border bg-bg text-fg-muted hover:border-border-strong hover:text-fg"
+                )}
               >
-                ทั้งหมด
+                <span
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    category === cat.value ? "bg-white" : cat.dot
+                  )}
+                  aria-hidden="true"
+                />
+                {cat.label}
               </button>
-              {categoryMap.map(cat => (
-                <button
-                  key={cat.value}
-                  onClick={() => setCategory(cat.value)}
-                  className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${category === cat.value ? "bg-blue-600 text-white shadow-md shadow-blue-600/20" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
+            ))}
           </div>
 
-          {loading ? (
-            <div className="py-20 flex flex-col items-center justify-center">
-              <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-              <p className="text-slate-500 font-medium animate-pulse">กำลังโหลดกิจกรรม...</p>
-            </div>
-          ) : activities.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {activities.map((ev) => (
-                <div key={ev.id} className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl border border-slate-100 flex flex-col transition-all duration-300 group hover:-translate-y-1">
-                  <div className="h-[220px] bg-slate-100 relative overflow-hidden">
-                    <div className="absolute top-4 right-4 z-10">
-                      <span className={`text-xs font-bold px-4 py-1.5 rounded-full shadow-md backdrop-blur-md ${ev.status === "open" || !ev.status ? "bg-green-500/90 text-white" : "bg-slate-500/90 text-white"}`}>
-                        {ev.status === "open" || !ev.status ? "กำลังเปิด" : "ปิดรับสมัคร"}
-                      </span>
-                    </div>
-                    <div className="absolute top-4 left-4 z-10">
-                      <span className="bg-white/95 text-blue-700 text-xs font-black uppercase tracking-wider px-3 py-1.5 rounded-lg shadow-sm">
-                        {ev.category}
-                      </span>
-                    </div>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={ev.imageUrl ? `${API_BASE_URL}${ev.imageUrl}` : "/activity-placeholder.jpg"}
-                      alt={ev.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop'; }}
-                    />
-                  </div>
-                  <div className="p-6 flex-grow flex flex-col">
-                    <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors line-clamp-2 leading-tight">{ev.name}</h3>
-                    <p className="text-slate-500 text-sm mb-6 line-clamp-2">{ev.description || "ไม่ระบุรายละเอียด"}</p>
-
-                    <div className="space-y-2 mb-6 mt-auto">
-                      <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
-                        <Calendar className="w-4 h-4 mr-3 text-blue-500" />
-                        {formatDate(ev.date)} • {ev.startTime}
-                      </div>
-                      <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
-                        <MapPin className="w-4 h-4 mr-3 text-rose-500" />
-                        <span className="truncate">{ev.location}</span>
-                      </div>
-                      <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
-                        <Users className="w-4 h-4 mr-3 text-emerald-500" />
-                        {ev.registeredCount || 0} / {ev.capacity} ผู้เข้าร่วม
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <Link href={`/events/${ev.id}`} className="flex-1">
-                        <Button variant="outline" className="w-full bg-white hover:bg-slate-50 border-slate-200 text-slate-700 font-bold rounded-xl h-11">ดูรายละเอียด</Button>
-                      </Link>
-                      <Link href={`/auth`} className="flex-1">
-                        <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 font-bold rounded-xl h-11">ลงทะเบียน</Button>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-20 text-center bg-slate-50 rounded-[24px] border-2 border-dashed border-slate-200">
-              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                <Calendar className="w-8 h-8 text-slate-400" />
+          <div className="mt-8">
+            {loading ? (
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <ActivityCardSkeleton key={i} />
+                ))}
               </div>
-              <p className="text-slate-500 font-bold text-lg">ไม่พบกิจกรรมในหมวดหมู่นี้</p>
-            </div>
-          )}
-        </div>
+            ) : activities.length > 0 ? (
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {activities.map((ev) => (
+                  <ActivityCard key={ev.id} activity={ev} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={CalendarX}
+                title="ไม่พบกิจกรรมในหมวดหมู่นี้"
+                description="ลองเลือกหมวดหมู่อื่น หรือดูกิจกรรมทั้งหมด"
+                action={
+                  <Button variant="outline" onClick={() => setCategory("")}>
+                    ดูทั้งหมด
+                  </Button>
+                }
+              />
+            )}
+          </div>
+        </Container>
       </section>
 
-      {/* Categories Grid (More visual) */}
-      <section className="py-24 bg-white relative">
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
-        </div>
-        <div className="max-w-7xl mx-auto px-4 text-center relative z-10">
-          <h2 className="text-3xl font-black text-gray-900 mb-4 tracking-tight">สำรวจตามความสนใจ</h2>
-          <p className="text-slate-500 max-w-2xl mx-auto mb-16 text-lg font-medium">พัฒนาก้าวหน้าอย่างตรงจุดตามเป้าหมายของตัวคุณ เลือกเข้าร่วมกิจกรรมที่ช่วยเติมเต็มศักยภาพ Soft Skills ได้โดยตรง</p>
+      {/* ── 02 ทักษะ 5 ด้าน ─────────────────────────────────────────────── */}
+      <section className="border-y border-border bg-surface">
+        <Container className="py-16">
+          <div className="grid gap-10 lg:grid-cols-12">
+            <div className="lg:col-span-4">
+              <SectionLabel n="02">Soft Skills</SectionLabel>
+              <h2 className="text-3xl font-semibold leading-tight tracking-tight text-fg">
+                5 ทักษะที่คุณจะได้
+              </h2>
+              <p className="mt-4 text-base leading-relaxed text-fg-muted">
+                ทุกกิจกรรมกำหนดคะแนนทักษะไว้ล่วงหน้า
+                ผู้จัดจะประเมินหลังจบกิจกรรม แล้วคะแนนจะสะสมเข้าโปรไฟล์ของคุณอัตโนมัติ
+              </p>
+            </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-            {categoryMap.map((cat, i) => {
-              const styles = [
-                { color: "text-blue-600", bg: "bg-blue-50/50", border: "hover:border-blue-300", shadow: "hover:shadow-blue-500/10" },
-                { color: "text-indigo-600", bg: "bg-indigo-50/50", border: "hover:border-indigo-300", shadow: "hover:shadow-indigo-500/10" },
-                { color: "text-amber-600", bg: "bg-amber-50/50", border: "hover:border-amber-300", shadow: "hover:shadow-amber-500/10" },
-                { color: "text-emerald-600", bg: "bg-emerald-50/50", border: "hover:border-emerald-300", shadow: "hover:shadow-emerald-500/10" }
-              ];
-              const style = styles[i % styles.length];
-
-              return (
+            <div className="grid gap-4 sm:grid-cols-2 lg:col-span-8 lg:grid-cols-3">
+              {SOFT_SKILLS.map((s) => (
                 <div
-                  key={cat.value}
-                  onClick={() => { setCategory(cat.value); window.scrollTo({ top: 500, behavior: 'smooth' }); }}
-                  className={`group bg-white rounded-[24px] p-6 cursor-pointer border border-slate-200 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${style.shadow} flex flex-col items-start justify-between min-h-[160px] relative overflow-hidden`}
+                  key={s.label}
+                  className="rounded-xl border border-border bg-bg p-5 shadow-xs"
                 >
-                  <div className={`absolute -right-6 -bottom-6 w-32 h-32 rounded-full opacity-20 transition-transform duration-500 group-hover:scale-150 ${style.bg.replace('/50', '')}`}></div>
-
-                  <div className="relative z-10 w-full flex justify-between items-start">
-                    <span className={`text-2xl font-black text-slate-800 transition-colors`}>{cat.label}</span>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0 ${style.bg.replace('/50', '')} ${style.color}`}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
-                    </div>
-                  </div>
-
-                  <div className="relative z-10 mt-auto">
-                    <span className="text-sm font-semibold text-slate-400 group-hover:text-slate-600 transition-colors">สำรวจกิจกรรม</span>
-                  </div>
+                  <span className="mb-3 flex size-9 items-center justify-center rounded-lg bg-brand-50">
+                    <s.icon className="size-4.5 text-brand-600" aria-hidden="true" />
+                  </span>
+                  <h3 className="text-sm font-semibold text-fg">{s.label}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">{s.desc}</p>
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
+        </Container>
       </section>
 
-      {/* Ready Section */}
-      <section className="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-24 relative overflow-hidden">
-        <div className="max-w-4xl mx-auto px-4 text-center relative z-10">
-          <h2 className="text-4xl md:text-5xl font-black text-white mb-6">พร้อมสะสมความสำเร็จหรือยัง?</h2>
-          <p className="text-xl text-slate-300 mb-10 max-w-2xl mx-auto">เริ่มสร้างโปรไฟล์ของคุณวันนี้ และบันทึกทุกก้าวของการเติบโต</p>
-          <Button size="lg" className="bg-white hover:bg-slate-100 text-slate-900 font-black rounded-xl px-10 h-16 text-lg shadow-2xl shadow-white/10" asChild>
-            <Link href="/auth">สมัครสมาชิกเลย</Link>
-          </Button>
-        </div>
+      {/* ── 03 สำรวจตามความสนใจ ─────────────────────────────────────────── */}
+      <section>
+        <Container className="py-16">
+          <SectionLabel n="03">หมวดหมู่</SectionLabel>
+          <h2 className="text-3xl font-semibold tracking-tight text-fg">
+            สำรวจตามความสนใจ
+          </h2>
+
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {CATEGORIES.map((cat) => (
+              <Link
+                key={cat.value}
+                href={`/events?category=${cat.value}`}
+                className="group relative overflow-hidden rounded-xl border border-border bg-bg p-5 transition-colors hover:border-border-strong"
+              >
+                <span
+                  className={cn("absolute inset-y-0 left-0 w-1", cat.dot)}
+                  aria-hidden="true"
+                />
+                <div className="flex items-center justify-between pl-2">
+                  <span className="text-base font-medium text-fg">{cat.label}</span>
+                  <ArrowRight
+                    className="size-4 shrink-0 text-fg-subtle transition-colors group-hover:text-brand-600"
+                    aria-hidden="true"
+                  />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </Container>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-slate-950 text-slate-300 pt-20 pb-10">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16 border-b border-slate-800 pb-16">
-            <div className="md:col-span-2 space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white shrink-0 overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/logo.png" alt="Logo" className="w-full h-full object-cover fallback-bg" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerText = 'CP'; }} />
-                </div>
-                <span className="text-2xl font-bold text-white tracking-tight">ระบบจัดการกิจกรรม</span>
-              </div>
-              <p className="text-slate-400 max-w-sm">แพลตฟอร์มศูนย์กลางสำหรับการเข้าร่วมและจัดการกิจกรรมของนักศึกษา เพื่อส่งเสริมการพัฒนาศักยภาพอย่างรอบด้าน</p>
-              <div className="h-16 w-auto relative flex items-center mt-8">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/computing-logo.png" alt="College of Computing Logo" className="h-full object-contain filter brightness-200 contrast-150 grayscale" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                <div className="absolute inset-0 flex items-center justify-center text-slate-600 text-[10px] font-bold -z-10 text-center">COLLEGE OF<br />COMPUTING<br /><span className="text-[8px] font-normal">KHON KAEN UNIVERSITY</span></div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-white font-bold mb-6 text-lg">เมนูหลัก</h4>
-              <ul className="space-y-4 font-medium">
-                <li><Link href="/" className="hover:text-white hover:underline transition-colors">หน้าหลัก</Link></li>
-                <li><Link href="/events" className="hover:text-white hover:underline transition-colors">กิจกรรมทั้งหมด</Link></li>
-                <li><Link href="/about" className="hover:text-white hover:underline transition-colors">เกี่ยวกับแอปพลิเคชัน</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-white font-bold mb-6 text-lg">ติดต่อเรา</h4>
-              <ul className="space-y-4 font-medium">
-                <li>วิทยาลัยการคอมพิวเตอร์ ขอนแก่น</li>
-                <li>อีเมล: info@computing.kku.ac.th</li>
-                <li>โทร: 043-000-000</li>
-              </ul>
-            </div>
+      {/* ── CTA ─────────────────────────────────────────────────────────── */}
+      <section className="bg-brand-600">
+        <Container className="grid items-center gap-8 py-16 lg:grid-cols-2">
+          <div>
+            <h2 className="text-3xl font-semibold leading-tight tracking-tight text-white">
+              พร้อมสะสมความสำเร็จหรือยัง?
+            </h2>
+            <p className="mt-3 max-w-md text-base text-brand-100">
+              เริ่มสร้างโปรไฟล์ของคุณวันนี้ และบันทึกทุกก้าวของการเติบโต
+            </p>
           </div>
-
-          <div className="text-center md:text-left flex flex-col md:flex-row justify-between items-center text-sm font-medium text-slate-500">
-            <p>&copy; {new Date().getFullYear()} College of Computing, Khon Kaen University. All rights reserved.</p>
+          <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
+            <Button size="xl" variant="secondary" asChild>
+              <Link href="/auth">สมัครสมาชิก</Link>
+            </Button>
+            <Button
+              size="xl"
+              asChild
+              className="border border-white/30 bg-transparent text-white hover:bg-white/10"
+            >
+              <Link href="/auth/organizer/register">สมัครเป็นผู้จัดกิจกรรม</Link>
+            </Button>
           </div>
-        </div>
-      </footer>
+        </Container>
+      </section>
+
+      <SiteFooter />
     </div>
   )
 }
