@@ -4,9 +4,9 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 
 const kanit = Kanit({
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
-  style: ["normal", "italic"],
+  weight: ["400", "500", "600", "700"],
   subsets: ["latin", "thai"],
+  display: "swap",
   variable: "--font-kanit",
 });
 
@@ -22,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="th">
-      <body className={`${kanit.variable} font-sans kanit-regular antialiased text-slate-800`}>
+      <body className={`${kanit.variable} font-sans antialiased`}>
         <AuthProvider>
           {children}
         </AuthProvider>

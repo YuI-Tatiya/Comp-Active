@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { activitiesAPI, Activity, API_BASE_URL } from "@/lib/api"
 import { Calendar, MapPin, Users, Loader2, Search, Filter } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { SiteHeader } from "@/components/layout/site-header"
 
 export default function EventsPage() {
     const [activities, setActivities] = useState<Activity[]>([])
@@ -47,41 +48,7 @@ export default function EventsPage() {
 
     return (
         <div className="min-h-screen bg-[#F8FAFC] font-sans">
-            {/* Navbar */}
-            <nav className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-20 items-center">
-                        {/* Logo area */}
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white shrink-0 overflow-hidden shadow-md">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src="/logo.png" alt="Logo" className="w-full h-full object-cover fallback-bg" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerText = 'CP'; }} />
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-700 leading-tight">ระบบจัดการกิจกรรม</span>
-                                <span className="text-sm text-gray-500 font-medium leading-tight">วิทยาลัยการคอมพิวเตอร์</span>
-                            </div>
-                        </div>
-
-                        {/* Desktop Navigation */}
-                        <div className="hidden md:flex items-center space-x-8">
-                            <Link href="/" className="text-gray-600 font-medium hover:text-blue-600 transition-colors">หน้าหลัก</Link>
-                            <Link href="/events" className="text-blue-600 font-bold border-b-2 border-blue-600 pb-1">กิจกรรมทั้งหมด</Link>
-                            <Link href="/about" className="text-gray-600 font-medium hover:text-blue-600 transition-colors">เกี่ยวกับเรา</Link>
-
-                            <div className="bg-blue-50 text-blue-700 px-5 py-1.5 rounded-full text-xs font-bold ring-1 ring-blue-200 uppercase tracking-widest">
-                                ทั่วไป
-                            </div>
-
-                            <Link href="/auth">
-                                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl px-8 shadow-lg shadow-blue-500/30 transition-all hover:-translate-y-0.5 font-bold">
-                                    เข้าสู่ระบบ
-                                </Button>
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-            </nav>
+            <SiteHeader />
 
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-4 py-12">

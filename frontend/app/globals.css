@@ -1,123 +1,73 @@
-@import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Kanit", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  /* ── Typography ─────────────────────────────────────────────────────────── */
+  --font-sans: "Kanit", ui-sans-serif, system-ui, sans-serif;
+
+  /* ── Brand (สีเน้นเดียวของทั้งระบบ) ───────────────────────────────────────── */
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-900: #1e3a8a;
+
+  /* ── Neutral / Surface ──────────────────────────────────────────────────── */
+  --color-bg: #ffffff;
+  --color-surface: #f8fafc;
+  --color-surface-2: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+
+  /* ── Text ───────────────────────────────────────────────────────────────── */
+  --color-fg: #0f172a;
+  --color-fg-muted: #475569;
+  --color-fg-subtle: #64748b;
+
+  /* ── Semantic — ผูกกับ enum ใน backend/prisma/schema.prisma ──────────────── */
+  --color-success: #059669;
+  --color-success-bg: #ecfdf5;
+  --color-warning: #b45309;
+  --color-warning-bg: #fffbeb;
+  --color-danger: #dc2626;
+  --color-danger-bg: #fef2f2;
+  --color-info: #0e7490;
+  --color-info-bg: #ecfeff;
+
+  /* ── Accent ประจำหมวดหมู่กิจกรรม ─────────────────────────────────────────
+     ใช้เฉพาะจุดเล็ก (จุดนำหน้า, badge, ขอบซ้ายการ์ด) ห้ามใช้เป็นพื้นการ์ดทั้งใบ */
+  --color-cat-tech: #2563eb;
+  --color-cat-tech-bg: #eff6ff;
+  --color-cat-academic: #7c3aed;
+  --color-cat-academic-bg: #f5f3ff;
+  --color-cat-competition: #ea580c;
+  --color-cat-competition-bg: #fff7ed;
+  --color-cat-volunteer: #059669;
+  --color-cat-volunteer-bg: #ecfdf5;
+
+  /* ── Radius ─────────────────────────────────────────────────────────────── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* ── Shadow (เบามาก — ใช้บอกลำดับชั้นเท่านั้น) ─────────────────────────────── */
+  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.04);
+  --shadow-md: 0 4px 12px -2px rgb(15 23 42 / 0.08);
 }
 
 @layer base {
-  *,
-  ::before,
-  ::after,
   body {
-    font-family: var(--font-sans);
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    -webkit-font-smoothing: antialiased;
   }
-}
 
-.kanit-thin {
-  font-family: "Kanit", sans-serif;
-  font-weight: 100;
-  font-style: normal;
-}
-
-.kanit-extralight {
-  font-family: "Kanit", sans-serif;
-  font-weight: 200;
-  font-style: normal;
-}
-
-.kanit-light {
-  font-family: "Kanit", sans-serif;
-  font-weight: 300;
-  font-style: normal;
-}
-
-.kanit-regular {
-  font-family: "Kanit", sans-serif;
-  font-weight: 400;
-  font-style: normal;
-}
-
-.kanit-medium {
-  font-family: "Kanit", sans-serif;
-  font-weight: 500;
-  font-style: normal;
-}
-
-.kanit-semibold {
-  font-family: "Kanit", sans-serif;
-  font-weight: 600;
-  font-style: normal;
-}
-
-.kanit-bold {
-  font-family: "Kanit", sans-serif;
-  font-weight: 700;
-  font-style: normal;
-}
-
-.kanit-extrabold {
-  font-family: "Kanit", sans-serif;
-  font-weight: 800;
-  font-style: normal;
-}
-
-.kanit-black {
-  font-family: "Kanit", sans-serif;
-  font-weight: 900;
-  font-style: normal;
-}
-
-.kanit-thin-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 100;
-  font-style: italic;
-}
-
-.kanit-extralight-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 200;
-  font-style: italic;
-}
-
-.kanit-light-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 300;
-  font-style: italic;
-}
-
-.kanit-regular-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 400;
-  font-style: italic;
-}
-
-.kanit-medium-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 500;
-  font-style: italic;
-}
-
-.kanit-semibold-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 600;
-  font-style: italic;
-}
-
-.kanit-bold-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 700;
-  font-style: italic;
-}
-
-.kanit-extrabold-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 800;
-  font-style: italic;
-}
-
-.kanit-black-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 900;
-  font-style: italic;
+  /* focus ring เดียวกันทั้งระบบ */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
 }
