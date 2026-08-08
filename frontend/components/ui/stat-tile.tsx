@@ -5,19 +5,27 @@ import { cn } from "@/lib/utils"
 interface StatTileProps extends React.HTMLAttributes<HTMLDivElement> {
     label: string
     value: React.ReactNode
+    caption?: React.ReactNode
     icon?: LucideIcon
 }
 
-function StatTile({ label, value, icon: Icon, className, ...props }: StatTileProps) {
+function StatTile({ label, value, caption, icon: Icon, className, ...props }: StatTileProps) {
     return (
         <div
             className={cn(
-                "rounded-xl border border-border bg-bg p-5 shadow-xs",
+                "relative overflow-hidden rounded-2xl border border-border bg-bg p-5 shadow-xs transition-shadow hover:shadow-sm",
                 className
             )}
             {...props}
         >
-            <div className="flex items-start justify-between gap-3">
+            {Icon && (
+                <Icon
+                    className="pointer-events-none absolute -right-3 -bottom-3 size-20 text-brand-50"
+                    strokeWidth={1.5}
+                    aria-hidden="true"
+                />
+            )}
+            <div className="relative flex items-start justify-between gap-3">
                 <div className="space-y-1">
                     <p className="text-sm text-fg-muted">{label}</p>
                     <p className="text-3xl font-semibold tracking-tight text-fg">{value}</p>
@@ -28,6 +36,9 @@ function StatTile({ label, value, icon: Icon, className, ...props }: StatTilePro
                     </span>
                 )}
             </div>
+            {caption && (
+                <p className="relative mt-3 text-xs text-fg-subtle">{caption}</p>
+            )}
         </div>
     )
 }

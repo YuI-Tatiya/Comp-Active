@@ -14,20 +14,20 @@ export function SiteFooter() {
                 <div className="grid gap-10 md:grid-cols-4">
                     <div className="space-y-4 md:col-span-2">
                         <div className="flex items-center gap-2.5">
-                            <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-brand-600 text-xs font-semibold text-white">
+                            <span className="flex size-10 shrink-0 items-center justify-center">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                     src="/logo.png"
                                     alt=""
-                                    className="size-full object-cover"
+                                    className="size-full object-contain"
                                     onError={(e) => {
                                         const el = e.currentTarget
                                         el.style.display = "none"
-                                        if (el.parentElement) el.parentElement.textContent = "CP"
+                                        if (el.parentElement) el.parentElement.textContent = "CA"
                                     }}
                                 />
                             </span>
-                            <span className="text-sm font-semibold text-fg">ระบบจัดการกิจกรรม</span>
+                            <span className="text-lg font-bold text-fg">Comp Active</span>
                         </div>
                         <p className="max-w-sm text-sm leading-relaxed text-fg-muted">
                             แพลตฟอร์มศูนย์กลางสำหรับการเข้าร่วมและจัดการกิจกรรมของนักศึกษา

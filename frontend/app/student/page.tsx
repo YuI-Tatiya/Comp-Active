@@ -85,30 +85,52 @@ export default function StudentDashboardPage() {
   return (
     <>
       {/* ── แถบทักทาย ────────────────────────────────────────────────────── */}
-      <section className="border-b border-border bg-surface">
-        <Container className="flex flex-col gap-3 py-8 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-fg">
+      <section
+        className="relative overflow-hidden"
+        style={{ background: "linear-gradient(160deg,#1e293b 0%,#0f172a 55%,#020617 100%)" }}
+      >
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(560px circle at 82% 15%, rgba(59,130,246,0.25), transparent)" }}
+        />
+        <Container className="relative py-16 sm:py-20">
+          <div className="mx-auto max-w-2xl rounded-3xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur-sm sm:p-12">
+            <h1 className="text-3xl font-bold text-white sm:text-4xl">
               สวัสดี {user?.name || "นักศึกษา"}
             </h1>
-            <p className="mt-1 text-sm text-fg-muted">
+            <p className="mt-3 text-sm text-slate-300 sm:text-base">
               {loadingMine
                 ? "กำลังโหลดข้อมูลของคุณ..."
-                : `ระดับ ${level} · เข้าร่วมมาแล้ว ${skills?.count ?? 0} กิจกรรม`}
+                : `ระดับ ${level} · เข้าร่วมมาแล้ว ${skills?.count ?? 0} กิจกรรม · สะสม ${points.toLocaleString("th-TH")} คะแนน`}
             </p>
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <Button
+                asChild
+                size="lg"
+                className="bg-gradient-to-r from-brand-300 to-brand-500 text-white shadow-md hover:from-brand-300 hover:to-brand-600"
+              >
+                <Link href="/student/events">
+                  ค้นหากิจกรรม
+                  <ArrowRight />
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="border-white/20 bg-transparent text-white hover:bg-white/10"
+              >
+                <Link href="/student/profile">ทักษะของฉัน</Link>
+              </Button>
+            </div>
           </div>
-          <Button asChild>
-            <Link href="/student/events">
-              ค้นหากิจกรรม
-              <ArrowRight />
-            </Link>
-          </Button>
         </Container>
       </section>
 
       {/* ── สถิติของฉัน ───────────────────────────────────────────────────── */}
       <section className="border-b border-border">
         <Container className="py-8">
+          <h2 className="mb-5 text-lg font-semibold text-fg">สถิติของฉัน</h2>
           <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
             <StatTile
               label="กิจกรรมที่เข้าร่วม"

@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { organizerRequestsAPI } from "@/lib/api"
-import { LayoutDashboard, Users, CalendarDays, LogOut, Shield, ClipboardList, UserPlus, Loader2 } from "lucide-react"
+import { LayoutDashboard, Users, CalendarDays, LogOut, ClipboardList, UserPlus, Loader2 } from "lucide-react"
 
 export default function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
@@ -66,8 +66,9 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
                 {/* Brand */}
                 <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,0.12)" }}>
-                            <Shield className="w-5 h-5 text-white" />
+                        <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src="/logo.png" alt="" className="w-full h-full object-contain" />
                         </div>
                         <div>
                             <div className="font-bold text-white text-sm tracking-wide">Comp Active</div>

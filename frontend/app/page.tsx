@@ -75,31 +75,53 @@ export default function RootPage() {
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
 
-      {/* ── Hero (asymmetric) ───────────────────────────────────────────── */}
-      <section className="border-b border-border bg-surface">
-        <Container className="py-16 md:py-24">
+      {/* ── Hero (asymmetric, dark) ─────────────────────────────────────── */}
+      <section
+        className="relative overflow-hidden"
+        style={{ background: "linear-gradient(160deg,#1e293b 0%,#0f172a 55%,#020617 100%)" }}
+      >
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(700px circle at 85% 10%, rgba(59,130,246,0.25), transparent)" }}
+        />
+        <Container className="relative py-16 md:py-24">
           <div className="grid items-center gap-12 lg:grid-cols-12">
             <div className="lg:col-span-7">
-              <SectionLabel n="00">วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น</SectionLabel>
+              <p className="mb-3 flex items-center gap-2.5 text-xs font-medium tracking-wide text-slate-400">
+                <span className="tabular-nums text-brand-300">00</span>
+                <span className="h-px w-6 bg-white/20" aria-hidden="true" />
+                วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น
+              </p>
 
-              <h1 className="text-4xl font-bold leading-[1.15] tracking-tight text-fg md:text-6xl">
+              <h1 className="text-4xl font-bold leading-[1.15] tracking-tight text-white md:text-6xl">
                 พัฒนาทักษะ
                 <br />
-                <span className="text-brand-600">ผ่านกิจกรรม</span>
+                <span className="bg-gradient-to-r from-brand-300 to-brand-100 bg-clip-text text-transparent">
+                  ผ่านกิจกรรม
+                </span>
                 <br />
                 ที่คุณเลือกเอง
               </h1>
 
-              <p className="mt-6 max-w-md text-base leading-relaxed text-fg-muted md:text-lg">
+              <p className="mt-6 max-w-md text-base leading-relaxed text-slate-300 md:text-lg">
                 เข้าร่วมกิจกรรมนอกหลักสูตร สะสมคะแนน Soft Skills ทั้ง 5 ด้าน
                 และติดตามการเติบโตของตัวเองได้ในที่เดียว
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Button size="xl" asChild>
+                <Button
+                  size="xl"
+                  asChild
+                  className="bg-gradient-to-r from-brand-300 to-brand-500 text-white shadow-md hover:from-brand-300 hover:to-brand-600"
+                >
                   <Link href="/auth">เริ่มต้นใช้งาน</Link>
                 </Button>
-                <Button size="xl" variant="outline" asChild>
+                <Button
+                  size="xl"
+                  variant="outline"
+                  asChild
+                  className="border-white/20 bg-transparent text-white hover:bg-white/10"
+                >
                   <Link href="/events">
                     ดูกิจกรรมทั้งหมด
                     <ArrowRight />
@@ -111,21 +133,21 @@ export default function RootPage() {
             {/* การ์ดสถิติซ้อนเยื้อง */}
             <div className="lg:col-span-5">
               <div className="flex flex-col gap-4 sm:flex-row lg:flex-col">
-                <div className="flex-1 rounded-xl border border-border bg-bg p-6 shadow-sm lg:ml-8">
-                  <p className="text-4xl font-semibold tracking-tight text-fg tabular-nums">
+                <div className="flex-1 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm lg:ml-8">
+                  <p className="text-4xl font-semibold tracking-tight text-white tabular-nums">
                     {stats ? stats.totalActivities.toLocaleString("th-TH") : "—"}
                   </p>
-                  <p className="mt-1 text-sm text-fg-muted">กิจกรรมบนแพลตฟอร์ม</p>
+                  <p className="mt-1 text-sm text-slate-400">กิจกรรมบนแพลตฟอร์ม</p>
                 </div>
 
-                <div className="flex-1 rounded-xl border border-border bg-bg p-6 shadow-sm lg:mr-8">
-                  <p className="text-4xl font-semibold tracking-tight text-fg tabular-nums">
+                <div className="flex-1 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm lg:mr-8">
+                  <p className="text-4xl font-semibold tracking-tight text-white tabular-nums">
                     {stats ? stats.totalParticipants.toLocaleString("th-TH") : "—"}
                   </p>
-                  <p className="mt-1 text-sm text-fg-muted">ผู้เข้าร่วมสะสม</p>
+                  <p className="mt-1 text-sm text-slate-400">ผู้เข้าร่วมสะสม</p>
                 </div>
 
-                <div className="flex-1 rounded-xl border border-border bg-brand-600 p-6 shadow-sm lg:ml-8">
+                <div className="flex-1 rounded-xl border border-brand-300/30 bg-gradient-to-br from-brand-500 to-brand-700 p-6 shadow-md lg:ml-8">
                   <p className="text-4xl font-semibold tracking-tight text-white tabular-nums">5</p>
                   <p className="mt-1 text-sm text-brand-100">ทักษะที่ติดตามได้</p>
                 </div>

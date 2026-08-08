@@ -1,21 +1,27 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── Typography ─────────────────────────────────────────────────────────── */
-  --font-sans: "Kanit", ui-sans-serif, system-ui, sans-serif;
+  /* ── Typography ─────────────────────────────────────────────────────────────
+     Latin ใช้ Montserrat/Inter ตามดีไซน์ใหม่ ส่วนอักษรไทยไม่มี glyph ในสองฟอนต์นี้
+     จึง fallback ไปที่ Kanit (ฟอนต์เดิม) เพื่อไม่ให้ข้อความไทยแตก ─────────────── */
+  --font-sans: var(--font-inter), var(--font-kanit), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-montserrat), var(--font-kanit), ui-sans-serif, system-ui, sans-serif;
 
-  /* ── Brand (สีเน้นเดียวของทั้งระบบ) ───────────────────────────────────────── */
-  --color-brand-50: #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-200: #bfdbfe;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
-  --color-brand-900: #1e3a8a;
+  /* ── Brand (Chakra-blue scale ตาม design system ใหม่) ─────────────────────
+     Primary #1A365D → brand-900 / Secondary #3182CE → brand-600 (ปุ่มหลัก) /
+     Tertiary #63B3ED → brand-200 ───────────────────────────────────────────── */
+  --color-brand-50: #ebf8ff;
+  --color-brand-100: #bee3f8;
+  --color-brand-200: #63b3ed;
+  --color-brand-300: #4299e1;
+  --color-brand-500: #3182ce;
+  --color-brand-600: #2b6cb0;
+  --color-brand-700: #2c5282;
+  --color-brand-900: #1a365d;
 
   /* ── Neutral / Surface ──────────────────────────────────────────────────── */
   --color-bg: #ffffff;
-  --color-surface: #f8fafc;
+  --color-surface: #f7fafc;
   --color-surface-2: #f1f5f9;
   --color-border: #e2e8f0;
   --color-border-strong: #cbd5e1;
@@ -63,6 +69,10 @@
     background-color: var(--color-bg);
     color: var(--color-fg);
     -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
   }
 
   /* focus ring เดียวกันทั้งระบบ */

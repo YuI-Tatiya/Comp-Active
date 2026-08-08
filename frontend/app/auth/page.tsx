@@ -23,7 +23,7 @@ export default function AuthPage() {
                     <div className="relative z-10">
                         <div className="mb-6">
                             <GraduationCap className="h-16 w-16 mb-4" />
-                            <h1 className="text-3xl font-bold mb-2">ระบบจัดการกิจกรรม</h1>
+                            <h1 className="text-3xl font-bold mb-2">Comp Active</h1>
                             <p className="text-blue-100 text-lg">วิทยาลัยการคอมพิวเตอร์</p>
                         </div>
                     </div>

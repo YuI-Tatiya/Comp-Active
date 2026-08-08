@@ -35,22 +35,22 @@ export function SiteHeader() {
             <Container>
                 <div className="flex h-16 items-center justify-between gap-4">
                     {/* โลโก้ */}
-                    <Link href="/" className="flex items-center gap-2.5 rounded-md">
-                        <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-brand-600 text-sm font-semibold text-white">
+                    <Link href="/" className="flex items-center gap-3 rounded-md">
+                        <span className="flex size-12 shrink-0 items-center justify-center">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 src="/logo.png"
                                 alt=""
-                                className="size-full object-cover"
+                                className="size-full object-contain"
                                 onError={(e) => {
                                     const el = e.currentTarget
                                     el.style.display = "none"
-                                    if (el.parentElement) el.parentElement.textContent = "CP"
+                                    if (el.parentElement) el.parentElement.textContent = "CA"
                                 }}
                             />
                         </span>
                         <span className="flex flex-col leading-tight">
-                            <span className="text-sm font-semibold text-fg">ระบบจัดการกิจกรรม</span>
+                            <span className="text-lg font-bold text-fg">Comp Active</span>
                             <span className="text-xs text-fg-subtle">วิทยาลัยการคอมพิวเตอร์</span>
                         </span>
                     </Link>
