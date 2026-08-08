@@ -19,12 +19,11 @@ export class AdminStatsService {
    * ดึงสถิติ Dashboard สำหรับ Admin
    */
   async getDashboardStats() {
-    const [totalUsers, totalActivities, totalRegistrations, pendingActivities, usersByRole] =
+    const [totalUsers, totalActivities, totalRegistrations, usersByRole] =
       await Promise.all([
         this.usersService.countAll(),
         this.activitiesService.countAll(),
         this.registrationsService.countAll(),
-        this.activitiesService.countPending(),
         this.usersService.countByRole(),
       ]);
 
@@ -32,7 +31,6 @@ export class AdminStatsService {
       totalUsers,
       totalActivities,
       totalRegistrations,
-      pendingActivities,
       usersByRole,
     };
   }

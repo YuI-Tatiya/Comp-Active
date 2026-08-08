@@ -4,7 +4,6 @@ import { UsersModule } from '../shared/users/users.module';
 import { RegistrationsModule } from '../shared/registrations/registrations.module';
 import { AdminDashboardModule } from '../shared/admin-dashboard/admin-dashboard.module';
 import { MailModule } from '../shared/mail/mail.module';
-import { ActivitiesAdminController } from './activities-admin.controller';
 import { UsersAdminController } from './users-admin.controller';
 import { OrganizerRequestAdminController } from './organizer-request-admin.controller';
 import { SiteContentAdminController } from './site-content-admin.controller';
@@ -20,7 +19,6 @@ import { ApiKeyRepository } from './api-key.repository';
 @Module({
   imports: [ActivitiesModule, UsersModule, RegistrationsModule, AdminDashboardModule, MailModule],
   controllers: [
-    ActivitiesAdminController,
     UsersAdminController,
     OrganizerRequestAdminController,
     SiteContentAdminController,

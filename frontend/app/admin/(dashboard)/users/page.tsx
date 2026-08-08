@@ -7,7 +7,7 @@ import { usersAPI, User } from "@/lib/api"
 const roleLabels: Record<string, { label: string; icon: React.ElementType; color: string; dot: string }> = {
     student: { label: "นักศึกษา", icon: GraduationCap, color: "rgba(14,165,233,0.12)", dot: "#0ea5e9" },
     organizer: { label: "ผู้จัดกิจกรรม", icon: Megaphone, color: "rgba(224,169,74,0.14)", dot: "#c88e2a" },
-    admin: { label: "ผู้ดูแลระบบ", icon: Shield, color: "rgba(58,114,173,0.12)", dot: "#3a72ad" },
+    admin: { label: "ผู้ดูแลระบบ", icon: Shield, color: "rgba(37,99,235,0.12)", dot: "#2563eb" },
 }
 
 const filters = [
@@ -97,7 +97,7 @@ export default function AdminUsersPage() {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
-                <div className="w-8 h-8 rounded-full animate-spin" style={{ border: "4px solid #dce6f2", borderTopColor: "#3a72ad" }} />
+                <div className="w-8 h-8 rounded-full animate-spin" style={{ border: "4px solid #e2e8f0", borderTopColor: "#2563eb" }} />
             </div>
         )
     }
@@ -105,20 +105,20 @@ export default function AdminUsersPage() {
     return (
         <div className="p-8 space-y-6">
             <div>
-                <h1 className="text-2xl font-bold" style={{ color: "#14263c" }}>จัดการผู้ใช้</h1>
-                <p className="text-sm mt-1" style={{ color: "#5f7691" }}>ดูและจัดการบัญชีผู้ใช้ทั้งหมด</p>
+                <h1 className="text-2xl font-bold" style={{ color: "#0f172a" }}>จัดการผู้ใช้</h1>
+                <p className="text-sm mt-1" style={{ color: "#64748b" }}>ดูและจัดการบัญชีผู้ใช้ทั้งหมด</p>
             </div>
 
             {/* Search + Filter */}
-            <div className="bg-white rounded-2xl p-4" style={{ border: "1px solid #dce6f2" }}>
+            <div className="bg-white rounded-2xl p-4" style={{ border: "1px solid #e2e8f0" }}>
                 <div className="flex flex-col md:flex-row gap-3">
                     <div className="relative flex-1">
-                        <Search className="absolute left-3 top-2.5 w-4 h-4" style={{ color: "#5f7691" }} />
+                        <Search className="absolute left-3 top-2.5 w-4 h-4" style={{ color: "#64748b" }} />
                         <input
                             type="text"
                             placeholder="ค้นหาชื่อหรืออีเมล..."
                             className="w-full pl-9 pr-4 py-2 rounded-xl text-sm outline-none"
-                            style={{ background: "#f0f4f9", border: "1px solid #dce6f2", color: "#14263c" }}
+                            style={{ background: "#f1f5f9", border: "1px solid #e2e8f0", color: "#0f172a" }}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -132,12 +132,12 @@ export default function AdminUsersPage() {
                                     onClick={() => setRoleFilter(f.key)}
                                     className="px-3.5 py-2 text-sm rounded-xl font-medium transition-all"
                                     style={active ? {
-                                        background: "#3a72ad",
+                                        background: "#2563eb",
                                         color: "#fff",
                                     } : {
-                                        background: "#f0f4f9",
-                                        color: "#5f7691",
-                                        border: "1px solid #dce6f2",
+                                        background: "#f1f5f9",
+                                        color: "#64748b",
+                                        border: "1px solid #e2e8f0",
                                     }}
                                 >
                                     {f.label}
@@ -150,13 +150,13 @@ export default function AdminUsersPage() {
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #dce6f2" }}>
+            <div className="bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #e2e8f0" }}>
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr style={{ background: "#f7f9fc", borderBottom: "1px solid #dce6f2" }}>
+                            <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
                                 {["ผู้ใช้", "บทบาท", "สถานะ", "รหัส นศ.", "สิทธิ์ Organizer", "จัดการ"].map((h, i, arr) => (
-                                    <th key={h} className={`px-6 py-3.5 text-xs font-semibold uppercase tracking-wider ${i === arr.length - 1 ? "text-right" : "text-left"}`} style={{ color: "#5f7691" }}>{h}</th>
+                                    <th key={h} className={`px-6 py-3.5 text-xs font-semibold uppercase tracking-wider ${i === arr.length - 1 ? "text-right" : "text-left"}`} style={{ color: "#64748b" }}>{h}</th>
                                 ))}
                             </tr>
                         </thead>
@@ -169,20 +169,20 @@ export default function AdminUsersPage() {
                                         key={u.id}
                                         className="transition-colors"
                                         style={{
-                                            borderBottom: i < filtered.length - 1 ? "1px solid #f0f4f9" : "none",
+                                            borderBottom: i < filtered.length - 1 ? "1px solid #f1f5f9" : "none",
                                             opacity: u.isBlocked ? 0.55 : 1,
                                         }}
-                                        onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "#f7f9fc" }}
+                                        onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "#f8fafc" }}
                                         onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "transparent" }}
                                     >
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0" style={{ background: u.isBlocked ? "#94a3b8" : "linear-gradient(135deg,#3a72ad,#2a5280)" }}>
+                                                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0" style={{ background: u.isBlocked ? "#94a3b8" : "linear-gradient(135deg,#2563eb,#1d4ed8)" }}>
                                                     {u.name?.[0]?.toUpperCase() || "?"}
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium text-sm" style={{ color: "#14263c" }}>{u.name}</div>
-                                                    <div className="text-xs" style={{ color: "#5f7691" }}>{u.email}</div>
+                                                    <div className="font-medium text-sm" style={{ color: "#0f172a" }}>{u.name}</div>
+                                                    <div className="text-xs" style={{ color: "#64748b" }}>{u.email}</div>
                                                 </div>
                                             </div>
                                         </td>
@@ -203,7 +203,7 @@ export default function AdminUsersPage() {
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 text-sm" style={{ color: "#5f7691" }}>{u.studentId || "—"}</td>
+                                        <td className="px-6 py-4 text-sm" style={{ color: "#64748b" }}>{u.studentId || "—"}</td>
                                         <td className="px-6 py-4 text-sm">
                                             {u.role === "organizer" ? (
                                                 u.validUntil ? (
@@ -212,42 +212,42 @@ export default function AdminUsersPage() {
                                                             <CalendarClock className="w-3 h-3" />หมดอายุแล้ว
                                                         </span>
                                                     ) : (
-                                                        <span style={{ color: "#5f7691" }}>ถึง {new Date(u.validUntil).toLocaleDateString("th-TH", { dateStyle: "medium" })}</span>
+                                                        <span style={{ color: "#64748b" }}>ถึง {new Date(u.validUntil).toLocaleDateString("th-TH", { dateStyle: "medium" })}</span>
                                                     )
-                                                ) : <span style={{ color: "#5f7691" }}>—</span>
-                                            ) : <span style={{ color: "#5f7691" }}>—</span>}
+                                                ) : <span style={{ color: "#64748b" }}>—</span>
+                                            ) : <span style={{ color: "#64748b" }}>—</span>}
                                         </td>
                                         <td className="px-6 py-4 text-right relative">
                                             <button
                                                 onClick={() => setOpenMenuId(openMenuId === u.id ? null : u.id)}
                                                 className="p-2 rounded-lg transition-colors"
-                                                style={{ color: "#5f7691" }}
-                                                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f0f4f9" }}
+                                                style={{ color: "#64748b" }}
+                                                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f1f5f9" }}
                                                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}
                                             >
                                                 <MoreVertical className="w-4 h-4" />
                                             </button>
                                             {openMenuId === u.id && (
-                                                <div className="absolute right-6 top-12 w-52 bg-white rounded-xl shadow-xl z-20 py-1.5 overflow-hidden" style={{ border: "1px solid #dce6f2" }}>
+                                                <div className="absolute right-6 top-12 w-52 bg-white rounded-xl shadow-xl z-20 py-1.5 overflow-hidden" style={{ border: "1px solid #e2e8f0" }}>
                                                     {u.role === "organizer" && (
                                                         <>
                                                             <button
                                                                 onClick={() => handleExtend(u.id)}
                                                                 className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 transition-colors"
-                                                                style={{ color: "#3a72ad" }}
-                                                                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f7f9fc" }}
+                                                                style={{ color: "#2563eb" }}
+                                                                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f8fafc" }}
                                                                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}
                                                             >
                                                                 <CalendarClock className="w-4 h-4" /> ต่ออายุ
                                                             </button>
-                                                            <div style={{ borderTop: "1px solid #f0f4f9", margin: "4px 0" }} />
+                                                            <div style={{ borderTop: "1px solid #f1f5f9", margin: "4px 0" }} />
                                                         </>
                                                     )}
                                                     <button
                                                         onClick={() => handleBlock(u.id, !!u.isBlocked)}
                                                         className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 transition-colors"
                                                         style={{ color: u.isBlocked ? "#3fa0ac" : "#dc2626" }}
-                                                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f7f9fc" }}
+                                                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f8fafc" }}
                                                         onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent" }}
                                                     >
                                                         {u.isBlocked
@@ -255,7 +255,7 @@ export default function AdminUsersPage() {
                                                             : <><Ban className="w-4 h-4" /> ระงับบัญชี</>
                                                         }
                                                     </button>
-                                                    <div style={{ borderTop: "1px solid #f0f4f9", margin: "4px 0" }} />
+                                                    <div style={{ borderTop: "1px solid #f1f5f9", margin: "4px 0" }} />
                                                     <button
                                                         onClick={() => handleDeleteUser(u.id)}
                                                         className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 transition-colors"
@@ -274,14 +274,14 @@ export default function AdminUsersPage() {
                             })}
                             {filtered.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="py-14 text-center text-sm" style={{ color: "#5f7691" }}>ไม่พบผู้ใช้</td>
+                                    <td colSpan={6} className="py-14 text-center text-sm" style={{ color: "#64748b" }}>ไม่พบผู้ใช้</td>
                                 </tr>
                             )}
                         </tbody>
                     </table>
                 </div>
-                <div className="px-6 py-3" style={{ borderTop: "1px solid #dce6f2", background: "#f7f9fc" }}>
-                    <span className="text-xs" style={{ color: "#5f7691" }}>แสดง {filtered.length} จาก {users.length} ผู้ใช้</span>
+                <div className="px-6 py-3" style={{ borderTop: "1px solid #e2e8f0", background: "#f8fafc" }}>
+                    <span className="text-xs" style={{ color: "#64748b" }}>แสดง {filtered.length} จาก {users.length} ผู้ใช้</span>
                 </div>
             </div>
 

@@ -129,9 +129,7 @@ export default function OrganizerEventDetailsPage() {
             setSubmitting(true)
             await activitiesAPI.requestCancel(id, cancelReason)
 
-            // If the backend cancelled it immediately (0 students), the message should be different
-            // But for simplicity, we'll use a general one and re-fetch status
-            alert("ดำเนินการสำเร็จ (หากมีผู้สมัครแล้ว คำขอจะถูกส่งไปให้ Admin อนุมัติ)")
+            alert("ยกเลิกกิจกรรมสำเร็จ")
             setIsCancelOpen(false)
             fetchEventDetails(id)
         } catch (err: unknown) {
@@ -240,10 +238,9 @@ export default function OrganizerEventDetailsPage() {
                             variant="destructive"
                             size="sm"
                             onClick={() => setIsCancelOpen(true)}
-                            disabled={event.approvalStatus === 'pending_cancel' || event.approvalStatus === 'rejected'}
+                            disabled={event.approvalStatus === 'rejected'}
                         >
-                            {event.approvalStatus === 'pending_cancel' ? 'กำลังรอยกเลิก' :
-                                event.approvalStatus === 'rejected' ? 'ยกเลิกแล้ว' : 'ยกเลิกกิจกรรม'}
+                            {event.approvalStatus === 'rejected' ? 'ยกเลิกแล้ว' : 'ยกเลิกกิจกรรม'}
                         </Button>
                     </div>
                 </div>
@@ -267,9 +264,6 @@ export default function OrganizerEventDetailsPage() {
                                 </Badge>
                                 {event.approvalStatus === 'pending_approval' && (
                                     <Badge className="bg-orange-500 hover:bg-orange-600">รออนุมัติ</Badge>
-                                )}
-                                {event.approvalStatus === 'pending_cancel' && (
-                                    <Badge className="bg-red-500 hover:bg-red-600">รอยกเลิก (Admin)</Badge>
                                 )}
                                 {event.approvalStatus === 'rejected' && (
                                     <Badge className="bg-red-100 text-red-700 border-red-200">กิจกรรมถูกยกเลิก</Badge>
@@ -603,7 +597,7 @@ export default function OrganizerEventDetailsPage() {
                     </DialogHeader>
                     <div className="py-4 space-y-4">
                         <div className="p-4 bg-amber-50 rounded-lg border border-amber-100 text-sm text-amber-800">
-                            <strong>หมายเหตุ:</strong> หากมีผู้เข้าร่วมลงทะเบียนแล้ว คำขอนี้จะถูกส่งไปให้ <strong>Admin อนุมัติ</strong> เพื่อความปลอดภัยและเป็นทางการตามระเบียบของระบบ
+                            <strong>หมายเหตุ:</strong> กิจกรรมจะถูกยกเลิกทันที ผู้เข้าร่วมที่ลงทะเบียนไว้แล้วจะได้รับผลกระทบและไม่สามารถย้อนกลับได้
                         </div>
                         <div className="space-y-2">
                             <Label>เหตุผลการยกเลิก <span className="text-red-500">*</span></Label>

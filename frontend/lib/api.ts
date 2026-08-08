@@ -64,7 +64,7 @@ export interface OrganizerStats {
   totalActivities: number;
   activeActivities: number;
   totalRegistrations: number;
-  pendingApprovals: number;
+  pendingApprovals?: number;
 }
 
 /**
@@ -156,14 +156,8 @@ export const activitiesAPI = {
     fetchAPI<Activity>(`/api/activities/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: (id: number) => fetchAPI<void>(`/api/activities/${id}`, { method: 'DELETE' }),
   getMy: () => fetchAPI<Activity[]>('/api/activities/my'),
-  getPending: () => fetchAPI<Activity[]>('/api/activities/pending'),
-  approve: (id: number) => fetchAPI<void>(`/api/activities/${id}/approve`, { method: 'PATCH' }),
-  reject: (id: number, reason: string) =>
-    fetchAPI<void>(`/api/activities/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
   requestCancel: (id: number, reason: string) =>
     fetchAPI<void>(`/api/activities/${id}/request-cancel`, { method: 'POST', body: JSON.stringify({ reason }) }),
-  getPendingCancel: () => fetchAPI<Activity[]>('/api/activities/pending-cancel'),
-  approveCancel: (id: number) => fetchAPI<void>(`/api/activities/${id}/approve-cancel`, { method: 'PATCH' }),
   getPlatformStats: () => fetchAPI<PlatformStats>('/api/activities/stats/platform'),
   getOrganizerStats: () => fetchAPI<OrganizerStats>('/api/activities/stats/organizer'),
   uploadImage: async (file: File) => {

@@ -75,8 +75,8 @@ export default function OrganizerManagePage() {
               <p className="text-2xl font-bold text-orange-900">{events.filter(e => e.approvalStatus === "pending_approval").length}</p>
             </div>
             <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-              <p className="text-sm text-red-700">ยกเลิก / รอยกเลิก</p>
-              <p className="text-2xl font-bold text-red-900">{events.filter(e => e.approvalStatus === "rejected" || e.approvalStatus === "pending_cancel").length}</p>
+              <p className="text-sm text-red-700">ยกเลิกแล้ว</p>
+              <p className="text-2xl font-bold text-red-900">{events.filter(e => e.approvalStatus === "rejected").length}</p>
             </div>
           </div>
         </div>
@@ -130,14 +130,12 @@ export default function OrganizerManagePage() {
                     </div>
                     <div className="absolute top-3 right-3 flex flex-col gap-2 items-end">
                       <span className={`text-[10px] px-2 py-1 rounded-full font-bold shadow-sm ${event.approvalStatus === "approved" ? "bg-green-500 text-white" :
-                          event.approvalStatus === "pending_cancel" ? "bg-red-500 text-white" :
-                            event.approvalStatus === "rejected" ? "bg-gray-500 text-white" :
-                              "bg-orange-500 text-white"
+                          event.approvalStatus === "rejected" ? "bg-gray-500 text-white" :
+                            "bg-orange-500 text-white"
                         }`}>
                         {event.approvalStatus === "approved" ? "อนุมัติแล้ว" :
-                          event.approvalStatus === "pending_cancel" ? "รอยกเลิก" :
-                            event.approvalStatus === "rejected" ? "ยกเลิกแล้ว" :
-                              "รออนุมัติ"}
+                          event.approvalStatus === "rejected" ? "ยกเลิกแล้ว" :
+                            "รออนุมัติ"}
                       </span>
                     </div>
                   </div>
