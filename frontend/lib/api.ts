@@ -64,6 +64,7 @@ export interface OrganizerStats {
   totalActivities: number;
   activeActivities: number;
   totalRegistrations: number;
+  pendingApprovals?: number;
 }
 
 /**
