@@ -129,19 +129,18 @@ export default function RootPage() {
         <Container className="relative z-10 pt-16 pb-16 md:pt-24 md:pb-24">
           <div className="relative">
             <div className="max-w-3xl lg:max-w-xl">
-              <p className="mb-3 flex items-center gap-2.5 text-xs font-medium tracking-wide text-slate-500">
+              <p className="mb-3 flex items-center gap-2.5 text-sm font-medium tracking-wide text-slate-500">
                 <span className="h-px w-6 bg-slate-900/15" aria-hidden="true" />
                 วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น
               </p>
 
-              <h1 className="text-3xl font-bold leading-[1.15] tracking-tight text-slate-900 md:text-5xl">
-                พัฒนาทักษะ
+              <h1 className="text-4xl font-bold leading-[1.15] tracking-tight text-slate-900 md:text-6xl">
+                Building Skills
                 <br />
-                <span className="text-brand-600">ผ่านกิจกรรม</span>
-                <br />
+                <span className="text-brand-600">Through Hands-On Activities</span>
               </h1>
 
-              <p className="mt-6 max-w-md text-base leading-relaxed text-slate-600 md:text-lg">
+              <p className="mt-6 max-w-md text-lg leading-relaxed text-slate-600 md:text-xl">
                 นักศึกษาวิทยาลัยการคอมพิวเตอร์ อย่าลืมเข้ามาลงทะเบียนเข้าร่วมกิจกรรมเพื่อพัฒนาทักษะนอกห้องเรียนของคุณ
               </p>
 
@@ -375,38 +374,6 @@ export default function RootPage() {
                 </div>
               ))}
             </div>
-          </div>
-        </Container>
-      </section>
-
-      {/* ── 04 สำรวจตามความสนใจ ─────────────────────────────────────────── */}
-      <section>
-        <Container className="py-16">
-          <SectionLabel n="04">หมวดหมู่</SectionLabel>
-          <h2 className="text-3xl font-semibold tracking-tight text-fg">
-            สำรวจตามความสนใจ
-          </h2>
-
-          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {CATEGORIES.map((cat) => (
-              <Link
-                key={cat.value}
-                href={`/events?category=${cat.value}`}
-                className="group relative overflow-hidden rounded-xl border border-border bg-bg p-5 transition-colors hover:border-border-strong"
-              >
-                <span
-                  className={cn("absolute inset-y-0 left-0 w-1", cat.dot)}
-                  aria-hidden="true"
-                />
-                <div className="flex items-center justify-between pl-2">
-                  <span className="text-base font-medium text-fg">{cat.label}</span>
-                  <ArrowRight
-                    className="size-4 shrink-0 text-fg-subtle transition-colors group-hover:text-brand-600"
-                    aria-hidden="true"
-                  />
-                </div>
-              </Link>
-            ))}
           </div>
         </Container>
       </section>
