@@ -173,12 +173,17 @@ export default function RootPage() {
                 className="pointer-events-none absolute inset-[-14%] z-0 rounded-full bg-gradient-to-br from-white/75 via-sky-200/50 to-blue-300/30 blur-3xl motion-safe:animate-glow motion-reduce:animate-none"
                 aria-hidden="true"
               />
+              {/* เงาสัมผัสพื้น — แยกภาพออกจาก background ให้รู้สึกลอยจริง */}
+              <div
+                className="pointer-events-none absolute bottom-[8%] left-1/2 z-0 h-10 w-[65%] -translate-x-1/2 rounded-[50%] bg-slate-900/25 blur-2xl"
+                aria-hidden="true"
+              />
               <Image
                 src="/student_home.svg"
                 alt="นักศึกษาเข้าร่วมกิจกรรม"
                 width={620}
                 height={412}
-                className="relative z-10 h-auto w-full opacity-90 [filter:brightness(1.02)_saturate(1.05)_drop-shadow(0_35px_40px_rgba(49,46,129,0.22))]"
+                className="relative z-10 h-auto w-full [filter:brightness(1.04)_contrast(1.06)_saturate(1.12)_drop-shadow(0_18px_14px_rgba(15,23,42,0.18))_drop-shadow(0_45px_38px_rgba(15,23,42,0.22))]"
                 priority
               />
             </div>
