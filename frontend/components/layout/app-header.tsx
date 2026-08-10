@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { LogOut, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
+import { Logo } from "@/components/layout/logo"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
 
@@ -59,24 +60,9 @@ export function AppHeader({ links, roleLabel, profileHref }: AppHeaderProps) {
         <header className="sticky top-0 z-50 border-b border-border bg-bg/85 backdrop-blur">
             <Container>
                 <div className="flex h-16 items-center justify-between gap-4">
-                    <Link href={links[0]?.href ?? "/"} className="flex items-center gap-3 rounded-md">
-                        <span className="flex size-12 shrink-0 items-center justify-center">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                src="/logo.png"
-                                alt=""
-                                className="size-full object-contain"
-                                onError={(e) => {
-                                    const el = e.currentTarget
-                                    el.style.display = "none"
-                                    if (el.parentElement) el.parentElement.textContent = "CA"
-                                }}
-                            />
-                        </span>
-                        <span className="hidden flex-col leading-tight sm:flex">
-                            <span className="text-lg font-bold text-fg">Comp Active</span>
-                            <span className="text-xs text-fg-subtle">วิทยาลัยการคอมพิวเตอร์</span>
-                        </span>
+                    <Link href={links[0]?.href ?? "/"} className="flex flex-col leading-tight rounded-md">
+                        <Logo className="text-2xl" />
+                        <span className="hidden text-xs text-fg-subtle sm:block">วิทยาลัยการคอมพิวเตอร์</span>
                     </Link>
 
                     <nav className="hidden items-center gap-0.5 lg:flex">

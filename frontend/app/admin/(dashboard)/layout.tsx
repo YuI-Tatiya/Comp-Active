@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { organizerRequestsAPI } from "@/lib/api"
+import { Logo } from "@/components/layout/logo"
 import { LayoutDashboard, Users, CalendarDays, LogOut, ClipboardList, UserPlus, Loader2 } from "lucide-react"
 
 export default function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
@@ -65,15 +66,9 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
             <aside className="w-64 flex flex-col shrink-0" style={{ background: "linear-gradient(160deg,#1e293b 0%,#0f172a 55%,#020617 100%)" }}>
                 {/* Brand */}
                 <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src="/logo.png" alt="" className="w-full h-full object-contain" />
-                        </div>
-                        <div>
-                            <div className="font-bold text-white text-sm tracking-wide">Comp Active</div>
-                            <div className="text-xs" style={{ color: "#94a3b8" }}>Admin Panel</div>
-                        </div>
+                    <div className="flex flex-col leading-tight">
+                        <Logo variant="dark" className="text-xl" />
+                        <div className="text-xs" style={{ color: "#94a3b8" }}>Admin Panel</div>
                     </div>
                 </div>
 
