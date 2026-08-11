@@ -14,6 +14,11 @@ export interface User {
   validUntil?: string | null;
   isBlocked?: boolean;
   createdAt?: string;
+  // ข้อมูลติดต่อ & การศึกษา — เป็น null สำหรับ user ที่สมัครก่อนมีฟีเจอร์นี้
+  phone?: string | null;
+  educationLevel?: string | null;
+  program?: string | null;
+  yearLevel?: number | null;
 }
 
 export interface AuthResponse {
@@ -101,6 +106,10 @@ export const authAPI = {
     email: string;
     password: string;
     studentId?: string;
+    phone: string;
+    educationLevel: string;
+    program: string;
+    yearLevel: number;
   }) => fetchAPI<AuthResponse>('/api/auth/register', { method: 'POST', body: JSON.stringify(body) }),
 
   // identifier: email (student) or username (organizer)

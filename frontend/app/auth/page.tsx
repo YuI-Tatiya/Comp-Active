@@ -1,109 +1,174 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
+import Link from "next/link"
 import { LoginForm } from "@/components/auth/login-form"
 import { RegisterForm } from "@/components/auth/register-form"
-import { GraduationCap, Search, UserPlus, QrCode } from "lucide-react"
-import Link from "next/link"
+import {
+    GraduationCap,
+    Search,
+    UserPlus,
+    QrCode,
+    CalendarPlus,
+    ArrowLeft,
+    AtSign,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+
+const STEPS = [
+    {
+        icon: Search,
+        title: "ค้นหากิจกรรม",
+        body: <>เลือกกิจกรรมที่คุณสนใจจากหลากหลายหมวดหมู่</>,
+    },
+    {
+        icon: UserPlus,
+        title: "ลงทะเบียน",
+        body: <>ลงทะเบียนเข้าร่วมกิจกรรมได้ง่าย ๆ ในไม่กี่คลิก</>,
+    },
+    {
+        icon: QrCode,
+        title: "เข้าร่วมกิจกรรม",
+        body: <>แสดง QR Code เพื่อเช็คอินเข้าร่วมกิจกรรม</>,
+    },
+    {
+        icon: AtSign,
+        title: "เข้าสู่ระบบแบบนักศึกษา",
+        body: (
+            <>
+                ที่ช่อง <span className="font-medium text-white">Username</span> ให้กรอกอีเมล
+                <span className="font-medium text-white"> @kkumail.com</span> ของคุณ
+            </>
+        ),
+    },
+    {
+        icon: CalendarPlus,
+        title: "อยากร่วมเป็นผู้สร้างกิจกรรม?",
+        divider: true,
+        body: (
+            <>
+                สำหรับชมรม/หน่วยงานที่ต้องการจัดกิจกรรมเอง{" "}
+                <Link
+                    href="/auth/organizer/register"
+                    className="font-medium text-white underline underline-offset-4 hover:text-brand-100"
+                >
+                    สมัครที่นี่
+                </Link>
+            </>
+        ),
+    },
+]
 
 export default function AuthPage() {
     const [activeTab, setActiveTab] = useState<"login" | "register">("login")
+    const scrollRef = useRef<HTMLDivElement>(null)
+
+    // สลับแท็บแล้วเด้ง scroll กลับบนสุด ไม่งั้นจะค้างอยู่ตำแหน่งเดิมของฟอร์มก่อนหน้า
+    useEffect(() => {
+        scrollRef.current?.scrollTo({ top: 0 })
+    }, [activeTab])
 
     return (
-        <div className="min-h-screen bg-blue-50/30 flex items-center justify-center p-4">
-            <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden grid md:grid-cols-2 min-h-[600px]">
-                {/* Left Side - Info */}
-                <div className="bg-blue-600 p-8 md:p-12 text-white flex flex-col justify-between relative overflow-hidden">
-                    {/* Background decoration */}
-                    <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-                        <div className="absolute top-10 -left-10 w-40 h-40 bg-white rounded-full mix-blend-overlay blur-3xl"></div>
-                        <div className="absolute bottom-10 -right-10 w-60 h-60 bg-white rounded-full mix-blend-overlay blur-3xl"></div>
+        // h-dvh + overflow-hidden = หน้าไม่มีวันเกิด scrollbar ของเบราว์เซอร์
+        <div className="flex h-dvh items-center justify-center overflow-hidden bg-surface p-4">
+            {/* ความสูงคงที่ — ไม่ยืดตามเนื้อหา จึงไม่ขยับเวลาสลับแท็บ */}
+            <div className="grid h-[calc(100dvh-2rem)] max-h-[720px] w-full max-w-5xl overflow-hidden rounded-xl border border-border bg-bg shadow-md lg:grid-cols-2">
+                {/* ── แผงซ้าย ─────────────────────────────────────────────── */}
+                <aside className="hidden flex-col overflow-hidden bg-brand-600 text-white lg:flex">
+                    <div className="shrink-0 px-10 pt-10">
+                        <GraduationCap className="size-10" aria-hidden="true" />
+                        <h1 className="mt-5 text-2xl font-semibold">ระบบจัดการกิจกรรม</h1>
+                        <p className="mt-1 text-sm text-brand-100">วิทยาลัยการคอมพิวเตอร์</p>
                     </div>
 
-                    <div className="relative z-10">
-                        <div className="mb-6">
-                            <GraduationCap className="h-16 w-16 mb-4" />
-                            <h1 className="text-3xl font-bold mb-2">ระบบจัดการกิจกรรม</h1>
-                            <p className="text-blue-100 text-lg">วิทยาลัยการคอมพิวเตอร์</p>
-                        </div>
-                    </div>
-
-                    <div className="relative z-10 bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-                        <div className="space-y-6">
-                            <div className="flex gap-4">
-                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm">1</div>
+                    <ol className="flex-1 space-y-6 overflow-y-auto px-10 py-8">
+                        {STEPS.map((step, i) => (
+                            <li
+                                key={step.title}
+                                className={cn(
+                                    "flex gap-4",
+                                    step.divider && "border-t border-white/20 pt-6"
+                                )}
+                            >
+                                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-sm font-medium">
+                                    {i + 1}
+                                </span>
                                 <div>
-                                    <h3 className="font-semibold text-lg flex items-center gap-2"><Search className="h-4 w-4" /> ค้นหากิจกรรม</h3>
-                                    <p className="text-blue-100 text-sm">เลือกกิจกรรมที่คุณสนใจจากหลากหลายหมวดหมู่</p>
+                                    <h2 className="flex items-center gap-2 text-base font-medium">
+                                        <step.icon className="size-4" aria-hidden="true" />
+                                        {step.title}
+                                    </h2>
+                                    <p className="mt-1 text-sm leading-relaxed text-brand-100">
+                                        {step.body}
+                                    </p>
                                 </div>
-                            </div>
-                            <div className="flex gap-4">
-                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm">2</div>
-                                <div>
-                                    <h3 className="font-semibold text-lg flex items-center gap-2"><UserPlus className="h-4 w-4" /> ลงทะเบียน</h3>
-                                    <p className="text-blue-100 text-sm">ลงทะเบียนเข้าร่วมกิจกรรมได้ง่ายๆ ในไม่กี่คลิก</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-4">
-                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm">3</div>
-                                <div>
-                                    <h3 className="font-semibold text-lg flex items-center gap-2"><QrCode className="h-4 w-4" /> เข้าร่วมกิจกรรม</h3>
-                                    <p className="text-blue-100 text-sm">แสดง QR Code เพื่อเช็คอินเข้าร่วมกิจกรรม</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                            </li>
+                        ))}
+                    </ol>
 
-                {/* Right Side - Forms */}
-                <div className="p-8 md:p-12 flex flex-col justify-center bg-white">
-                    <div className="text-center mb-8">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">ยินดีต้อนรับ</h2>
-                        <p className="text-gray-500">เข้าสู่ระบบหรือสร้างบัญชีใหม่เพื่อเริ่มใช้งาน</p>
-                    </div>
-
-                    {/* Toggle Tabs */}
-                    <div className="bg-gray-100 p-1 rounded-lg flex mb-8">
-                        <button
-                            onClick={() => setActiveTab("login")}
-                            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-200 ${activeTab === "login"
-                                    ? "bg-white text-blue-600 shadow-sm"
-                                    : "text-gray-500 hover:text-gray-700"
-                                }`}
+                    <div className="shrink-0 border-t border-white/15 px-10 py-5">
+                        <Link
+                            href="/"
+                            className="inline-flex items-center gap-2 text-sm text-brand-100 transition-colors hover:text-white"
                         >
-                            เข้าสู่ระบบ
-                        </button>
-                        <button
-                            onClick={() => setActiveTab("register")}
-                            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-200 ${activeTab === "register"
-                                    ? "bg-white text-blue-600 shadow-sm"
-                                    : "text-gray-500 hover:text-gray-700"
-                                }`}
-                        >
-                            สมัครสมาชิก
-                        </button>
-                    </div>
-
-                    {/* Form Container */}
-                    <div className="transition-all duration-300 ease-in-out">
-                        {activeTab === "login" ? <LoginForm /> : <RegisterForm />}
-                    </div>
-
-                    {activeTab === "login" && (
-                        <div className="text-center mt-6 text-sm text-gray-500">
-                            อยากร่วมเป็นผู้สร้างกิจกรรมใช่ไหม?{" "}
-                            <Link href="/auth/organizer/register" className="font-semibold text-blue-600 hover:text-blue-800">
-                                สมัครที่นี่
-                            </Link>
-                        </div>
-                    )}
-
-                    <div className="text-center mt-4">
-                        <Link href="/" className="text-sm text-gray-500 hover:text-gray-700">
+                            <ArrowLeft className="size-4" aria-hidden="true" />
                             กลับไปหน้าหลัก
                         </Link>
                     </div>
-                </div>
+                </aside>
+
+                {/* ── คอลัมน์ฟอร์ม ────────────────────────────────────────── */}
+                <main className="flex flex-col overflow-hidden bg-bg">
+                    {/* header อยู่นอกพื้นที่ scroll — แท็บจึงกดได้ตลอดไม่ต้องเลื่อนขึ้นมาหา */}
+                    <div className="shrink-0 border-b border-border px-6 pt-8 pb-5 sm:px-8">
+                        <h2 className="text-xl font-semibold tracking-tight text-fg">ยินดีต้อนรับ</h2>
+                        <p className="mt-1 text-sm text-fg-muted">
+                            เข้าสู่ระบบหรือสร้างบัญชีใหม่เพื่อเริ่มใช้งาน
+                        </p>
+
+                        <div role="tablist" className="mt-5 flex gap-1 rounded-lg bg-surface-2 p-1">
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={activeTab === "login"}
+                                onClick={() => setActiveTab("login")}
+                                className={cn(
+                                    "flex-1 rounded-md py-2 text-sm transition-colors",
+                                    activeTab === "login"
+                                        ? "bg-bg font-medium text-brand-600 shadow-xs"
+                                        : "text-fg-muted hover:text-fg"
+                                )}
+                            >
+                                เข้าสู่ระบบ
+                            </button>
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={activeTab === "register"}
+                                onClick={() => setActiveTab("register")}
+                                className={cn(
+                                    "flex-1 rounded-md py-2 text-sm transition-colors",
+                                    activeTab === "register"
+                                        ? "bg-bg font-medium text-brand-600 shadow-xs"
+                                        : "text-fg-muted hover:text-fg"
+                                )}
+                            >
+                                ลงทะเบียน
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* ⬇️ จุดเดียวในหน้านี้ที่เลื่อนได้ */}
+                    <div
+                        ref={scrollRef}
+                        tabIndex={0}
+                        // ไม่ใส่ pb — ปล่อยให้แถบปุ่ม sticky เป็นตัวปิดขอบล่างเอง
+                        // ถ้ามี pb ปุ่มจะลอยเหนือขอบล่างเท่ากับค่า padding
+                        className="flex-1 overflow-y-auto px-6 pt-6 sm:px-8"
+                    >
+                        {activeTab === "login" ? <LoginForm /> : <RegisterForm />}
+                    </div>
+                </main>
             </div>
         </div>
     )
