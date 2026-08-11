@@ -21,6 +21,10 @@ interface RegisterData {
     email: string
     password: string
     studentId?: string
+    phone: string
+    educationLevel: string
+    program: string
+    yearLevel: number
 }
 
 // ==================== CONTEXT ====================

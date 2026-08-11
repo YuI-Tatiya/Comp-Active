@@ -1,2 +1,3 @@
-export * from './role.enum';
-export * from './status.enum';
+export * from "./role.enum";
+export * from "./status.enum";
+export * from "./education-level.enum";

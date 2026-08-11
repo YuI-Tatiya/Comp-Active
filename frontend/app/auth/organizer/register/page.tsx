@@ -6,7 +6,9 @@ import {
     ArrowLeft, CheckCircle2, ClipboardList, Clock, Mail,
     CalendarPlus, ShieldCheck, Zap, Users, Send, Loader2,
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { organizerRequestsAPI } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 const benefits = [
     { icon: CalendarPlus, title: "สร้างและจัดการกิจกรรม", desc: "ระบบดูแลการจัดการกิจกรรมครบวงจรตั้งแต่เริ่มจนจบ" },
@@ -15,12 +17,19 @@ const benefits = [
     { icon: ShieldCheck, title: "ออกเกียรติบัตรอัตโนมัติ", desc: "ระบบสร้างและแจกจ่ายเกียรติบัตรออนไลน์ให้ผู้ผ่านกิจกรรม" },
 ]
 
+const steps = [
+    { icon: ClipboardList, text: "กรอกแบบฟอร์ม" },
+    { icon: Clock, text: "รอการตรวจสอบ 1-2 วันทำการ" },
+    { icon: Mail, text: "รับ credentials ทางอีเมล" },
+]
+
 type FormState = "idle" | "loading" | "success"
 
 function inputCls(error?: string) {
-    return `w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-colors ${
-        error ? "border-red-300 focus:ring-red-500 bg-red-50" : "border-slate-200 focus:ring-indigo-500 bg-white"
-    }`
+    return cn(
+        "w-full rounded-md border bg-bg px-3 py-2.5 text-sm text-fg transition-colors placeholder:text-fg-subtle",
+        error ? "border-danger" : "border-border hover:border-border-strong"
+    )
 }
 
 function Field({ label, required, error, children }: {
@@ -28,11 +37,11 @@ function Field({ label, required, error, children }: {
 }) {
     return (
         <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                {label} {required && <span className="text-red-500">*</span>}
+            <label className="mb-1.5 block text-sm font-medium text-fg">
+                {label} {required && <span className="text-danger">*</span>}
             </label>
             {children}
-            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+            {error && <p className="mt-1 text-xs text-danger">{error}</p>}
         </div>
     )
 }
@@ -79,145 +88,177 @@ export default function OrganizerRegisterPage() {
         }
     }
 
+    // ── หน้า success — ล็อกความสูงเหมือนกัน ไม่ให้หน้าเลื่อน ──────────────────
     if (state === "success") {
         return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-10 max-w-md w-full text-center">
-                    <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <CheckCircle2 className="w-10 h-10 text-emerald-600" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-slate-900 mb-3">ส่งคำขอสำเร็จแล้ว!</h2>
-                    <p className="text-slate-500 mb-2 leading-relaxed">ทีมงานจะตรวจสอบข้อมูลและแจ้งผลผ่านทางอีเมล</p>
-                    <p className="text-indigo-600 font-semibold mb-8">{form.email}</p>
-                    <div className="bg-slate-50 rounded-2xl p-4 mb-8 text-left space-y-3">
+            <div className="flex h-dvh items-center justify-center overflow-hidden bg-surface p-4">
+                <div className="w-full max-w-md rounded-xl border border-border bg-bg p-8 text-center shadow-xs">
+                    <span className="mx-auto mb-5 flex size-14 items-center justify-center rounded-full bg-success-bg">
+                        <CheckCircle2 className="size-7 text-success" aria-hidden="true" />
+                    </span>
+                    <h1 className="text-xl font-semibold text-fg">ส่งคำขอสำเร็จแล้ว</h1>
+                    <p className="mt-2 text-sm leading-relaxed text-fg-muted">
+                        ทีมงานจะตรวจสอบข้อมูลและแจ้งผลผ่านทางอีเมล
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-brand-600">{form.email}</p>
+
+                    <ul className="mt-6 space-y-3 rounded-lg border border-border bg-surface p-4 text-left">
                         {[
                             { icon: Clock, text: "รอผล 1-2 วันทำการ" },
                             { icon: Mail, text: "รับอีเมลแจ้งผลพร้อม credentials" },
                             { icon: CheckCircle2, text: "เข้าสู่ระบบและเริ่มสร้างกิจกรรมได้เลย" },
                         ].map(({ icon: Icon, text }) => (
-                            <div key={text} className="flex items-center gap-3 text-sm text-slate-600">
-                                <Icon className="w-4 h-4 text-indigo-500 shrink-0" />
+                            <li key={text} className="flex items-center gap-3 text-sm text-fg-muted">
+                                <Icon className="size-4 shrink-0 text-fg-subtle" aria-hidden="true" />
                                 {text}
-                            </div>
+                            </li>
                         ))}
-                    </div>
-                    <Link href="/auth" className="block w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-center">
-                        กลับหน้าเข้าสู่ระบบ
-                    </Link>
+                    </ul>
+
+                    <Button size="lg" asChild className="mt-6 w-full">
+                        <Link href="/auth">กลับหน้าเข้าสู่ระบบ</Link>
+                    </Button>
                 </div>
             </div>
         )
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 py-10 px-4">
-            <div className="max-w-5xl mx-auto">
-                <div className="mb-6">
-                    <Link href="/auth" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200">
-                        <ArrowLeft className="w-4 h-4" /> ย้อนกลับ
-                    </Link>
-                </div>
-
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                    <div className="grid lg:grid-cols-5">
-
-                        {/* Left */}
-                        <div className="lg:col-span-2 p-10 bg-gradient-to-br from-indigo-600 to-violet-700 relative overflow-hidden">
-                            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 70% 20%, white 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
-                            <div className="relative z-10">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold uppercase tracking-wider mb-6">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                    เปิดรับสมัคร
-                                </div>
-                                <h1 className="text-3xl font-black text-white mb-4 leading-tight">
-                                    สมัครเป็น<br />ผู้จัดกิจกรรม
-                                </h1>
-                                <p className="text-indigo-200 text-sm leading-relaxed mb-10">
-                                    กรอกข้อมูลด้านขวา ทีมงานจะตรวจสอบและแจ้งผลพร้อม credentials ทางอีเมล
-                                </p>
-                                <div className="space-y-5">
-                                    {benefits.map(({ icon: Icon, title, desc }) => (
-                                        <div key={title} className="flex gap-3">
-                                            <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
-                                                <Icon className="w-4 h-4 text-white" />
-                                            </div>
-                                            <div>
-                                                <div className="text-white font-semibold text-sm">{title}</div>
-                                                <div className="text-indigo-300 text-xs leading-relaxed mt-0.5">{desc}</div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="mt-10 pt-8 border-t border-white/20 space-y-3">
-                                    {[
-                                        { icon: ClipboardList, text: "กรอกแบบฟอร์ม" },
-                                        { icon: Clock, text: "รอการตรวจสอบ 1-2 วันทำการ" },
-                                        { icon: Mail, text: "รับ credentials ทางอีเมล" },
-                                    ].map(({ icon: Icon, text }) => (
-                                        <div key={text} className="flex items-center gap-2.5 text-sm text-indigo-200">
-                                            <Icon className="w-4 h-4 text-indigo-300" />
-                                            {text}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Right — Form */}
-                        <div className="lg:col-span-3 p-10">
-                            <h2 className="text-xl font-bold text-slate-900 mb-1">กรอกข้อมูลการสมัคร</h2>
-                            <p className="text-sm text-slate-500 mb-8">ช่องที่มี <span className="text-red-500">*</span> จำเป็นต้องกรอก</p>
-
-                            <form onSubmit={handleSubmit} className="space-y-5">
-                                <Field label="ชื่อ-นามสกุล" required error={errors.name}>
-                                    <input type="text" placeholder="สมชาย ใจดี" value={form.name}
-                                        onChange={(e) => set("name", e.target.value)} className={inputCls(errors.name)} />
-                                </Field>
-
-                                <Field label="อีเมล" required error={errors.email}>
-                                    <input type="email" placeholder="example@kkumail.com" value={form.email}
-                                        onChange={(e) => set("email", e.target.value)} className={inputCls(errors.email)} />
-                                </Field>
-
-                                <Field label="เบอร์โทรศัพท์" required error={errors.phone}>
-                                    <input type="tel" placeholder="0812345678" value={form.phone}
-                                        onChange={(e) => set("phone", e.target.value)} className={inputCls(errors.phone)} />
-                                </Field>
-
-                                <Field label="สังกัด / หน่วยงาน" required error={errors.department}>
-                                    <input type="text" placeholder="สโมสรนักศึกษาวิทยาลัยการคอมพิวเตอร์" value={form.department}
-                                        onChange={(e) => set("department", e.target.value)} className={inputCls(errors.department)} />
-                                </Field>
-
-                                <Field label="เหตุผลที่ต้องการเป็น Organizer" required error={errors.reason}>
-                                    <textarea rows={3} placeholder="อธิบายวัตถุประสงค์และประเภทกิจกรรมที่ต้องการจัด..."
-                                        value={form.reason} onChange={(e) => set("reason", e.target.value)}
-                                        className={inputCls(errors.reason) + " resize-none"} />
-                                    <p className="text-xs text-slate-400 mt-1">{form.reason.length} ตัวอักษร (ขั้นต่ำ 20)</p>
-                                </Field>
-
-                                <Field label="ประสบการณ์การจัดกิจกรรม (ถ้ามี)">
-                                    <textarea rows={2} placeholder="เคยจัดกิจกรรมอะไรมาบ้าง..."
-                                        value={form.experience} onChange={(e) => set("experience", e.target.value)}
-                                        className={inputCls() + " resize-none"} />
-                                </Field>
-
-                                {serverError && (
-                                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600">
-                                        {serverError}
-                                    </div>
-                                )}
-
-                                <button type="submit" disabled={state === "loading"}
-                                    className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
-                                    {state === "loading"
-                                        ? <><Loader2 className="w-4 h-4 animate-spin" /> กำลังส่ง...</>
-                                        : <><Send className="w-4 h-4" /> ส่งคำขอ</>}
-                                </button>
-                            </form>
-                        </div>
+        <div className="flex h-dvh items-center justify-center overflow-hidden bg-surface p-4">
+            <div className="grid h-[calc(100dvh-2rem)] max-h-[720px] w-full max-w-5xl overflow-hidden rounded-xl border border-border bg-bg shadow-md lg:grid-cols-5">
+                {/* ── แผงซ้าย ─────────────────────────────────────────────── */}
+                <aside className="hidden flex-col overflow-hidden bg-brand-600 text-white lg:col-span-2 lg:flex">
+                    <div className="shrink-0 px-8 pt-10">
+                        <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
+                            <span className="size-1.5 rounded-full bg-white" aria-hidden="true" />
+                            เปิดรับสมัคร
+                        </span>
+                        <h1 className="mt-5 text-2xl font-semibold leading-tight">
+                            สมัครเป็นผู้จัดกิจกรรม
+                        </h1>
+                        <p className="mt-2 text-sm leading-relaxed text-brand-100">
+                            กรอกข้อมูลด้านขวา ทีมงานจะตรวจสอบและแจ้งผลพร้อม credentials ทางอีเมล
+                        </p>
                     </div>
-                </div>
+
+                    <ul className="flex-1 space-y-5 overflow-y-auto px-8 py-8">
+                        {benefits.map(({ icon: Icon, title, desc }) => (
+                            <li key={title} className="flex gap-3">
+                                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/15">
+                                    <Icon className="size-4" aria-hidden="true" />
+                                </span>
+                                <div>
+                                    <p className="text-sm font-medium">{title}</p>
+                                    <p className="mt-0.5 text-xs leading-relaxed text-brand-100">{desc}</p>
+                                </div>
+                            </li>
+                        ))}
+
+                        <li className="border-t border-white/20 pt-5">
+                            <ul className="space-y-2.5">
+                                {steps.map(({ icon: Icon, text }) => (
+                                    <li key={text} className="flex items-center gap-2.5 text-sm text-brand-100">
+                                        <Icon className="size-4 shrink-0" aria-hidden="true" />
+                                        {text}
+                                    </li>
+                                ))}
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <div className="shrink-0 border-t border-white/15 px-8 py-5">
+                        <Link
+                            href="/auth"
+                            className="inline-flex items-center gap-2 text-sm text-brand-100 transition-colors hover:text-white"
+                        >
+                            <ArrowLeft className="size-4" aria-hidden="true" />
+                            ย้อนกลับ
+                        </Link>
+                    </div>
+                </aside>
+
+                {/* ── คอลัมน์ฟอร์ม ────────────────────────────────────────── */}
+                <main className="flex flex-col overflow-hidden bg-bg lg:col-span-3">
+                    <div className="shrink-0 border-b border-border px-6 pt-8 pb-5 sm:px-8">
+                        {/* บนมือถือแผงซ้ายถูกซ่อน จึงต้องมีทางย้อนกลับตรงนี้ */}
+                        <Link
+                            href="/auth"
+                            className="mb-4 inline-flex items-center gap-1.5 text-sm text-fg-muted transition-colors hover:text-fg lg:hidden"
+                        >
+                            <ArrowLeft className="size-4" aria-hidden="true" />
+                            ย้อนกลับ
+                        </Link>
+                        <h2 className="text-xl font-semibold tracking-tight text-fg">กรอกข้อมูลการสมัคร</h2>
+                        <p className="mt-1 text-sm text-fg-muted">
+                            ช่องที่มี <span className="text-danger">*</span> จำเป็นต้องกรอก
+                        </p>
+                    </div>
+
+                    {/* ⬇️ จุดเดียวในหน้านี้ที่เลื่อนได้ */}
+                    {/* ไม่ใส่ pb — ปล่อยให้แถบปุ่ม sticky เป็นตัวปิดขอบล่างเอง */}
+                    <div tabIndex={0} className="flex-1 overflow-y-auto px-6 pt-6 sm:px-8">
+                        <form onSubmit={handleSubmit} className="flex min-h-full flex-col gap-5">
+                            <Field label="ชื่อ-นามสกุล" required error={errors.name}>
+                                <input type="text" placeholder="สมชาย ใจดี" value={form.name}
+                                    onChange={(e) => set("name", e.target.value)} className={inputCls(errors.name)} />
+                            </Field>
+
+                            <Field label="อีเมล" required error={errors.email}>
+                                <input type="email" placeholder="example@kkumail.com" value={form.email}
+                                    onChange={(e) => set("email", e.target.value)} className={inputCls(errors.email)} />
+                            </Field>
+
+                            <Field label="เบอร์โทรศัพท์" required error={errors.phone}>
+                                <input type="tel" placeholder="0812345678" value={form.phone}
+                                    onChange={(e) => set("phone", e.target.value)} className={inputCls(errors.phone)} />
+                            </Field>
+
+                            <Field label="สังกัด / หน่วยงาน" required error={errors.department}>
+                                <input type="text" placeholder="สโมสรนักศึกษาวิทยาลัยการคอมพิวเตอร์" value={form.department}
+                                    onChange={(e) => set("department", e.target.value)} className={inputCls(errors.department)} />
+                            </Field>
+
+                            <Field label="เหตุผลที่ต้องการเป็น Organizer" required error={errors.reason}>
+                                <textarea rows={3} placeholder="อธิบายวัตถุประสงค์และประเภทกิจกรรมที่ต้องการจัด..."
+                                    value={form.reason} onChange={(e) => set("reason", e.target.value)}
+                                    className={cn(inputCls(errors.reason), "resize-none")} />
+                                <p className="mt-1 text-xs text-fg-subtle">{form.reason.length} ตัวอักษร (ขั้นต่ำ 20)</p>
+                            </Field>
+
+                            <Field label="ประสบการณ์การจัดกิจกรรม (ถ้ามี)">
+                                <textarea rows={2} placeholder="เคยจัดกิจกรรมอะไรมาบ้าง..."
+                                    value={form.experience} onChange={(e) => set("experience", e.target.value)}
+                                    className={cn(inputCls(), "resize-none")} />
+                            </Field>
+
+                            {serverError && (
+                                <div
+                                    role="alert"
+                                    className="rounded-lg border border-danger/20 bg-danger-bg px-4 py-3 text-sm text-danger"
+                                >
+                                    {serverError}
+                                </div>
+                            )}
+
+                            {/* ปุ่มลอยติดก้นกรอบ ไม่ต้องเลื่อนหา */}
+                            <div className="sticky bottom-0 -mx-6 mt-auto border-t border-border bg-bg px-6 py-4 sm:-mx-8 sm:px-8">
+                                <Button type="submit" size="lg" className="w-full" disabled={state === "loading"}>
+                                    {state === "loading" ? (
+                                        <>
+                                            <Loader2 className="animate-spin" />
+                                            กำลังส่ง...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Send />
+                                            ส่งคำขอ
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                        </form>
+                    </div>
+                </main>
             </div>
         </div>
     )

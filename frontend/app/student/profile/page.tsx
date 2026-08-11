@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts"
 import { registrationsAPI, evaluationsAPI, SkillsData, Activity, usersAPI } from "@/lib/api"
+import { Select } from "@/components/ui/select"
+import { EDUCATION_LEVELS, getProgramsByLevel, getYearOptions } from "@/lib/programs"
 
 interface Registration {
     id: number;
@@ -30,7 +32,11 @@ export default function StudentProfilePage() {
         lastName: '',
         studentId: '',
         email: '',
-        password: ''
+        password: '',
+        phone: '',
+        educationLevel: '',
+        program: '',
+        yearLevel: ''
     })
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
     const [confirmPassword, setConfirmPassword] = useState("")
@@ -42,7 +48,12 @@ export default function StudentProfilePage() {
                 firstName: user.name?.split(' ')[0] || '',
                 lastName: user.name?.split(' ').slice(1).join(' ') || '',
                 email: user.email || '',
-                studentId: (user as { studentId?: string }).studentId || user.email?.split('@')[0] || ''
+                // ห้าม fallback เป็น prefix ของอีเมล — จะกลายเป็นรหัสปลอมที่ validate ไม่ผ่าน
+                studentId: user.studentId || '',
+                phone: user.phone || '',
+                educationLevel: user.educationLevel || '',
+                program: user.program || '',
+                yearLevel: user.yearLevel != null ? String(user.yearLevel) : ''
             }))
         }
         fetchData()
@@ -93,10 +104,42 @@ export default function StudentProfilePage() {
             return
         }
 
+        // ข้อมูลการศึกษาต้องส่งครบชุด backend ถึงจะรับ (validateAcademicInfo)
+        const hasAnyAcademic = Boolean(
+            editForm.educationLevel || editForm.program || editForm.yearLevel
+        )
+        const hasAllAcademic = Boolean(
+            editForm.educationLevel && editForm.program && editForm.yearLevel
+        )
+        if (hasAnyAcademic && !hasAllAcademic) {
+            alert("กรุณาเลือกระดับการศึกษา สาขาวิชา และชั้นปีให้ครบทั้ง 3 ช่อง")
+            return
+        }
+
+        // ⚠️ กฎเดียวกับ backend/src/common/constants/index.ts
+        if (editForm.studentId && !/^\d{2}3380\d{3}-?\d$/.test(editForm.studentId)) {
+            alert("รหัสนักศึกษาไม่ถูกต้อง")
+            return
+        }
+
+        if (editForm.phone && !/^0[689]\d{8}$/.test(editForm.phone)) {
+            alert("เบอร์มือถือไม่ถูกต้อง")
+            return
+        }
+
         try {
             const body = {
                 name: `${editForm.firstName} ${editForm.lastName}`.trim(),
-                studentId: editForm.studentId,
+                // ส่งเฉพาะตอนมีค่า — @IsOptional ข้ามให้แค่ undefined ไม่ข้าม "" ที่จะโดน @Matches ตีตก
+                ...(editForm.studentId ? { studentId: editForm.studentId } : {}),
+                ...(editForm.phone ? { phone: editForm.phone } : {}),
+                ...(hasAllAcademic
+                    ? {
+                        educationLevel: editForm.educationLevel,
+                        program: editForm.program,
+                        yearLevel: Number(editForm.yearLevel),
+                    }
+                    : {}),
                 ...(editForm.password ? { newPassword: editForm.password } : {}),
                 currentPassword: confirmPassword
             }
@@ -279,6 +322,7 @@ export default function StudentProfilePage() {
                                     <Label className="text-sm font-bold text-slate-700">รหัสนักศึกษา</Label>
                                     <Input
                                         name="studentId"
+                                        placeholder="653380123-4"
                                         value={editForm.studentId}
                                         onChange={handleEditChange}
                                         className="h-12 rounded-xl border-slate-200 font-medium"
@@ -294,6 +338,108 @@ export default function StudentProfilePage() {
                                         onChange={handleEditChange}
                                         className="h-12 rounded-xl border-slate-200 font-medium"
                                     />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-bold text-slate-700">เบอร์มือถือ</Label>
+                                    <Input
+                                        name="phone"
+                                        type="tel"
+                                        inputMode="numeric"
+                                        maxLength={10}
+                                        placeholder="0812345678"
+                                        value={editForm.phone}
+                                        onChange={(e) =>
+                                            setEditForm((prev) => ({
+                                                ...prev,
+                                                phone: e.target.value.replace(/\D/g, ""),
+                                            }))
+                                        }
+                                        className="h-12 rounded-xl border-slate-200 font-medium"
+                                    />
+                                </div>
+
+                                {/* ── ข้อมูลการศึกษา ─────────────────────────────────── */}
+                                <div className="rounded-xl border border-slate-200 p-4 space-y-4">
+                                    <p className="text-sm font-bold text-slate-700">ข้อมูลการศึกษา</p>
+
+                                    {(!editForm.educationLevel || !editForm.program || !editForm.yearLevel) && (
+                                        <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
+                                            กรุณาเพิ่มข้อมูลการศึกษาให้ครบถ้วน (ต้องกรอกครบทั้ง 3 ช่อง)
+                                        </p>
+                                    )}
+
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-bold text-slate-700">ระดับการศึกษา</Label>
+                                        <Select
+                                            value={editForm.educationLevel}
+                                            onChange={(e) =>
+                                                setEditForm((prev) => ({
+                                                    ...prev,
+                                                    educationLevel: e.target.value,
+                                                    program: "",
+                                                    yearLevel: "",
+                                                }))
+                                            }
+                                            className="h-12 rounded-xl"
+                                        >
+                                            <option value="">เลือกระดับการศึกษา...</option>
+                                            {EDUCATION_LEVELS.map((lv) => (
+                                                <option key={lv.code} value={lv.code}>{lv.label}</option>
+                                            ))}
+                                        </Select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-bold text-slate-700">สาขาวิชา</Label>
+                                        <Select
+                                            value={editForm.program}
+                                            onChange={(e) =>
+                                                setEditForm((prev) => ({ ...prev, program: e.target.value }))
+                                            }
+                                            disabled={!editForm.educationLevel}
+                                            className="h-12 rounded-xl"
+                                        >
+                                            <option value="">เลือกสาขาวิชา...</option>
+                                            {getProgramsByLevel(editForm.educationLevel).map((p) => (
+                                                <option key={p.code} value={p.code}>{p.label}</option>
+                                            ))}
+                                        </Select>
+                                        {!editForm.educationLevel && (
+                                            <p className="text-xs text-slate-500">เลือกระดับการศึกษาก่อน</p>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-bold text-slate-700">ชั้นปี</Label>
+                                        <Select
+                                            value={editForm.yearLevel}
+                                            onChange={(e) =>
+                                                setEditForm((prev) => ({ ...prev, yearLevel: e.target.value }))
+                                            }
+                                            disabled={!editForm.educationLevel}
+                                            className="h-12 rounded-xl"
+                                        >
+                                            <option value="">เลือกชั้นปี...</option>
+                                            {getYearOptions(editForm.educationLevel).plan.length > 0 && (
+                                                <optgroup label="ตามแผนการเรียน">
+                                                    {getYearOptions(editForm.educationLevel).plan.map((y) => (
+                                                        <option key={y} value={y}>ปี {y}</option>
+                                                    ))}
+                                                </optgroup>
+                                            )}
+                                            {getYearOptions(editForm.educationLevel).extended.length > 0 && (
+                                                <optgroup label="เกินแผนการเรียน">
+                                                    {getYearOptions(editForm.educationLevel).extended.map((y) => (
+                                                        <option key={y} value={y}>ปี {y}</option>
+                                                    ))}
+                                                </optgroup>
+                                            )}
+                                        </Select>
+                                        {!editForm.educationLevel && (
+                                            <p className="text-xs text-slate-500">เลือกระดับการศึกษาก่อน</p>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="space-y-2">

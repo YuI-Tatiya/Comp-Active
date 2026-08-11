@@ -21,6 +21,12 @@ enum UserRole {
   admin
 }
 
+enum EducationLevel {
+  bachelor
+  master
+  doctorate
+}
+
 enum ActivityStatus {
   open
   closed
@@ -76,6 +82,15 @@ model User {
   id                       Int       @id @default(autoincrement())
   name                     String    @db.VarChar(255)
   studentId                String?   @map("student_id") @db.VarChar(20)
+
+  // ── ข้อมูลติดต่อ & การศึกษา ────────────────────────────────────────────────
+  // nullable ทั้งหมด เพราะ admin/organizer ไม่มีข้อมูลส่วนนี้
+  // และ user ที่สมัครก่อนฟีเจอร์นี้ก็ยังไม่มีข้อมูล — บังคับกรอกที่ชั้น DTO แทน
+  phone                    String?   @db.VarChar(20)
+  educationLevel           EducationLevel? @map("education_level")
+  program                  String?   @db.VarChar(50) // เก็บ code จาก common/constants/programs.ts
+  yearLevel                Int?      @map("year_level")
+
   email                    String    @unique @db.VarChar(255)
   password                 String    @db.VarChar(255)
   username                 String?   @unique @db.VarChar(50)

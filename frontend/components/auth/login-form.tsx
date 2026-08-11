@@ -35,7 +35,8 @@ export function LoginForm() {
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        // โครงเดียวกับ register-form เพื่อให้ปุ่มอยู่ตำแหน่งเดียวกันทั้ง 2 แท็บ
+        <form onSubmit={handleSubmit} className="flex min-h-full flex-col gap-4">
             {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg p-3">
                     {error}
@@ -43,13 +44,13 @@ export function LoginForm() {
             )}
 
             <div className="space-y-2">
-                <Label htmlFor="identifier">อีเมล (นักศึกษา) หรือ Username (ผู้จัดกิจกรรม)</Label>
+                <Label htmlFor="identifier">Username</Label>
                 <div className="relative">
                     <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <Input
                         id="identifier"
                         type="text"
-                        placeholder="your.email@kkumail.com หรือ username"
+                        placeholder="your.email@kkumail.com"
                         className="pl-10"
                         value={identifier}
                         onChange={(e) => setIdentifier(e.target.value)}
@@ -58,7 +59,7 @@ export function LoginForm() {
                 </div>
             </div>
             <div className="space-y-2">
-                <Label htmlFor="password">รหัสผ่าน</Label>
+                <Label htmlFor="password">Password</Label>
                 <div className="relative">
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <Input
@@ -72,16 +73,19 @@ export function LoginForm() {
                     />
                 </div>
             </div>
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
-                {loading ? (
-                    <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        กำลังเข้าสู่ระบบ...
-                    </>
-                ) : (
-                    "เข้าสู่ระบบ"
-                )}
-            </Button>
+            {/* ใช้โครงเดียวกับ register-form เพื่อให้ปุ่มอยู่ตำแหน่งเดียวกันทั้ง 2 แท็บ ไม่กระโดด */}
+            <div className="sticky bottom-0 -mx-6 mt-auto border-t border-border bg-bg px-6 py-4 sm:-mx-8 sm:px-8">
+                <Button type="submit" size="lg" className="w-full" disabled={loading}>
+                    {loading ? (
+                        <>
+                            <Loader2 className="animate-spin" />
+                            กำลังเข้าสู่ระบบ...
+                        </>
+                    ) : (
+                        "เข้าสู่ระบบ"
+                    )}
+                </Button>
+            </div>
         </form>
     )
 }
