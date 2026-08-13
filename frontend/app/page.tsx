@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { MascotWidget } from "@/components/ui/mascot-widget"
 import { Container } from "@/components/layout/container"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
@@ -390,7 +389,6 @@ export default function RootPage() {
       </section>
 
       <SiteFooter />
-      <MascotWidget />
     </div>
   )
 }

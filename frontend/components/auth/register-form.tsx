@@ -58,7 +58,7 @@ export function RegisterForm() {
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg p-3">
+                <div className="bg-danger-bg border border-danger/20 text-danger text-sm rounded-lg p-3">
                     {error}
                 </div>
             )}
@@ -66,7 +66,7 @@ export function RegisterForm() {
             <div className="space-y-2">
                 <Label htmlFor="name">ชื่อ-นามสกุล</Label>
                 <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <User className="absolute left-3 top-3 h-4 w-4 text-fg-subtle" />
                     <Input id="name" placeholder="กรอกชื่อ-นามสกุล" className="pl-10"
                         value={name} onChange={(e) => setName(e.target.value)} disabled={loading} />
                 </div>
@@ -75,7 +75,7 @@ export function RegisterForm() {
             <div className="space-y-2">
                 <Label htmlFor="student-id">รหัสนักศึกษา</Label>
                 <div className="relative">
-                    <GraduationCap className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <GraduationCap className="absolute left-3 top-3 h-4 w-4 text-fg-subtle" />
                     <Input id="student-id" placeholder="กรอกรหัสนักศึกษา" className="pl-10"
                         value={studentId} onChange={(e) => setStudentId(e.target.value)} disabled={loading} />
                 </div>
@@ -84,7 +84,7 @@ export function RegisterForm() {
             <div className="space-y-2">
                 <Label htmlFor="register-email">อีเมล (ต้องใช้ @kkumail.com เท่านั้น)</Label>
                 <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-fg-subtle" />
                     <Input id="register-email" type="email" placeholder="your.name@kkumail.com" className="pl-10"
                         value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
                 </div>
@@ -93,7 +93,7 @@ export function RegisterForm() {
             <div className="space-y-2">
                 <Label htmlFor="register-password">รหัสผ่าน</Label>
                 <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-fg-subtle" />
                     <Input id="register-password" type="password" placeholder="••••••••" className="pl-10"
                         value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} />
                 </div>
@@ -102,13 +102,13 @@ export function RegisterForm() {
             <div className="space-y-2">
                 <Label htmlFor="confirm-password">ยืนยันรหัสผ่าน</Label>
                 <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-fg-subtle" />
                     <Input id="confirm-password" type="password" placeholder="••••••••" className="pl-10"
                         value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={loading} />
                 </div>
             </div>
 
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
                     <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />

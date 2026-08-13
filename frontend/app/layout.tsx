@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Kanit, Montserrat, Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
+import { MascotWidget } from "@/components/ui/mascot-widget";
 
 const kanit = Kanit({
   weight: ["400", "500", "600", "700"],
@@ -39,6 +40,7 @@ export default function RootLayout({
       <body className={`${kanit.variable} ${montserrat.variable} ${inter.variable} font-sans antialiased`}>
         <AuthProvider>
           {children}
+          <MascotWidget />
         </AuthProvider>
       </body>
     </html>

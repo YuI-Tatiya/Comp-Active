@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { usePathname } from "next/navigation"
 import Image from "next/image"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -48,6 +49,7 @@ const CORNER_NOTCH: Record<Corner, string> = {
  * มีแค่ข้อความต้อนรับเด้งขึ้นเมื่อกดหรือเข้าเว็บครั้งแรก
  */
 export function MascotWidget() {
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [corner, setCorner] = useState<Corner>("br")
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null)
@@ -98,6 +100,9 @@ export function MascotWidget() {
   }
 
   const isDragging = dragPos !== null
+
+  // แอดมินมีธีม/ระบบ auth แยกต่างหาก ไม่ให้มาสคอตไปโผล่ในโซนนั้น
+  if (pathname?.startsWith("/admin")) return null
 
   return (
     <div

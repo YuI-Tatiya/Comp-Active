@@ -37,7 +37,7 @@ export function LoginForm() {
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg p-3">
+                <div className="bg-danger-bg border border-danger/20 text-danger text-sm rounded-lg p-3">
                     {error}
                 </div>
             )}
@@ -45,7 +45,7 @@ export function LoginForm() {
             <div className="space-y-2">
                 <Label htmlFor="identifier">อีเมล (นักศึกษา) หรือ Username (ผู้จัดกิจกรรม)</Label>
                 <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <User className="absolute left-3 top-3 h-4 w-4 text-fg-subtle" />
                     <Input
                         id="identifier"
                         type="text"
@@ -60,7 +60,7 @@ export function LoginForm() {
             <div className="space-y-2">
                 <Label htmlFor="password">รหัสผ่าน</Label>
                 <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-fg-subtle" />
                     <Input
                         id="password"
                         type="password"
@@ -72,7 +72,7 @@ export function LoginForm() {
                     />
                 </div>
             </div>
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
                     <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />

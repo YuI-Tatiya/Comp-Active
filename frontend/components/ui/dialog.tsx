@@ -23,7 +23,7 @@ const Dialog = ({
                 onClick={() => onOpenChange?.(false)}
             />
             {/* Content */}
-            <div className="relative z-50 w-full max-w-lg rounded-lg bg-white p-6 shadow-lg animate-in fade-in-0 zoom-in-95 duration-200">
+            <div className="relative z-50 w-full max-w-lg rounded-lg bg-bg p-6 shadow-lg animate-in fade-in-0 zoom-in-95 duration-200">
                 {children}
             </div>
         </div>
@@ -47,7 +47,7 @@ const DialogTitle = ({ className, children }: React.HTMLAttributes<HTMLHeadingEl
 )
 
 const DialogDescription = ({ className, children }: React.HTMLAttributes<HTMLParagraphElement>) => (
-    <p className={cn("text-sm text-gray-500", className)}>
+    <p className={cn("text-sm text-fg-muted", className)}>
         {children}
     </p>
 )
@@ -61,7 +61,7 @@ const DialogFooter = ({ className, children }: React.HTMLAttributes<HTMLDivEleme
 const DialogClose = ({ onClick, className }: { onClick?: () => void, className?: string }) => (
     <button
         onClick={onClick}
-        className={cn("absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-950 focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-gray-100 data-[state=open]:text-gray-500", className)}
+        className={cn("absolute right-4 top-4 rounded-sm opacity-70 ring-offset-bg transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-fg focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-surface data-[state=open]:text-fg-muted", className)}
     >
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
