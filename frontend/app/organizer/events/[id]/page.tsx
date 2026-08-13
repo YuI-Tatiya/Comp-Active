@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Edit, CheckSquare, Download } from "lucide-react"
 import Link from "next/link"
-import { activitiesAPI, evaluationsAPI, registrationsAPI, Activity, API_BASE_URL } from "@/lib/api"
+import { activitiesAPI, evaluationsAPI, registrationsAPI, Activity, API_BASE_URL, SkillScores } from "@/lib/api"
+import { SOFT_SKILLS, softSkillLabel } from "@/lib/soft-skills"
 
 interface Participant {
     id: number;
@@ -26,14 +27,7 @@ interface Participant {
         email: string;
         studentId: string;
     };
-    evaluation?: {
-        teamwork: number;
-        leadership: number;
-        communication: number;
-        problemSolving: number;
-        adaptability: number;
-        comment?: string;
-    };
+    evaluation?: SkillScores & { comment?: string };
 }
 
 // Local types removed, using Activity from @/lib/api
@@ -48,12 +42,19 @@ export default function OrganizerEventDetailsPage() {
     // Evaluation state
     const [selectedReg, setSelectedReg] = useState<Participant | null>(null)
     const [isEvalOpen, setIsEvalOpen] = useState(false)
-    const [evalScores, setEvalScores] = useState({
-        teamwork: 0,
-        leadership: 0,
+    const [evalScores, setEvalScores] = useState<SkillScores>({
         communication: 0,
-        problemSolving: 0,
-        adaptability: 0,
+        timeManagement: 0,
+        flexibilityAdaptability: 0,
+        teamworkCollaboration: 0,
+        analyticCriticalThinking: 0,
+        decisionMaking: 0,
+        creativity: 0,
+        complexProblemSolving: 0,
+        curiosityLifelongLearning: 0,
+        negotiationPersuasion: 0,
+        leadership: 0,
+        positiveAttitude: 0,
     })
     const [submitting, setSubmitting] = useState(false)
 
@@ -144,19 +145,33 @@ export default function OrganizerEventDetailsPage() {
         setSelectedReg(reg)
         if (reg.evaluation) {
             setEvalScores({
-                teamwork: reg.evaluation.teamwork || 0,
-                leadership: reg.evaluation.leadership || 0,
                 communication: reg.evaluation.communication || 0,
-                problemSolving: reg.evaluation.problemSolving || 0,
-                adaptability: reg.evaluation.adaptability || 0,
+                timeManagement: reg.evaluation.timeManagement || 0,
+                flexibilityAdaptability: reg.evaluation.flexibilityAdaptability || 0,
+                teamworkCollaboration: reg.evaluation.teamworkCollaboration || 0,
+                analyticCriticalThinking: reg.evaluation.analyticCriticalThinking || 0,
+                decisionMaking: reg.evaluation.decisionMaking || 0,
+                creativity: reg.evaluation.creativity || 0,
+                complexProblemSolving: reg.evaluation.complexProblemSolving || 0,
+                curiosityLifelongLearning: reg.evaluation.curiosityLifelongLearning || 0,
+                negotiationPersuasion: reg.evaluation.negotiationPersuasion || 0,
+                leadership: reg.evaluation.leadership || 0,
+                positiveAttitude: reg.evaluation.positiveAttitude || 0,
             })
         } else {
             setEvalScores({
-                teamwork: 0,
-                leadership: 0,
                 communication: 0,
-                problemSolving: 0,
-                adaptability: 0,
+                timeManagement: 0,
+                flexibilityAdaptability: 0,
+                teamworkCollaboration: 0,
+                analyticCriticalThinking: 0,
+                decisionMaking: 0,
+                creativity: 0,
+                complexProblemSolving: 0,
+                curiosityLifelongLearning: 0,
+                negotiationPersuasion: 0,
+                leadership: 0,
+                positiveAttitude: 0,
             })
         }
         setIsEvalOpen(true)
@@ -445,7 +460,7 @@ export default function OrganizerEventDetailsPage() {
                                             {event.softSkills.map((skill, i) => (
                                                 <div key={i} className="flex items-center gap-2 bg-purple-50 border border-purple-200 text-purple-700 px-4 py-2.5 rounded-xl font-medium">
                                                     <CheckSquare className="w-4 h-4" />
-                                                    <span>{skill.skillName}</span>
+                                                    <span>{softSkillLabel(skill.skillType)}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -542,31 +557,25 @@ export default function OrganizerEventDetailsPage() {
 
                             <div className="space-y-4">
                                 <p className="text-sm text-gray-500 mb-2">กรุณาติ๊กเลือกทักษะที่นักศึกษาแสดงออก:</p>
-                                {[
-                                    { key: 'teamwork', label: 'การทำงานเป็นทีม (Teamwork)' },
-                                    { key: 'leadership', label: 'ภาวะผู้นำ (Leadership)' },
-                                    { key: 'communication', label: 'การสื่อสาร (Communication)' },
-                                    { key: 'problemSolving', label: 'การแก้ปัญหา (Problem Solving)' },
-                                    { key: 'adaptability', label: 'การปรับตัว (Adaptability)' },
-                                ]
+                                {SOFT_SKILLS
                                     .filter(skill => {
                                         // Only show soft skills provided by this activity
                                         if (event?.softSkills && event.softSkills.length > 0) {
-                                            return event.softSkills.some(s => s.skillName.toLowerCase() === skill.label.toLowerCase() || s.skillName.toLowerCase() === skill.key.toLowerCase() || skill.label.includes(s.skillName));
+                                            return event.softSkills.some(s => s.skillType === skill.value);
                                         }
                                         return true; // fallback if no soft skills defined
                                     })
                                     .map((skill) => (
-                                        <div key={skill.key} className="flex items-center space-x-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
+                                        <div key={skill.value} className="flex items-center space-x-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
                                             <input
                                                 type="checkbox"
-                                                id={`skill-${skill.key}`}
-                                                checked={evalScores[skill.key as keyof typeof evalScores] === 1}
-                                                onChange={(e) => setEvalScores({ ...evalScores, [skill.key]: e.target.checked ? 1 : 0 })}
+                                                id={`skill-${skill.value}`}
+                                                checked={evalScores[skill.field] === 1}
+                                                onChange={(e) => setEvalScores({ ...evalScores, [skill.field]: e.target.checked ? 1 : 0 })}
                                                 className="w-5 h-5 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 cursor-pointer"
                                             />
-                                            <Label htmlFor={`skill-${skill.key}`} className="font-medium cursor-pointer flex-1">
-                                                {skill.label}
+                                            <Label htmlFor={`skill-${skill.value}`} className="font-medium cursor-pointer flex-1">
+                                                {skill.label.replace(/^ทักษะ/, '')} ({skill.labelEn})
                                             </Label>
                                         </div>
                                     ))}

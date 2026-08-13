@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Check, Plus, X, ArrowLeft, Loader2, Edit, CheckSquare } from "lucide-react"
 import { activitiesAPI, Activity, API_BASE_URL } from "@/lib/api"
+import { SOFT_SKILLS, softSkillLabel } from "@/lib/soft-skills"
 
 // Types for form data
 interface ActivityFormData {
@@ -45,13 +46,6 @@ const initialData: ActivityFormData = {
 
 const categories = ["Technology", "Academic", "Competition", "Sports", "Art & Culture", "Volunteer"]
 const suggestedTags = ["Programming", "Web Development", "AI", "Machine Learning", "Design", "UX", "UI", "Security", "Sports", "Music", "Volunteer", "Competition", "Workshop", "Seminar"]
-const softSkillOptions = [
-    { id: "teamwork", label: "การทำงานเป็นทีม (Teamwork)" },
-    { id: "leadership", label: "ภาวะผู้นำ (Leadership)" },
-    { id: "communication", label: "การสื่อสาร (Communication)" },
-    { id: "problemSolving", label: "การแก้ปัญหา (Problem Solving)" },
-    { id: "adaptability", label: "การปรับตัว (Adaptability)" },
-];
 
 export default function EditActivityPage() {
     const router = useRouter()
@@ -86,7 +80,7 @@ export default function EditActivityPage() {
                     capacity: data.capacity ? String(data.capacity) : "",
                     conditions: data.conditions ? data.conditions.map((c: { conditionText: string }) => c.conditionText) : [],
                     benefits: data.benefits ? data.benefits.map((b: { benefitText: string }) => b.benefitText) : [],
-                    softSkills: data.softSkills ? data.softSkills.map((s: { skillName: string }) => s.skillName) : [],
+                    softSkills: data.softSkills ? data.softSkills.map((s: { skillType: string }) => s.skillType) : [],
                     imageFile: null
                 });
                 if (data.imageUrl) {
@@ -129,11 +123,11 @@ export default function EditActivityPage() {
         })
     }
 
-    const toggleSoftSkill = (skillLabel: string) => {
+    const toggleSoftSkill = (skillValue: string) => {
         setFormData(prev => {
-            const newSkills = prev.softSkills.includes(skillLabel)
-                ? prev.softSkills.filter(s => s !== skillLabel)
-                : [...prev.softSkills, skillLabel]
+            const newSkills = prev.softSkills.includes(skillValue)
+                ? prev.softSkills.filter(s => s !== skillValue)
+                : [...prev.softSkills, skillValue]
             return { ...prev, softSkills: newSkills }
         })
     }
@@ -377,18 +371,18 @@ export default function EditActivityPage() {
 
                                     <div className="space-y-4">
                                         <Label className="text-base">Soft Skills ที่จะได้รับจากกิจกรรมนี้ (ตัวเลือกประเมิน)</Label>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-gray-50 p-4 rounded-lg border border-gray-100">
-                                            {softSkillOptions.map(skill => (
-                                                <div key={skill.id} className="flex items-center space-x-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                            {SOFT_SKILLS.map(skill => (
+                                                <div key={skill.value} className="flex items-center space-x-3">
                                                     <input
                                                         type="checkbox"
-                                                        id={`skill-${skill.id}`}
-                                                        checked={formData.softSkills.includes(skill.label)}
-                                                        onChange={() => toggleSoftSkill(skill.label)}
+                                                        id={`skill-${skill.value}`}
+                                                        checked={formData.softSkills.includes(skill.value)}
+                                                        onChange={() => toggleSoftSkill(skill.value)}
                                                         className="w-5 h-5 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
                                                     />
-                                                    <Label htmlFor={`skill-${skill.id}`} className="font-normal cursor-pointer text-sm">
-                                                        {skill.label}
+                                                    <Label htmlFor={`skill-${skill.value}`} className="font-normal cursor-pointer text-sm">
+                                                        {skill.labelEn}
                                                     </Label>
                                                 </div>
                                             ))}
@@ -487,7 +481,7 @@ export default function EditActivityPage() {
                                                     <div className="flex flex-wrap gap-2 mt-2">
                                                         {formData.softSkills.map((skill, i) => (
                                                             <Badge key={i} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                                                                <CheckSquare className="w-3 h-3 mr-1" /> {skill}
+                                                                <CheckSquare className="w-3 h-3 mr-1" /> {softSkillLabel(skill)}
                                                             </Badge>
                                                         ))}
                                                     </div>

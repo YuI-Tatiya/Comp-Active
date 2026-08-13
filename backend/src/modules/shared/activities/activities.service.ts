@@ -26,7 +26,7 @@ export class ActivitiesService {
       tags: { create: tags?.map((tagName) => ({ tagName })) ?? [] },
       conditions: { create: conditions?.map((conditionText) => ({ conditionText })) ?? [] },
       benefits: { create: benefits?.map((benefitText) => ({ benefitText })) ?? [] },
-      softSkills: { create: softSkills?.map((skillName) => ({ skillName })) ?? [] },
+      softSkills: { create: softSkills?.map((skillType) => ({ skillType })) ?? [] },
     });
 
     this.logger.log(`Activity created: "${activity.name}" (ID: ${activity.id})`);

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ActivityFilterDto } from './dto/activity-filter.dto';
 import { ActivityStatus, ApprovalStatus } from '../../../common/enums/status.enum';
+import { SoftSkillType } from '../../../common/enums/soft-skill.enum';
 
 export const activityInclude = {
   tags: true,
@@ -15,7 +16,7 @@ interface RelationUpdate {
   tags?: string[];
   conditions?: string[];
   benefits?: string[];
-  softSkills?: string[];
+  softSkills?: SoftSkillType[];
 }
 
 @Injectable()
@@ -111,7 +112,7 @@ export class ActivitiesRepository {
         await tx.activitySoftSkill.deleteMany({ where: { activityId } });
         if (relations.softSkills.length) {
           await tx.activitySoftSkill.createMany({
-            data: relations.softSkills.map((skillName) => ({ activityId, skillName })),
+            data: relations.softSkills.map((skillType) => ({ activityId, skillType })),
           });
         }
       }

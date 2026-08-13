@@ -4,9 +4,11 @@ import {
   IsNumber,
   IsOptional,
   IsArray,
+  IsIn,
   Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { SoftSkillType } from '../../../../common/enums/soft-skill.enum';
 
 export class CreateActivityDto {
   @ApiProperty({ example: 'อบรม React Workshop', description: 'ชื่อกิจกรรม' })
@@ -58,12 +60,15 @@ export class CreateActivityDto {
   tags?: string[];
 
   @ApiPropertyOptional({
-    example: ['Teamwork', 'Communication'],
+    example: [SoftSkillType.TEAMWORK_COLLABORATION, SoftSkillType.COMMUNICATION],
     description: 'Soft Skills ที่ได้รับจากกิจกรรม',
+    enum: SoftSkillType,
+    isArray: true,
   })
   @IsArray()
   @IsOptional()
-  softSkills?: string[];
+  @IsIn(Object.values(SoftSkillType), { each: true })
+  softSkills?: SoftSkillType[];
 
   @ApiPropertyOptional({
     example: ['นักศึกษาชั้นปีที่ 2 ขึ้นไป'],

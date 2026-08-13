@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { MascotWidget } from "@/components/ui/mascot-widget"
 import { Container } from "@/components/layout/container"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
@@ -12,26 +13,14 @@ import { ActivityCardSkeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { activitiesAPI, Activity } from "@/lib/api"
 import { CATEGORIES } from "@/lib/categories"
+import { SOFT_SKILLS } from "@/lib/soft-skills"
 import {
   ArrowRight,
   CalendarX,
   ChevronLeft,
   ChevronRight,
-  Users,
-  MessageSquare,
-  Lightbulb,
-  Repeat,
-  Crown,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-const SOFT_SKILLS = [
-  { icon: Users, label: "ทีมเวิร์ก", desc: "ทำงานร่วมกับผู้อื่นได้อย่างราบรื่น" },
-  { icon: Crown, label: "ภาวะผู้นำ", desc: "นำทีมและตัดสินใจอย่างมีความรับผิดชอบ" },
-  { icon: MessageSquare, label: "การสื่อสาร", desc: "ถ่ายทอดความคิดได้ชัดเจนและตรงประเด็น" },
-  { icon: Lightbulb, label: "การแก้ปัญหา", desc: "วิเคราะห์และหาทางออกอย่างเป็นระบบ" },
-  { icon: Repeat, label: "การปรับตัว", desc: "รับมือกับสถานการณ์ที่เปลี่ยนแปลงได้" },
-]
 
 const NEWS_ITEMS = [
   {
@@ -39,37 +28,30 @@ const NEWS_ITEMS = [
     title: "เปิดลงทะเบียนกิจกรรม AI Workshop รอบใหม่",
     desc: "นักศึกษาที่สนใจสามารถลงทะเบียนเข้าร่วมได้แล้ววันนี้ รับจำนวนจำกัด",
     date: "8 ส.ค. 2569",
+    image: "/new1.png",
   },
   {
     tag: "ข่าวสาร",
     title: "ประกาศผลการประเมินซอฟต์สกิลประจำภาคเรียน",
-    desc: "ตรวจสอบคะแนนสะสมทั้ง 5 ด้านของคุณได้แล้วที่หน้าโปรไฟล์",
+    desc: "ตรวจสอบคะแนนสะสมทั้ง 12 ด้านของคุณได้แล้วที่หน้าโปรไฟล์",
     date: "5 ส.ค. 2569",
+    image: "/new2.png",
   },
   {
     tag: "กิจกรรมเด่น",
     title: "Coding Challenge ชิงรางวัลรวมมูลค่ากว่า 10,000 บาท",
     desc: "ร่วมท้าทายทักษะการเขียนโปรแกรมกับเพื่อนๆ ทั่วทั้งวิทยาลัย",
     date: "1 ส.ค. 2569",
+    image: "/new3.png",
   },
 ]
-
-/** ป้ายกำกับหัวข้อแบบมีเลข */
-function SectionLabel({ n, children }: { n: string; children: React.ReactNode }) {
-  return (
-    <p className="mb-3 flex items-center gap-2.5 text-xs font-medium tracking-wide text-fg-subtle">
-      <span className="tabular-nums text-brand-600">{n}</span>
-      <span className="h-px w-6 bg-border" aria-hidden="true" />
-      {children}
-    </p>
-  )
-}
 
 export default function RootPage() {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState<string>("")
   const [newsIndex, setNewsIndex] = useState(0)
+  const skillsScrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadActivities(category)
@@ -101,40 +83,64 @@ export default function RootPage() {
 
       {/* ── Hero (asymmetric, light) ─────────────────────────────────────── */}
       <section className="hero-sky relative isolate overflow-hidden">
-        {/* ลายจุดละเอียดเฉพาะบริเวณภาพ — สื่อถึงโลกเทคโนโลยีโดยไม่รบกวนข้อความ */}
-        <div
-          className="hero-grid pointer-events-none absolute inset-0 hidden opacity-35 lg:block"
-          aria-hidden="true"
-        />
-
-        {/* ชั้นสีเขียวอ่อนด้านล่างรับกับพื้นหญ้าในภาพประกอบ */}
-        <div
-          className="pointer-events-none absolute -bottom-52 -right-40 h-[27rem] w-[52rem] rounded-[50%] bg-gradient-to-tl from-emerald-100/60 via-sky-100/35 to-transparent blur-3xl"
-          aria-hidden="true"
-        />
-
         {/* แสงและวงกลมลอยช้า ๆ ด้านหลังภาพ */}
         <div
-          className="pointer-events-none absolute right-[5%] top-[4%] hidden h-[28rem] w-[28rem] rounded-full bg-white/60 blur-3xl motion-safe:animate-glow motion-reduce:animate-none lg:block"
+          className="pointer-events-none absolute right-[5%] top-[4%] hidden h-[28rem] w-[28rem] rounded-full bg-white/60 blur-3xl lg:block"
           aria-hidden="true"
         />
         <div
-          className="pointer-events-none absolute -right-10 bottom-[8%] hidden h-64 w-64 rounded-full bg-sky-300/35 blur-3xl motion-safe:animate-float motion-reduce:animate-none lg:block"
+          className="pointer-events-none absolute -right-10 bottom-[8%] hidden h-64 w-64 rounded-full bg-sky-300/35 blur-3xl lg:block"
           aria-hidden="true"
         />
         <div
-          className="pointer-events-none absolute right-[29%] top-[17%] hidden h-36 w-36 rounded-full bg-cyan-100/60 blur-2xl motion-safe:animate-float-delay motion-reduce:animate-none lg:block"
+          className="pointer-events-none absolute right-[29%] top-[17%] hidden h-36 w-36 rounded-full bg-cyan-100/60 blur-2xl lg:block"
           aria-hidden="true"
         />
+
+        {/* ภาพ — ชิดขอบขวาจริงของจอ ไม่ผูกกับ padding/max-width ของ Container */}
+        <div className="hidden isolate lg:absolute lg:right-0 lg:top-1/2 lg:z-0 lg:block lg:w-full lg:max-w-[58rem] lg:-translate-y-1/2">
+          {/* สปอตไลท์อบอุ่นด้านหลัง — เพิ่มความอลังการ ให้ภาพเป็นจุดเด่นเหมือนถูกจัดแสง */}
+          <div
+            className="pointer-events-none absolute inset-[-26%] z-0 blur-3xl"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(255,247,224,0.85) 0%, rgba(191,219,254,0.4) 45%, transparent 72%)",
+            }}
+            aria-hidden="true"
+          />
+          {/* การ์ดแสงโค้งมนด้านหลัง — กรอบสีฟ้าเอียงเล็กน้อยโผล่มุมขวาบน ให้เข้ากับโทนเว็บ */}
+          <div
+            className="pointer-events-none absolute inset-[-12%] z-0 rotate-[-5deg] rounded-[3rem] bg-gradient-to-br from-sky-200/60 via-blue-100/50 to-white/30 blur-2xl"
+            aria-hidden="true"
+          />
+          {/* เงาเวทีใต้ภาพ — สองชั้น ให้รู้สึกยิ่งใหญ่ลอยเด่นจากพื้น */}
+          <div
+            className="pointer-events-none absolute bottom-[6%] left-1/2 z-0 h-14 w-[78%] -translate-x-1/2 rounded-[50%] bg-slate-900/30 blur-3xl"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute bottom-[9%] left-1/2 z-0 h-6 w-[45%] -translate-x-1/2 rounded-[50%] bg-slate-900/25 blur-xl"
+            aria-hidden="true"
+          />
+          <Image
+            src="/college.svg"
+            alt="วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น"
+            width={620}
+            height={413}
+            className="relative z-10 h-auto w-full [filter:brightness(1.06)_contrast(1.12)_saturate(1.22)_drop-shadow(0_8px_8px_rgba(15,23,42,0.12))_drop-shadow(0_28px_22px_rgba(15,23,42,0.18))_drop-shadow(0_56px_40px_rgba(15,23,42,0.16))]"
+            priority
+          />
+        </div>
+
         <Container className="relative z-10 pt-16 pb-16 md:pt-24 md:pb-24">
           <div className="relative">
-            <div className="max-w-3xl lg:max-w-xl">
+            <div className="max-w-3xl lg:relative lg:z-20 lg:max-w-xl">
               <p className="mb-3 flex items-center gap-2.5 text-sm font-medium tracking-wide text-slate-500">
                 <span className="h-px w-6 bg-slate-900/15" aria-hidden="true" />
                 วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น
               </p>
 
-              <h1 className="text-4xl font-bold leading-[1.15] tracking-tight text-slate-900 md:text-6xl">
+              <h1 className="text-3xl font-bold leading-[1.15] tracking-tight text-slate-900 md:text-5xl">
                 Building Skills
                 <br />
                 <span className="text-brand-600">Through Hands-On Activities</span>
@@ -148,44 +154,25 @@ export default function RootPage() {
                 <Button
                   size="xl"
                   asChild
-                  className="bg-gradient-to-r from-brand-300 to-brand-500 text-white shadow-md hover:from-brand-300 hover:to-brand-600"
+                  className="group rounded-lg bg-brand-600 text-white shadow-lg shadow-brand-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:bg-brand-700 hover:shadow-xl hover:shadow-brand-500/40 active:translate-y-0 active:shadow-md"
                 >
-                  <Link href="/auth">เริ่มต้นใช้งาน</Link>
+                  <Link href="/auth">
+                    เริ่มต้นใช้งาน
+                    <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
+                  </Link>
                 </Button>
                 <Button
                   size="xl"
                   variant="outline"
                   asChild
-                  className="border-slate-300 bg-white/60 text-slate-900 hover:bg-white"
+                  className="group rounded-lg border-slate-300 bg-white/70 text-slate-900 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-300 hover:bg-white hover:shadow-md active:translate-y-0"
                 >
                   <Link href="/events">
                     ดูกิจกรรมทั้งหมด
-                    <ArrowRight />
+                    <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
                   </Link>
                 </Button>
               </div>
-            </div>
-
-            {/* วางลอยทับ ไม่ผูกกับความสูงของข้อความฝั่งซ้าย */}
-            <div className="hidden isolate lg:absolute lg:right-0 lg:top-1/2 lg:block lg:w-full lg:max-w-xl lg:-translate-y-1/2">
-              {/* แสงเรืองด้านหลัง — เพิ่มมิติให้ภาพลอยเด่นจากพื้นหลัง เคลื่อนไหวเบา ๆ */}
-              <div
-                className="pointer-events-none absolute inset-[-14%] z-0 rounded-full bg-gradient-to-br from-white/75 via-sky-200/50 to-blue-300/30 blur-3xl motion-safe:animate-glow motion-reduce:animate-none"
-                aria-hidden="true"
-              />
-              {/* เงาสัมผัสพื้น — แยกภาพออกจาก background ให้รู้สึกลอยจริง */}
-              <div
-                className="pointer-events-none absolute bottom-[8%] left-1/2 z-0 h-10 w-[65%] -translate-x-1/2 rounded-[50%] bg-slate-900/25 blur-2xl"
-                aria-hidden="true"
-              />
-              <Image
-                src="/student_home.svg"
-                alt="นักศึกษาเข้าร่วมกิจกรรม"
-                width={620}
-                height={412}
-                className="relative z-10 h-auto w-full [filter:brightness(1.04)_contrast(1.06)_saturate(1.12)_drop-shadow(0_18px_14px_rgba(15,23,42,0.18))_drop-shadow(0_45px_38px_rgba(15,23,42,0.22))]"
-                priority
-              />
             </div>
           </div>
         </Container>
@@ -193,31 +180,26 @@ export default function RootPage() {
 
       {/* ── 01 กระดานข่าว ───────────────────────────────────────────────── */}
       <section className="border-b border-border">
-        <Container className="py-16">
-          <SectionLabel n="01">กระดานข่าว</SectionLabel>
+        <Container className="py-16 text-center">
           <h2 className="text-3xl font-semibold tracking-tight text-fg">ข่าวสารและประกาศ</h2>
 
-          <div className="relative mt-8">
+          <div className="relative mx-auto mt-8 max-w-4xl">
             <div className="overflow-hidden rounded-xl border border-border bg-bg">
               <div
                 className="flex transition-transform duration-500 ease-out"
                 style={{ transform: `translateX(-${newsIndex * 100}%)` }}
               >
-                {NEWS_ITEMS.map((news) => (
-                  <div
-                    key={news.title}
-                    className="flex w-full shrink-0 flex-col items-center p-8 text-center sm:p-10"
-                  >
-                    <span className="inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-600">
-                      {news.tag}
-                    </span>
-                    <h3 className="mt-4 text-xl font-semibold text-fg sm:text-2xl">
-                      {news.title}
-                    </h3>
-                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-fg-muted sm:text-base">
-                      {news.desc}
-                    </p>
-                    <p className="mt-4 text-xs text-fg-subtle">{news.date}</p>
+                {NEWS_ITEMS.map((news, i) => (
+                  <div key={news.title} className="w-full shrink-0">
+                    <Image
+                      src={news.image}
+                      alt={news.title}
+                      width={1672}
+                      height={941}
+                      sizes="(min-width: 896px) 896px, 100vw"
+                      className="h-auto w-full"
+                      priority={i === 0}
+                    />
                   </div>
                 ))}
               </div>
@@ -268,7 +250,6 @@ export default function RootPage() {
         <Container className="py-16">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <SectionLabel n="02">กิจกรรมแนะนำ</SectionLabel>
               <h2 className="text-3xl font-semibold tracking-tight text-fg">
                 กำลังเปิดรับสมัคร
               </h2>
@@ -281,7 +262,7 @@ export default function RootPage() {
             </Button>
           </div>
 
-          {/* ตัวกรองหมวดหมู่ — มีจุดสีประจำหมวด */}
+          {/* ตัวกรองหมวดหมู่ */}
           <div className="mt-6 flex flex-wrap gap-2">
             <button
               type="button"
@@ -303,19 +284,12 @@ export default function RootPage() {
                 onClick={() => setCategory(cat.value)}
                 aria-pressed={category === cat.value}
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm transition-colors",
+                  "rounded-full border px-4 py-1.5 text-sm transition-colors",
                   category === cat.value
                     ? "border-brand-600 bg-brand-600 font-medium text-white"
                     : "border-border bg-bg text-fg-muted hover:border-border-strong hover:text-fg"
                 )}
               >
-                <span
-                  className={cn(
-                    "size-1.5 rounded-full",
-                    category === cat.value ? "bg-white" : cat.dot
-                  )}
-                  aria-hidden="true"
-                />
                 {cat.label}
               </button>
             ))}
@@ -350,40 +324,73 @@ export default function RootPage() {
         </Container>
       </section>
 
-      {/* ── 03 ทักษะ 5 ด้าน ─────────────────────────────────────────────── */}
+      {/* ── 03 ทักษะ 12 ด้าน ────────────────────────────────────────────── */}
       <section className="border-y border-border bg-surface">
         <Container className="py-16">
           <div className="grid gap-10 lg:grid-cols-12">
             <div className="lg:col-span-4">
-              <SectionLabel n="03">Soft Skills</SectionLabel>
               <h2 className="text-3xl font-semibold leading-tight tracking-tight text-fg">
-                5 ทักษะที่คุณจะได้
+                12 ทักษะที่คุณสามารถสะสมได้จากกการเข้าร่วมกิจกรรม
               </h2>
               <p className="mt-4 text-base leading-relaxed text-fg-muted">
-                ทุกกิจกรรมกำหนดคะแนนทักษะไว้ล่วงหน้า
-                ผู้จัดจะประเมินหลังจบกิจกรรม แล้วคะแนนจะสะสมเข้าโปรไฟล์ของคุณอัตโนมัติ
+                เพียงคุณเข้าร่วมกิจกรรมและทำกิจกรรมให้สำเร็จ 
+                แล้วคะแนนจะสะสมเข้าโปรไฟล์ของคุณอัตโนมัติ 
               </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:col-span-8 lg:grid-cols-3">
-              {SOFT_SKILLS.map((s) => (
-                <div
-                  key={s.label}
-                  className="rounded-xl border border-border bg-bg p-5 shadow-xs"
-                >
-                  <span className="mb-3 flex size-9 items-center justify-center rounded-lg bg-brand-50">
-                    <s.icon className="size-4.5 text-brand-600" aria-hidden="true" />
-                  </span>
-                  <h3 className="text-sm font-semibold text-fg">{s.label}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">{s.desc}</p>
-                </div>
-              ))}
+            <div className="relative lg:col-span-8">
+              <div
+                ref={skillsScrollRef}
+                className="flex gap-2.5 overflow-x-auto scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                {SOFT_SKILLS.map((s) => (
+                  <div
+                    key={s.value}
+                    className="w-64 shrink-0 rounded-xl border border-border bg-bg p-5 shadow-xs"
+                  >
+                    <span className="mb-3 flex size-9 items-center justify-center rounded-lg bg-brand-50">
+                      <s.icon className="size-4.5 text-brand-600" aria-hidden="true" />
+                    </span>
+                    <h3 className="text-sm font-semibold text-fg">{s.label}</h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">{s.desc}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* เงาจางบอกใบ้ว่าเลื่อนได้ */}
+              <div
+                className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-surface to-transparent"
+                aria-hidden="true"
+              />
+              <div
+                className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-surface to-transparent"
+                aria-hidden="true"
+              />
+
+              {/* ปุ่มเลื่อนซ้าย/ขวา */}
+              <button
+                type="button"
+                onClick={() => skillsScrollRef.current?.scrollBy({ left: -240, behavior: "smooth" })}
+                aria-label="เลื่อนทักษะก่อนหน้า"
+                className="absolute -left-3 top-1/2 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-bg text-fg-muted shadow-xs transition-colors hover:text-fg sm:flex"
+              >
+                <ChevronLeft className="size-4" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => skillsScrollRef.current?.scrollBy({ left: 240, behavior: "smooth" })}
+                aria-label="เลื่อนทักษะถัดไป"
+                className="absolute -right-3 top-1/2 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-bg text-fg-muted shadow-xs transition-colors hover:text-fg sm:flex"
+              >
+                <ChevronRight className="size-4" aria-hidden="true" />
+              </button>
             </div>
           </div>
         </Container>
       </section>
 
       <SiteFooter />
+      <MascotWidget />
     </div>
   )
 }

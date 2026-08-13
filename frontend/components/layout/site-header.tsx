@@ -33,7 +33,7 @@ export function SiteHeader() {
 
     return (
         <header className="sticky top-0 z-50 border-b border-border bg-bg/85 backdrop-blur">
-            <Container>
+            <Container className="pr-4 sm:pr-4 lg:pr-4">
                 <div className="flex h-16 items-center gap-4">
                     {/* โลโก้ */}
                     <Link href="/" className="flex flex-col leading-tight rounded-md">
@@ -64,7 +64,7 @@ export function SiteHeader() {
 
                         <Button
                             asChild
-                            className="hidden rounded-full bg-gradient-to-r from-brand-300 to-brand-500 px-5 shadow-sm transition-all hover:from-brand-300 hover:to-brand-600 hover:shadow-md md:ml-1 md:inline-flex"
+                            className="hidden rounded-lg bg-gradient-to-r from-brand-300 to-brand-500 px-5 shadow-sm transition-all hover:from-brand-300 hover:to-brand-600 hover:shadow-md md:ml-1 md:inline-flex"
                         >
                             <Link href="/auth">เข้าสู่ระบบ</Link>
                         </Button>
@@ -105,7 +105,7 @@ export function SiteHeader() {
                         ))}
                         <Button
                             asChild
-                            className="mt-2 w-full rounded-full bg-gradient-to-r from-brand-300 to-brand-500 shadow-sm hover:from-brand-300 hover:to-brand-600"
+                            className="mt-2 w-full rounded-lg bg-gradient-to-r from-brand-300 to-brand-500 shadow-sm hover:from-brand-300 hover:to-brand-600"
                         >
                             <Link href="/auth">เข้าสู่ระบบ</Link>
                         </Button>

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts"
 import { registrationsAPI, evaluationsAPI, SkillsData, Activity, usersAPI } from "@/lib/api"
+import { SOFT_SKILLS, softSkillLabelByField } from "@/lib/soft-skills"
 
 interface Registration {
     id: number;
@@ -64,19 +65,11 @@ export default function StudentProfilePage() {
         }
     }
 
-    const chartData = skillsData ? [
-        { subject: 'Teamwork', A: skillsData.average.teamwork, fullMark: 10 },
-        { subject: 'Leadership', A: skillsData.average.leadership, fullMark: 10 },
-        { subject: 'Communication', A: skillsData.average.communication, fullMark: 10 },
-        { subject: 'Problem Solving', A: skillsData.average.problemSolving, fullMark: 10 },
-        { subject: 'Adaptability', A: skillsData.average.adaptability, fullMark: 10 },
-    ] : [
-        { subject: 'Teamwork', A: 0, fullMark: 10 },
-        { subject: 'Leadership', A: 0, fullMark: 10 },
-        { subject: 'Communication', A: 0, fullMark: 10 },
-        { subject: 'Problem Solving', A: 0, fullMark: 10 },
-        { subject: 'Adaptability', A: 0, fullMark: 10 },
-    ];
+    const chartData = SOFT_SKILLS.map((s) => ({
+        subject: s.labelEn,
+        A: skillsData?.average[s.field] ?? 0,
+        fullMark: 1,
+    }));
 
     const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target
@@ -182,7 +175,7 @@ export default function StudentProfilePage() {
                                     <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
                                         <PolarGrid stroke="#e2e8f0" />
                                         <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} />
-                                        <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
+                                        <PolarRadiusAxis angle={30} domain={[0, 1]} tick={false} axisLine={false} />
                                         <Radar name="Student Skills" dataKey="A" stroke="#8b5cf6" strokeWidth={2} fill="url(#colorUv)" fillOpacity={0.7} />
                                         <defs>
                                             <linearGradient id="colorUv" x1="0" y1="0" x2="1" y2="1">
@@ -207,13 +200,7 @@ export default function StudentProfilePage() {
                                         skillsData.history.map((entry) => {
                                             const awarded = Object.entries(entry.scores)
                                                 .filter(([, v]) => v > 0)
-                                                .map(([k]) => ({
-                                                    teamwork: 'การทำงานเป็นทีม',
-                                                    leadership: 'ภาวะผู้นำ',
-                                                    communication: 'การสื่อสาร',
-                                                    problemSolving: 'การแก้ปัญหา',
-                                                    adaptability: 'การปรับตัว'
-                                                }[k] || k))
+                                                .map(([k]) => softSkillLabelByField(k))
                                             return (
                                                 <div key={entry.id} className="p-5 rounded-2xl border border-slate-100 flex flex-col md:flex-row justify-between md:items-start gap-4 hover:bg-slate-50 transition-colors">
                                                     <div className="flex-1">

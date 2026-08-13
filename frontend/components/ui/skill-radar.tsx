@@ -9,14 +9,11 @@ import {
     ResponsiveContainer,
 } from "recharts"
 import type { SkillsData } from "@/lib/api"
+import { SOFT_SKILLS } from "@/lib/soft-skills"
 
-const SKILL_LABELS: { key: keyof SkillsData["average"]; label: string }[] = [
-    { key: "teamwork", label: "ทีมเวิร์ก" },
-    { key: "leadership", label: "ภาวะผู้นำ" },
-    { key: "communication", label: "การสื่อสาร" },
-    { key: "problemSolving", label: "แก้ปัญหา" },
-    { key: "adaptability", label: "ปรับตัว" },
-]
+const SKILL_LABELS: { key: keyof SkillsData["average"]; label: string }[] = SOFT_SKILLS.map(
+    (s) => ({ key: s.field, label: s.label.replace(/^ทักษะ/, "") })
+)
 
 interface SkillRadarProps {
     average?: SkillsData["average"]
@@ -24,7 +21,7 @@ interface SkillRadarProps {
     height?: number
 }
 
-export function SkillRadar({ average, height = 220 }: SkillRadarProps) {
+export function SkillRadar({ average, height = 280 }: SkillRadarProps) {
     const data = SKILL_LABELS.map(({ key, label }) => ({
         skill: label,
         value: average?.[key] ?? 0,
@@ -39,7 +36,7 @@ export function SkillRadar({ average, height = 220 }: SkillRadarProps) {
                         dataKey="skill"
                         tick={{ fill: "var(--color-fg-muted)", fontSize: 11 }}
                     />
-                    <PolarRadiusAxis domain={[0, 10]} tick={false} axisLine={false} />
+                    <PolarRadiusAxis domain={[0, 1]} tick={false} axisLine={false} />
                     <Radar
                         dataKey="value"
                         stroke="var(--color-brand-600)"
@@ -66,7 +63,7 @@ export function SkillScoreList({ average }: { average?: SkillsData["average"] })
                             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
                                 <div
                                     className="h-full rounded-full bg-brand-600"
-                                    style={{ width: `${Math.min(v * 10, 100)}%` }}
+                                    style={{ width: `${Math.min(v * 100, 100)}%` }}
                                 />
                             </div>
                             <span className="w-6 shrink-0 text-right text-xs font-medium text-fg tabular-nums">
