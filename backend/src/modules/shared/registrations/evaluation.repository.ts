@@ -41,11 +41,18 @@ export class EvaluationsRepository {
   aggregateSkills() {
     return this.prisma.evaluation.aggregate({
       _avg: {
-        teamwork: true,
-        leadership: true,
         communication: true,
-        problemSolving: true,
-        adaptability: true,
+        timeManagement: true,
+        flexibilityAdaptability: true,
+        teamworkCollaboration: true,
+        analyticCriticalThinking: true,
+        decisionMaking: true,
+        creativity: true,
+        complexProblemSolving: true,
+        curiosityLifelongLearning: true,
+        negotiationPersuasion: true,
+        leadership: true,
+        positiveAttitude: true,
       },
       _count: true,
     });

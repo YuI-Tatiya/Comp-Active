@@ -38,7 +38,7 @@ export function LoginForm() {
         // โครงเดียวกับ register-form เพื่อให้ปุ่มอยู่ตำแหน่งเดียวกันทั้ง 2 แท็บ
         <form onSubmit={handleSubmit} className="flex min-h-full flex-col gap-4">
             {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg p-3">
+                <div className="bg-danger-bg border border-danger/20 text-danger text-sm rounded-lg p-3">
                     {error}
                 </div>
             )}
@@ -46,7 +46,7 @@ export function LoginForm() {
             <div className="space-y-2">
                 <Label htmlFor="identifier">Username</Label>
                 <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <User className="absolute left-3 top-3 h-4 w-4 text-fg-subtle" />
                     <Input
                         id="identifier"
                         type="text"
@@ -61,7 +61,7 @@ export function LoginForm() {
             <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-fg-subtle" />
                     <Input
                         id="password"
                         type="password"

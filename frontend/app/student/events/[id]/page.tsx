@@ -14,6 +14,7 @@ import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCirc
 import Link from "next/link"
 import { activitiesAPI, registrationsAPI, Activity, Tag as TagType, Condition, Benefit, API_BASE_URL } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
+import { softSkillLabel } from "@/lib/soft-skills"
 
 // Local types removed, using Activity from @/lib/api
 
@@ -204,9 +205,9 @@ export default function EventDetailsPage() {
                                     <div className="mt-8 pt-6 border-t border-gray-100">
                                         <h4 className="text-sm font-semibold mb-3 text-gray-900">Soft Skills ที่จะได้รับ</h4>
                                         <div className="flex gap-2 flex-wrap">
-                                            {event.softSkills && event.softSkills.length > 0 ? event.softSkills.map((skill: { skillName: string }, idx: number) => (
+                                            {event.softSkills && event.softSkills.length > 0 ? event.softSkills.map((skill: { skillType: string }, idx: number) => (
                                                 <Badge key={idx} variant="outline" className="px-3 py-1 text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100">
-                                                    <CheckSquare className="w-3 h-3 mr-1" /> {skill.skillName}
+                                                    <CheckSquare className="w-3 h-3 mr-1" /> {softSkillLabel(skill.skillType)}
                                                 </Badge>
                                             )) : <span className="text-sm text-gray-500">ไม่ได้ระบุ Soft Skills</span>}
                                         </div>

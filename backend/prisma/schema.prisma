@@ -57,6 +57,21 @@ enum InviteStatus {
   revoked
 }
 
+enum SoftSkillType {
+  communication
+  time_management
+  flexibility_adaptability
+  teamwork_collaboration
+  analytic_critical_thinking
+  decision_making
+  creativity
+  complex_problem_solving
+  curiosity_lifelong_learning
+  negotiation_persuasion
+  leadership
+  positive_attitude
+}
+
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model OrganizerRequest {
@@ -186,9 +201,9 @@ model ActivityBenefit {
 }
 
 model ActivitySoftSkill {
-  id         Int    @id @default(autoincrement())
-  activityId Int    @map("activity_id")
-  skillName  String @map("skill_name") @db.VarChar(100)
+  id         Int           @id @default(autoincrement())
+  activityId Int           @map("activity_id")
+  skillType  SoftSkillType @map("skill_type")
 
   activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
@@ -254,16 +269,23 @@ model SiteContent {
 }
 
 model Evaluation {
-  id             Int      @id @default(autoincrement())
-  registrationId Int      @unique @map("registration_id")
-  evaluatorId    Int      @map("evaluator_id")
-  teamwork       Int      @default(0)
-  leadership     Int      @default(0)
-  communication  Int      @default(0)
-  problemSolving Int      @default(0) @map("problem_solving")
-  adaptability   Int      @default(0)
-  comment        String?
-  createdAt      DateTime @default(now()) @map("created_at")
+  id                        Int      @id @default(autoincrement())
+  registrationId            Int      @unique @map("registration_id")
+  evaluatorId               Int      @map("evaluator_id")
+  communication             Int      @default(0)
+  timeManagement            Int      @default(0) @map("time_management")
+  flexibilityAdaptability   Int      @default(0) @map("flexibility_adaptability")
+  teamworkCollaboration     Int      @default(0) @map("teamwork_collaboration")
+  analyticCriticalThinking  Int      @default(0) @map("analytic_critical_thinking")
+  decisionMaking            Int      @default(0) @map("decision_making")
+  creativity                Int      @default(0)
+  complexProblemSolving     Int      @default(0) @map("complex_problem_solving")
+  curiosityLifelongLearning Int      @default(0) @map("curiosity_lifelong_learning")
+  negotiationPersuasion     Int      @default(0) @map("negotiation_persuasion")
+  leadership                Int      @default(0)
+  positiveAttitude          Int      @default(0) @map("positive_attitude")
+  comment                   String?
+  createdAt                 DateTime @default(now()) @map("created_at")
 
   registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   evaluator    User         @relation(fields: [evaluatorId], references: [id])

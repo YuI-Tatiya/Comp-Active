@@ -19,9 +19,9 @@ const STUDENT_ID_REGEX = /^\d{2}3380\d{3}-?\d$/
 function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
     return (
         <fieldset className="space-y-4">
-            <legend className="mb-1 flex w-full items-center gap-3 text-xs font-medium text-gray-500">
+            <legend className="mb-1 flex w-full items-center gap-3 text-xs font-medium text-fg-subtle">
                 {title}
-                <span className="h-px flex-1 bg-gray-200" aria-hidden="true" />
+                <span className="h-px flex-1 bg-border" aria-hidden="true" />
             </legend>
             {children}
         </fieldset>
@@ -118,7 +118,7 @@ export function RegisterForm() {
             {error && (
                 <div
                     role="alert"
-                    className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600"
+                    className="rounded-lg border border-danger/20 bg-danger-bg p-3 text-sm text-danger"
                 >
                     {error}
                 </div>
@@ -129,7 +129,7 @@ export function RegisterForm() {
                 <div className="space-y-2">
                     <Label htmlFor="name">ชื่อ-นามสกุล</Label>
                     <div className="relative">
-                        <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
                         <Input id="name" placeholder="กรอกชื่อ-นามสกุล" className="pl-9"
                             value={name} onChange={(e) => setName(e.target.value)} disabled={loading} />
                     </div>
@@ -138,7 +138,7 @@ export function RegisterForm() {
                 <div className="space-y-2">
                     <Label htmlFor="student-id">รหัสนักศึกษา</Label>
                     <div className="relative">
-                        <GraduationCap className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <GraduationCap className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
                         <Input id="student-id" placeholder="กรอกรหัสนักศึกษา" className="pl-9"
                             value={studentId} onChange={(e) => setStudentId(e.target.value)} disabled={loading} />
                     </div>
@@ -147,7 +147,7 @@ export function RegisterForm() {
                 <div className="space-y-2">
                     <Label htmlFor="register-email">อีเมล (ต้องใช้ @kkumail.com เท่านั้น)</Label>
                     <div className="relative">
-                        <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
                         <Input id="register-email" type="email" placeholder="your.name@kkumail.com" className="pl-9"
                             value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
                     </div>
@@ -156,7 +156,7 @@ export function RegisterForm() {
                 <div className="space-y-2">
                     <Label htmlFor="phone">เบอร์มือถือ</Label>
                     <div className="relative">
-                        <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
                         <Input
                             id="phone"
                             type="tel"
@@ -205,7 +205,7 @@ export function RegisterForm() {
                         ))}
                     </Select>
                     {!isLevelChosen && (
-                        <p id="program-hint" className="text-xs text-gray-500">
+                        <p id="program-hint" className="text-xs text-fg-subtle">
                             เลือกระดับการศึกษาก่อน
                         </p>
                     )}
@@ -237,7 +237,7 @@ export function RegisterForm() {
                         )}
                     </Select>
                     {!isLevelChosen && (
-                        <p id="year-hint" className="text-xs text-gray-500">
+                        <p id="year-hint" className="text-xs text-fg-subtle">
                             เลือกระดับการศึกษาก่อน
                         </p>
                     )}
@@ -249,7 +249,7 @@ export function RegisterForm() {
                 <div className="space-y-2">
                     <Label htmlFor="register-password">รหัสผ่าน</Label>
                     <div className="relative">
-                        <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
                         <Input id="register-password" type="password" placeholder="••••••••" className="pl-9"
                             value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} />
                     </div>
@@ -258,7 +258,7 @@ export function RegisterForm() {
                 <div className="space-y-2">
                     <Label htmlFor="confirm-password">ยืนยันรหัสผ่าน</Label>
                     <div className="relative">
-                        <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
                         <Input id="confirm-password" type="password" placeholder="••••••••" className="pl-9"
                             value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={loading} />
                     </div>

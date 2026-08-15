@@ -36,6 +36,18 @@ export const CATEGORIES: CategoryMeta[] = [
         dot: "bg-cat-volunteer",
         badge: "bg-cat-volunteer-bg text-cat-volunteer",
     },
+    {
+        value: "Sports",
+        label: "กีฬา",
+        dot: "bg-cat-sports",
+        badge: "bg-cat-sports-bg text-cat-sports",
+    },
+    {
+        value: "Art & Culture",
+        label: "ศิลปะ",
+        dot: "bg-cat-art",
+        badge: "bg-cat-art-bg text-cat-art",
+    },
 ]
 
 const BY_VALUE = new Map(CATEGORIES.map((c) => [c.value, c]))

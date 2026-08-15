@@ -1,13 +1,28 @@
 import type { Metadata } from "next";
-import { Kanit } from "next/font/google";
+import { Kanit, Montserrat, Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
+import { MascotWidget } from "@/components/ui/mascot-widget";
 
 const kanit = Kanit({
   weight: ["400", "500", "600", "700"],
   subsets: ["latin", "thai"],
   display: "swap",
   variable: "--font-kanit",
+});
+
+const montserrat = Montserrat({
+  weight: ["600", "700", "800"],
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-montserrat",
+});
+
+const inter = Inter({
+  weight: ["400", "500", "600"],
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {
@@ -22,9 +37,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="th">
-      <body className={`${kanit.variable} font-sans antialiased`}>
+      <body className={`${kanit.variable} ${montserrat.variable} ${inter.variable} font-sans antialiased`}>
         <AuthProvider>
           {children}
+          <MascotWidget />
         </AuthProvider>
       </body>
     </html>

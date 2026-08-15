@@ -74,11 +74,11 @@ export default function AuthPage() {
             {/* ความสูงคงที่ — ไม่ยืดตามเนื้อหา จึงไม่ขยับเวลาสลับแท็บ */}
             <div className="grid h-[calc(100dvh-2rem)] max-h-[720px] w-full max-w-5xl overflow-hidden rounded-xl border border-border bg-bg shadow-md lg:grid-cols-2">
                 {/* ── แผงซ้าย ─────────────────────────────────────────────── */}
-                <aside className="hidden flex-col overflow-hidden bg-brand-600 text-white lg:flex">
+                <aside className="hidden flex-col overflow-hidden bg-gradient-to-br from-brand-300 to-brand-600 text-white lg:flex">
                     <div className="shrink-0 px-10 pt-10">
                         <GraduationCap className="size-10" aria-hidden="true" />
                         <h1 className="mt-5 text-2xl font-semibold">ระบบจัดการกิจกรรม</h1>
-                        <p className="mt-1 text-sm text-brand-100">วิทยาลัยการคอมพิวเตอร์</p>
+                        <p className="mt-1 text-sm text-white/90">วิทยาลัยการคอมพิวเตอร์</p>
                     </div>
 
                     <ol className="flex-1 space-y-6 overflow-y-auto px-10 py-8">
@@ -98,7 +98,7 @@ export default function AuthPage() {
                                         <step.icon className="size-4" aria-hidden="true" />
                                         {step.title}
                                     </h2>
-                                    <p className="mt-1 text-sm leading-relaxed text-brand-100">
+                                    <p className="mt-1 text-sm leading-relaxed text-white/90">
                                         {step.body}
                                     </p>
                                 </div>
@@ -109,7 +109,7 @@ export default function AuthPage() {
                     <div className="shrink-0 border-t border-white/15 px-10 py-5">
                         <Link
                             href="/"
-                            className="inline-flex items-center gap-2 text-sm text-brand-100 transition-colors hover:text-white"
+                            className="inline-flex items-center gap-2 text-sm text-white/90 transition-colors hover:text-white"
                         >
                             <ArrowLeft className="size-4" aria-hidden="true" />
                             กลับไปหน้าหลัก

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
@@ -9,53 +10,57 @@ import { SiteFooter } from "@/components/layout/site-footer"
 import { ActivityCard } from "@/components/ui/activity-card"
 import { ActivityCardSkeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
-import { activitiesAPI, Activity, PlatformStats } from "@/lib/api"
+import { activitiesAPI, Activity } from "@/lib/api"
 import { CATEGORIES } from "@/lib/categories"
+import { SOFT_SKILLS } from "@/lib/soft-skills"
 import {
   ArrowRight,
   CalendarX,
-  Users,
-  MessageSquare,
-  Lightbulb,
-  Repeat,
-  Crown,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const SOFT_SKILLS = [
-  { icon: Users, label: "ทีมเวิร์ก", desc: "ทำงานร่วมกับผู้อื่นได้อย่างราบรื่น" },
-  { icon: Crown, label: "ภาวะผู้นำ", desc: "นำทีมและตัดสินใจอย่างมีความรับผิดชอบ" },
-  { icon: MessageSquare, label: "การสื่อสาร", desc: "ถ่ายทอดความคิดได้ชัดเจนและตรงประเด็น" },
-  { icon: Lightbulb, label: "การแก้ปัญหา", desc: "วิเคราะห์และหาทางออกอย่างเป็นระบบ" },
-  { icon: Repeat, label: "การปรับตัว", desc: "รับมือกับสถานการณ์ที่เปลี่ยนแปลงได้" },
+const NEWS_ITEMS = [
+  {
+    tag: "ประกาศ",
+    title: "เปิดลงทะเบียนกิจกรรม AI Workshop รอบใหม่",
+    desc: "นักศึกษาที่สนใจสามารถลงทะเบียนเข้าร่วมได้แล้ววันนี้ รับจำนวนจำกัด",
+    date: "8 ส.ค. 2569",
+    image: "/new1.png",
+  },
+  {
+    tag: "ข่าวสาร",
+    title: "ประกาศผลการประเมินซอฟต์สกิลประจำภาคเรียน",
+    desc: "ตรวจสอบคะแนนสะสมทั้ง 12 ด้านของคุณได้แล้วที่หน้าโปรไฟล์",
+    date: "5 ส.ค. 2569",
+    image: "/new2.png",
+  },
+  {
+    tag: "กิจกรรมเด่น",
+    title: "Coding Challenge ชิงรางวัลรวมมูลค่ากว่า 10,000 บาท",
+    desc: "ร่วมท้าทายทักษะการเขียนโปรแกรมกับเพื่อนๆ ทั่วทั้งวิทยาลัย",
+    date: "1 ส.ค. 2569",
+    image: "/new3.png",
+  },
 ]
-
-/** ป้ายกำกับหัวข้อแบบมีเลข */
-function SectionLabel({ n, children }: { n: string; children: React.ReactNode }) {
-  return (
-    <p className="mb-3 flex items-center gap-2.5 text-xs font-medium tracking-wide text-fg-subtle">
-      <span className="tabular-nums text-brand-600">{n}</span>
-      <span className="h-px w-6 bg-border" aria-hidden="true" />
-      {children}
-    </p>
-  )
-}
 
 export default function RootPage() {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState<string>("")
-  const [stats, setStats] = useState<PlatformStats | null>(null)
+  const [newsIndex, setNewsIndex] = useState(0)
+  const skillsScrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadActivities(category)
   }, [category])
 
   useEffect(() => {
-    activitiesAPI
-      .getPlatformStats()
-      .then(setStats)
-      .catch((err) => console.error(err))
+    const timer = setInterval(() => {
+      setNewsIndex((i) => (i + 1) % NEWS_ITEMS.length)
+    }, 6000)
+    return () => clearInterval(timer)
   }, [])
 
   async function loadActivities(cat: string) {
@@ -75,72 +80,175 @@ export default function RootPage() {
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
 
-      {/* ── Hero (asymmetric) ───────────────────────────────────────────── */}
-      <section className="border-b border-border bg-surface">
-        <Container className="py-16 md:py-24">
-          <div className="grid items-center gap-12 lg:grid-cols-12">
-            <div className="lg:col-span-7">
-              <SectionLabel n="00">วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น</SectionLabel>
+      {/* ── Hero (asymmetric, light) ─────────────────────────────────────── */}
+      <section className="hero-sky relative isolate overflow-hidden">
+        {/* แสงและวงกลมลอยช้า ๆ ด้านหลังภาพ */}
+        <div
+          className="pointer-events-none absolute right-[5%] top-[4%] hidden h-[28rem] w-[28rem] rounded-full bg-white/60 blur-3xl lg:block"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute -right-10 bottom-[8%] hidden h-64 w-64 rounded-full bg-sky-300/35 blur-3xl lg:block"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute right-[29%] top-[17%] hidden h-36 w-36 rounded-full bg-cyan-100/60 blur-2xl lg:block"
+          aria-hidden="true"
+        />
 
-              <h1 className="text-4xl font-bold leading-[1.15] tracking-tight text-fg md:text-6xl">
-                พัฒนาทักษะ
+        {/* ภาพ — ชิดขอบขวาจริงของจอ ไม่ผูกกับ padding/max-width ของ Container */}
+        <div className="hidden isolate lg:absolute lg:right-0 lg:top-1/2 lg:z-0 lg:block lg:w-full lg:max-w-[58rem] lg:-translate-y-1/2">
+          {/* สปอตไลท์อบอุ่นด้านหลัง — เพิ่มความอลังการ ให้ภาพเป็นจุดเด่นเหมือนถูกจัดแสง */}
+          <div
+            className="pointer-events-none absolute inset-[-26%] z-0 blur-3xl"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(255,247,224,0.85) 0%, rgba(191,219,254,0.4) 45%, transparent 72%)",
+            }}
+            aria-hidden="true"
+          />
+          {/* การ์ดแสงโค้งมนด้านหลัง — กรอบสีฟ้าเอียงเล็กน้อยโผล่มุมขวาบน ให้เข้ากับโทนเว็บ */}
+          <div
+            className="pointer-events-none absolute inset-[-12%] z-0 rotate-[-5deg] rounded-[3rem] bg-gradient-to-br from-sky-200/60 via-blue-100/50 to-white/30 blur-2xl"
+            aria-hidden="true"
+          />
+          {/* เงาเวทีใต้ภาพ — สองชั้น ให้รู้สึกยิ่งใหญ่ลอยเด่นจากพื้น */}
+          <div
+            className="pointer-events-none absolute bottom-[6%] left-1/2 z-0 h-14 w-[78%] -translate-x-1/2 rounded-[50%] bg-slate-900/30 blur-3xl"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute bottom-[9%] left-1/2 z-0 h-6 w-[45%] -translate-x-1/2 rounded-[50%] bg-slate-900/25 blur-xl"
+            aria-hidden="true"
+          />
+          <Image
+            src="/college.svg"
+            alt="วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น"
+            width={620}
+            height={413}
+            className="relative z-10 h-auto w-full [filter:brightness(1.06)_contrast(1.12)_saturate(1.22)_drop-shadow(0_8px_8px_rgba(15,23,42,0.12))_drop-shadow(0_28px_22px_rgba(15,23,42,0.18))_drop-shadow(0_56px_40px_rgba(15,23,42,0.16))]"
+            priority
+          />
+        </div>
+
+        <Container className="relative z-10 pt-16 pb-16 md:pt-24 md:pb-24">
+          <div className="relative">
+            <div className="max-w-3xl lg:relative lg:z-20 lg:max-w-xl">
+              <p className="mb-3 flex items-center gap-2.5 text-sm font-medium tracking-wide text-slate-500">
+                <span className="h-px w-6 bg-slate-900/15" aria-hidden="true" />
+                วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น
+              </p>
+
+              <h1 className="text-3xl font-bold leading-[1.15] tracking-tight text-slate-900 md:text-5xl">
+                Building Skills
                 <br />
-                <span className="text-brand-600">ผ่านกิจกรรม</span>
-                <br />
-                ที่คุณเลือกเอง
+                <span className="text-brand-600">Through Hands-On Activities</span>
               </h1>
 
-              <p className="mt-6 max-w-md text-base leading-relaxed text-fg-muted md:text-lg">
-                เข้าร่วมกิจกรรมนอกหลักสูตร สะสมคะแนน Soft Skills ทั้ง 5 ด้าน
-                และติดตามการเติบโตของตัวเองได้ในที่เดียว
+              <p className="mt-6 max-w-md text-lg leading-relaxed text-slate-600 md:text-xl">
+                นักศึกษาวิทยาลัยการคอมพิวเตอร์ อย่าลืมเข้ามาลงทะเบียนเข้าร่วมกิจกรรมเพื่อพัฒนาทักษะนอกห้องเรียนของคุณ
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Button size="xl" asChild>
-                  <Link href="/auth">เริ่มต้นใช้งาน</Link>
-                </Button>
-                <Button size="xl" variant="outline" asChild>
-                  <Link href="/events">
-                    ดูกิจกรรมทั้งหมด
-                    <ArrowRight />
+                <Button
+                  size="xl"
+                  asChild
+                  className="group rounded-lg bg-brand-600 text-white shadow-lg shadow-brand-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:bg-brand-700 hover:shadow-xl hover:shadow-brand-500/40 active:translate-y-0 active:shadow-md"
+                >
+                  <Link href="/auth">
+                    เริ่มต้นใช้งาน
+                    <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
                   </Link>
                 </Button>
-              </div>
-            </div>
-
-            {/* การ์ดสถิติซ้อนเยื้อง */}
-            <div className="lg:col-span-5">
-              <div className="flex flex-col gap-4 sm:flex-row lg:flex-col">
-                <div className="flex-1 rounded-xl border border-border bg-bg p-6 shadow-sm lg:ml-8">
-                  <p className="text-4xl font-semibold tracking-tight text-fg tabular-nums">
-                    {stats ? stats.totalActivities.toLocaleString("th-TH") : "—"}
-                  </p>
-                  <p className="mt-1 text-sm text-fg-muted">กิจกรรมบนแพลตฟอร์ม</p>
-                </div>
-
-                <div className="flex-1 rounded-xl border border-border bg-bg p-6 shadow-sm lg:mr-8">
-                  <p className="text-4xl font-semibold tracking-tight text-fg tabular-nums">
-                    {stats ? stats.totalParticipants.toLocaleString("th-TH") : "—"}
-                  </p>
-                  <p className="mt-1 text-sm text-fg-muted">ผู้เข้าร่วมสะสม</p>
-                </div>
-
-                <div className="flex-1 rounded-xl border border-border bg-brand-600 p-6 shadow-sm lg:ml-8">
-                  <p className="text-4xl font-semibold tracking-tight text-white tabular-nums">5</p>
-                  <p className="mt-1 text-sm text-brand-100">ทักษะที่ติดตามได้</p>
-                </div>
+                <Button
+                  size="xl"
+                  variant="outline"
+                  asChild
+                  className="group rounded-lg border-slate-300 bg-white/70 text-slate-900 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-300 hover:bg-white hover:shadow-md active:translate-y-0"
+                >
+                  <Link href="/events">
+                    ดูกิจกรรมทั้งหมด
+                    <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
         </Container>
       </section>
 
-      {/* ── 01 กิจกรรมแนะนำ ─────────────────────────────────────────────── */}
+      {/* ── 01 กระดานข่าว ───────────────────────────────────────────────── */}
+      <section className="border-b border-border">
+        <Container className="py-16 text-center">
+          <h2 className="text-3xl font-semibold tracking-tight text-fg">ข่าวสารและประกาศ</h2>
+
+          <div className="relative mx-auto mt-8 max-w-4xl">
+            <div className="overflow-hidden rounded-xl border border-border bg-bg">
+              <div
+                className="flex transition-transform duration-500 ease-out"
+                style={{ transform: `translateX(-${newsIndex * 100}%)` }}
+              >
+                {NEWS_ITEMS.map((news, i) => (
+                  <div key={news.title} className="w-full shrink-0">
+                    <Image
+                      src={news.image}
+                      alt={news.title}
+                      width={1672}
+                      height={941}
+                      sizes="(min-width: 896px) 896px, 100vw"
+                      className="h-auto w-full"
+                      priority={i === 0}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ปุ่มเลื่อนซ้าย/ขวา */}
+            <button
+              type="button"
+              onClick={() =>
+                setNewsIndex((i) => (i - 1 + NEWS_ITEMS.length) % NEWS_ITEMS.length)
+              }
+              aria-label="ข่าวก่อนหน้า"
+              className="absolute left-2 top-1/2 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-bg text-fg-muted shadow-xs transition-colors hover:text-fg sm:flex"
+            >
+              <ChevronLeft className="size-4" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewsIndex((i) => (i + 1) % NEWS_ITEMS.length)}
+              aria-label="ข่าวถัดไป"
+              className="absolute right-2 top-1/2 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-bg text-fg-muted shadow-xs transition-colors hover:text-fg sm:flex"
+            >
+              <ChevronRight className="size-4" aria-hidden="true" />
+            </button>
+
+            {/* จุดไข่ปลา — บอกตำแหน่งสไลด์ */}
+            <div className="mt-5 flex items-center justify-center gap-2">
+              {NEWS_ITEMS.map((news, i) => (
+                <button
+                  key={news.title}
+                  type="button"
+                  onClick={() => setNewsIndex(i)}
+                  aria-label={`ไปที่ข่าว ${i + 1}`}
+                  aria-current={newsIndex === i}
+                  className={cn(
+                    "h-1.5 rounded-full transition-all",
+                    newsIndex === i ? "w-6 bg-brand-600" : "w-1.5 bg-border-strong"
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      {/* ── 02 กิจกรรมแนะนำ ─────────────────────────────────────────────── */}
       <section>
         <Container className="py-16">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <SectionLabel n="01">กิจกรรมแนะนำ</SectionLabel>
               <h2 className="text-3xl font-semibold tracking-tight text-fg">
                 กำลังเปิดรับสมัคร
               </h2>
@@ -153,7 +261,7 @@ export default function RootPage() {
             </Button>
           </div>
 
-          {/* ตัวกรองหมวดหมู่ — มีจุดสีประจำหมวด */}
+          {/* ตัวกรองหมวดหมู่ */}
           <div className="mt-6 flex flex-wrap gap-2">
             <button
               type="button"
@@ -175,19 +283,12 @@ export default function RootPage() {
                 onClick={() => setCategory(cat.value)}
                 aria-pressed={category === cat.value}
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm transition-colors",
+                  "rounded-full border px-4 py-1.5 text-sm transition-colors",
                   category === cat.value
                     ? "border-brand-600 bg-brand-600 font-medium text-white"
                     : "border-border bg-bg text-fg-muted hover:border-border-strong hover:text-fg"
                 )}
               >
-                <span
-                  className={cn(
-                    "size-1.5 rounded-full",
-                    category === cat.value ? "bg-white" : cat.dot
-                  )}
-                  aria-hidden="true"
-                />
                 {cat.label}
               </button>
             ))}
@@ -222,93 +323,67 @@ export default function RootPage() {
         </Container>
       </section>
 
-      {/* ── 02 ทักษะ 5 ด้าน ─────────────────────────────────────────────── */}
+      {/* ── 03 ทักษะ 12 ด้าน ────────────────────────────────────────────── */}
       <section className="border-y border-border bg-surface">
         <Container className="py-16">
           <div className="grid gap-10 lg:grid-cols-12">
             <div className="lg:col-span-4">
-              <SectionLabel n="02">Soft Skills</SectionLabel>
               <h2 className="text-3xl font-semibold leading-tight tracking-tight text-fg">
-                5 ทักษะที่คุณจะได้
+                12 ทักษะที่คุณสามารถสะสมได้จากกการเข้าร่วมกิจกรรม
               </h2>
               <p className="mt-4 text-base leading-relaxed text-fg-muted">
-                ทุกกิจกรรมกำหนดคะแนนทักษะไว้ล่วงหน้า
-                ผู้จัดจะประเมินหลังจบกิจกรรม แล้วคะแนนจะสะสมเข้าโปรไฟล์ของคุณอัตโนมัติ
+                เพียงคุณเข้าร่วมกิจกรรมและทำกิจกรรมให้สำเร็จ 
+                แล้วคะแนนจะสะสมเข้าโปรไฟล์ของคุณอัตโนมัติ 
               </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:col-span-8 lg:grid-cols-3">
-              {SOFT_SKILLS.map((s) => (
-                <div
-                  key={s.label}
-                  className="rounded-xl border border-border bg-bg p-5 shadow-xs"
-                >
-                  <span className="mb-3 flex size-9 items-center justify-center rounded-lg bg-brand-50">
-                    <s.icon className="size-4.5 text-brand-600" aria-hidden="true" />
-                  </span>
-                  <h3 className="text-sm font-semibold text-fg">{s.label}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">{s.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Container>
-      </section>
-
-      {/* ── 03 สำรวจตามความสนใจ ─────────────────────────────────────────── */}
-      <section>
-        <Container className="py-16">
-          <SectionLabel n="03">หมวดหมู่</SectionLabel>
-          <h2 className="text-3xl font-semibold tracking-tight text-fg">
-            สำรวจตามความสนใจ
-          </h2>
-
-          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {CATEGORIES.map((cat) => (
-              <Link
-                key={cat.value}
-                href={`/events?category=${cat.value}`}
-                className="group relative overflow-hidden rounded-xl border border-border bg-bg p-5 transition-colors hover:border-border-strong"
+            <div className="relative lg:col-span-8">
+              <div
+                ref={skillsScrollRef}
+                className="flex gap-2.5 overflow-x-auto scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
-                <span
-                  className={cn("absolute inset-y-0 left-0 w-1", cat.dot)}
-                  aria-hidden="true"
-                />
-                <div className="flex items-center justify-between pl-2">
-                  <span className="text-base font-medium text-fg">{cat.label}</span>
-                  <ArrowRight
-                    className="size-4 shrink-0 text-fg-subtle transition-colors group-hover:text-brand-600"
-                    aria-hidden="true"
-                  />
-                </div>
-              </Link>
-            ))}
-          </div>
-        </Container>
-      </section>
+                {SOFT_SKILLS.map((s) => (
+                  <div
+                    key={s.value}
+                    className="w-64 shrink-0 rounded-xl border border-border bg-bg p-5 shadow-xs"
+                  >
+                    <span className="mb-3 flex size-9 items-center justify-center rounded-lg bg-brand-50">
+                      <s.icon className="size-4.5 text-brand-600" aria-hidden="true" />
+                    </span>
+                    <h3 className="text-sm font-semibold text-fg">{s.label}</h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">{s.desc}</p>
+                  </div>
+                ))}
+              </div>
 
-      {/* ── CTA ─────────────────────────────────────────────────────────── */}
-      <section className="bg-brand-600">
-        <Container className="grid items-center gap-8 py-16 lg:grid-cols-2">
-          <div>
-            <h2 className="text-3xl font-semibold leading-tight tracking-tight text-white">
-              พร้อมสะสมความสำเร็จหรือยัง?
-            </h2>
-            <p className="mt-3 max-w-md text-base text-brand-100">
-              เริ่มสร้างโปรไฟล์ของคุณวันนี้ และบันทึกทุกก้าวของการเติบโต
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
-            <Button size="xl" variant="secondary" asChild>
-              <Link href="/auth">สมัครสมาชิก</Link>
-            </Button>
-            <Button
-              size="xl"
-              asChild
-              className="border border-white/30 bg-transparent text-white hover:bg-white/10"
-            >
-              <Link href="/auth/organizer/register">สมัครเป็นผู้จัดกิจกรรม</Link>
-            </Button>
+              {/* เงาจางบอกใบ้ว่าเลื่อนได้ */}
+              <div
+                className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-surface to-transparent"
+                aria-hidden="true"
+              />
+              <div
+                className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-surface to-transparent"
+                aria-hidden="true"
+              />
+
+              {/* ปุ่มเลื่อนซ้าย/ขวา */}
+              <button
+                type="button"
+                onClick={() => skillsScrollRef.current?.scrollBy({ left: -240, behavior: "smooth" })}
+                aria-label="เลื่อนทักษะก่อนหน้า"
+                className="absolute -left-3 top-1/2 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-bg text-fg-muted shadow-xs transition-colors hover:text-fg sm:flex"
+              >
+                <ChevronLeft className="size-4" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => skillsScrollRef.current?.scrollBy({ left: 240, behavior: "smooth" })}
+                aria-label="เลื่อนทักษะถัดไป"
+                className="absolute -right-3 top-1/2 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-bg text-fg-muted shadow-xs transition-colors hover:text-fg sm:flex"
+              >
+                <ChevronRight className="size-4" aria-hidden="true" />
+              </button>
+            </div>
           </div>
         </Container>
       </section>

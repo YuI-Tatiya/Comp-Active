@@ -55,7 +55,7 @@ export interface Activity<T = unknown> {
   tags: Tag[];
   conditions: Condition[];
   benefits: Benefit[];
-  softSkills?: { skillName: string }[];
+  softSkills?: { skillType: string }[];
   organizer?: User;
   registrations?: T[];
 }
@@ -204,37 +204,47 @@ export const registrationsAPI = {
 
 export interface EvaluationBody {
   registrationId: number;
-  teamwork: number;
-  leadership: number;
   communication: number;
-  problemSolving: number;
-  adaptability: number;
+  timeManagement: number;
+  flexibilityAdaptability: number;
+  teamworkCollaboration: number;
+  analyticCriticalThinking: number;
+  decisionMaking: number;
+  creativity: number;
+  complexProblemSolving: number;
+  curiosityLifelongLearning: number;
+  negotiationPersuasion: number;
+  leadership: number;
+  positiveAttitude: number;
   comment?: string;
+}
+
+export interface SkillScores {
+  communication: number;
+  timeManagement: number;
+  flexibilityAdaptability: number;
+  teamworkCollaboration: number;
+  analyticCriticalThinking: number;
+  decisionMaking: number;
+  creativity: number;
+  complexProblemSolving: number;
+  curiosityLifelongLearning: number;
+  negotiationPersuasion: number;
+  leadership: number;
+  positiveAttitude: number;
 }
 
 export interface SkillsData {
   count: number;
   points: number;
   level: number;
-  average: {
-    teamwork: number;
-    leadership: number;
-    communication: number;
-    problemSolving: number;
-    adaptability: number;
-  };
+  average: SkillScores;
   badges: { name: string; icon: string; description: string }[];
   history: {
     id: number;
     activityName: string;
     date: string;
-    scores: {
-      teamwork: number;
-      leadership: number;
-      communication: number;
-      problemSolving: number;
-      adaptability: number;
-    };
+    scores: SkillScores;
   }[];
 }
 
