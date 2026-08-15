@@ -127,7 +127,7 @@ export default function OrganizerRegisterPage() {
         <div className="flex h-dvh items-center justify-center overflow-hidden bg-surface p-4">
             <div className="grid h-[calc(100dvh-2rem)] max-h-[720px] w-full max-w-5xl overflow-hidden rounded-xl border border-border bg-bg shadow-md lg:grid-cols-5">
                 {/* ── แผงซ้าย ─────────────────────────────────────────────── */}
-                <aside className="hidden flex-col overflow-hidden bg-brand-600 text-white lg:col-span-2 lg:flex">
+                <aside className="hidden flex-col overflow-hidden bg-gradient-to-br from-brand-300 to-brand-600 text-white lg:col-span-2 lg:flex">
                     <div className="shrink-0 px-8 pt-10">
                         <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
                             <span className="size-1.5 rounded-full bg-white" aria-hidden="true" />
@@ -136,7 +136,7 @@ export default function OrganizerRegisterPage() {
                         <h1 className="mt-5 text-2xl font-semibold leading-tight">
                             สมัครเป็นผู้จัดกิจกรรม
                         </h1>
-                        <p className="mt-2 text-sm leading-relaxed text-brand-100">
+                        <p className="mt-2 text-sm leading-relaxed text-white/90">
                             กรอกข้อมูลด้านขวา ทีมงานจะตรวจสอบและแจ้งผลพร้อม credentials ทางอีเมล
                         </p>
                     </div>
@@ -149,7 +149,7 @@ export default function OrganizerRegisterPage() {
                                 </span>
                                 <div>
                                     <p className="text-sm font-medium">{title}</p>
-                                    <p className="mt-0.5 text-xs leading-relaxed text-brand-100">{desc}</p>
+                                    <p className="mt-0.5 text-xs leading-relaxed text-white/90">{desc}</p>
                                 </div>
                             </li>
                         ))}
@@ -157,7 +157,7 @@ export default function OrganizerRegisterPage() {
                         <li className="border-t border-white/20 pt-5">
                             <ul className="space-y-2.5">
                                 {steps.map(({ icon: Icon, text }) => (
-                                    <li key={text} className="flex items-center gap-2.5 text-sm text-brand-100">
+                                    <li key={text} className="flex items-center gap-2.5 text-sm text-white/90">
                                         <Icon className="size-4 shrink-0" aria-hidden="true" />
                                         {text}
                                     </li>
@@ -169,7 +169,7 @@ export default function OrganizerRegisterPage() {
                     <div className="shrink-0 border-t border-white/15 px-8 py-5">
                         <Link
                             href="/auth"
-                            className="inline-flex items-center gap-2 text-sm text-brand-100 transition-colors hover:text-white"
+                            className="inline-flex items-center gap-2 text-sm text-white/90 transition-colors hover:text-white"
                         >
                             <ArrowLeft className="size-4" aria-hidden="true" />
                             ย้อนกลับ
