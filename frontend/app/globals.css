@@ -66,6 +66,20 @@
   --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.04);
   --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.04);
   --shadow-md: 0 4px 12px -2px rgb(15 23 42 / 0.08);
+
+  /* ── Animation ──────────────────────────────────────────────────────────── */
+  --animate-marquee: marquee 30s linear infinite;
+}
+
+/* track ถูก render ซ้ำ 2 ชุดต่อกัน — เลื่อนแค่ -50% ของความกว้าง track (w-max)
+   ก็เท่ากับเลื่อนพอดี 1 ชุด ภาพจึงต่อกันเป็นวงไม่มีวันสะดุด */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 @layer components {
