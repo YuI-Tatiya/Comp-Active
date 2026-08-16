@@ -14,6 +14,8 @@ interface AuthContextType {
     adminLogin: (email: string, password: string) => Promise<void>
     register: (data: RegisterData) => Promise<void>
     logout: () => Promise<void>
+    /** โหลดข้อมูลผู้ใช้ใหม่หลังแก้โปรไฟล์ — ให้ชื่อบน navbar อัปเดตตาม */
+    refreshUser: () => Promise<void>
 }
 
 interface RegisterData {
@@ -24,7 +26,6 @@ interface RegisterData {
     phone: string
     educationLevel: string
     program: string
-    yearLevel: number
 }
 
 // ==================== CONTEXT ====================
@@ -132,6 +133,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }
 
+    async function refreshUser() {
+        try {
+            setUser(await authAPI.getProfile())
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
     async function logout() {
         setUser(null)
         setToken(null)
@@ -141,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return (
-        <AuthContext.Provider value={{ user, token, isLoading, login, adminLogin, register, logout }}>
+        <AuthContext.Provider value={{ user, token, isLoading, login, adminLogin, register, logout, refreshUser }}>
             {children}
         </AuthContext.Provider>
     )

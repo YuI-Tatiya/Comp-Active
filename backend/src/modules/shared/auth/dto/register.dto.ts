@@ -1,16 +1,12 @@
 import {
   IsEmail,
   IsIn,
-  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
-  Max,
   MinLength,
-  Min,
 } from "class-validator";
-import { Type } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   ACADEMIC_ERRORS,
@@ -72,13 +68,6 @@ export class RegisterDto {
   })
   @IsIn(PROGRAM_CODES, { message: ACADEMIC_ERRORS.PROGRAM_MISMATCH })
   program: string;
-
-  @ApiProperty({ example: 1, description: "ชั้นปี (1-8 ขึ้นกับระดับการศึกษา)" })
-  @Type(() => Number)
-  @IsInt({ message: ACADEMIC_ERRORS.YEAR_INVALID })
-  @Min(1, { message: ACADEMIC_ERRORS.YEAR_INVALID })
-  @Max(8, { message: ACADEMIC_ERRORS.YEAR_INVALID })
-  yearLevel: number;
 
   @ApiProperty({
     example: "password123",

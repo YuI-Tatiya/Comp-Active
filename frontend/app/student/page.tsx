@@ -11,6 +11,7 @@ import { SectionHeading } from "@/components/ui/section-heading"
 import { StatTile } from "@/components/ui/stat-tile"
 import { SkillRadar, SkillScoreList } from "@/components/ui/skill-radar"
 import { UpcomingItem, type UpcomingActivity } from "@/components/ui/upcoming-item"
+import { NewsCarousel } from "@/components/ui/news-carousel"
 import {
   activitiesAPI,
   registrationsAPI,
@@ -85,47 +86,38 @@ export default function StudentDashboardPage() {
   return (
     <>
       {/* ── แถบทักทาย ────────────────────────────────────────────────────── */}
-      <section
-        className="relative overflow-hidden"
-        style={{ background: "linear-gradient(160deg,#1e293b 0%,#0f172a 55%,#020617 100%)" }}
-      >
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{ background: "radial-gradient(560px circle at 82% 15%, rgba(59,130,246,0.25), transparent)" }}
-        />
-        <Container className="relative py-16 sm:py-20">
-          <div className="mx-auto max-w-2xl rounded-3xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur-sm sm:p-12">
-            <h1 className="text-3xl font-bold text-white sm:text-4xl">
+      <section className="border-b border-border bg-surface">
+        <Container className="py-12 sm:py-16">
+          <div className="max-w-2xl">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg px-3 py-1 text-xs font-medium text-fg-muted">
+              <Sparkles className="size-3.5 text-brand-600" aria-hidden="true" />
+              {loadingMine ? "กำลังโหลดข้อมูล..." : `ระดับ ${level}`}
+            </span>
+
+            <h1 className="mt-5 text-3xl font-bold tracking-tight text-fg sm:text-4xl">
               สวัสดี {user?.name || "นักศึกษา"}
             </h1>
-            <p className="mt-3 text-sm text-slate-300 sm:text-base">
-              {loadingMine
-                ? "กำลังโหลดข้อมูลของคุณ..."
-                : `ระดับ ${level} · เข้าร่วมมาแล้ว ${skills?.count ?? 0} กิจกรรม · สะสม ${points.toLocaleString("th-TH")} คะแนน`}
+            <p className="mt-3 text-base leading-relaxed text-fg-muted">
+              เลือกกิจกรรมที่สนใจ สะสมคะแนน Soft Skills และติดตามการเติบโตของคุณ
             </p>
-            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Button
-                asChild
-                size="lg"
-                className="bg-gradient-to-r from-brand-300 to-brand-500 text-white shadow-md hover:from-brand-300 hover:to-brand-600"
-              >
+
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <Button size="lg" asChild>
                 <Link href="/student/events">
                   ค้นหากิจกรรม
                   <ArrowRight />
                 </Link>
               </Button>
-              <Button
-                asChild
-                variant="outline"
-                size="lg"
-                className="border-white/20 bg-transparent text-white hover:bg-white/10"
-              >
+              <Button size="lg" variant="outline" asChild>
                 <Link href="/student/profile">ทักษะของฉัน</Link>
               </Button>
             </div>
           </div>
         </Container>
       </section>
+
+      {/* ── ข่าวสารและประกาศ ─────────────────────────────────────────────── */}
+      <NewsCarousel />
 
       {/* ── สถิติของฉัน ───────────────────────────────────────────────────── */}
       <section className="border-b border-border">

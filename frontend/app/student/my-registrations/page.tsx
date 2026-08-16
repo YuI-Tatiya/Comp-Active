@@ -1,8 +1,14 @@
 "use client"
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { registrationsAPI, API_BASE_URL } from '@/lib/api'
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Container } from "@/components/layout/container"
+import { formatEventDate } from "@/components/ui/event-card"
+import { registrationsAPI, API_BASE_URL } from "@/lib/api"
+import { Calendar, Clock, MapPin, Plus, Loader2, CalendarX, X } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface Registration {
   id: number
@@ -22,12 +28,21 @@ interface Registration {
   }
 }
 
+/** สถานะการลงทะเบียน — ตรงกับ RegistrationStatus ใน backend/prisma/schema.prisma */
+const STATUS_BADGE: Record<string, { label: string; variant: "success" | "warning" | "danger" }> = {
+  confirmed: { label: "ยืนยันแล้ว", variant: "success" },
+  cancelled: { label: "ยกเลิกแล้ว", variant: "danger" },
+  pending: { label: "รอดำเนินการ", variant: "warning" },
+}
+
 export default function MyRegistrationsPage() {
-  const router = useRouter()
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming')
+  const [activeTab, setActiveTab] = useState<"upcoming" | "history">("upcoming")
   const [message, setMessage] = useState("")
+  // เก็บชนิดของข้อความแยกไว้ ไม่เดาจากตัวข้อความ —
+  // "ยกเลิกไม่สำเร็จ".includes("สำเร็จ") เป็น true จึงเคยขึ้นกล่องเขียวตอนพัง
+  const [messageType, setMessageType] = useState<"success" | "error">("success")
 
   useEffect(() => {
     loadRegistrations()
@@ -46,198 +61,207 @@ export default function MyRegistrationsPage() {
   }
 
   async function handleCancel(id: number) {
-    if (!confirm('คุณแน่ใจหรือไม่ที่จะยกเลิกการลงทะเบียน?')) return
+    if (!confirm("คุณแน่ใจหรือไม่ที่จะยกเลิกการลงทะเบียน?")) return
+    setMessage("")
     try {
       await registrationsAPI.cancel(id)
+      setMessageType("success")
       setMessage("ยกเลิกสำเร็จ")
       loadRegistrations()
     } catch (err: unknown) {
-      const e = err as Error;
+      const e = err as Error
+      setMessageType("error")
       setMessage(e.message || "ยกเลิกไม่สำเร็จ")
     }
   }
 
-  const filteredRegs = registrations.filter(r => {
-    if (activeTab === 'upcoming') return r.status !== 'cancelled' && !r.evaluation
-    return r.status === 'cancelled' || r.evaluation
+  const filteredRegs = registrations.filter((r) => {
+    if (activeTab === "upcoming") return r.status !== "cancelled" && !r.evaluation
+    return r.status === "cancelled" || r.evaluation
   })
 
-  const upcomingCount = registrations.filter(r => r.status !== 'cancelled' && !r.evaluation).length
-  const historyCount = registrations.filter(r => r.status === 'cancelled' || r.evaluation).length
+  const upcomingCount = registrations.filter((r) => r.status !== "cancelled" && !r.evaluation).length
+  const historyCount = registrations.filter((r) => r.status === "cancelled" || r.evaluation).length
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-500 font-medium">กำลังโหลดกิจกรรมของคุณ...</p>
-        </div>
-      </div>
-    )
-  }
+  const TABS = [
+    { key: "upcoming" as const, label: `กิจกรรมเร็วๆ นี้ (${upcomingCount})` },
+    { key: "history" as const, label: `ประวัติและผลการประเมิน (${historyCount})` },
+  ]
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-12">
-      {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    // ไม่ใส่ min-h-screen — app/student/layout.tsx จัดการให้แล้ว
+    <div className="bg-surface pb-12">
+      {/* หัวข้อ — ไม่ใส่ sticky เพราะ AppHeader ปักที่ top-0 z-50 อยู่แล้ว แถบนี้จะมุดหายไปใต้มัน */}
+      <div className="border-b border-border bg-bg">
+        <Container className="py-8">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-1 font-heading">กิจกรรมของฉัน</h1>
-              <p className="text-gray-500">ติดตามสถานะการเข้าร่วมและการประเมินผลของคุณ</p>
+              <h1 className="mb-1 text-3xl font-bold tracking-tight text-fg">กิจกรรมของฉัน</h1>
+              <p className="text-fg-muted">ติดตามสถานะการเข้าร่วมและการประเมินผลของคุณ</p>
             </div>
-            <button
-              onClick={() => router.push('/student/events')}
-              className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2"
-            >
-              <span>+</span> ค้นหากิจกรรมเพิ่ม
-            </button>
+            <Button size="lg" className="rounded-xl" asChild>
+              <Link href="/student/events">
+                <Plus />
+                ค้นหากิจกรรมเพิ่ม
+              </Link>
+            </Button>
           </div>
-        </div>
+        </Container>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Message */}
+      <Container className="py-8">
         {message && (
-          <div className={`mb-6 p-4 rounded-xl text-sm font-medium flex items-center gap-3 animate-in fade-in slide-in-from-top-2 ${message.includes("สำเร็จ") ? "bg-green-50 text-green-700 border border-green-100" : "bg-red-50 text-red-700 border border-red-100"
-            }`}>
+          <div
+            role="alert"
+            className={cn(
+              "mb-6 flex items-center justify-between gap-3 rounded-xl border border-border p-4 text-sm font-medium",
+              messageType === "success" ? "bg-success-bg text-success" : "bg-danger-bg text-danger"
+            )}
+          >
             {message}
+            <button
+              type="button"
+              onClick={() => setMessage("")}
+              aria-label="ปิดข้อความ"
+              className="shrink-0 opacity-70 transition-opacity hover:opacity-100"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </button>
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-8 bg-gray-100 p-1 rounded-2xl w-fit">
-          <button
-            onClick={() => setActiveTab('upcoming')}
-            className={`px-6 py-2.5 rounded-xl font-semibold transition-all ${activeTab === 'upcoming' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
-          >
-            กิจกรรมเร็วๆ นี้ ({upcomingCount})
-          </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`px-6 py-2.5 rounded-xl font-semibold transition-all ${activeTab === 'history' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
-          >
-            ประวัติและผลการประเมิน ({historyCount})
-          </button>
+        {/* แท็บ — ใช้ทรง pill เดียวกับเมนูใน navbar */}
+        <div className="mb-8 flex w-fit gap-1 rounded-full bg-surface-2 p-1">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              aria-pressed={activeTab === tab.key}
+              className={cn(
+                "rounded-full px-6 py-2.5 text-sm font-semibold transition-colors",
+                activeTab === tab.key
+                  ? "bg-bg text-brand-600 shadow-xs"
+                  : "text-fg-muted hover:text-fg"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {/* Registration List */}
-        <div className="grid grid-cols-1 gap-6">
-          {filteredRegs.length === 0 ? (
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-16 text-center">
-              <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <span className="text-sm font-bold text-gray-400">ว่างเปล่า</span>
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">ไม่มีรายการกิจกรรม</h3>
-              <p className="text-gray-500 mb-8 max-w-sm mx-auto">คุณยังไม่มีกิจกรรมในหมวดนี้ เริ่มสำรวจกิจกรรมใหม่ๆ ได้เลย!</p>
-              <button
-                onClick={() => router.push('/student/events')}
-                className="px-8 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold transition-all"
-              >
-                ไปหน้ากิจกรรม
-              </button>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-32">
+            <Loader2 className="mb-4 size-12 animate-spin text-brand-600" />
+            <p className="text-lg font-medium text-fg-muted">กำลังโหลดกิจกรรมของคุณ...</p>
+          </div>
+        ) : filteredRegs.length === 0 ? (
+          <div className="rounded-2xl border border-border bg-bg p-16 text-center shadow-xs">
+            <div className="mx-auto mb-6 flex size-20 items-center justify-center rounded-full bg-surface">
+              <CalendarX className="size-8 text-fg-subtle" aria-hidden="true" />
             </div>
-          ) : (
-            filteredRegs.map((reg) => (
-              <div key={reg.id} className="bg-white rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:shadow-blue-500/5 transition-all p-2 pr-6">
-                <div className="flex flex-col md:flex-row gap-6">
-                  {/* Event Thumbnail */}
-                  <div className="w-full md:w-48 h-48 md:h-auto rounded-2xl overflow-hidden bg-gray-100 flex-shrink-0 relative">
-                    {reg.activity?.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+            <h3 className="mb-2 text-xl font-bold text-fg">ไม่มีรายการกิจกรรม</h3>
+            <p className="mx-auto mb-8 max-w-sm text-fg-muted">
+              คุณยังไม่มีกิจกรรมในหมวดนี้ เริ่มสำรวจกิจกรรมใหม่ๆ ได้เลย!
+            </p>
+            <Button className="rounded-xl px-8" asChild>
+              <Link href="/student/events">ไปหน้ากิจกรรม</Link>
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6">
+            {filteredRegs.map((reg) => {
+              const st = STATUS_BADGE[reg.status] ?? STATUS_BADGE.pending
+
+              return (
+                <div
+                  key={reg.id}
+                  className="rounded-2xl border border-border bg-bg p-2 pr-6 shadow-xs transition-shadow hover:shadow-md"
+                >
+                  <div className="flex flex-col gap-6 md:flex-row">
+                    {/* รูปกิจกรรม */}
+                    <div className="relative h-48 w-full shrink-0 overflow-hidden rounded-2xl bg-surface-2 md:h-auto md:w-48">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={`${API_BASE_URL}${reg.activity.imageUrl}`}
+                        src={
+                          reg.activity?.imageUrl
+                            ? `${API_BASE_URL}${reg.activity.imageUrl}`
+                            : "/activity-placeholder.jpg"
+                        }
                         alt={reg.activity.name}
-                        className="w-full h-full object-cover"
+                        className="size-full object-cover"
                       />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl font-bold">
-                        {reg.activity?.category?.[0] || '?'}
-                      </div>
-                    )}
-                    <div className="absolute top-3 left-3">
-                      <span className="bg-white/90 backdrop-blur shadow-sm text-blue-700 text-[10px] px-2 py-1 rounded-lg font-bold uppercase tracking-wider">
-                        {reg.activity.category}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex-1 py-4">
-                    <div className="flex flex-wrap items-center gap-3 mb-3">
-                      <span className={`text-[11px] px-3 py-1 rounded-full font-bold uppercase tracking-tight shadow-sm border ${reg.status === 'cancelled' ? 'bg-red-50 text-red-600 border-red-100' :
-                        reg.status === 'confirmed' ? 'bg-green-50 text-green-600 border-green-100' :
-                          'bg-yellow-50 text-yellow-600 border-yellow-100'
-                        }`}>
-                        {reg.status === 'cancelled' ? 'ยกเลิกแล้ว' : reg.status === 'confirmed' ? 'ยืนยันแล้ว' : 'รอดำเนินการ'}
-                      </span>
-
-                      {reg.status === 'confirmed' && (
-                        <span className={`text-[11px] px-3 py-1 rounded-full font-bold uppercase tracking-tight shadow-sm border ${reg.attendance === 'attended' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-gray-50 text-gray-500 border-gray-100'
-                          }`}>
-                          {reg.attendance === 'attended' ? '✓ เข้าร่วมแล้ว' : 'ยังไม่เข้างาน'}
-                        </span>
-                      )}
-
-                      {!!reg.evaluation && (
-                        <span className="text-[11px] px-3 py-1 rounded-full font-bold uppercase tracking-tight bg-purple-50 text-purple-600 border border-purple-100 shadow-sm flex items-center gap-1">
-                          ประเมินแล้ว
-                        </span>
+                      {reg.activity.category && (
+                        <div className="absolute left-3 top-3">
+                          <span className="rounded-lg bg-bg/95 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-700 shadow-sm">
+                            {reg.activity.category}
+                          </span>
+                        </div>
                       )}
                     </div>
 
-                    <h3 className="text-xl font-bold text-gray-900 mb-4 font-heading">{reg.activity.name}</h3>
+                    <div className="flex-1 py-4">
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <Badge variant={st.variant}>{st.label}</Badge>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-12 mb-6">
-                      <div className="flex items-center gap-3 text-sm text-gray-600">
-                        <span className="font-bold">วันที่:</span>
-                        <span className="font-medium">{reg.activity.date}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm text-gray-600">
-                        <span className="font-bold">สถานที่:</span>
-                        <span className="font-medium truncate max-w-[150px]">{reg.activity.location}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm text-gray-600">
-                        <span className="font-bold">เวลา:</span>
-                        <span className="font-medium">{reg.activity.startTime} - {reg.activity.endTime}</span>
+                        {reg.status === "confirmed" && (
+                          <Badge variant={reg.attendance === "attended" ? "info" : "neutral"}>
+                            {reg.attendance === "attended" ? "✓ เข้าร่วมแล้ว" : "ยังไม่เข้างาน"}
+                          </Badge>
+                        )}
+
+                        {!!reg.evaluation && <Badge variant="default">ประเมินแล้ว</Badge>}
                       </div>
 
-                    </div>
+                      <h3 className="mb-4 text-xl font-bold text-fg">{reg.activity.name}</h3>
 
-                    <div className="flex flex-wrap gap-4 pt-2">
-                      {reg.status !== 'cancelled' && reg.status !== 'confirmed' && (
-                        <button
-                          onClick={() => handleCancel(reg.id)}
-                          className="px-6 py-2 border border-red-200 text-red-500 rounded-xl hover:bg-red-50 font-bold text-xs transition-all"
-                        >
-                          ยกเลิกกิจกรรม
-                        </button>
-                      )}
+                      <div className="mb-6 grid grid-cols-1 gap-y-3 gap-x-12 sm:grid-cols-2">
+                        <div className="flex items-center gap-2 text-sm text-fg-muted">
+                          <Calendar className="size-4 shrink-0 text-brand-500" aria-hidden="true" />
+                          <span className="font-medium">{formatEventDate(reg.activity.date)}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-fg-muted">
+                          <MapPin className="size-4 shrink-0 text-danger" aria-hidden="true" />
+                          <span className="truncate font-medium">{reg.activity.location}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-fg-muted">
+                          <Clock className="size-4 shrink-0 text-info" aria-hidden="true" />
+                          <span className="font-medium">
+                            {reg.activity.startTime} - {reg.activity.endTime}
+                          </span>
+                        </div>
+                      </div>
 
-                      <button
-                        onClick={() => router.push(`/student/events/${reg.activity.id}`)}
-                        className="px-6 py-2 bg-gray-900 text-white rounded-xl hover:bg-black font-bold text-xs transition-all"
-                      >
-                        ดูรายละเอียดกิจกรรม
-                      </button>
+                      <div className="flex flex-wrap gap-3 pt-2">
+                        {reg.status !== "cancelled" && reg.status !== "confirmed" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl font-bold text-danger"
+                            onClick={() => handleCancel(reg.id)}
+                          >
+                            ยกเลิกกิจกรรม
+                          </Button>
+                        )}
 
-                      {!!reg.evaluation && (
-                        <button
-                          onClick={() => router.push('/student/profile')}
-                          className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-200 font-bold text-xs transition-all flex items-center gap-2"
-                        >
-                          ดูผลประเมิน Soft Skills
-                        </button>
-                      )}
+                        <Button size="sm" className="rounded-xl font-bold" asChild>
+                          <Link href={`/student/events/${reg.activity.id}`}>ดูรายละเอียดกิจกรรม</Link>
+                        </Button>
+
+                        {!!reg.evaluation && (
+                          <Button variant="outline" size="sm" className="rounded-xl font-bold" asChild>
+                            <Link href="/student/profile">ดูผลประเมิน Soft Skills</Link>
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+              )
+            })}
+          </div>
+        )}
+      </Container>
     </div>
   )
 }

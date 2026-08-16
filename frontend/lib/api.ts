@@ -18,7 +18,6 @@ export interface User {
   phone?: string | null;
   educationLevel?: string | null;
   program?: string | null;
-  yearLevel?: number | null;
 }
 
 export interface AuthResponse {
@@ -109,7 +108,6 @@ export const authAPI = {
     phone: string;
     educationLevel: string;
     program: string;
-    yearLevel: number;
   }) => fetchAPI<AuthResponse>('/api/auth/register', { method: 'POST', body: JSON.stringify(body) }),
 
   // identifier: email (student) or username (organizer)
@@ -135,7 +133,17 @@ export const authAPI = {
 
 export const usersAPI = {
   getMe: () => fetchAPI<User>('/api/users/me'),
-  updateMe: (body: { name?: string; studentId?: string; newPassword?: string; currentPassword?: string }) =>
+  // ⚠️ ต้องตรงกับ backend/src/modules/shared/users/dto/update-user.dto.ts
+  //    ห้ามเติม email — backend ไม่รับ และ forbidNonWhitelisted จะตีกลับเป็น 400
+  updateMe: (body: {
+    name?: string;
+    studentId?: string;
+    phone?: string;
+    educationLevel?: string;
+    program?: string;
+    newPassword?: string;
+    currentPassword?: string;
+  }) =>
     fetchAPI<User>('/api/users/me', { method: 'PATCH', body: JSON.stringify(body) }),
   getAll: () => fetchAPI<User[]>('/api/users'),
   changeRole: (id: number, role: string) =>

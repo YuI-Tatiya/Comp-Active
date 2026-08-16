@@ -26,7 +26,6 @@ type SafeUser = {
   phone?: string | null;
   educationLevel?: EducationLevelCode | null;
   program?: string | null;
-  yearLevel?: number | null;
 };
 
 @Injectable()
@@ -90,7 +89,7 @@ export class AuthService {
       throw new ConflictException("อีเมลนี้ถูกใช้งานแล้ว");
     }
 
-    // program/yearLevel ต้องสอดคล้องกับ educationLevel — ตรวจข้ามฟิลด์ที่นี่
+    // program ต้องอยู่ในระดับการศึกษาที่เลือก — ตรวจข้ามฟิลด์ที่นี่
     validateAcademicInfo(registerDto);
 
     const hashedPassword = await bcrypt.hash(registerDto.password, 12);
@@ -103,7 +102,6 @@ export class AuthService {
       phone: registerDto.phone,
       educationLevel: registerDto.educationLevel,
       program: registerDto.program,
-      yearLevel: registerDto.yearLevel,
       role: "student",
     });
 
@@ -251,7 +249,6 @@ export class AuthService {
         phone: user.phone ?? null,
         educationLevel: user.educationLevel ?? null,
         program: user.program ?? null,
-        yearLevel: user.yearLevel ?? null,
       },
     };
   }
