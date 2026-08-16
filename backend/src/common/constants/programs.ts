@@ -50,23 +50,10 @@ export const PROGRAMS: ProgramMeta[] = [
   {
     code: "d_cs_it",
     level: "doctorate",
-    label: "ปร.ด. วิทยาการคอมพิวเตอร์และเทคโนโลยีสารสนเทศ (หลักสูตรนานาชาติ)",
+    label: "วิทยาการคอมพิวเตอร์และเทคโนโลยีสารสนเทศ (หลักสูตรนานาชาติ)",
   },
   { code: "d_geo", level: "doctorate", label: "ภูมิสารสนเทศศาสตร์" },
 ];
-
-/**
- * ชั้นปี — `plan` คือจำนวนปีตามแผนการเรียน, `max` คือปีสูงสุดที่ยังเลือกได้
- * (รองรับนักศึกษาที่เรียนเกินแผน/ตกค้าง)
- */
-export const YEAR_RANGE: Record<
-  EducationLevelCode,
-  { plan: number; max: number }
-> = {
-  bachelor: { plan: 4, max: 8 },
-  master: { plan: 2, max: 5 },
-  doctorate: { plan: 4, max: 8 },
-};
 
 export const PROGRAM_CODES: string[] = PROGRAMS.map((p) => p.code);
 
@@ -79,11 +66,4 @@ export function isProgramInLevel(
   level: EducationLevelCode,
 ): boolean {
   return PROGRAMS.some((p) => p.code === code && p.level === level);
-}
-
-export function isYearValidForLevel(
-  year: number,
-  level: EducationLevelCode,
-): boolean {
-  return Number.isInteger(year) && year >= 1 && year <= YEAR_RANGE[level].max;
 }

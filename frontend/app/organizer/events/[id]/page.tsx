@@ -10,7 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Edit, CheckSquare, Download } from "lucide-react"
+import { Container } from "@/components/layout/container"
+import { formatEventDate } from "@/components/ui/event-card"
+import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Edit, CheckSquare, Download, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { activitiesAPI, evaluationsAPI, registrationsAPI, Activity, API_BASE_URL, SkillScores } from "@/lib/api"
 import { SOFT_SKILLS, softSkillLabel } from "@/lib/soft-skills"
@@ -84,7 +86,7 @@ export default function OrganizerEventDetailsPage() {
 
         const csvContent = [
             `ชื่อกิจกรรม: ${event.name}`,
-            `วันที่จัด: ${event.date}  เวลา: ${event.startTime} - ${event.endTime}`,
+            `วันที่จัด: ${formatEventDate(event.date)}  เวลา: ${event.startTime} - ${event.endTime}`,
             `สถานที่: ${event.location}`,
             `จำนวนผู้ลงทะเบียนทั้งหมด: ${event.registrations.length} คน`,
             '',
@@ -97,7 +99,9 @@ export default function OrganizerEventDetailsPage() {
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
-        link.download = `ผู้เข้าร่วม_${event.name.replace(/\s+/g, '_')}_${event.date}.csv`
+        // ตัดเอาเฉพาะ YYYY-MM-DD — ISO เต็มมี ":" ซึ่ง Windows ห้ามใช้ในชื่อไฟล์
+        const dateSlug = String(event.date).slice(0, 10)
+        link.download = `ผู้เข้าร่วม_${event.name.replace(/\s+/g, '_')}_${dateSlug}.csv`
         link.click()
         URL.revokeObjectURL(url)
     }
@@ -218,31 +222,42 @@ export default function OrganizerEventDetailsPage() {
         }
     }
 
+    // ไม่ใส่ min-h-screen — app/organizer/layout.tsx จัดการให้แล้ว
     if (loading) {
-        // ... (omitting middle part to match replace_file_content logic but I should be careful with TargetContent)
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="bg-surface">
+                <Container className="flex flex-col items-center justify-center py-32">
+                    <Loader2 className="mb-4 size-12 animate-spin text-brand-600" />
+                    <p className="text-lg font-medium text-fg-muted">กำลังโหลดข้อมูลกิจกรรม...</p>
+                </Container>
             </div>
         )
     }
 
     if (error || !event) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50 flex-col gap-4">
-                <div className="text-red-500 font-medium">{error || "ไม่พบข้อมูลกิจกรรม"}</div>
-                <Link href="/organizer/manage">
-                    <Button variant="outline">กลับไปหน้าจัดการกิจกรรม</Button>
-                </Link>
+            <div className="bg-surface">
+                <Container className="flex flex-col items-center justify-center gap-4 py-32">
+                    <p className="font-medium text-danger">{error || "ไม่พบข้อมูลกิจกรรม"}</p>
+                    <Button variant="outline" asChild>
+                        <Link href="/organizer/manage">กลับไปหน้าจัดการกิจกรรม</Link>
+                    </Button>
+                </Container>
             </div>
         )
     }
 
+    // กัน capacity = 0 ไม่ให้กลายเป็น NaN% หรือ Infinity%
+    const capacity = event.capacity || 0
+    const registered = event.registrations?.length || 0
+    const fillPercent = capacity > 0 ? Math.round((registered / capacity) * 100) : 0
+    const seatsLeft = Math.max(capacity - registered, 0)
+
     return (
-        <div className="min-h-screen bg-gray-50 pb-12">
-            <div className="max-w-7xl mx-auto px-4 py-8">
-                <div className="mb-6 flex justify-between items-center">
-                    <Link href="/organizer/manage" className="inline-flex items-center text-gray-500 hover:text-gray-900 transition-colors">
+        <div className="bg-surface pb-12">
+            <Container className="py-8">
+                <div className="mb-6 flex justify-between items-center gap-4">
+                    <Link href="/organizer/manage" className="inline-flex items-center text-sm text-fg-muted transition-colors hover:text-fg">
                         <ArrowLeft className="w-4 h-4 mr-2" /> กลับสู่หน้าจัดการ
                     </Link>
                     <div className="flex gap-2">
@@ -263,38 +278,36 @@ export default function OrganizerEventDetailsPage() {
                 <div className="grid lg:grid-cols-3 gap-8">
                     {/* Left Content */}
                     <div className="lg:col-span-2 space-y-8">
-                        <div className="aspect-video w-full bg-gray-200 rounded-xl overflow-hidden relative">
-                            {event.imageUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={`${API_BASE_URL}${event.imageUrl}`} alt={event.name} className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="absolute inset-0 flex items-center justify-center text-white bg-gradient-to-br from-blue-500 to-purple-600">
-                                    <span className="text-2xl font-bold opacity-50">{event.category}</span>
-                                </div>
-                            )}
-                            <div className="absolute top-4 left-4 flex gap-2">
-                                <Badge className="bg-blue-600 hover:bg-blue-700">{event.category}</Badge>
-                                <Badge className={event.status === 'open' ? "bg-green-500 hover:bg-green-600" : "bg-gray-500"}>
+                        <div className="aspect-video w-full bg-surface-2 rounded-xl overflow-hidden relative border border-border">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={event.imageUrl ? `${API_BASE_URL}${event.imageUrl}` : "/activity-placeholder.jpg"}
+                                alt={event.name}
+                                className="w-full h-full object-cover"
+                            />
+                            <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+                                {event.category && <Badge variant="default">{event.category}</Badge>}
+                                <Badge variant={event.status === 'open' ? "success" : "neutral"}>
                                     {event.status === 'open' ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
                                 </Badge>
                                 {event.approvalStatus === 'pending_approval' && (
-                                    <Badge className="bg-orange-500 hover:bg-orange-600">รออนุมัติ</Badge>
+                                    <Badge variant="warning">รออนุมัติ</Badge>
                                 )}
                                 {event.approvalStatus === 'rejected' && (
-                                    <Badge className="bg-red-100 text-red-700 border-red-200">กิจกรรมถูกยกเลิก</Badge>
+                                    <Badge variant="danger">กิจกรรมถูกยกเลิก</Badge>
                                 )}
                             </div>
                         </div>
 
                         <div>
-                            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">{event.name}</h1>
-                            <div className="flex items-center text-gray-500 gap-2 mb-6">
-                                <Users className="w-5 h-5 text-gray-400" />
+                            <h1 className="text-2xl md:text-3xl font-bold text-fg mb-2">{event.name}</h1>
+                            <div className="flex items-center text-fg-muted gap-2 mb-6">
+                                <Users className="w-5 h-5 text-fg-subtle" aria-hidden="true" />
                                 <span>จัดโดยคุณ</span>
                             </div>
 
                             <Tabs defaultValue="participants" className="w-full">
-                                <TabsList className="w-full justify-start bg-gray-100 p-1 rounded-lg mb-6">
+                                <TabsList className="w-full justify-start bg-surface-2 p-1 rounded-lg mb-6">
                                     <TabsTrigger value="participants" className="flex-1">ผู้เข้าร่วม ({event.registrations?.length || 0})</TabsTrigger>
                                     <TabsTrigger value="details" className="flex-1">รายละเอียด</TabsTrigger>
                                     <TabsTrigger value="conditions" className="flex-1">เงื่อนไข</TabsTrigger>
@@ -302,15 +315,15 @@ export default function OrganizerEventDetailsPage() {
                                     <TabsTrigger value="softskills" className="flex-1">Soft Skills</TabsTrigger>
                                 </TabsList>
 
-                                <TabsContent value="participants" className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                                        <p className="text-sm text-gray-500">ผู้ลงทะเบียนทั้งหมด <span className="font-semibold text-gray-900">{event.registrations?.length || 0}</span> คน</p>
+                                <TabsContent value="participants" className="bg-bg rounded-xl border border-border shadow-xs overflow-hidden">
+                                    <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-border">
+                                        <p className="text-sm text-fg-muted">ผู้ลงทะเบียนทั้งหมด <span className="font-semibold text-fg">{registered}</span> คน</p>
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            className="border-green-200 text-green-700 hover:bg-green-50 gap-2"
+                                            className="gap-2"
                                             onClick={exportCSV}
-                                            disabled={!event.registrations || event.registrations.length === 0}
+                                            disabled={registered === 0}
                                         >
                                             <Download className="w-4 h-4" />
                                             Export CSV
@@ -319,31 +332,31 @@ export default function OrganizerEventDetailsPage() {
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left">
                                             <thead>
-                                                <tr className="bg-gray-50 text-gray-500 text-sm">
+                                                <tr className="bg-surface text-fg-muted text-sm">
                                                     <th className="px-6 py-4 font-semibold">รายชื่อผู้เข้าร่วม</th>
                                                     <th className="px-6 py-4 font-semibold">สถานะ</th>
                                                     <th className="px-6 py-4 font-semibold">เช็คอิน</th>
                                                     <th className="px-6 py-4 font-semibold text-right">การจัดการ</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-gray-100">
+                                            <tbody className="divide-y divide-border">
                                                 {event.registrations && event.registrations.length > 0 ? (
                                                     event.registrations.map((reg) => (
-                                                        <tr key={reg.id} className="hover:bg-gray-50 transition-colors">
+                                                        <tr key={reg.id} className="hover:bg-surface transition-colors">
                                                             <td className="px-6 py-4">
-                                                                <div className="font-medium text-gray-900">{reg.student.name}</div>
-                                                                <div className="text-xs text-gray-500">{reg.student.studentId} | {reg.student.email}</div>
+                                                                <div className="font-medium text-fg">{reg.student.name}</div>
+                                                                <div className="text-xs text-fg-muted">{reg.student.studentId} | {reg.student.email}</div>
                                                             </td>
                                                             <td className="px-6 py-4">
-                                                                <Badge variant={reg.status === 'confirmed' ? "default" : "secondary"}>
+                                                                <Badge variant={reg.status === 'confirmed' ? "default" : "neutral"}>
                                                                     {reg.status === 'confirmed' ? 'ยืนยันแล้ว' : 'รอการยืนยัน'}
                                                                 </Badge>
                                                             </td>
                                                             <td className="px-6 py-4">
                                                                 {reg.attendance === 'attended' ? (
-                                                                    <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-none">เข้าร่วมแล้ว</Badge>
+                                                                    <Badge variant="success">เข้าร่วมแล้ว</Badge>
                                                                 ) : (
-                                                                    <span className="text-sm text-gray-400">ยังไม่เช็คอิน</span>
+                                                                    <span className="text-sm text-fg-subtle">ยังไม่เช็คอิน</span>
                                                                 )}
                                                             </td>
                                                             <td className="px-6 py-4 text-right">
@@ -352,7 +365,7 @@ export default function OrganizerEventDetailsPage() {
                                                                         <Button
                                                                             size="sm"
                                                                             variant="outline"
-                                                                            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                                                                            className="text-brand-600"
                                                                             onClick={() => handleConfirm(reg.id)}
                                                                         >
                                                                             ยืนยัน
@@ -363,7 +376,7 @@ export default function OrganizerEventDetailsPage() {
                                                                         <Button
                                                                             size="sm"
                                                                             variant="outline"
-                                                                            className="text-green-600 border-green-200 hover:bg-green-50"
+                                                                            className="text-success"
                                                                             onClick={() => handleCheckIn(reg.id)}
                                                                         >
                                                                             เช็คอิน
@@ -372,7 +385,6 @@ export default function OrganizerEventDetailsPage() {
 
                                                                     <Button
                                                                         size="sm"
-                                                                        className={reg.evaluation ? "bg-white text-purple-600 border-purple-200 hover:bg-purple-50" : "bg-purple-600 hover:bg-purple-700"}
                                                                         variant={reg.evaluation ? "outline" : "default"}
                                                                         disabled={reg.attendance !== 'attended'}
                                                                         onClick={() => handleOpenEval(reg)}
@@ -386,7 +398,7 @@ export default function OrganizerEventDetailsPage() {
                                                     ))
                                                 ) : (
                                                     <tr>
-                                                        <td colSpan={4} className="px-6 py-8 text-center text-gray-400">ยังไม่มีผู้ลงทะเบียน</td>
+                                                        <td colSpan={4} className="px-6 py-8 text-center text-fg-subtle">ยังไม่มีผู้ลงทะเบียน</td>
                                                     </tr>
                                                 )}
                                             </tbody>
@@ -394,79 +406,85 @@ export default function OrganizerEventDetailsPage() {
                                     </div>
                                 </TabsContent>
 
-                                <TabsContent value="details" className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                        <Info className="w-5 h-5 text-blue-500" /> เกี่ยวกับกิจกรรม
+                                <TabsContent value="details" className="bg-bg p-6 rounded-xl border border-border shadow-xs">
+                                    <h3 className="text-lg font-semibold text-fg mb-4 flex items-center gap-2">
+                                        <Info className="w-5 h-5 text-brand-600" aria-hidden="true" /> เกี่ยวกับกิจกรรม
                                     </h3>
-                                    <p className="text-gray-600 leading-relaxed whitespace-pre-line">{event.description}</p>
-                                    <div className="mt-8 pt-6 border-t border-gray-100">
-                                        <h4 className="text-sm font-semibold mb-3 text-gray-900">Tags</h4>
-                                        <div className="flex gap-2 flex-wrap">
-                                            {event.tags.map(tag => (
-                                                <Badge key={tag.tagName} variant="secondary" className="px-3 py-1 text-gray-600 bg-gray-100 hover:bg-gray-200">
-                                                    <Tag className="w-3 h-3 mr-1" /> {tag.tagName}
-                                                </Badge>
-                                            ))}
-                                        </div>
+                                    <p className="text-fg-muted leading-relaxed whitespace-pre-line">
+                                        {event.description || "ไม่มีรายละเอียดกิจกรรม"}
+                                    </p>
+                                    <div className="mt-8 pt-6 border-t border-border">
+                                        <h4 className="text-sm font-semibold mb-3 text-fg">Tags</h4>
+                                        {event.tags && event.tags.length > 0 ? (
+                                            <div className="flex gap-2 flex-wrap">
+                                                {event.tags.map(tag => (
+                                                    <Badge key={tag.tagName} variant="neutral" className="px-3 py-1">
+                                                        <Tag className="w-3 h-3 mr-1" aria-hidden="true" /> {tag.tagName}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-fg-subtle">ไม่ได้ระบุ Tags</p>
+                                        )}
                                     </div>
                                 </TabsContent>
 
-                                <TabsContent value="conditions" className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                        <CheckCircle className="w-5 h-5 text-orange-500" /> เงื่อนไขการเข้าร่วม
+                                <TabsContent value="conditions" className="bg-bg p-6 rounded-xl border border-border shadow-xs">
+                                    <h3 className="text-lg font-semibold text-fg mb-4 flex items-center gap-2">
+                                        <CheckCircle className="w-5 h-5 text-warning" aria-hidden="true" /> เงื่อนไขการเข้าร่วม
                                     </h3>
                                     {event.conditions && event.conditions.length > 0 ? (
                                         <ul className="space-y-3">
                                             {event.conditions.map((item, i) => (
-                                                <li key={i} className="flex gap-3 text-gray-600">
-                                                    <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold flex-shrink-0">{i + 1}</div>
+                                                <li key={i} className="flex gap-3 text-fg-muted">
+                                                    <div className="w-6 h-6 rounded-full bg-warning-bg text-warning flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</div>
                                                     <span>{item.conditionText}</span>
                                                 </li>
                                             ))}
                                         </ul>
                                     ) : (
-                                        <div className="py-8 text-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                                            <p className="text-gray-500">ไม่มีข้อมูลเงื่อนไขการเข้าร่วม</p>
+                                        <div className="py-8 text-center bg-surface rounded-lg border border-dashed border-border">
+                                            <p className="text-fg-muted">ไม่มีข้อมูลเงื่อนไขการเข้าร่วม</p>
                                         </div>
                                     )}
                                 </TabsContent>
 
-                                <TabsContent value="benefits" className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                        <Info className="w-5 h-5 text-green-500" /> สิทธิประโยชน์ที่ได้รับ
+                                <TabsContent value="benefits" className="bg-bg p-6 rounded-xl border border-border shadow-xs">
+                                    <h3 className="text-lg font-semibold text-fg mb-4 flex items-center gap-2">
+                                        <Info className="w-5 h-5 text-success" aria-hidden="true" /> สิทธิประโยชน์ที่ได้รับ
                                     </h3>
                                     {event.benefits && event.benefits.length > 0 ? (
                                         <ul className="space-y-3">
                                             {event.benefits.map((item, i) => (
-                                                <li key={i} className="flex gap-3 text-gray-600">
-                                                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                                                <li key={i} className="flex gap-3 text-fg-muted">
+                                                    <CheckCircle className="w-5 h-5 text-success shrink-0" aria-hidden="true" />
                                                     <span>{item.benefitText}</span>
                                                 </li>
                                             ))}
                                         </ul>
                                     ) : (
-                                        <div className="py-8 text-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                                            <p className="text-gray-500">ไม่มีข้อมูลสิทธิประโยชน์</p>
+                                        <div className="py-8 text-center bg-surface rounded-lg border border-dashed border-border">
+                                            <p className="text-fg-muted">ไม่มีข้อมูลสิทธิประโยชน์</p>
                                         </div>
                                     )}
                                 </TabsContent>
 
-                                <TabsContent value="softskills" className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                        <CheckSquare className="w-5 h-5 text-purple-500" /> Soft Skills ที่จะได้รับ
+                                <TabsContent value="softskills" className="bg-bg p-6 rounded-xl border border-border shadow-xs">
+                                    <h3 className="text-lg font-semibold text-fg mb-4 flex items-center gap-2">
+                                        <CheckSquare className="w-5 h-5 text-brand-600" aria-hidden="true" /> Soft Skills ที่จะได้รับ
                                     </h3>
                                     {event.softSkills && event.softSkills.length > 0 ? (
                                         <div className="flex flex-wrap gap-3">
                                             {event.softSkills.map((skill, i) => (
-                                                <div key={i} className="flex items-center gap-2 bg-purple-50 border border-purple-200 text-purple-700 px-4 py-2.5 rounded-xl font-medium">
-                                                    <CheckSquare className="w-4 h-4" />
+                                                <div key={i} className="flex items-center gap-2 bg-brand-50 border border-border text-brand-700 px-4 py-2.5 rounded-xl font-medium">
+                                                    <CheckSquare className="w-4 h-4" aria-hidden="true" />
                                                     <span>{softSkillLabel(skill.skillType)}</span>
                                                 </div>
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="py-8 text-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                                            <p className="text-gray-500">ไม่ได้ระบุ Soft Skills สำหรับกิจกรรมนี้</p>
+                                        <div className="py-8 text-center bg-surface rounded-lg border border-dashed border-border">
+                                            <p className="text-fg-muted">ไม่ได้ระบุ Soft Skills สำหรับกิจกรรมนี้</p>
                                         </div>
                                     )}
                                 </TabsContent>
@@ -476,56 +494,56 @@ export default function OrganizerEventDetailsPage() {
 
                     {/* Right Content */}
                     <div className="space-y-6">
-                        <Card className="border-gray-200 shadow-sm overflow-hidden">
+                        <Card className="border-border shadow-xs overflow-hidden">
                             <div className="p-6 space-y-6">
-                                <h3 className="font-semibold text-lg">ข้อมูลกิจกรรม</h3>
+                                <h3 className="font-semibold text-lg text-fg">ข้อมูลกิจกรรม</h3>
 
                                 <div className="space-y-4">
                                     <div className="flex gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 flex-shrink-0">
-                                            <Calendar className="w-5 h-5" />
+                                        <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 shrink-0">
+                                            <Calendar className="w-5 h-5" aria-hidden="true" />
                                         </div>
                                         <div>
-                                            <div className="text-xs text-gray-500">วันที่</div>
-                                            <div className="font-medium text-gray-900">{event.date}</div>
+                                            <div className="text-xs text-fg-muted">วันที่</div>
+                                            <div className="font-medium text-fg">{formatEventDate(event.date)}</div>
                                         </div>
                                     </div>
 
                                     <div className="flex gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 flex-shrink-0">
-                                            <Clock className="w-5 h-5" />
+                                        <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 shrink-0">
+                                            <Clock className="w-5 h-5" aria-hidden="true" />
                                         </div>
                                         <div>
-                                            <div className="text-xs text-gray-500">เวลา</div>
-                                            <div className="font-medium text-gray-900">{event.startTime} - {event.endTime}</div>
+                                            <div className="text-xs text-fg-muted">เวลา</div>
+                                            <div className="font-medium text-fg">{event.startTime} - {event.endTime}</div>
                                         </div>
                                     </div>
 
                                     <div className="flex gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 flex-shrink-0">
-                                            <MapPin className="w-5 h-5" />
+                                        <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 shrink-0">
+                                            <MapPin className="w-5 h-5" aria-hidden="true" />
                                         </div>
                                         <div>
-                                            <div className="text-xs text-gray-500">สถานที่</div>
-                                            <div className="font-medium text-gray-900">{event.location}</div>
+                                            <div className="text-xs text-fg-muted">สถานที่</div>
+                                            <div className="font-medium text-fg">{event.location}</div>
                                         </div>
                                     </div>
 
-                                    <div className="pt-4 border-t border-gray-100">
+                                    <div className="pt-4 border-t border-border">
                                         <div className="flex justify-between items-center mb-2">
-                                            <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                                                <Users className="w-4 h-4" /> ผู้เข้าร่วม
+                                            <div className="flex items-center gap-2 text-sm font-medium text-fg">
+                                                <Users className="w-4 h-4" aria-hidden="true" /> ผู้เข้าร่วม
                                             </div>
-                                            <span className="text-sm text-gray-500">{event.registrations?.length || 0}/{event.capacity} คน</span>
+                                            <span className="text-sm text-fg-muted tabular-nums">{registered}/{capacity} คน</span>
                                         </div>
-                                        <Progress value={(event.registrations?.length || 0) / event.capacity * 100} className="h-2" />
-                                        <p className="text-xs text-gray-400 mt-2 text-right">เหลืออีก {event.capacity - (event.registrations?.length || 0)} ที่นั่ง</p>
+                                        <Progress value={fillPercent} className="h-2" />
+                                        <p className="text-xs text-fg-subtle mt-2 text-right">เหลืออีก {seatsLeft} ที่นั่ง</p>
                                     </div>
                                 </div>
 
                                 {/* Organizer View Actions */}
                                 <div className="space-y-3 pt-2">
-                                    <Button variant="outline" className="w-full border-gray-200 hover:bg-gray-50 text-gray-600" onClick={handleShare}>
+                                    <Button variant="outline" className="w-full" onClick={handleShare}>
                                         <Share2 className="w-4 h-4 mr-2" /> แชร์กิจกรรม
                                     </Button>
                                 </div>
@@ -533,30 +551,30 @@ export default function OrganizerEventDetailsPage() {
                         </Card>
                     </div>
                 </div>
-            </div>
+            </Container>
 
             {/* Evaluation Dialog */}
             <Dialog open={isEvalOpen} onOpenChange={setIsEvalOpen}>
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <CheckSquare className="w-5 h-5 text-purple-600" /> ประเมิน Soft Skills
+                            <CheckSquare className="w-5 h-5 text-brand-600" aria-hidden="true" /> ประเมิน Soft Skills
                         </DialogTitle>
                     </DialogHeader>
                     {selectedReg && (
                         <div className="space-y-6 py-4">
-                            <div className="bg-purple-50 p-4 rounded-xl flex items-center gap-4">
-                                <div className="w-12 h-12 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-xl">
+                            <div className="bg-brand-50 p-4 rounded-xl flex items-center gap-4">
+                                <div className="w-12 h-12 bg-brand-600 text-white rounded-full flex items-center justify-center font-bold text-xl shrink-0">
                                     {selectedReg.student.name?.[0] || '?'}
                                 </div>
-                                <div>
-                                    <div className="font-bold text-purple-900">{selectedReg.student.name}</div>
-                                    <div className="text-sm text-purple-600">{selectedReg.student.studentId}</div>
+                                <div className="min-w-0">
+                                    <div className="font-bold text-brand-900 truncate">{selectedReg.student.name}</div>
+                                    <div className="text-sm text-brand-700">{selectedReg.student.studentId}</div>
                                 </div>
                             </div>
 
                             <div className="space-y-4">
-                                <p className="text-sm text-gray-500 mb-2">กรุณาติ๊กเลือกทักษะที่นักศึกษาแสดงออก:</p>
+                                <p className="text-sm text-fg-muted mb-2">กรุณาติ๊กเลือกทักษะที่นักศึกษาแสดงออก:</p>
                                 {SOFT_SKILLS
                                     .filter(skill => {
                                         // Only show soft skills provided by this activity
@@ -566,13 +584,13 @@ export default function OrganizerEventDetailsPage() {
                                         return true; // fallback if no soft skills defined
                                     })
                                     .map((skill) => (
-                                        <div key={skill.value} className="flex items-center space-x-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
+                                        <div key={skill.value} className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-surface transition-colors">
                                             <input
                                                 type="checkbox"
                                                 id={`skill-${skill.value}`}
                                                 checked={evalScores[skill.field] === 1}
                                                 onChange={(e) => setEvalScores({ ...evalScores, [skill.field]: e.target.checked ? 1 : 0 })}
-                                                className="w-5 h-5 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 cursor-pointer"
+                                                className="w-5 h-5 accent-brand-600 rounded cursor-pointer"
                                             />
                                             <Label htmlFor={`skill-${skill.value}`} className="font-medium cursor-pointer flex-1">
                                                 {skill.label.replace(/^ทักษะ/, '')} ({skill.labelEn})
@@ -584,7 +602,6 @@ export default function OrganizerEventDetailsPage() {
                             <DialogFooter>
                                 <Button variant="outline" onClick={() => setIsEvalOpen(false)} disabled={submitting}>ยกเลิก</Button>
                                 <Button
-                                    className="bg-purple-600 hover:bg-purple-700"
                                     onClick={handleSubmitEval}
                                     disabled={submitting}
                                 >
@@ -600,16 +617,16 @@ export default function OrganizerEventDetailsPage() {
             <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
-                        <DialogTitle className="text-red-600 flex items-center gap-2">
+                        <DialogTitle className="text-danger flex items-center gap-2">
                             ⚠️ ยืนยันการยกเลิกกิจกรรม
                         </DialogTitle>
                     </DialogHeader>
                     <div className="py-4 space-y-4">
-                        <div className="p-4 bg-amber-50 rounded-lg border border-amber-100 text-sm text-amber-800">
+                        <div className="p-4 bg-warning-bg rounded-lg border border-border text-sm text-warning">
                             <strong>หมายเหตุ:</strong> กิจกรรมจะถูกยกเลิกทันที ผู้เข้าร่วมที่ลงทะเบียนไว้แล้วจะได้รับผลกระทบและไม่สามารถย้อนกลับได้
                         </div>
                         <div className="space-y-2">
-                            <Label>เหตุผลการยกเลิก <span className="text-red-500">*</span></Label>
+                            <Label>เหตุผลการยกเลิก <span className="text-danger">*</span></Label>
                             <Input
                                 placeholder="เช่น ติดภารกิจด่วน, จำนวนผู้สมัครไม่เพียงพอ..."
                                 value={cancelReason}
@@ -621,7 +638,7 @@ export default function OrganizerEventDetailsPage() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsCancelOpen(false)}>ยกเลิก</Button>
                         <Button
-                            className="bg-red-600 hover:bg-red-700"
+                            variant="destructive"
                             onClick={handleRequestCancel}
                             disabled={submitting || !cancelReason.trim()}
                         >

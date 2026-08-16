@@ -61,7 +61,6 @@ export class AuthRepository {
         phone: true,
         educationLevel: true,
         program: true,
-        yearLevel: true,
       },
     });
   }

@@ -32,17 +32,10 @@ export const PROGRAMS: ProgramMeta[] = [
     {
         code: "d_cs_it",
         level: "doctorate",
-        label: "ปร.ด. วิทยาการคอมพิวเตอร์และเทคโนโลยีสารสนเทศ (หลักสูตรนานาชาติ)",
+        label: "วิทยาการคอมพิวเตอร์และเทคโนโลยีสารสนเทศ (หลักสูตรนานาชาติ)",
     },
     { code: "d_geo", level: "doctorate", label: "ภูมิสารสนเทศศาสตร์" },
 ]
-
-/** `plan` = จำนวนปีตามแผนการเรียน · `max` = ปีสูงสุดที่เลือกได้ (รองรับคนเรียนเกินแผน) */
-export const YEAR_RANGE: Record<EducationLevelCode, { plan: number; max: number }> = {
-    bachelor: { plan: 4, max: 8 },
-    master: { plan: 2, max: 5 },
-    doctorate: { plan: 4, max: 8 },
-}
 
 export function getProgramsByLevel(level?: string): ProgramMeta[] {
     if (!level) return []
@@ -57,14 +50,4 @@ export function programLabel(code?: string | null): string {
 export function educationLevelLabel(code?: string | null): string {
     if (!code) return ""
     return EDUCATION_LEVELS.find((l) => l.code === code)?.label ?? code
-}
-
-/** แยกชั้นปีเป็น 2 กลุ่ม: ตามแผน / เกินแผน — ใช้กับ <optgroup> */
-export function getYearOptions(level?: string): { plan: number[]; extended: number[] } {
-    if (!level || !(level in YEAR_RANGE)) return { plan: [], extended: [] }
-    const { plan, max } = YEAR_RANGE[level as EducationLevelCode]
-    return {
-        plan: Array.from({ length: plan }, (_, i) => i + 1),
-        extended: Array.from({ length: max - plan }, (_, i) => plan + i + 1),
-    }
 }
