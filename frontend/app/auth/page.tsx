@@ -5,7 +5,6 @@ import Link from "next/link"
 import { LoginForm } from "@/components/auth/login-form"
 import { RegisterForm } from "@/components/auth/register-form"
 import {
-    GraduationCap,
     Search,
     UserPlus,
     QrCode,
@@ -36,8 +35,8 @@ const STEPS = [
         title: "เข้าสู่ระบบแบบนักศึกษา",
         body: (
             <>
-                ที่ช่อง <span className="font-medium text-white">Username</span> ให้กรอกอีเมล
-                <span className="font-medium text-white"> @kkumail.com</span> ของคุณ
+                ที่ช่อง <span className="font-medium text-brand-900">Username</span> ให้กรอกอีเมล
+                <span className="font-medium text-brand-900"> @kkumail.com</span> ของคุณ
             </>
         ),
     },
@@ -50,7 +49,7 @@ const STEPS = [
                 สำหรับชมรม/หน่วยงานที่ต้องการจัดกิจกรรมเอง{" "}
                 <Link
                     href="/auth/organizer/register"
-                    className="font-medium text-white underline underline-offset-4 hover:text-brand-100"
+                    className="font-medium text-brand-900 underline underline-offset-4 hover:text-brand-600"
                 >
                     สมัครที่นี่
                 </Link>
@@ -74,23 +73,17 @@ export default function AuthPage() {
             {/* ความสูงคงที่ — ไม่ยืดตามเนื้อหา จึงไม่ขยับเวลาสลับแท็บ */}
             <div className="grid h-[calc(100dvh-2rem)] max-h-[720px] w-full max-w-5xl overflow-hidden rounded-xl border border-border bg-bg shadow-md lg:grid-cols-2">
                 {/* ── แผงซ้าย ─────────────────────────────────────────────── */}
-                <aside className="hidden flex-col overflow-hidden bg-gradient-to-br from-brand-300 to-brand-600 text-white lg:flex">
-                    <div className="shrink-0 px-10 pt-10">
-                        <GraduationCap className="size-10" aria-hidden="true" />
-                        <h1 className="mt-5 text-2xl font-semibold">ระบบจัดการกิจกรรม</h1>
-                        <p className="mt-1 text-sm text-white/90">วิทยาลัยการคอมพิวเตอร์</p>
-                    </div>
-
-                    <ol className="flex-1 space-y-6 overflow-y-auto px-10 py-8">
+                <aside className="hidden flex-col overflow-hidden bg-[url('/login_bg.png')] bg-cover bg-center text-brand-900 lg:flex">
+                    <ol className="flex flex-1 flex-col justify-center space-y-6 overflow-y-auto px-10 py-8">
                         {STEPS.map((step, i) => (
                             <li
                                 key={step.title}
                                 className={cn(
                                     "flex gap-4",
-                                    step.divider && "border-t border-white/20 pt-6"
+                                    step.divider && "border-t border-brand-900/15 pt-6"
                                 )}
                             >
-                                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-sm font-medium">
+                                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-sm font-medium text-white">
                                     {i + 1}
                                 </span>
                                 <div>
@@ -98,7 +91,7 @@ export default function AuthPage() {
                                         <step.icon className="size-4" aria-hidden="true" />
                                         {step.title}
                                     </h2>
-                                    <p className="mt-1 text-sm leading-relaxed text-white/90">
+                                    <p className="mt-1 text-sm leading-relaxed text-brand-700">
                                         {step.body}
                                     </p>
                                 </div>
@@ -106,10 +99,10 @@ export default function AuthPage() {
                         ))}
                     </ol>
 
-                    <div className="shrink-0 border-t border-white/15 px-10 py-5">
+                    <div className="shrink-0 border-t border-brand-900/15 px-10 py-5">
                         <Link
                             href="/"
-                            className="inline-flex items-center gap-2 text-sm text-white/90 transition-colors hover:text-white"
+                            className="inline-flex items-center gap-2 text-sm text-brand-700 transition-colors hover:text-brand-900"
                         >
                             <ArrowLeft className="size-4" aria-hidden="true" />
                             กลับไปหน้าหลัก
