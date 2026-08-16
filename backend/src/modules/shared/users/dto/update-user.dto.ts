@@ -1,14 +1,10 @@
 import {
   IsIn,
-  IsInt,
   IsOptional,
   IsString,
   Matches,
-  Max,
-  Min,
   MinLength,
 } from "class-validator";
-import { Type } from "class-transformer";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import {
   ACADEMIC_ERRORS,
@@ -58,14 +54,6 @@ export class UpdateUserDto {
   @IsOptional()
   @IsIn(PROGRAM_CODES, { message: ACADEMIC_ERRORS.PROGRAM_MISMATCH })
   program?: string;
-
-  @ApiPropertyOptional({ example: 1, description: "ชั้นปี" })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt({ message: ACADEMIC_ERRORS.YEAR_INVALID })
-  @Min(1, { message: ACADEMIC_ERRORS.YEAR_INVALID })
-  @Max(8, { message: ACADEMIC_ERRORS.YEAR_INVALID })
-  yearLevel?: number;
 
   @ApiPropertyOptional({ description: "รหัสผ่านใหม่" })
   @IsString()

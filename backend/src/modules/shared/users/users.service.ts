@@ -59,7 +59,6 @@ export class UsersService {
     validateAcademicInfo({
       educationLevel: updateDto.educationLevel,
       program: updateDto.program,
-      yearLevel: updateDto.yearLevel,
     });
 
     const data: Record<string, any> = {};
@@ -69,7 +68,6 @@ export class UsersService {
     if (updateDto.educationLevel !== undefined)
       data.educationLevel = updateDto.educationLevel;
     if (updateDto.program !== undefined) data.program = updateDto.program;
-    if (updateDto.yearLevel !== undefined) data.yearLevel = updateDto.yearLevel;
     if (updateDto.newPassword) {
       data.password = await bcrypt.hash(updateDto.newPassword, 12);
     }

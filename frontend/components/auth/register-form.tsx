@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Select } from "@/components/ui/select"
 import { User, Mail, Lock, GraduationCap, Phone, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
-import { EDUCATION_LEVELS, getProgramsByLevel, getYearOptions } from "@/lib/programs"
+import { EDUCATION_LEVELS, getProgramsByLevel } from "@/lib/programs"
 
 // ⚠️ ต้องตรงกับ backend/src/common/constants/index.ts
 /** เบอร์มือถือ 10 หลัก ขึ้นต้น 06 / 08 / 09 เท่านั้น */
@@ -36,21 +36,18 @@ export function RegisterForm() {
     const [phone, setPhone] = useState("")
     const [educationLevel, setEducationLevel] = useState("")
     const [program, setProgram] = useState("")
-    const [yearLevel, setYearLevel] = useState("")
     const [password, setPassword] = useState("")
     const [confirmPassword, setConfirmPassword] = useState("")
     const [error, setError] = useState("")
     const [loading, setLoading] = useState(false)
 
     const programOptions = getProgramsByLevel(educationLevel)
-    const yearOptions = getYearOptions(educationLevel)
     const isLevelChosen = Boolean(educationLevel)
 
     // เปลี่ยนระดับ = รีเซ็ตสาขาและชั้นปี กันข้อมูลค้างผิดระดับ
     function handleLevelChange(value: string) {
         setEducationLevel(value)
         setProgram("")
-        setYearLevel("")
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -73,8 +70,8 @@ export function RegisterForm() {
             return
         }
 
-        if (!educationLevel || !program || !yearLevel) {
-            setError("กรุณาเลือกระดับการศึกษา สาขาวิชา และชั้นปีให้ครบ")
+        if (!educationLevel || !program) {
+            setError("กรุณาเลือกระดับการศึกษาและหลักสูตร")
             return
         }
 
@@ -98,7 +95,6 @@ export function RegisterForm() {
                 phone,
                 educationLevel,
                 program,
-                yearLevel: Number(yearLevel),
             })
         } catch (err) {
             if (err instanceof Error) {
@@ -191,7 +187,7 @@ export function RegisterForm() {
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="program">สาขาวิชา</Label>
+                    <Label htmlFor="program">หลักสูตร</Label>
                     <Select
                         id="program"
                         value={program}
@@ -199,7 +195,7 @@ export function RegisterForm() {
                         disabled={loading || !isLevelChosen}
                         aria-describedby={!isLevelChosen ? "program-hint" : undefined}
                     >
-                        <option value="">เลือกสาขาวิชา...</option>
+                        <option value="">เลือกหลักสูตร...</option>
                         {programOptions.map((p) => (
                             <option key={p.code} value={p.code}>{p.label}</option>
                         ))}
@@ -211,37 +207,6 @@ export function RegisterForm() {
                     )}
                 </div>
 
-                <div className="space-y-2">
-                    <Label htmlFor="year-level">ชั้นปี</Label>
-                    <Select
-                        id="year-level"
-                        value={yearLevel}
-                        onChange={(e) => setYearLevel(e.target.value)}
-                        disabled={loading || !isLevelChosen}
-                        aria-describedby={!isLevelChosen ? "year-hint" : undefined}
-                    >
-                        <option value="">เลือกชั้นปี...</option>
-                        {yearOptions.plan.length > 0 && (
-                            <optgroup label="ตามแผนการเรียน">
-                                {yearOptions.plan.map((y) => (
-                                    <option key={y} value={y}>ปี {y}</option>
-                                ))}
-                            </optgroup>
-                        )}
-                        {yearOptions.extended.length > 0 && (
-                            <optgroup label="เกินแผนการเรียน">
-                                {yearOptions.extended.map((y) => (
-                                    <option key={y} value={y}>ปี {y}</option>
-                                ))}
-                            </optgroup>
-                        )}
-                    </Select>
-                    {!isLevelChosen && (
-                        <p id="year-hint" className="text-xs text-fg-subtle">
-                            เลือกระดับการศึกษาก่อน
-                        </p>
-                    )}
-                </div>
             </FormSection>
 
             {/* ── ความปลอดภัย ──────────────────────────────────────────────── */}

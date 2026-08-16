@@ -13,8 +13,7 @@ export const AUTH_ERRORS = {
 
 export const ACADEMIC_ERRORS = {
   LEVEL_REQUIRED: "กรุณาเลือกระดับการศึกษา",
-  PROGRAM_MISMATCH: "สาขาวิชาไม่ตรงกับระดับการศึกษาที่เลือก",
-  YEAR_INVALID: "ชั้นปีไม่ถูกต้องสำหรับระดับการศึกษาที่เลือก",
+  PROGRAM_MISMATCH: "หลักสูตรไม่ตรงกับระดับการศึกษาที่เลือก",
   PHONE_INVALID: "เบอร์มือถือไม่ถูกต้อง",
   STUDENT_ID_INVALID: "รหัสนักศึกษาไม่ถูกต้อง",
 } as const;

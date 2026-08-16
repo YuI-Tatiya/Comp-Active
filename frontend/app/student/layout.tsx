@@ -17,7 +17,11 @@ export default function StudentLayout({
 }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <AppHeader links={LINKS} roleLabel="นักศึกษา" profileHref="/student/profile" />
+      <AppHeader
+        links={LINKS}
+        roleLabel="นักศึกษา"
+        accountHref="/student/profile"
+      />
       <main className="flex-1">{children}</main>
       <SiteFooter />
     </div>

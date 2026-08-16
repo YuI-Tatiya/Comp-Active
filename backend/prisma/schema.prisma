@@ -104,7 +104,6 @@ model User {
   phone                    String?   @db.VarChar(20)
   educationLevel           EducationLevel? @map("education_level")
   program                  String?   @db.VarChar(50) // เก็บ code จาก common/constants/programs.ts
-  yearLevel                Int?      @map("year_level")
 
   email                    String    @unique @db.VarChar(255)
   password                 String    @db.VarChar(255)
