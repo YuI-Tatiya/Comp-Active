@@ -50,7 +50,6 @@ export function LoginForm() {
                     <Input
                         id="identifier"
                         type="text"
-                        placeholder="your.email@kkumail.com"
                         className="pl-10"
                         value={identifier}
                         onChange={(e) => setIdentifier(e.target.value)}
@@ -65,7 +64,6 @@ export function LoginForm() {
                     <Input
                         id="password"
                         type="password"
-                        placeholder="••••••••"
                         className="pl-10"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
@@ -75,7 +73,12 @@ export function LoginForm() {
             </div>
             {/* ใช้โครงเดียวกับ register-form เพื่อให้ปุ่มอยู่ตำแหน่งเดียวกันทั้ง 2 แท็บ ไม่กระโดด */}
             <div className="sticky bottom-0 -mx-6 mt-auto border-t border-border bg-bg px-6 py-4 sm:-mx-8 sm:px-8">
-                <Button type="submit" size="lg" className="w-full" disabled={loading}>
+                <Button
+                    type="submit"
+                    size="lg"
+                    className="w-full bg-gradient-to-r from-brand-500 to-brand-700 hover:opacity-90"
+                    disabled={loading}
+                >
                     {loading ? (
                         <>
                             <Loader2 className="animate-spin" />
