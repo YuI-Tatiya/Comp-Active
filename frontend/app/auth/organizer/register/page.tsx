@@ -127,7 +127,7 @@ export default function OrganizerRegisterPage() {
         <div className="flex h-dvh items-center justify-center overflow-hidden bg-surface p-4">
             <div className="grid h-[calc(100dvh-2rem)] max-h-[720px] w-full max-w-5xl overflow-hidden rounded-xl border border-border bg-bg shadow-md lg:grid-cols-5">
                 {/* ── แผงซ้าย ─────────────────────────────────────────────── */}
-                <aside className="hidden flex-col overflow-hidden bg-gradient-to-br from-brand-300 to-brand-600 text-white lg:col-span-2 lg:flex">
+                <aside className="hidden flex-col overflow-hidden bg-gradient-to-br from-brand-100 to-brand-500 text-white lg:col-span-2 lg:flex">
                     <div className="shrink-0 px-8 pt-10">
                         <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
                             <span className="size-1.5 rounded-full bg-white" aria-hidden="true" />

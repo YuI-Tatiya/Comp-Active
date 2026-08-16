@@ -126,7 +126,7 @@ export function RegisterForm() {
                     <Label htmlFor="name">ชื่อ-นามสกุล</Label>
                     <div className="relative">
                         <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
-                        <Input id="name" placeholder="กรอกชื่อ-นามสกุล" className="pl-9"
+                        <Input id="name" className="pl-9"
                             value={name} onChange={(e) => setName(e.target.value)} disabled={loading} />
                     </div>
                 </div>
@@ -135,7 +135,7 @@ export function RegisterForm() {
                     <Label htmlFor="student-id">รหัสนักศึกษา</Label>
                     <div className="relative">
                         <GraduationCap className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
-                        <Input id="student-id" placeholder="กรอกรหัสนักศึกษา" className="pl-9"
+                        <Input id="student-id" className="pl-9"
                             value={studentId} onChange={(e) => setStudentId(e.target.value)} disabled={loading} />
                     </div>
                 </div>
@@ -144,7 +144,7 @@ export function RegisterForm() {
                     <Label htmlFor="register-email">อีเมล (ต้องใช้ @kkumail.com เท่านั้น)</Label>
                     <div className="relative">
                         <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
-                        <Input id="register-email" type="email" placeholder="your.name@kkumail.com" className="pl-9"
+                        <Input id="register-email" type="email" className="pl-9"
                             value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
                     </div>
                 </div>
@@ -158,7 +158,6 @@ export function RegisterForm() {
                             type="tel"
                             inputMode="numeric"
                             maxLength={10}
-                            placeholder="0812345678"
                             className="pl-9"
                             value={phone}
                             // ตัดอักขระที่ไม่ใช่ตัวเลขทิ้งตั้งแต่ตอนพิมพ์
@@ -215,7 +214,7 @@ export function RegisterForm() {
                     <Label htmlFor="register-password">รหัสผ่าน</Label>
                     <div className="relative">
                         <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
-                        <Input id="register-password" type="password" placeholder="••••••••" className="pl-9"
+                        <Input id="register-password" type="password" className="pl-9"
                             value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} />
                     </div>
                 </div>
@@ -224,7 +223,7 @@ export function RegisterForm() {
                     <Label htmlFor="confirm-password">ยืนยันรหัสผ่าน</Label>
                     <div className="relative">
                         <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
-                        <Input id="confirm-password" type="password" placeholder="••••••••" className="pl-9"
+                        <Input id="confirm-password" type="password" className="pl-9"
                             value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={loading} />
                     </div>
                 </div>
@@ -233,7 +232,12 @@ export function RegisterForm() {
             {/* sticky ยึดกับ scroll container ของหน้า auth — ปุ่มลอยติดก้นกรอบ ไม่ต้องเลื่อนหา
                 -mx-6/-mx-8 หักล้าง padding ของ container ให้พื้นหลังเต็มความกว้าง */}
             <div className="sticky bottom-0 -mx-6 mt-auto border-t border-border bg-bg px-6 py-4 sm:-mx-8 sm:px-8">
-                <Button type="submit" size="lg" className="w-full" disabled={loading}>
+                <Button
+                    type="submit"
+                    size="lg"
+                    className="w-full bg-gradient-to-r from-brand-500 to-brand-700 hover:opacity-90"
+                    disabled={loading}
+                >
                     {loading ? (
                         <>
                             <Loader2 className="animate-spin" />
