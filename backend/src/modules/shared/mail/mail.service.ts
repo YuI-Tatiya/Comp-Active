@@ -49,12 +49,14 @@ export class MailService {
 
     await this.mailerService.sendMail({
       to: email,
-      subject: '🎉 คำขอเป็น Organizer ได้รับการอนุมัติแล้ว - Comp Active',
+      subject: 'คำขอเป็น Organizer ได้รับการอนุมัติแล้ว - Comp Active',
       html: `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
-          <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:36px 32px;border-radius:16px 16px 0 0;">
-            <h1 style="color:#fff;margin:0;font-size:24px;">🎉 ยินดีด้วย!</h1>
-            <p style="color:#c7d2fe;margin:8px 0 0;">คำขอเป็น Organizer ของคุณได้รับการอนุมัติแล้ว</p>
+          <div style="background:linear-gradient(135deg,#4299e1,#2b6cb0);padding:36px 32px;border-radius:16px 16px 0 0;">
+            <p style="margin:0;font-size:26px;font-weight:800;letter-spacing:-0.02em;">
+              <span style="color:#ffffff;">Comp </span><span style="color:#dbeafe;">Active</span>
+            </p>
+            <p style="color:#e0f2fe;margin:8px 0 0;">คำขอเป็น Organizer ของคุณได้รับการอนุมัติแล้ว</p>
           </div>
           <div style="background:#fff;padding:32px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 16px 16px;">
             <p>สวัสดีคุณ <strong>${name}</strong>,</p>
@@ -69,7 +71,7 @@ export class MailService {
                 <tr>
                   <td style="padding:6px 0;color:#64748b;font-size:14px;">รหัสผ่าน</td>
                   <td style="padding:6px 0;">
-                    <span style="font-family:monospace;font-size:18px;font-weight:700;background:#eef2ff;color:#4f46e5;padding:4px 12px;border-radius:6px;letter-spacing:.1em;">${password}</span>
+                    <span style="font-family:monospace;font-size:18px;font-weight:700;background:#ebf8ff;color:#2b6cb0;padding:4px 12px;border-radius:6px;letter-spacing:.1em;">${password}</span>
                   </td>
                 </tr>
                 <tr>
@@ -78,7 +80,7 @@ export class MailService {
                 </tr>
               </table>
             </div>
-            <p style="color:#ef4444;font-size:13px;">⚠️ กรุณาเปลี่ยนรหัสผ่านหลังเข้าสู่ระบบครั้งแรก และเก็บ Username นี้ไว้สำหรับเข้าสู่ระบบครั้งถัดไป</p>
+            <p style="color:#ef4444;font-size:13px;">กรุณาเปลี่ยนรหัสผ่านหลังเข้าสู่ระบบครั้งแรก และเก็บ Username นี้ไว้สำหรับเข้าสู่ระบบครั้งถัดไป</p>
             <p style="font-size:12px;color:#94a3b8;margin-top:32px;">ขอบคุณครับ<br/>ทีมงาน Comp Active · College of Computing</p>
           </div>
         </div>
