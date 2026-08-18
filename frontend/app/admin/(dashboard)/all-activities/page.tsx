@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Calendar, MapPin, Users, Activity } from "lucide-react"
-import { activitiesAPI, type Activity as ActivityItem } from "@/lib/api"
+import { activitiesAPI, isUnlimitedCapacity, type Activity as ActivityItem } from "@/lib/api"
 
 const approvalStyle: Record<string, { label: string; bg: string; color: string }> = {
     approved: { label: "อนุมัติแล้ว", bg: "rgba(63,160,172,0.12)", color: "#3fa0ac" },
@@ -60,7 +60,10 @@ export default function AdminAllActivitiesPage() {
                                 </tr>
                             ) : (
                                 activities.map((activity, i) => {
-                                    const progress = activity.capacity > 0 ? Math.round(((activity.registeredCount ?? 0) / activity.capacity) * 100) : 0
+                                    const unlimited = isUnlimitedCapacity(activity.capacity)
+                                    const progress = !unlimited && activity.capacity! > 0
+                                        ? Math.round(((activity.registeredCount ?? 0) / activity.capacity!) * 100)
+                                        : 0
                                     const statusStyle = approvalStyle[activity.approvalStatus] ?? approvalStyle.pending
                                     return (
                                         <tr
@@ -96,11 +99,15 @@ export default function AdminAllActivitiesPage() {
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2 text-sm font-medium" style={{ color: "#0f172a" }}>
                                                     <Users className="w-4 h-4" style={{ color: "#64748b" }} />
-                                                    {activity.registeredCount ?? 0}/{activity.capacity}
+                                                    {unlimited
+                                                        ? `${activity.registeredCount ?? 0} (ไม่จำกัด)`
+                                                        : `${activity.registeredCount ?? 0}/${activity.capacity}`}
                                                 </div>
-                                                <div className="w-20 rounded-full h-1.5 mt-1.5" style={{ background: "#e2e8f0" }}>
-                                                    <div className="h-1.5 rounded-full" style={{ width: `${Math.min(progress, 100)}%`, background: "#2563eb" }} />
-                                                </div>
+                                                {!unlimited && (
+                                                    <div className="w-20 rounded-full h-1.5 mt-1.5" style={{ background: "#e2e8f0" }}>
+                                                        <div className="h-1.5 rounded-full" style={{ width: `${Math.min(progress, 100)}%`, background: "#2563eb" }} />
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ background: statusStyle.bg, color: statusStyle.color }}>

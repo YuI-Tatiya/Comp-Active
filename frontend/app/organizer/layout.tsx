@@ -6,7 +6,6 @@ import { SiteFooter } from "@/components/layout/site-footer"
 const LINKS: AppNavLink[] = [
   { href: "/organizer", label: "หน้าหลัก", exact: true },
   { href: "/organizer/manage", label: "จัดการกิจกรรม" },
-  { href: "/organizer/create", label: "สร้างกิจกรรม" },
   { href: "/organizer/dashboard", label: "แดชบอร์ด" },
   { href: "/organizer/about", label: "เกี่ยวกับเรา" },
 ]

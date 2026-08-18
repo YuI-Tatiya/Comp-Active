@@ -24,6 +24,15 @@ export class EvaluationsRepository {
     return this.prisma.evaluation.create({ data: { registrationId, evaluatorId, ...scores } });
   }
 
+  /** ใช้ตอนเช็คอิน — ต้องอยู่ใน $transaction เดียวกับการอัปเดต Registration ผ่าน tx client ที่ส่งมา */
+  findByRegistrationIdTx(tx: any, registrationId: number) {
+    return tx.evaluation.findUnique({ where: { registrationId } });
+  }
+
+  createTx(tx: any, registrationId: number, evaluatorId: number, scores: Record<string, any>) {
+    return tx.evaluation.create({ data: { registrationId, evaluatorId, ...scores } });
+  }
+
   findByStudentWithActivity(studentId: number) {
     return this.prisma.evaluation.findMany({
       where: { registration: { studentId } },

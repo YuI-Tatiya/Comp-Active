@@ -46,10 +46,11 @@ export class CreateActivityDto {
   @IsNotEmpty()
   location: string;
 
-  @ApiProperty({ example: 50, description: 'จำนวนที่นั่ง' })
+  @ApiPropertyOptional({ example: 50, description: 'จำนวนที่นั่ง — ไม่ระบุ/null = ไม่จำกัดจำนวน' })
+  @IsOptional()
   @IsNumber()
   @Min(1)
-  capacity: number;
+  capacity?: number | null;
 
   @ApiPropertyOptional({
     example: ['React', 'Frontend'],

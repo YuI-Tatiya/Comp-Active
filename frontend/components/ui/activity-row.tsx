@@ -4,7 +4,7 @@ import Link from "next/link"
 import { ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { getCategory } from "@/lib/categories"
-import type { Activity } from "@/lib/api"
+import { isUnlimitedCapacity, type Activity } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 /** map ApprovalStatus จาก schema.prisma */
@@ -38,10 +38,11 @@ interface ActivityRowProps {
 /** แถวกิจกรรมฝั่งผู้จัด — ชื่อ + วันที่ + แถบที่นั่ง + สถานะอนุมัติ */
 export function ActivityRow({ activity, href }: ActivityRowProps) {
     const cat = getCategory(activity.category)
+    const unlimited = isUnlimitedCapacity(activity.capacity)
     const capacity = activity.capacity || 0
     const registered = activity.registeredCount || 0
-    const ratio = capacity > 0 ? Math.min((registered / capacity) * 100, 100) : 0
-    const isFull = capacity > 0 && registered >= capacity
+    const ratio = !unlimited && capacity > 0 ? Math.min((registered / capacity) * 100, 100) : 0
+    const isFull = !unlimited && capacity > 0 && registered >= capacity
     const approval = APPROVAL_META[activity.approvalStatus]
 
     return (
@@ -76,7 +77,7 @@ export function ActivityRow({ activity, href }: ActivityRowProps) {
                         />
                     </div>
                     <span className="shrink-0 text-xs text-fg-muted tabular-nums">
-                        {registered}/{capacity}
+                        {unlimited ? `${registered} (ไม่จำกัด)` : `${registered}/${capacity}`}
                     </span>
                 </div>
             </div>

@@ -136,7 +136,7 @@ export default function OrganizerManagePage() {
                                     {/* ยอดผู้ลงทะเบียน — ข้อมูลที่ผู้จัดต้องดูบ่อยที่สุด */}
                                     <EventCardProgress
                                         registered={ev.registeredCount ?? 0}
-                                        capacity={ev.capacity || 0}
+                                        capacity={ev.capacity}
                                     />
                                 </EventCard>
                             )

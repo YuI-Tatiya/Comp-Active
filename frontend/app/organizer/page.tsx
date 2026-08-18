@@ -18,7 +18,6 @@ import {
   CalendarPlus,
   Users,
   Clock,
-  Plus,
   CheckCircle2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -54,7 +53,7 @@ export default function OrganizerDashboardPage() {
     <>
       {/* ── แถบทักทาย ────────────────────────────────────────────────────── */}
       <section className="border-b border-border bg-surface">
-        <Container className="flex flex-col gap-3 py-8 sm:flex-row sm:items-center sm:justify-between">
+        <Container className="py-8">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-fg">
               สวัสดี {user?.name || "ผู้จัดกิจกรรม"}
@@ -65,12 +64,6 @@ export default function OrganizerDashboardPage() {
                 : `คุณมี ${stats?.totalActivities ?? myActivities.length} กิจกรรมในระบบ`}
             </p>
           </div>
-          <Button asChild>
-            <Link href="/organizer/create">
-              <Plus />
-              สร้างกิจกรรม
-            </Link>
-          </Button>
         </Container>
       </section>
 
@@ -142,10 +135,7 @@ export default function OrganizerDashboardPage() {
                   description="เริ่มสร้างกิจกรรมแรกของคุณเพื่อเปิดรับสมัครนักศึกษา"
                   action={
                     <Button asChild>
-                      <Link href="/organizer/create">
-                        <Plus />
-                        สร้างกิจกรรม
-                      </Link>
+                      <Link href="/organizer/manage">จัดการกิจกรรม</Link>
                     </Button>
                   }
                 />

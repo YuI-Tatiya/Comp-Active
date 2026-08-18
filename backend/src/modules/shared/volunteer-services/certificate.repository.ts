@@ -16,8 +16,22 @@ export class CertificatesRepository {
     return this.prisma.certificate.findUnique({ where: { registrationId } });
   }
 
-  create(registrationId: number, certificateUrl: string, verificationCode: string) {
-    return this.prisma.certificate.create({ data: { registrationId, certificateUrl, verificationCode } });
+  create(
+    registrationId: number,
+    certificateUrl: string,
+    verificationCode: string,
+    volunteerHours?: unknown,
+    volunteerRole?: string | null,
+  ) {
+    return this.prisma.certificate.create({
+      data: {
+        registrationId,
+        certificateUrl,
+        verificationCode,
+        volunteerHours,
+        volunteerRole,
+      } as any,
+    });
   }
 
   findByStudent(studentId: number) {
