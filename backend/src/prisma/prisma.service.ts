@@ -15,6 +15,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
   // ─── Model delegates ────────────────────────────────────────────────────────
   get user() { return this._client.user; }
+  get event() { return this._client.event; }
   get activity() { return this._client.activity; }
   get activityTag() { return this._client.activityTag; }
   get activityCondition() { return this._client.activityCondition; }
@@ -23,6 +24,14 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get registration() { return this._client.registration; }
   get certificate() { return this._client.certificate; }
   get evaluation() { return this._client.evaluation; }
+  get activityQuestion() { return this._client.activityQuestion; }
+  get activityQuestionOption() { return this._client.activityQuestionOption; }
+  get registrationAnswer() { return this._client.registrationAnswer; }
+  get registrationAnswerOption() { return this._client.registrationAnswerOption; }
+  get eventSurveyQuestion() { return this._client.eventSurveyQuestion; }
+  get registrationSurveyAnswer() { return this._client.registrationSurveyAnswer; }
+  get eventVisibilityProgram() { return this._client.eventVisibilityProgram; }
+  get eventVisibilityYear() { return this._client.eventVisibilityYear; }
   get organizerRequest() { return this._client.organizerRequest; }
   get adminInvite() { return this._client.adminInvite; }
   get apiKey() { return this._client.apiKey; }

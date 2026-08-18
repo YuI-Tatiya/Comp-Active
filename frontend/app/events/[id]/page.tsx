@@ -12,7 +12,7 @@ import Link from "next/link"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 import { Container } from "@/components/layout/container"
-import { activitiesAPI, Activity, Tag as TagType, Condition, Benefit, API_BASE_URL } from "@/lib/api"
+import { activitiesAPI, isUnlimitedCapacity, Activity, Tag as TagType, Condition, Benefit, API_BASE_URL } from "@/lib/api"
 
 export default function PublicEventDetailsPage() {
     const params = useParams()
@@ -239,12 +239,18 @@ export default function PublicEventDetailsPage() {
                                             <div className="flex items-center gap-2 text-sm font-bold text-fg-muted">
                                                 <Users className="w-4 h-4 text-cat-volunteer" /> จำนวนที่รับสมัคร
                                             </div>
-                                            <span className="text-sm font-black text-fg">{event.registeredCount || 0}/{event.capacity} คน</span>
+                                            <span className="text-sm font-black text-fg">
+                                                {event.registeredCount || 0}{isUnlimitedCapacity(event.capacity) ? " คน (ไม่จำกัด)" : `/${event.capacity} คน`}
+                                            </span>
                                         </div>
-                                        <Progress value={event.registeredCount || 0} max={event.capacity} className="h-2.5 bg-surface" />
-                                        <p className="text-sm font-medium text-success mt-3 text-center bg-success-bg py-1.5 rounded-lg border border-success/20">
-                                            เหลืออีก {event.capacity - (event.registeredCount || 0)} ที่นั่งว่าง
-                                        </p>
+                                        {!isUnlimitedCapacity(event.capacity) && (
+                                            <>
+                                                <Progress value={event.registeredCount || 0} max={event.capacity} className="h-2.5 bg-surface" />
+                                                <p className="text-sm font-medium text-success mt-3 text-center bg-success-bg py-1.5 rounded-lg border border-success/20">
+                                                    เหลืออีก {event.capacity! - (event.registeredCount || 0)} ที่นั่งว่าง
+                                                </p>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
 

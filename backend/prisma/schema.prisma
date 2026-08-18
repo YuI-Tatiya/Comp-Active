@@ -72,6 +72,22 @@ enum SoftSkillType {
   positive_attitude
 }
 
+enum EventVisibility {
+  everyone
+  restricted
+}
+
+enum ActivityQuestionType {
+  text
+  single_choice
+  multi_choice
+}
+
+enum SurveyQuestionType {
+  rating
+  text
+}
+
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model OrganizerRequest {
@@ -94,16 +110,16 @@ model OrganizerRequest {
 }
 
 model User {
-  id                       Int       @id @default(autoincrement())
-  name                     String    @db.VarChar(255)
-  studentId                String?   @map("student_id") @db.VarChar(20)
+  id        Int     @id @default(autoincrement())
+  name      String  @db.VarChar(255)
+  studentId String? @map("student_id") @db.VarChar(20)
 
   // ── ข้อมูลติดต่อ & การศึกษา ────────────────────────────────────────────────
   // nullable ทั้งหมด เพราะ admin/organizer ไม่มีข้อมูลส่วนนี้
   // และ user ที่สมัครก่อนฟีเจอร์นี้ก็ยังไม่มีข้อมูล — บังคับกรอกที่ชั้น DTO แทน
-  phone                    String?   @db.VarChar(20)
-  educationLevel           EducationLevel? @map("education_level")
-  program                  String?   @db.VarChar(50) // เก็บ code จาก common/constants/programs.ts
+  phone          String?         @db.VarChar(20)
+  educationLevel EducationLevel? @map("education_level")
+  program        String?         @db.VarChar(50) // เก็บ code จาก common/constants/programs.ts
 
   email                    String    @unique @db.VarChar(255)
   password                 String    @db.VarChar(255)
@@ -115,6 +131,7 @@ model User {
   verificationOtp          String?   @map("verification_otp") @db.VarChar(10)
   verificationOtpExpiresAt DateTime? @map("verification_otp_expires_at")
 
+  events                    Event[]
   activities                Activity[]
   registrations             Registration[]
   evaluations               Evaluation[]
@@ -141,29 +158,78 @@ model AdminInvite {
   @@map("admin_invites")
 }
 
+model Event {
+  id                        Int             @id @default(autoincrement())
+  organizerId               Int             @map("organizer_id")
+  name                      String          @db.VarChar(255)
+  description               String
+  imageUrl                  String?         @map("image_url") @db.VarChar(500)
+  isPublic                  Boolean         @default(true) @map("is_public")
+  registrationCloseAt       DateTime?       @map("registration_close_at")
+  visibility                EventVisibility @default(everyone)
+  visibilityStudentIdFilter String?         @map("visibility_student_id_filter")
+  createdAt                 DateTime        @default(now()) @map("created_at")
+
+  organizer         User                     @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  activities        Activity[]
+  surveyQuestions   EventSurveyQuestion[]
+  visibilityProgram EventVisibilityProgram[]
+  visibilityYears   EventVisibilityYear[]
+
+  @@map("events")
+}
+
+model EventVisibilityProgram {
+  id          Int    @id @default(autoincrement())
+  eventId     Int    @map("event_id")
+  programCode String @map("program_code") @db.VarChar(50)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("event_visibility_programs")
+}
+
+model EventVisibilityYear {
+  id      Int @id @default(autoincrement())
+  eventId Int @map("event_id")
+  year    Int
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("event_visibility_years")
+}
+
 model Activity {
   id                 Int            @id @default(autoincrement())
   organizerId        Int            @map("organizer_id")
+  eventId            Int?           @map("event_id")
   name               String         @db.VarChar(255)
   description        String
   category           String         @db.VarChar(100)
   date               DateTime       @db.Date
   startTime          String         @map("start_time") @db.VarChar(10)
   endTime            String         @map("end_time") @db.VarChar(10)
+  startAt            DateTime?      @map("start_at")
+  endAt              DateTime?      @map("end_at")
   location           String         @db.VarChar(255)
-  capacity           Int
+  capacity           Int?
   status             ActivityStatus @default(open)
   approvalStatus     ApprovalStatus @default(pending_approval) @map("approval_status")
   rejectionReason    String?        @map("rejection_reason")
   cancellationReason String?        @map("cancellation_reason")
   imageUrl           String?        @map("image_url") @db.VarChar(500)
+  attachmentUrl      String?        @map("attachment_url") @db.VarChar(500)
+  volunteerHours     Decimal?       @map("volunteer_hours") @db.Decimal(5, 2)
+  volunteerRole      String?        @map("volunteer_role") @db.VarChar(255)
   createdAt          DateTime       @default(now()) @map("created_at")
 
   organizer     User                @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  event         Event?              @relation(fields: [eventId], references: [id], onDelete: SetNull)
   tags          ActivityTag[]
   conditions    ActivityCondition[]
   benefits      ActivityBenefit[]
   softSkills    ActivitySoftSkill[]
+  questions     ActivityQuestion[]
   registrations Registration[]
 
   @@map("activities")
@@ -203,6 +269,7 @@ model ActivitySoftSkill {
   id         Int           @id @default(autoincrement())
   activityId Int           @map("activity_id")
   skillType  SoftSkillType @map("skill_type")
+  rate       Int           @default(1)
 
   activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
@@ -218,12 +285,98 @@ model Registration {
   attendance   AttendanceStatus   @default(absent)
   checkInTime  DateTime?          @map("check_in_time")
 
-  activity    Activity     @relation(fields: [activityId], references: [id], onDelete: Cascade)
-  student     User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  certificate Certificate?
-  evaluation  Evaluation?
+  activity      Activity                   @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  student       User                       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  certificate   Certificate?
+  evaluation    Evaluation?
+  answers       RegistrationAnswer[]
+  surveyAnswers RegistrationSurveyAnswer[]
 
   @@map("registrations")
+}
+
+// ─── กิจกรรม: คำถามสมัครแบบกำหนดเอง ────────────────────────────────────────────
+
+model ActivityQuestion {
+  id         Int                  @id @default(autoincrement())
+  activityId Int                  @map("activity_id")
+  label      String
+  type       ActivityQuestionType
+  required   Boolean              @default(false)
+  sortOrder  Int                  @default(0) @map("sort_order")
+
+  activity Activity                 @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  options  ActivityQuestionOption[]
+  answers  RegistrationAnswer[]
+
+  @@map("activity_questions")
+}
+
+model ActivityQuestionOption {
+  id         Int    @id @default(autoincrement())
+  questionId Int    @map("question_id")
+  label      String
+  sortOrder  Int    @default(0) @map("sort_order")
+
+  question ActivityQuestion           @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  RegistrationAnswerOption[]
+
+  @@map("activity_question_options")
+}
+
+model RegistrationAnswer {
+  id             Int     @id @default(autoincrement())
+  registrationId Int     @map("registration_id")
+  questionId     Int     @map("question_id")
+  textValue      String? @map("text_value")
+
+  registration Registration               @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  question     ActivityQuestion           @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  options      RegistrationAnswerOption[]
+
+  @@unique([registrationId, questionId])
+  @@map("registration_answers")
+}
+
+model RegistrationAnswerOption {
+  id                   Int @id @default(autoincrement())
+  registrationAnswerId Int @map("registration_answer_id")
+  optionId             Int @map("option_id")
+
+  registrationAnswer RegistrationAnswer     @relation(fields: [registrationAnswerId], references: [id], onDelete: Cascade)
+  option             ActivityQuestionOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@map("registration_answer_options")
+}
+
+// ─── งาน: แบบสำรวจความพึงพอใจหลังกิจกรรม ────────────────────────────────────────
+
+model EventSurveyQuestion {
+  id        Int                @id @default(autoincrement())
+  eventId   Int                @map("event_id")
+  label     String
+  type      SurveyQuestionType
+  scaleMax  Int                @default(5) @map("scale_max")
+  sortOrder Int                @default(0) @map("sort_order")
+
+  event   Event                      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  answers RegistrationSurveyAnswer[]
+
+  @@map("event_survey_questions")
+}
+
+model RegistrationSurveyAnswer {
+  id             Int     @id @default(autoincrement())
+  registrationId Int     @map("registration_id")
+  questionId     Int     @map("question_id")
+  ratingValue    Int?    @map("rating_value")
+  textValue      String? @map("text_value")
+
+  registration Registration        @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  question     EventSurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([registrationId, questionId])
+  @@map("registration_survey_answers")
 }
 
 model Certificate {
@@ -232,6 +385,8 @@ model Certificate {
   issueDate        DateTime @default(now()) @map("issue_date")
   certificateUrl   String   @map("certificate_url") @db.VarChar(255)
   verificationCode String?  @unique @map("verification_code") @db.VarChar(20)
+  volunteerHours   Decimal? @map("volunteer_hours") @db.Decimal(5, 2)
+  volunteerRole    String?  @map("volunteer_role") @db.VarChar(255)
 
   registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
 

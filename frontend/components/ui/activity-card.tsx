@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Calendar, MapPin, Users } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { API_BASE_URL, type Activity } from "@/lib/api"
+import { API_BASE_URL, isUnlimitedCapacity, type Activity } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 const FALLBACK_IMAGE =
@@ -44,10 +44,11 @@ interface ActivityCardProps {
 
 export function ActivityCard({ activity, href, className }: ActivityCardProps) {
     const status = STATUS_META[activity.status] ?? STATUS_META.closed
+    const unlimited = isUnlimitedCapacity(activity.capacity)
     const capacity = activity.capacity || 0
     const registered = activity.registeredCount || 0
-    const ratio = capacity > 0 ? Math.min((registered / capacity) * 100, 100) : 0
-    const isFull = capacity > 0 && registered >= capacity
+    const ratio = !unlimited && capacity > 0 ? Math.min((registered / capacity) * 100, 100) : 0
+    const isFull = !unlimited && capacity > 0 && registered >= capacity
 
     return (
         <Link
@@ -103,12 +104,12 @@ export function ActivityCard({ activity, href, className }: ActivityCardProps) {
                         <Users className="size-4 shrink-0 text-fg-subtle" aria-hidden="true" />
                         <dt className="sr-only">จำนวนผู้สมัคร</dt>
                         <dd>
-                            {registered}/{capacity} ที่นั่ง
+                            {unlimited ? `${registered} ที่นั่ง (ไม่จำกัด)` : `${registered}/${capacity} ที่นั่ง`}
                         </dd>
                     </div>
                 </dl>
 
-                {capacity > 0 && (
+                {!unlimited && capacity > 0 && (
                     <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-surface-2">
                         <div
                             className={cn(

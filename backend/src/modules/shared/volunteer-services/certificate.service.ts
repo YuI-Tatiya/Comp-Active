@@ -30,6 +30,8 @@ export class CertificatesService {
     if (existing) throw new BadRequestException('ออกเกียรติบัตรให้รายการนี้แล้ว');
 
     const certificateUrl = `/certificates/${registrationId}-${Date.now()}.pdf`;
+    // สแนปช็อตชั่วโมง/บทบาทจิตอาสาไว้ที่ใบเกียรติบัตร ณ เวลาออก — กันไม่ให้ค่าบนใบเปลี่ยนไปถ้ากิจกรรมถูกแก้ไขภายหลัง
+    const { volunteerHours, volunteerRole } = registration.activity;
 
     let certificate;
     try {
@@ -37,6 +39,8 @@ export class CertificatesService {
         registrationId,
         certificateUrl,
         generateSecureToken(6).toUpperCase(),
+        volunteerHours,
+        volunteerRole,
       );
     } catch (error: any) {
       if (error?.code === 'P2002') {
@@ -45,6 +49,8 @@ export class CertificatesService {
           registrationId,
           certificateUrl,
           generateSecureToken(6).toUpperCase(),
+          volunteerHours,
+          volunteerRole,
         );
       } else {
         throw error;

@@ -8,13 +8,12 @@ import { Progress } from "@/components/ui/progress"
 import { StatTile } from "@/components/ui/stat-tile"
 import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
-import { activitiesAPI, Activity } from "@/lib/api"
+import { activitiesAPI, isUnlimitedCapacity, Activity } from "@/lib/api"
 import {
     Calendar,
     Users,
     Star,
     CheckCircle,
-    Plus,
     LayoutDashboard,
     MapPin,
     Loader2,
@@ -114,12 +113,6 @@ export default function OrganizerDashboard() {
                                 จัดการทั้งหมด
                             </Link>
                         </Button>
-                        <Button size="lg" className="rounded-xl" asChild>
-                            <Link href="/organizer/create">
-                                <Plus />
-                                สร้างกิจกรรมใหม่
-                            </Link>
-                        </Button>
                     </div>
                 </div>
 
@@ -162,9 +155,6 @@ export default function OrganizerDashboard() {
                             <p className="mb-8 text-sm text-fg-muted">
                                 คุณพร้อมที่จะสร้างกิจกรรมแรกแล้วหรือยัง?
                             </p>
-                            <Button className="rounded-xl px-8" asChild>
-                                <Link href="/organizer/create">สร้างกิจกรรมใหม่</Link>
-                            </Button>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -180,11 +170,12 @@ export default function OrganizerDashboard() {
                                 </thead>
                                 <tbody className="divide-y divide-border">
                                     {activities.map((activity) => {
+                                        const unlimited = isUnlimitedCapacity(activity.capacity)
                                         // กัน capacity = 0 ไม่ให้กลายเป็น NaN% หรือ Infinity%
                                         const capacity = activity.capacity || 0
                                         const registered = activity.registeredCount || 0
                                         const percent =
-                                            capacity > 0 ? Math.round((registered / capacity) * 100) : 0
+                                            !unlimited && capacity > 0 ? Math.round((registered / capacity) * 100) : 0
                                         const badge =
                                             APPROVAL_BADGE[activity.approvalStatus] ??
                                             APPROVAL_BADGE.pending_approval
@@ -215,11 +206,11 @@ export default function OrganizerDashboard() {
                                                     <div className="min-w-[100px]">
                                                         <div className="mb-1.5 flex items-center justify-between text-[11px] font-bold tabular-nums">
                                                             <span className="text-fg">
-                                                                {registered}/{capacity}
+                                                                {unlimited ? `${registered} (ไม่จำกัด)` : `${registered}/${capacity}`}
                                                             </span>
-                                                            <span className="text-brand-600">{percent}%</span>
+                                                            {!unlimited && <span className="text-brand-600">{percent}%</span>}
                                                         </div>
-                                                        <Progress value={percent} className="h-1.5" />
+                                                        {!unlimited && <Progress value={percent} className="h-1.5" />}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-5 text-sm">

@@ -37,26 +37,60 @@ export interface Benefit {
   benefitText: string;
 }
 
+export interface ActivityQuestionOption {
+  id: number;
+  label: string;
+}
+
+export interface ActivityQuestion {
+  id: number;
+  label: string;
+  type: "text" | "single_choice" | "multi_choice";
+  required: boolean;
+  options: ActivityQuestionOption[];
+}
+
 export interface Activity<T = unknown> {
   id: number;
+  eventId?: number | null;
   name: string;
   category: string;
   description: string;
   imageUrl?: string | null;
+  attachmentUrl?: string | null;
   date: string;
   startTime: string;
   endTime: string;
+  // ISO datetime — เพิ่มมาแทน date+startTime/endTime สำหรับกิจกรรมที่สร้างผ่าน event wizard
+  // กิจกรรมเก่า (สร้างก่อนมี event) จะเป็น null เพราะฟิลด์เดิมยังคงใช้งานได้ปกติ
+  startAt?: string | null;
+  endAt?: string | null;
   location: string;
   registeredCount: number;
-  capacity: number;
+  // null = ไม่จำกัดจำนวน
+  capacity: number | null;
+  // Prisma Decimal ส่งมาเป็น string เสมอ ไม่ใช่ number
+  volunteerHours?: string | null;
+  volunteerRole?: string | null;
   approvalStatus: string;
   status: string;
   tags: Tag[];
   conditions: Condition[];
   benefits: Benefit[];
-  softSkills?: { skillType: string }[];
+  softSkills?: { skillType: string; rate?: number }[];
+  questions?: ActivityQuestion[];
   organizer?: User;
   registrations?: T[];
+}
+
+/** true ถ้ากิจกรรมไม่จำกัดจำนวนผู้เข้าร่วม */
+export function isUnlimitedCapacity(capacity: number | null | undefined): boolean {
+  return capacity == null;
+}
+
+/** ข้อความแสดงจำนวนที่รับ — ใช้ที่เดียวกันทุกหน้าแทนการเขียน `capacity || 0` กระจัดกระจาย */
+export function capacityLabel(capacity: number | null | undefined): string {
+  return isUnlimitedCapacity(capacity) ? 'ไม่จำกัดจำนวน' : `${capacity} คน`;
 }
 
 export interface PlatformStats {
@@ -196,36 +230,155 @@ export const activitiesAPI = {
   },
 };
 
+// ==================== EVENTS ====================
+// "Event" (งาน) มี Activity ย่อยได้หลายรายการ — สร้างผ่าน wizard ใหม่ที่ /organizer/create
+// กิจกรรมเดี่ยวแบบเดิม (ไม่มี event) ยังใช้ activitiesAPI.create() ได้ตามปกติ ไม่กระทบกัน
+
+export interface SoftSkillRateBody {
+  skillType: string;
+  rate: number;
+}
+
+export interface QuestionBody {
+  label: string;
+  type: "text" | "single_choice" | "multi_choice";
+  required?: boolean;
+  // ใช้เมื่อ type เป็น single_choice หรือ multi_choice เท่านั้น
+  options?: string[];
+}
+
+export interface SurveyQuestionBody {
+  label: string;
+  type: "rating" | "text";
+  // ใช้เมื่อ type เป็น rating เท่านั้น — ค่าเริ่มต้น 5
+  scaleMax?: number;
+}
+
+export interface CreateEventActivityBody {
+  name: string;
+  description: string;
+  category: string;
+  imageUrl?: string;
+  attachmentUrl?: string;
+  // ISO datetime string (เช่นจาก <input type="datetime-local"> + new Date(...).toISOString())
+  startAt: string;
+  endAt: string;
+  location: string;
+  // ไม่ระบุ = ไม่จำกัดจำนวน
+  capacity?: number;
+  issueVolunteerCertificate?: boolean;
+  volunteerRole?: string;
+  softSkillRates?: SoftSkillRateBody[];
+  questions?: QuestionBody[];
+}
+
+export interface CreateEventBody {
+  name: string;
+  description: string;
+  imageUrl?: string;
+  isPublic?: boolean;
+  registrationCloseAt?: string;
+  activities: CreateEventActivityBody[];
+  surveyQuestions?: SurveyQuestionBody[];
+  // restricted = เห็นเฉพาะนักศึกษาที่ตรงเงื่อนไขด้านล่าง — ค่าเริ่มต้น everyone
+  visibility?: "everyone" | "restricted";
+  // ใช้เมื่อ visibility เป็น restricted เท่านั้น — ว่าง = ทุกสาขา/ทุกชั้นปี
+  visibilityPrograms?: string[];
+  visibilityYears?: number[];
+  visibilityStudentIdFilter?: string;
+}
+
+export interface EventSurveyQuestion {
+  id: number;
+  label: string;
+  type: "rating" | "text";
+  scaleMax: number;
+}
+
+export interface SurveyResult {
+  questionId: number;
+  label: string;
+  type: "rating" | "text";
+  responseCount: number;
+  // เฉพาะ type "rating"
+  scaleMax?: number;
+  average?: number;
+  // เฉพาะ type "text"
+  responses?: string[];
+}
+
+export interface EventSummary {
+  id: number;
+  organizerId: number;
+  name: string;
+  description: string;
+  imageUrl?: string | null;
+  isPublic: boolean;
+  registrationCloseAt?: string | null;
+  visibility: string;
+  createdAt: string;
+  activities: Activity[];
+  surveyQuestions?: EventSurveyQuestion[];
+}
+
+export const eventsAPI = {
+  create: (body: CreateEventBody) =>
+    fetchAPI<EventSummary>('/api/events', { method: 'POST', body: JSON.stringify(body) }),
+  getMy: () => fetchAPI<EventSummary[]>('/api/events/my'),
+  getById: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}`),
+  getSurveyResults: (id: number) => fetchAPI<SurveyResult[]>(`/api/events/${id}/survey-results`),
+  uploadAttachment: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const res = await fetch(`${API_BASE_URL}/api/events/upload-attachment`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Upload failed');
+    return data.data ?? data as { message: string; attachmentUrl: string };
+  },
+};
+
 // ==================== REGISTRATIONS ====================
 
+export interface RegistrationAnswerBody {
+  questionId: number;
+  textValue?: string;
+  optionIds?: number[];
+}
+
+export interface SurveyAnswerBody {
+  questionId: number;
+  ratingValue?: number;
+  textValue?: string;
+}
+
 export const registrationsAPI = {
-  create: (activityId: number) =>
-    fetchAPI('/api/registrations', { method: 'POST', body: JSON.stringify({ activityId }) }),
+  create: (activityId: number, answers?: RegistrationAnswerBody[]) =>
+    fetchAPI('/api/registrations', { method: 'POST', body: JSON.stringify({ activityId, answers }) }),
   cancel: (id: number) => fetchAPI(`/api/registrations/${id}`, { method: 'DELETE' }),
   getMy: () => fetchAPI('/api/registrations/my'),
   getByActivity: (activityId: number) => fetchAPI(`/api/registrations/activity/${activityId}`),
   confirm: (id: number) => fetchAPI(`/api/registrations/${id}/confirm`, { method: 'PATCH' }),
   checkIn: (id: number) => fetchAPI(`/api/registrations/${id}/check-in`, { method: 'PATCH' }),
+  getSurveyQuestions: (id: number) => fetchAPI<EventSurveyQuestion[]>(`/api/registrations/${id}/survey-questions`),
+  submitSurvey: (id: number, answers: SurveyAnswerBody[]) =>
+    fetchAPI<{ message: string }>(`/api/registrations/${id}/survey`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    }),
 };
 
 // ==================== EVALUATIONS ====================
-
-export interface EvaluationBody {
-  registrationId: number;
-  communication: number;
-  timeManagement: number;
-  flexibilityAdaptability: number;
-  teamworkCollaboration: number;
-  analyticCriticalThinking: number;
-  decisionMaking: number;
-  creativity: number;
-  complexProblemSolving: number;
-  curiosityLifelongLearning: number;
-  negotiationPersuasion: number;
-  leadership: number;
-  positiveAttitude: number;
-  comment?: string;
-}
+// คะแนน Soft Skills มาจากระบบอัตโนมัติตอนเช็คอินเท่านั้น (จาก ActivitySoftSkill.rate ของกิจกรรม)
+// ไม่มี endpoint สร้างคะแนนแบบ manual ฝั่ง organizer แล้ว — สเกล 0-10 ต่อทักษะ
 
 export interface SkillScores {
   communication: number;
@@ -257,7 +410,6 @@ export interface SkillsData {
 }
 
 export const evaluationsAPI = {
-  create: (body: EvaluationBody) => fetchAPI('/api/evaluations', { method: 'POST', body: JSON.stringify(body) }),
   getMySkills: () => fetchAPI<SkillsData>('/api/evaluations/my-skills'),
   getByActivity: (activityId: number) => fetchAPI(`/api/evaluations/activity/${activityId}`),
 };

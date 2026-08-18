@@ -9,7 +9,16 @@ export const activityInclude = {
   conditions: true,
   benefits: true,
   softSkills: true,
+  questions: { include: { options: true } },
   organizer: { select: { id: true, name: true, email: true } },
+  event: {
+    select: {
+      visibility: true,
+      visibilityStudentIdFilter: true,
+      visibilityProgram: { select: { programCode: true } },
+      visibilityYears: { select: { year: true } },
+    },
+  },
 } as const;
 
 interface RelationUpdate {
@@ -173,9 +182,12 @@ export class ActivitiesRepository {
     organizer: { select: { name: true } },
   } as const;
 
+  // ไม่มี student identity ในเส้นทางนี้ (auth ด้วย API key) — งาน restricted จึงต้องไม่โผล่เด็ดขาด
+  private static readonly EXCLUDE_RESTRICTED = { NOT: { event: { visibility: 'restricted' as any } } };
+
   findAllForNewsfeed() {
     return this.prisma.activity.findMany({
-      where: { approvalStatus: ApprovalStatus.APPROVED as any },
+      where: { approvalStatus: ApprovalStatus.APPROVED as any, ...ActivitiesRepository.EXCLUDE_RESTRICTED },
       select: ActivitiesRepository.NEWSFEED_SELECT,
       orderBy: { date: 'asc' },
     });
@@ -183,7 +195,11 @@ export class ActivitiesRepository {
 
   findByIdForNewsfeed(id: number) {
     return this.prisma.activity.findFirst({
-      where: { id, approvalStatus: ApprovalStatus.APPROVED as any },
+      where: {
+        id,
+        approvalStatus: ApprovalStatus.APPROVED as any,
+        ...ActivitiesRepository.EXCLUDE_RESTRICTED,
+      },
       select: ActivitiesRepository.NEWSFEED_SELECT,
     });
   }

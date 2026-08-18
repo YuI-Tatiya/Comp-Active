@@ -36,6 +36,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         username: true,
         validUntil: true,
         isBlocked: true,
+        program: true,
+        educationLevel: true,
       },
     });
 

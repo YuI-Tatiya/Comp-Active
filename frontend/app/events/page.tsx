@@ -9,7 +9,7 @@ import {
     EventCardRow,
     formatEventDate,
 } from "@/components/ui/event-card"
-import { activitiesAPI, Activity } from "@/lib/api"
+import { activitiesAPI, capacityLabel, Activity } from "@/lib/api"
 import { CATEGORIES } from "@/lib/categories"
 import { Calendar, MapPin, Users, Loader2, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -147,7 +147,7 @@ export default function EventsPage() {
                                     <span className="truncate">{ev.location}</span>
                                 </EventCardRow>
                                 <EventCardRow icon={Users} tone="success">
-                                    {ev.registeredCount || 0} / {ev.capacity} ผู้เข้าร่วม
+                                    {ev.registeredCount || 0} ผู้เข้าร่วม ({capacityLabel(ev.capacity)})
                                 </EventCardRow>
                             </EventCard>
                         ))}

@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Gift, CheckSquare } from "lucide-react"
 import Link from "next/link"
-import { activitiesAPI, registrationsAPI, Activity, Tag as TagType, Condition, Benefit, API_BASE_URL } from "@/lib/api"
+import { activitiesAPI, registrationsAPI, isUnlimitedCapacity, Activity, Tag as TagType, Condition, Benefit, API_BASE_URL, RegistrationAnswerBody } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { softSkillLabel } from "@/lib/soft-skills"
 
@@ -30,6 +30,7 @@ export default function EventDetailsPage() {
     const [registerForm, setRegisterForm] = useState({ name: '', studentId: '', email: '' })
     const [formError, setFormError] = useState("")
     const [submitting, setSubmitting] = useState(false)
+    const [answers, setAnswers] = useState<Record<number, { textValue?: string; optionIds?: number[] }>>({})
 
     useEffect(() => {
         if (params.id) {
@@ -45,6 +46,7 @@ export default function EventDetailsPage() {
             email: user?.email || '',
         })
         setFormError("")
+        setAnswers({})
         setIsRegisterOpen(true)
     }, [user])
 
@@ -94,11 +96,27 @@ export default function EventDetailsPage() {
             return
         }
 
+        // --- ตรวจคำถามบังคับตอบ ---
+        for (const q of event?.questions ?? []) {
+            if (!q.required) continue
+            const a = answers[q.id]
+            const answered = q.type === 'text' ? !!a?.textValue?.trim() : (a?.optionIds?.length ?? 0) > 0
+            if (!answered) {
+                setFormError(`กรุณาตอบคำถาม: ${q.label}`)
+                return
+            }
+        }
+
         // --- Submit ---
         try {
             setSubmitting(true)
             if (!event) return;
-            await registrationsAPI.create(event.id)
+            const answerPayload: RegistrationAnswerBody[] = Object.entries(answers).map(([questionId, a]) => ({
+                questionId: Number(questionId),
+                textValue: a.textValue,
+                optionIds: a.optionIds,
+            }))
+            await registrationsAPI.create(event.id, answerPayload)
             setIsRegisterOpen(false)
             alert("ลงทะเบียนสำเร็จ!")
             fetchEventDetails(event.id) // Refresh data
@@ -299,10 +317,16 @@ export default function EventDetailsPage() {
                                             <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
                                                 <Users className="w-4 h-4" /> ผู้เข้าร่วม
                                             </div>
-                                            <span className="text-sm text-gray-500">{event.registrations?.length || 0}/{event.capacity} คน</span>
+                                            <span className="text-sm text-gray-500">
+                                                {event.registrations?.length || 0}{isUnlimitedCapacity(event.capacity) ? " คน (ไม่จำกัด)" : `/${event.capacity} คน`}
+                                            </span>
                                         </div>
-                                        <Progress value={event.registrations?.length || 0} max={event.capacity} className="h-2" />
-                                        <p className="text-xs text-gray-400 mt-2 text-right">เหลืออีก {event.capacity - (event.registrations?.length || 0)} ที่นั่ง</p>
+                                        {!isUnlimitedCapacity(event.capacity) && (
+                                            <>
+                                                <Progress value={event.registrations?.length || 0} max={event.capacity} className="h-2" />
+                                                <p className="text-xs text-gray-400 mt-2 text-right">เหลืออีก {event.capacity! - (event.registrations?.length || 0)} ที่นั่ง</p>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
 
@@ -366,6 +390,65 @@ export default function EventDetailsPage() {
                                 required
                             />
                         </div>
+
+                        {event.questions && event.questions.length > 0 && (
+                            <div className="space-y-4 border-t border-gray-100 pt-4">
+                                <p className="text-sm font-medium text-gray-700">คำถามเพิ่มเติม</p>
+                                {event.questions.map((q) => (
+                                    <div key={q.id} className="space-y-2">
+                                        <Label>{q.label} {q.required && <span className="text-red-500">*</span>}</Label>
+                                        {q.type === 'text' && (
+                                            <Input
+                                                value={answers[q.id]?.textValue || ''}
+                                                onChange={(e) =>
+                                                    setAnswers((prev) => ({ ...prev, [q.id]: { textValue: e.target.value } }))
+                                                }
+                                            />
+                                        )}
+                                        {q.type === 'single_choice' && (
+                                            <div className="space-y-1.5">
+                                                {q.options.map((opt) => (
+                                                    <label key={opt.id} className="flex items-center gap-2 text-sm text-gray-700">
+                                                        <input
+                                                            type="radio"
+                                                            name={`question-${q.id}`}
+                                                            checked={(answers[q.id]?.optionIds ?? [])[0] === opt.id}
+                                                            onChange={() =>
+                                                                setAnswers((prev) => ({ ...prev, [q.id]: { optionIds: [opt.id] } }))
+                                                            }
+                                                        />
+                                                        {opt.label}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {q.type === 'multi_choice' && (
+                                            <div className="space-y-1.5">
+                                                {q.options.map((opt) => {
+                                                    const selected = answers[q.id]?.optionIds ?? []
+                                                    const checked = selected.includes(opt.id)
+                                                    return (
+                                                        <label key={opt.id} className="flex items-center gap-2 text-sm text-gray-700">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={checked}
+                                                                onChange={(e) => {
+                                                                    const next = e.target.checked
+                                                                        ? [...selected, opt.id]
+                                                                        : selected.filter((id) => id !== opt.id)
+                                                                    setAnswers((prev) => ({ ...prev, [q.id]: { optionIds: next } }))
+                                                                }}
+                                                            />
+                                                            {opt.label}
+                                                        </label>
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
 
                         <p className="text-xs text-gray-400 bg-gray-50 px-3 py-2 rounded-lg">* ข้อมูลจะถูกตรวจสอบกับบัญชีผู้ใช้ที่ลงทะเบียนไว้ หากไม่ตรงกันจะไม่สามารถลงทะเบียนได้</p>
 

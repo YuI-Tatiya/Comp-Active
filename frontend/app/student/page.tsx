@@ -29,7 +29,7 @@ interface MyRegistration {
   activity: UpcomingActivity
 }
 
-const XP_PER_LEVEL = 500
+const XP_PER_LEVEL = 5000
 
 export default function StudentDashboardPage() {
   const { user } = useAuth()

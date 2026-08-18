@@ -86,7 +86,8 @@ export function EventCardRow({ icon: Icon, tone = "muted", children }: EventCard
 
 interface EventCardProgressProps {
     registered: number
-    capacity: number
+    // null = ไม่จำกัดจำนวน
+    capacity: number | null
     label?: string
 }
 
@@ -95,14 +96,15 @@ export function EventCardProgress({
     capacity,
     label = "ผู้ลงทะเบียน",
 }: EventCardProgressProps) {
-    const percent = capacity > 0 ? Math.round((registered / capacity) * 100) : 0
+    const unlimited = capacity == null
+    const percent = !unlimited && capacity > 0 ? Math.round((registered / capacity) * 100) : 0
 
     return (
         <div className="pt-2">
             <div className="mb-2 flex items-center justify-between text-sm">
                 <span className="text-fg-muted">{label}</span>
                 <span className="font-semibold tabular-nums text-fg">
-                    {registered}/{capacity} ({percent}%)
+                    {unlimited ? `${registered} (ไม่จำกัด)` : `${registered}/${capacity} (${percent}%)`}
                 </span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-surface-2">

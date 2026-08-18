@@ -10,9 +10,20 @@ const TabsContext = React.createContext<{
 
 const Tabs = React.forwardRef<
     HTMLDivElement,
-    React.HTMLAttributes<HTMLDivElement> & { defaultValue?: string }
->(({ className, defaultValue, children, ...props }, ref) => {
-    const [activeTab, setActiveTab] = React.useState(defaultValue)
+    React.HTMLAttributes<HTMLDivElement> & {
+        defaultValue?: string
+        // ควบคุมจากภายนอกได้ (เช่นสลับไปแท็บที่เพิ่งเพิ่ม) — ถ้าไม่ส่ง value มา จะใช้ state ภายในตามเดิม
+        value?: string
+        onValueChange?: (value: string) => void
+    }
+>(({ className, defaultValue, value, onValueChange, children, ...props }, ref) => {
+    const [internalTab, setInternalTab] = React.useState(defaultValue)
+    const isControlled = value !== undefined
+    const activeTab = isControlled ? value : internalTab
+    const setActiveTab = (v: string) => {
+        if (!isControlled) setInternalTab(v)
+        onValueChange?.(v)
+    }
 
     return (
         <TabsContext.Provider value={{ activeTab, setActiveTab }}>

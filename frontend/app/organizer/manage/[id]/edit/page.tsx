@@ -311,12 +311,13 @@ export default function EditActivityPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>จำนวนที่รับ (คน) <span className="text-red-500">*</span></Label>
+                                        <Label>จำนวนที่รับ (คน)</Label>
                                         <Input
                                             type="number"
+                                            min={1}
                                             value={formData.capacity}
                                             onChange={(e) => updateField('capacity', e.target.value)}
-                                            placeholder="เช่น 40"
+                                            placeholder="เว้นว่าง = ไม่จำกัดจำนวน"
                                         />
                                     </div>
                                 </div>
@@ -434,7 +435,7 @@ export default function EditActivityPage() {
                                             </div>
                                             <div>
                                                 <Label className="text-gray-500 text-xs">จำนวนที่รับ</Label>
-                                                <div className="font-medium">{formData.capacity || "-"} คน</div>
+                                                <div className="font-medium">{formData.capacity.trim() === "" ? "ไม่จำกัดจำนวน" : `${formData.capacity} คน`}</div>
                                             </div>
 
                                             {/* Additional fields that were missing */}
@@ -523,7 +524,8 @@ export default function EditActivityPage() {
                                             startTime: formData.startTime,
                                             endTime: formData.endTime,
                                             location: formData.location,
-                                            capacity: parseInt(formData.capacity) || 0,
+                                            // ช่องว่าง = ไม่จำกัดจำนวน ต้องส่ง null ตรงๆ ห้ามปัดเป็น 0 (0 = ปิดรับสมัครทันที)
+                                            capacity: formData.capacity.trim() === "" ? null : parseInt(formData.capacity),
                                             tags: formData.tags,
                                             conditions: formData.conditions,
                                             benefits: formData.benefits,
