@@ -264,7 +264,7 @@ export default function StudentProfilePage() {
                                                 dataKey="subject"
                                                 tick={{ fill: "var(--color-fg-muted)", fontSize: 12, fontWeight: 600 }}
                                             />
-                                            <PolarRadiusAxis angle={30} domain={[0, 1]} tick={false} axisLine={false} />
+                                            <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
                                             <Radar
                                                 name="Student Skills"
                                                 dataKey="A"

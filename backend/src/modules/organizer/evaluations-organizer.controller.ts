@@ -1,7 +1,7 @@
-import { Controller, Get, Post, Body, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Patch, Body, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { EvaluationsService } from '../shared/registrations/evaluation.service';
-import { CreateEvaluationDto } from '../shared/registrations/dto/create-evaluation.dto';
+import { UpdateEvaluationDto } from '../shared/registrations/dto/update-evaluation.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -17,12 +17,17 @@ export class EvaluationsOrganizerController {
   constructor(private readonly evaluationsService: EvaluationsService) {}
 
   /**
-   * POST /api/evaluations - สร้างหรืออัปเดตการประเมิน (Organizer)
+   * PATCH /api/evaluations/:registrationId - แก้ไขคะแนนที่ระบบให้อัตโนมัติตอนเช็คอิน (Organizer / Admin)
    */
-  @Post()
-  @ApiOperation({ summary: 'ประเมินผลทักษะให้นักศึกษา (Organizer / Admin)' })
-  async create(@CurrentUser('id') userId: number, @Body() createDto: CreateEvaluationDto) {
-    return this.evaluationsService.create(userId, createDto);
+  @Patch(':registrationId')
+  @ApiOperation({ summary: 'แก้ไขคะแนน Soft Skills ที่ระบบให้อัตโนมัติ (Organizer / Admin)' })
+  async override(
+    @CurrentUser('id') userId: number,
+    @CurrentUser('role') userRole: UserRole,
+    @Param('registrationId', ParseIntPipe) registrationId: number,
+    @Body() dto: UpdateEvaluationDto,
+  ) {
+    return this.evaluationsService.override(userId, userRole, registrationId, dto);
   }
 
   /**

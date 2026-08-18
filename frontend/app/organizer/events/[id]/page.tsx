@@ -14,8 +14,8 @@ import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
 import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Edit, CheckSquare, Download, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { activitiesAPI, evaluationsAPI, registrationsAPI, Activity, API_BASE_URL, SkillScores } from "@/lib/api"
-import { SOFT_SKILLS, softSkillLabel } from "@/lib/soft-skills"
+import { activitiesAPI, registrationsAPI, isUnlimitedCapacity, Activity, API_BASE_URL, SkillScores } from "@/lib/api"
+import { softSkillLabel } from "@/lib/soft-skills"
 
 interface Participant {
     id: number;
@@ -41,23 +41,6 @@ export default function OrganizerEventDetailsPage() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
 
-    // Evaluation state
-    const [selectedReg, setSelectedReg] = useState<Participant | null>(null)
-    const [isEvalOpen, setIsEvalOpen] = useState(false)
-    const [evalScores, setEvalScores] = useState<SkillScores>({
-        communication: 0,
-        timeManagement: 0,
-        flexibilityAdaptability: 0,
-        teamworkCollaboration: 0,
-        analyticCriticalThinking: 0,
-        decisionMaking: 0,
-        creativity: 0,
-        complexProblemSolving: 0,
-        curiosityLifelongLearning: 0,
-        negotiationPersuasion: 0,
-        leadership: 0,
-        positiveAttitude: 0,
-    })
     const [submitting, setSubmitting] = useState(false)
 
     // Cancellation state
@@ -145,61 +128,6 @@ export default function OrganizerEventDetailsPage() {
         }
     }
 
-    const handleOpenEval = (reg: Participant) => {
-        setSelectedReg(reg)
-        if (reg.evaluation) {
-            setEvalScores({
-                communication: reg.evaluation.communication || 0,
-                timeManagement: reg.evaluation.timeManagement || 0,
-                flexibilityAdaptability: reg.evaluation.flexibilityAdaptability || 0,
-                teamworkCollaboration: reg.evaluation.teamworkCollaboration || 0,
-                analyticCriticalThinking: reg.evaluation.analyticCriticalThinking || 0,
-                decisionMaking: reg.evaluation.decisionMaking || 0,
-                creativity: reg.evaluation.creativity || 0,
-                complexProblemSolving: reg.evaluation.complexProblemSolving || 0,
-                curiosityLifelongLearning: reg.evaluation.curiosityLifelongLearning || 0,
-                negotiationPersuasion: reg.evaluation.negotiationPersuasion || 0,
-                leadership: reg.evaluation.leadership || 0,
-                positiveAttitude: reg.evaluation.positiveAttitude || 0,
-            })
-        } else {
-            setEvalScores({
-                communication: 0,
-                timeManagement: 0,
-                flexibilityAdaptability: 0,
-                teamworkCollaboration: 0,
-                analyticCriticalThinking: 0,
-                decisionMaking: 0,
-                creativity: 0,
-                complexProblemSolving: 0,
-                curiosityLifelongLearning: 0,
-                negotiationPersuasion: 0,
-                leadership: 0,
-                positiveAttitude: 0,
-            })
-        }
-        setIsEvalOpen(true)
-    }
-
-    const handleSubmitEval = async () => {
-        if (!selectedReg) return
-        try {
-            setSubmitting(true)
-            await evaluationsAPI.create({
-                registrationId: selectedReg.id,
-                ...evalScores
-            })
-            alert("ประเมินผลสำเร็จ!") // Simple alert as fallback
-            setIsEvalOpen(false)
-            fetchEventDetails(id) // Refresh data to show "Edit" button
-        } catch (err: unknown) {
-            const e = err as Error;
-            alert(e.message || "ประเมินผลไม่สำเร็จ")
-        } finally {
-            setSubmitting(false)
-        }
-    }
-
     const handleConfirm = async (regId: number) => {
         try {
             await registrationsAPI.confirm(regId)
@@ -247,10 +175,11 @@ export default function OrganizerEventDetailsPage() {
         )
     }
 
+    const unlimited = isUnlimitedCapacity(event.capacity)
     // กัน capacity = 0 ไม่ให้กลายเป็น NaN% หรือ Infinity%
     const capacity = event.capacity || 0
     const registered = event.registrations?.length || 0
-    const fillPercent = capacity > 0 ? Math.round((registered / capacity) * 100) : 0
+    const fillPercent = !unlimited && capacity > 0 ? Math.round((registered / capacity) * 100) : 0
     const seatsLeft = Math.max(capacity - registered, 0)
 
     return (
@@ -383,15 +312,16 @@ export default function OrganizerEventDetailsPage() {
                                                                         </Button>
                                                                     )}
 
-                                                                    <Button
-                                                                        size="sm"
-                                                                        variant={reg.evaluation ? "outline" : "default"}
-                                                                        disabled={reg.attendance !== 'attended'}
-                                                                        onClick={() => handleOpenEval(reg)}
-                                                                        title={reg.attendance !== 'attended' ? "ต้องเช็คอินก่อนจึงจะประเมินได้" : ""}
-                                                                    >
-                                                                        {reg.evaluation ? "แก้ไขการประเมิน" : "ประเมิน"}
-                                                                    </Button>
+                                                                    {reg.attendance === 'attended' && (
+                                                                        reg.evaluation ? (
+                                                                            <Badge variant="success" className="gap-1">
+                                                                                <CheckSquare className="size-3" aria-hidden="true" />
+                                                                                ประเมินอัตโนมัติแล้ว
+                                                                            </Badge>
+                                                                        ) : (
+                                                                            <Badge variant="neutral">ยังไม่มีคะแนน</Badge>
+                                                                        )
+                                                                    )}
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -534,10 +464,16 @@ export default function OrganizerEventDetailsPage() {
                                             <div className="flex items-center gap-2 text-sm font-medium text-fg">
                                                 <Users className="w-4 h-4" aria-hidden="true" /> ผู้เข้าร่วม
                                             </div>
-                                            <span className="text-sm text-fg-muted tabular-nums">{registered}/{capacity} คน</span>
+                                            <span className="text-sm text-fg-muted tabular-nums">
+                                                {unlimited ? `${registered} คน (ไม่จำกัด)` : `${registered}/${capacity} คน`}
+                                            </span>
                                         </div>
-                                        <Progress value={fillPercent} className="h-2" />
-                                        <p className="text-xs text-fg-subtle mt-2 text-right">เหลืออีก {seatsLeft} ที่นั่ง</p>
+                                        {!unlimited && (
+                                            <>
+                                                <Progress value={fillPercent} className="h-2" />
+                                                <p className="text-xs text-fg-subtle mt-2 text-right">เหลืออีก {seatsLeft} ที่นั่ง</p>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
 
@@ -552,66 +488,6 @@ export default function OrganizerEventDetailsPage() {
                     </div>
                 </div>
             </Container>
-
-            {/* Evaluation Dialog */}
-            <Dialog open={isEvalOpen} onOpenChange={setIsEvalOpen}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <CheckSquare className="w-5 h-5 text-brand-600" aria-hidden="true" /> ประเมิน Soft Skills
-                        </DialogTitle>
-                    </DialogHeader>
-                    {selectedReg && (
-                        <div className="space-y-6 py-4">
-                            <div className="bg-brand-50 p-4 rounded-xl flex items-center gap-4">
-                                <div className="w-12 h-12 bg-brand-600 text-white rounded-full flex items-center justify-center font-bold text-xl shrink-0">
-                                    {selectedReg.student.name?.[0] || '?'}
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="font-bold text-brand-900 truncate">{selectedReg.student.name}</div>
-                                    <div className="text-sm text-brand-700">{selectedReg.student.studentId}</div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <p className="text-sm text-fg-muted mb-2">กรุณาติ๊กเลือกทักษะที่นักศึกษาแสดงออก:</p>
-                                {SOFT_SKILLS
-                                    .filter(skill => {
-                                        // Only show soft skills provided by this activity
-                                        if (event?.softSkills && event.softSkills.length > 0) {
-                                            return event.softSkills.some(s => s.skillType === skill.value);
-                                        }
-                                        return true; // fallback if no soft skills defined
-                                    })
-                                    .map((skill) => (
-                                        <div key={skill.value} className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-surface transition-colors">
-                                            <input
-                                                type="checkbox"
-                                                id={`skill-${skill.value}`}
-                                                checked={evalScores[skill.field] === 1}
-                                                onChange={(e) => setEvalScores({ ...evalScores, [skill.field]: e.target.checked ? 1 : 0 })}
-                                                className="w-5 h-5 accent-brand-600 rounded cursor-pointer"
-                                            />
-                                            <Label htmlFor={`skill-${skill.value}`} className="font-medium cursor-pointer flex-1">
-                                                {skill.label.replace(/^ทักษะ/, '')} ({skill.labelEn})
-                                            </Label>
-                                        </div>
-                                    ))}
-                            </div>
-
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setIsEvalOpen(false)} disabled={submitting}>ยกเลิก</Button>
-                                <Button
-                                    onClick={handleSubmitEval}
-                                    disabled={submitting}
-                                >
-                                    {submitting ? "กำลังประเมิน..." : "บันทึกการประเมิน"}
-                                </Button>
-                            </DialogFooter>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
 
             {/* Cancellation Dialog */}
             <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>

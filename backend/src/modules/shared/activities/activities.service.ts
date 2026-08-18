@@ -10,6 +10,7 @@ import { UpdateActivityDto } from './dto/update-activity.dto';
 import { ActivityFilterDto } from './dto/activity-filter.dto';
 import { ApprovalStatus } from '../../../common/enums/status.enum';
 import { UserRole } from '../../../common/enums/role.enum';
+import { isViewerEligibleForEvent, filterVisibleActivities, type Viewer } from '../events/event-visibility.util';
 
 @Injectable()
 export class ActivitiesService {
@@ -33,19 +34,21 @@ export class ActivitiesService {
     return activity;
   }
 
-  async findAllApproved(filterDto?: ActivityFilterDto) {
+  async findAllApproved(filterDto?: ActivityFilterDto, viewer?: Viewer | null) {
     const activities = await this.activitiesRepository.findAllApproved(filterDto);
+    const visible = filterVisibleActivities(activities as any, viewer ?? null);
 
-    return activities.map(({ _count, ...a }: any) => ({
+    return visible.map(({ _count, ...a }: any) => ({
       ...a,
       registeredCount: _count.registrations,
     }));
   }
 
-  async findById(id: number) {
+  async findById(id: number, viewer?: Viewer | null) {
     const activity = await this.activitiesRepository.findById(id);
 
-    if (!activity) {
+    // ให้ error เดียวกับ "ไม่พบ" เสมอ ไม่ว่าจะไม่มีจริงๆ หรือมีแต่ไม่มีสิทธิ์เห็น — กันการเดาว่ากิจกรรม restricted มีอยู่จริง
+    if (!activity || !isViewerEligibleForEvent(viewer, (activity as any).event)) {
       throw new NotFoundException(`ไม่พบกิจกรรม ID: ${id}`);
     }
 

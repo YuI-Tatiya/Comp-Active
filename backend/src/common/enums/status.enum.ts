@@ -32,3 +32,22 @@ export const InviteStatus = {
   REVOKED: 'revoked',
 } as const;
 export type InviteStatus = (typeof InviteStatus)[keyof typeof InviteStatus];
+
+export const EventVisibility = {
+  EVERYONE: 'everyone',
+  RESTRICTED: 'restricted',
+} as const;
+export type EventVisibility = (typeof EventVisibility)[keyof typeof EventVisibility];
+
+export const ActivityQuestionType = {
+  TEXT: 'text',
+  SINGLE_CHOICE: 'single_choice',
+  MULTI_CHOICE: 'multi_choice',
+} as const;
+export type ActivityQuestionType = (typeof ActivityQuestionType)[keyof typeof ActivityQuestionType];
+
+export const SurveyQuestionType = {
+  RATING: 'rating',
+  TEXT: 'text',
+} as const;
+export type SurveyQuestionType = (typeof SurveyQuestionType)[keyof typeof SurveyQuestionType];
