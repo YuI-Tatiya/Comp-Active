@@ -62,8 +62,8 @@ export class EventsService {
         location: a.location,
         capacity: a.capacity,
         // คำนวณชั่วโมงฝั่งเซิร์ฟเวอร์เท่านั้น — ไม่เชื่อค่าจาก client
-        volunteerHours: a.issueVolunteerCertificate ? diffHours(startAt, endAt) : undefined,
-        volunteerRole: a.issueVolunteerCertificate ? a.volunteerRole : undefined,
+        volunteerHours: a.issueVolunteerCertificate ? diffHours(startAt, endAt) : null,
+        volunteerRole: a.issueVolunteerCertificate ? a.volunteerRole : null,
         softSkillRates: (a.softSkillRates ?? []).map((s) => ({ skillType: s.skillType, rate: s.rate })),
         questions,
       };
@@ -98,7 +98,7 @@ export class EventsService {
     });
 
     this.logger.log(`Event created: "${event.name}" (ID: ${event.id}) with ${activities.length} activities`);
-    return event;
+    return this.mapRegisteredCount(event);
   }
 
   async update(organizerId: number, callerRole: UserRole, eventId: number, dto: UpdateEventDto) {
@@ -160,8 +160,8 @@ export class EventsService {
         endTime: formatHHmm(endAt),
         location: a.location,
         capacity: a.capacity,
-        volunteerHours: a.issueVolunteerCertificate ? diffHours(startAt, endAt) : undefined,
-        volunteerRole: a.issueVolunteerCertificate ? a.volunteerRole : undefined,
+        volunteerHours: a.issueVolunteerCertificate ? diffHours(startAt, endAt) : null,
+        volunteerRole: a.issueVolunteerCertificate ? a.volunteerRole : null,
         softSkillRates: (a.softSkillRates ?? []).map((s) => ({ skillType: s.skillType, rate: s.rate })),
         questions,
       };
@@ -196,26 +196,39 @@ export class EventsService {
     );
 
     this.logger.log(`Event updated: "${updated.name}" (ID: ${eventId})`);
-    return updated;
+    return this.mapRegisteredCount(updated);
   }
 
+  /** ใช้ภายใน service เท่านั้น (เช่น update() ตรวจสอบสิทธิ์/รายการกิจกรรมย่อย) — ไม่ได้ผูก registeredCount */
   findById(id: number) {
     return this.eventsRepository.findById(id);
   }
 
-  findByOrganizer(organizerId: number) {
-    return this.eventsRepository.findByOrganizer(organizerId);
+  /** เส้นทาง organizer/admin authenticated แล้ว — ตรวจสิทธิ์ความเป็นเจ้าของก่อนคืนข้อมูลเต็ม */
+  async findByIdForOrganizer(id: number, callerId: number, callerRole: UserRole) {
+    const event = await this.eventsRepository.findById(id);
+    if (!event) throw new NotFoundException('ไม่พบงาน');
+    if (callerRole !== UserRole.ADMIN && (event as any).organizerId !== callerId) {
+      // 404 ไม่ใช่ 403 — ไม่บอกว่ามีอยู่จริงแก่ผู้ที่ไม่ใช่เจ้าของ
+      throw new NotFoundException('ไม่พบงาน');
+    }
+    return this.mapRegisteredCount(event);
+  }
+
+  async findByOrganizer(organizerId: number) {
+    const events = await this.eventsRepository.findByOrganizer(organizerId);
+    return events.map((e: any) => this.mapRegisteredCount(e));
   }
 
   async findAllPublic(viewer: Viewer | null) {
     const events = await this.eventsRepository.findAllApproved();
-    return events.filter((e: any) =>
-      isViewerEligibleForEvent(viewer, e as any),
-    );
+    return events
+      .filter((e: any) => isViewerEligibleForEvent(viewer, e as any))
+      .map((e: any) => this.toPublicEvent(e));
   }
 
   async findByIdPublic(id: number, viewer: Viewer | null) {
-    const event = await this.eventsRepository.findById(id);
+    const event = await this.eventsRepository.findByIdPublicSafe(id);
     const hasApprovedActivity = (event as any)?.activities?.some(
       (a: any) => a.approvalStatus === ApprovalStatus.APPROVED,
     );
@@ -223,7 +236,33 @@ export class EventsService {
     if (!event || !hasApprovedActivity || !isViewerEligibleForEvent(viewer, event as any)) {
       throw new NotFoundException(`ไม่พบงาน ID: ${id}`);
     }
-    return event;
+    return this.toPublicEvent(event);
+  }
+
+  /** เติม registeredCount จาก _count.registrations (mirror ของฝั่ง Activity) — ใช้กับเส้นทาง organizer/admin */
+  private mapRegisteredCount(event: any) {
+    if (!event) return event;
+    return {
+      ...event,
+      activities: (event.activities ?? []).map(({ _count, ...a }: any) => ({
+        ...a,
+        registeredCount: _count?.registrations ?? 0,
+      })),
+    };
+  }
+
+  /** ตัดข้อมูลที่ไม่ควรเปิดเผยต่อสาธารณะ: registrations ดิบ, organizer.email, กิจกรรมย่อยที่ยังไม่ approved */
+  private toPublicEvent(event: any) {
+    return {
+      ...event,
+      activities: (event.activities ?? [])
+        .filter((a: any) => a.approvalStatus === ApprovalStatus.APPROVED)
+        .map(({ registrations, _count, organizer, ...a }: any) => ({
+          ...a,
+          organizer: organizer ? { id: organizer.id, name: organizer.name } : organizer,
+          registeredCount: _count?.registrations ?? 0,
+        })),
+    };
   }
 
   async getSurveyResults(eventId: number, callerId: number, callerRole: UserRole) {

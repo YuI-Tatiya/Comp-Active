@@ -46,8 +46,12 @@ export class EventsOrganizerController {
    */
   @Get(':id')
   @ApiOperation({ summary: 'ดูรายละเอียดงาน (เจ้าของ / Admin)' })
-  async findById(@Param('id', ParseIntPipe) id: number) {
-    return this.eventsService.findById(id);
+  async findById(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+    @CurrentUser('role') userRole: UserRole,
+  ) {
+    return this.eventsService.findByIdForOrganizer(id, userId, userRole);
   }
 
   /**

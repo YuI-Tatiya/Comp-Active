@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { EventsRepository } from './events.repository';
+import { EventsRepository, eventInclude, eventOrganizerInclude } from './events.repository';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 describe('EventsRepository.update', () => {
@@ -118,5 +118,84 @@ describe('EventsRepository.update', () => {
 
     expect(tx.activity.create).toHaveBeenCalled();
     expect(tx.activity.update).not.toHaveBeenCalled();
+  });
+
+  it('returns the updated event using eventOrganizerInclude (full registration data)', async () => {
+    await repo.update(
+      1,
+      {
+        name: 'Updated',
+        description: 'desc',
+        isPublic: true,
+        activities: [],
+        surveyQuestions: [],
+        visibility: 'everyone',
+        visibilityPrograms: [],
+        visibilityYears: [],
+      },
+      [],
+    );
+
+    expect(tx.event.findUnique).toHaveBeenCalledWith({ where: { id: 1 }, include: eventOrganizerInclude });
+  });
+});
+
+describe('EventsRepository include shape', () => {
+  let repo: EventsRepository;
+  let prisma: any;
+
+  beforeEach(async () => {
+    prisma = {
+      event: { findUnique: jest.fn(), findMany: jest.fn() },
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [EventsRepository, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+
+    repo = module.get(EventsRepository);
+  });
+
+  it('eventInclude does not expose student/evaluation on registrations (public-safe)', () => {
+    expect((eventInclude.activities.include.registrations as any)).toBe(true);
+  });
+
+  it('eventOrganizerInclude exposes student/evaluation on registrations', () => {
+    const registrationsInclude = (eventOrganizerInclude.activities.include.registrations as any).include;
+    expect(registrationsInclude.student).toBeDefined();
+    expect(registrationsInclude.evaluation).toBe(true);
+  });
+
+  it('both includes carry _count.registrations for registeredCount mapping', () => {
+    expect((eventInclude.activities.include as any)._count).toEqual({ select: { registrations: true } });
+    expect((eventOrganizerInclude.activities.include as any)._count).toEqual({ select: { registrations: true } });
+  });
+
+  it('findById uses eventOrganizerInclude', async () => {
+    prisma.event.findUnique.mockResolvedValue({ id: 1 });
+    await repo.findById(1);
+    expect(prisma.event.findUnique).toHaveBeenCalledWith({ where: { id: 1 }, include: eventOrganizerInclude });
+  });
+
+  it('findByIdPublicSafe uses eventInclude', async () => {
+    prisma.event.findUnique.mockResolvedValue({ id: 1 });
+    await repo.findByIdPublicSafe(1);
+    expect(prisma.event.findUnique).toHaveBeenCalledWith({ where: { id: 1 }, include: eventInclude });
+  });
+
+  it('findByOrganizer uses eventOrganizerInclude', async () => {
+    prisma.event.findMany.mockResolvedValue([]);
+    await repo.findByOrganizer(7);
+    expect(prisma.event.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ include: eventOrganizerInclude }),
+    );
+  });
+
+  it('findAllApproved uses eventInclude', async () => {
+    prisma.event.findMany.mockResolvedValue([]);
+    await repo.findAllApproved();
+    expect(prisma.event.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ include: eventInclude }),
+    );
   });
 });

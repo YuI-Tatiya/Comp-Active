@@ -14,17 +14,17 @@ export interface PreparedActivityData {
   name: string;
   description: string;
   category: string;
-  imageUrl?: string;
-  attachmentUrl?: string;
+  imageUrl?: string | null;
+  attachmentUrl?: string | null;
   startAt: Date;
   endAt: Date;
   date: Date;
   startTime: string;
   endTime: string;
   location: string;
-  capacity?: number;
-  volunteerHours?: number;
-  volunteerRole?: string;
+  capacity?: number | null;
+  volunteerHours?: number | null;
+  volunteerRole?: string | null;
   softSkillRates: { skillType: string; rate: number }[];
   questions: PreparedQuestionData[];
 }
@@ -68,8 +68,30 @@ export interface PreparedEventUpdateData {
   visibilityStudentIdFilter?: string;
 }
 
+/** ใช้กับเส้นทางสาธารณะ/ยังไม่ยืนยันตัวตน — ห้ามมี registrations แบบละเอียด (ไม่มี student/evaluation) */
 export const eventInclude = {
-  activities: { include: { ...activityInclude, registrations: true } },
+  activities: {
+    include: { ...activityInclude, registrations: true, _count: { select: { registrations: true } } },
+  },
+  surveyQuestions: true,
+  visibilityProgram: true,
+  visibilityYears: true,
+} as const;
+
+/** ใช้เฉพาะเส้นทางที่ organizer เจ้าของงาน (หรือ admin) authenticated แล้วเท่านั้น — มีข้อมูลผู้ลงทะเบียนแบบเต็ม */
+export const eventOrganizerInclude = {
+  activities: {
+    include: {
+      ...activityInclude,
+      registrations: {
+        include: {
+          student: { select: { id: true, name: true, studentId: true, email: true } },
+          evaluation: true,
+        },
+      },
+      _count: { select: { registrations: true } },
+    },
+  },
   surveyQuestions: true,
   visibilityProgram: true,
   visibilityYears: true,
@@ -134,7 +156,7 @@ export class EventsRepository {
         });
       }
 
-      return tx.event.findUnique({ where: { id: event.id }, include: eventInclude }) as any;
+      return tx.event.findUnique({ where: { id: event.id }, include: eventOrganizerInclude }) as any;
     });
   }
 
@@ -240,18 +262,24 @@ export class EventsRepository {
         }
       }
 
-      return tx.event.findUnique({ where: { id: eventId }, include: eventInclude }) as any;
+      return tx.event.findUnique({ where: { id: eventId }, include: eventOrganizerInclude }) as any;
     });
   }
 
+  /** ใช้เฉพาะเส้นทาง organizer/admin ที่ authenticated แล้วเท่านั้น — มี registrations แบบเต็ม (student/evaluation) */
   findById(id: number) {
+    return this.prisma.event.findUnique({ where: { id }, include: eventOrganizerInclude });
+  }
+
+  /** ใช้กับเส้นทางสาธารณะ/ยังไม่ยืนยันตัวตน — ไม่มี student/evaluation บน registrations */
+  findByIdPublicSafe(id: number) {
     return this.prisma.event.findUnique({ where: { id }, include: eventInclude });
   }
 
   findByOrganizer(organizerId: number) {
     return this.prisma.event.findMany({
       where: { organizerId },
-      include: eventInclude,
+      include: eventOrganizerInclude,
       orderBy: { createdAt: 'desc' },
     });
   }

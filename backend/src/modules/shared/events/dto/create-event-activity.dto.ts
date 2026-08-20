@@ -10,6 +10,7 @@ import {
   IsArray,
   IsIn,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -69,15 +70,17 @@ export class CreateEventActivityDto {
   @IsNotEmpty()
   category: string;
 
-  @ApiPropertyOptional({ description: 'URL รูปภาพกิจกรรม (จาก /api/activities/upload-image)' })
-  @IsString()
+  @ApiPropertyOptional({ description: 'URL รูปภาพกิจกรรม (จาก /api/activities/upload-image) — ส่ง null เพื่อลบรูปเดิม' })
   @IsOptional()
-  imageUrl?: string;
+  @ValidateIf((o) => o.imageUrl !== null)
+  @IsString()
+  imageUrl?: string | null;
 
-  @ApiPropertyOptional({ description: 'URL ไฟล์แนบ (จาก /api/events/upload-attachment)' })
-  @IsString()
+  @ApiPropertyOptional({ description: 'URL ไฟล์แนบ (จาก /api/events/upload-attachment) — ส่ง null เพื่อลบไฟล์แนบเดิม' })
   @IsOptional()
-  attachmentUrl?: string;
+  @ValidateIf((o) => o.attachmentUrl !== null)
+  @IsString()
+  attachmentUrl?: string | null;
 
   @ApiProperty({ example: '2026-03-15T09:00:00.000Z', description: 'วันที่และเวลาเริ่ม' })
   @IsDateString()
@@ -92,11 +95,12 @@ export class CreateEventActivityDto {
   @IsNotEmpty()
   location: string;
 
-  @ApiPropertyOptional({ example: 50, description: 'จำนวนที่รับสูงสุด — ไม่ระบุ = ไม่จำกัดจำนวน' })
+  @ApiPropertyOptional({ example: 50, description: 'จำนวนที่รับสูงสุด — ไม่ระบุ = ไม่จำกัดจำนวน, ส่ง null เพื่อล้างจำนวนจำกัดเดิม' })
   @IsOptional()
+  @ValidateIf((o) => o.capacity !== null)
   @IsInt()
   @Min(1)
-  capacity?: number;
+  capacity?: number | null;
 
   @ApiPropertyOptional({ description: 'ออกใบจิตอาสาให้ผู้เข้าร่วมหรือไม่' })
   @IsOptional()
@@ -105,8 +109,9 @@ export class CreateEventActivityDto {
 
   @ApiPropertyOptional({ example: 'ผู้ช่วยกิจกรรมพัฒนาชุมชน', description: 'ชื่อการทำงาน (ใช้เมื่อออกใบจิตอาสา)' })
   @IsOptional()
+  @ValidateIf((o) => o.volunteerRole !== null)
   @IsString()
-  volunteerRole?: string;
+  volunteerRole?: string | null;
 
   @ApiPropertyOptional({ type: [SoftSkillRateDto], description: 'Soft Skills ที่กิจกรรมนี้ให้คะแนน พร้อมน้ำหนัก 1-10' })
   @IsOptional()
