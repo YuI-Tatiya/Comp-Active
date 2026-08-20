@@ -162,7 +162,7 @@ export function EventCard({
                     src={
                         activity.imageUrl
                             ? `${API_BASE_URL}${activity.imageUrl}`
-                            : "/activity-placeholder.jpg"
+                            : "/activity-placeholder.svg"
                     }
                     alt={activity.name}
                     className="size-full object-cover transition-transform duration-500 group-hover:scale-105"

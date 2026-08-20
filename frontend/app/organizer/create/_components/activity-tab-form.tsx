@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Toggle } from "@/components/ui/toggle"
 import { FormField, fieldInputClass } from "@/components/ui/form-field"
+import { ImageCropUpload } from "@/components/ui/image-crop-upload"
 import { DynamicQuestionBuilder } from "@/components/ui/dynamic-question-builder"
 import { CATEGORIES } from "@/lib/categories"
 import { SOFT_SKILLS } from "@/lib/soft-skills"
@@ -36,14 +37,6 @@ function computeHoursPreview(startAt: string, endAt: string): string | null {
 
 export function ActivityTabForm({ activity, errors, onChange, onFieldBlur }: Props) {
     const hoursPreview = computeHoursPreview(activity.startAt, activity.endAt)
-
-    function handleImageChange(e: ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0]
-        if (!file) return
-        const reader = new FileReader()
-        reader.onloadend = () => onChange({ imageFile: file, imagePreview: reader.result as string })
-        reader.readAsDataURL(file)
-    }
 
     function handleAttachmentChange(e: ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0]
@@ -132,16 +125,14 @@ export function ActivityTabForm({ activity, errors, onChange, onFieldBlur }: Pro
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div className="space-y-2">
-                    <Label>รูปภาพกิจกรรม</Label>
-                    <Input type="file" accept="image/*" onChange={handleImageChange} />
-                    {activity.imagePreview && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                            src={activity.imagePreview}
-                            alt="Preview"
-                            className="mt-2 w-full max-w-xs rounded-lg border border-border"
+                    <FormField name="imageFile" label="รูปภาพกิจกรรม">
+                        <ImageCropUpload
+                            label="รูปภาพกิจกรรม"
+                            preview={activity.imagePreview}
+                            onChange={(file, preview) => onChange({ imageFile: file, imagePreview: preview })}
+                            onClear={() => onChange({ imageFile: null, imagePreview: null })}
                         />
-                    )}
+                    </FormField>
                 </div>
                 <div className="space-y-2">
                     <Label>ไฟล์แนบ (ถ้ามี)</Label>

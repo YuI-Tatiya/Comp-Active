@@ -1,10 +1,10 @@
 // frontend/app/organizer/create/_components/section-1-event-basics.tsx
 "use client"
 
-import type { ChangeEvent } from "react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { FormField, fieldInputClass } from "@/components/ui/form-field"
+import { ImageCropUpload } from "@/components/ui/image-crop-upload"
 import type { EventFormState, EventFormErrors } from "./types"
 
 interface Props {
@@ -15,14 +15,6 @@ interface Props {
 }
 
 export function SectionEventBasics({ data, errors, onChange, onFieldBlur }: Props) {
-    function handleImageChange(e: ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0]
-        if (!file) return
-        const reader = new FileReader()
-        reader.onloadend = () => onChange({ imageFile: file, imagePreview: reader.result as string })
-        reader.readAsDataURL(file)
-    }
-
     return (
         <div className="space-y-6">
             <div>
@@ -52,16 +44,13 @@ export function SectionEventBasics({ data, errors, onChange, onFieldBlur }: Prop
 
             <div className="space-y-2">
                 <FormField name="imageFile" label="รูปภาพหน้าปกงาน">
-                    <Input type="file" accept="image/*" onChange={handleImageChange} />
-                </FormField>
-                {data.imagePreview && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                        src={data.imagePreview}
-                        alt="Preview"
-                        className="mt-2 w-full max-w-sm rounded-lg border border-border"
+                    <ImageCropUpload
+                        label="รูปภาพหน้าปกงาน"
+                        preview={data.imagePreview}
+                        onChange={(file, preview) => onChange({ imageFile: file, imagePreview: preview })}
+                        onClear={() => onChange({ imageFile: null, imagePreview: null })}
                     />
-                )}
+                </FormField>
             </div>
         </div>
     )
