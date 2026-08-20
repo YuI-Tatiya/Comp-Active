@@ -210,7 +210,7 @@ export default function OrganizerEventDetailsPage() {
                         <div className="aspect-video w-full bg-surface-2 rounded-xl overflow-hidden relative border border-border">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                                src={event.imageUrl ? `${API_BASE_URL}${event.imageUrl}` : "/activity-placeholder.jpg"}
+                                src={event.imageUrl ? `${API_BASE_URL}${event.imageUrl}` : "/activity-placeholder.svg"}
                                 alt={event.name}
                                 className="w-full h-full object-cover"
                             />

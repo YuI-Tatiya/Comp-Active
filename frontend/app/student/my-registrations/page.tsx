@@ -237,7 +237,7 @@ export default function MyRegistrationsPage() {
                         src={
                           reg.activity?.imageUrl
                             ? `${API_BASE_URL}${reg.activity.imageUrl}`
-                            : "/activity-placeholder.jpg"
+                            : "/activity-placeholder.svg"
                         }
                         alt={reg.activity.name}
                         className="size-full object-cover"

@@ -31,8 +31,8 @@ export function computeCoverSourceRect(
         sw = naturalWidth
         sh = sw / aspect
     }
-    const maxX = naturalWidth - sw
-    const maxY = naturalHeight - sh
+    const maxX = Math.max(0, naturalWidth - sw)
+    const maxY = Math.max(0, naturalHeight - sh)
     return {
         sx: maxX * (posXPercent / 100),
         sy: maxY * (posYPercent / 100),
@@ -75,6 +75,7 @@ export function ImageCropUpload({
         setError("")
         setPosX(50)
         setPosY(50)
+        if (rawUrl) URL.revokeObjectURL(rawUrl)
         setRawUrl(URL.createObjectURL(file))
     }
 
@@ -99,6 +100,7 @@ export function ImageCropUpload({
                     if (!blob) return
                     const file = new File([blob], "cropped.jpg", { type: "image/jpeg" })
                     onChange(file, canvas.toDataURL("image/jpeg", 0.9))
+                    if (rawUrl) URL.revokeObjectURL(rawUrl)
                     setRawUrl(null)
                 },
                 "image/jpeg",
@@ -131,7 +133,15 @@ export function ImageCropUpload({
                 </div>
             )}
 
-            <Dialog open={!!rawUrl} onOpenChange={(open) => !open && setRawUrl(null)}>
+            <Dialog
+                open={!!rawUrl}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        if (rawUrl) URL.revokeObjectURL(rawUrl)
+                        setRawUrl(null)
+                    }
+                }}
+            >
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>ปรับตำแหน่งรูปภาพ ({label})</DialogTitle>
@@ -177,7 +187,16 @@ export function ImageCropUpload({
                     )}
 
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setRawUrl(null)}>ยกเลิก</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                if (rawUrl) URL.revokeObjectURL(rawUrl)
+                                setRawUrl(null)
+                            }}
+                        >
+                            ยกเลิก
+                        </Button>
                         <Button type="button" onClick={handleConfirm}>ยืนยันการครอป</Button>
                     </DialogFooter>
                 </DialogContent>

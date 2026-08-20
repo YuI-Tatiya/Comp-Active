@@ -45,7 +45,7 @@ export function SectionActivities({
             <Tabs value={activeKey} onValueChange={onActiveKeyChange}>
                 <TabsList className="h-auto flex-wrap justify-start gap-1 bg-surface p-1">
                     {activities.map((a, i) => {
-                        const hasError = Object.keys(errorsByKey[a.key] ?? {}).length > 0
+                        const hasError = Object.values(errorsByKey[a.key] ?? {}).some(Boolean)
                         return (
                             <div key={a.key} className="relative">
                                 <TabsTrigger value={a.key} className={activities.length > 1 ? "pr-7" : ""}>
