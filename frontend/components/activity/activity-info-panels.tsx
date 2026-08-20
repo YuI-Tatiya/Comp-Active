@@ -101,11 +101,35 @@ export function ActivityStatusNotice({ activity }: { activity: Activity }) {
     return null
 }
 
-/** แผง "รายละเอียด" — คำอธิบาย, หมวดหมู่, ผู้จัด, ไฟล์แนบ, tags */
-export function ActivityAboutPanel({ activity }: { activity: Activity }) {
+interface AboutPanelProps {
+    activity: Activity
+    /**
+     * แสดงรูปของกิจกรรมย่อยตัวนี้ด้วย
+     *
+     * เปิดในหน้ารายละเอียด "งาน" เพราะรูปด้านบนสุดของหน้าเป็นรูปปกงาน ไม่ใช่ของกิจกรรมย่อย
+     * (resolveEventImageUrl ให้รูปปกงานชนะเสมอ) รูปที่ผู้จัดอัปโหลดให้กิจกรรมย่อยแต่ละตัว
+     * จึงไม่เคยแสดงที่ไหนเลย — ปิดในหน้ากิจกรรมเดี่ยวเพราะรูปด้านบนเป็นรูปของกิจกรรมนั้นอยู่แล้ว
+     */
+    showActivityImage?: boolean
+}
+
+/** แผง "รายละเอียด" — รูปกิจกรรม, คำอธิบาย, หมวดหมู่, ผู้จัด, ไฟล์แนบ, tags */
+export function ActivityAboutPanel({ activity, showActivityImage = false }: AboutPanelProps) {
     return (
         <div className={PANEL_CLASS}>
             <ActivityStatusNotice activity={activity} />
+
+            {showActivityImage && activity.imageUrl && (
+                <div className="aspect-video w-full overflow-hidden rounded-xl border border-border bg-surface-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        src={`${API_BASE_URL}${activity.imageUrl}`}
+                        alt={activity.name}
+                        className="size-full object-cover"
+                    />
+                </div>
+            )}
+
             <div>
                 <PanelHeading icon={Info} tone="text-brand-600">เกี่ยวกับกิจกรรมนี้</PanelHeading>
                 <p className="mt-4 text-fg-muted leading-relaxed whitespace-pre-line">

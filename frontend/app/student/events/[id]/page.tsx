@@ -194,7 +194,7 @@ export default function StudentEventDetailsPage() {
                                         </TabsList>
 
                                         <TabsContent value="details">
-                                            <ActivityAboutPanel activity={a} />
+                                            <ActivityAboutPanel activity={a} showActivityImage />
                                         </TabsContent>
 
                                         <TabsContent value="rewards">

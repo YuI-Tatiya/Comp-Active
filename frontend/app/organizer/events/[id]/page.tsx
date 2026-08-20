@@ -315,7 +315,7 @@ export default function OrganizerEventDetailsPage() {
                                         </TabsContent>
 
                                         <TabsContent value="details">
-                                            <ActivityAboutPanel activity={a} />
+                                            <ActivityAboutPanel activity={a} showActivityImage />
                                         </TabsContent>
 
                                         <TabsContent value="rewards">
