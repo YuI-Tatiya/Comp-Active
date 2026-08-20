@@ -32,6 +32,13 @@ function keyFor(activityId: number): string {
     return `activity-${activityId}-${activityKeySeq}`
 }
 
+/** แปลง ISO UTC string จาก backend เป็นค่า local wall-clock ที่ <input type="datetime-local"> ต้องการ */
+function toLocalDatetimeValue(iso: string): string {
+    const d = new Date(iso)
+    const offsetMs = d.getTimezoneOffset() * 60000
+    return new Date(d.getTime() - offsetMs).toISOString().slice(0, 16)
+}
+
 /** map ข้อมูลจาก backend (EventSummary) กลับเป็น form state ของ wizard — ฝั่ง client เก็บ id ไว้ใน key ผ่าน map แยกต่างหาก */
 function eventToFormState(event: EventSummary): EventFormState {
     return {
@@ -40,7 +47,7 @@ function eventToFormState(event: EventSummary): EventFormState {
         imageFile: null,
         imagePreview: event.imageUrl ? `${API_BASE_URL}${event.imageUrl}` : null,
         isPublic: event.isPublic,
-        registrationCloseAt: event.registrationCloseAt ? event.registrationCloseAt.slice(0, 16) : "",
+        registrationCloseAt: event.registrationCloseAt ? toLocalDatetimeValue(event.registrationCloseAt) : "",
         surveyQuestions: (event.surveyQuestions ?? []).map((q) => ({
             label: q.label,
             type: q.type,
@@ -68,8 +75,8 @@ function activityToFormState(a: EventSummary["activities"][number]): ActivityFor
         imagePreview: a.imageUrl ? `${API_BASE_URL}${a.imageUrl}` : null,
         attachmentFile: null,
         attachmentName: a.attachmentUrl ? a.attachmentUrl.split("/").pop() ?? null : null,
-        startAt: a.startAt ? a.startAt.slice(0, 16) : "",
-        endAt: a.endAt ? a.endAt.slice(0, 16) : "",
+        startAt: a.startAt ? toLocalDatetimeValue(a.startAt) : "",
+        endAt: a.endAt ? toLocalDatetimeValue(a.endAt) : "",
         location: a.location,
         capacityEnabled: a.capacity != null,
         capacity: a.capacity != null ? String(a.capacity) : "",
