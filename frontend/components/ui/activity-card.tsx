@@ -64,7 +64,7 @@ export function ActivityCard({ activity, href, className }: ActivityCardProps) {
                     src={
                         activity.imageUrl
                             ? `${API_BASE_URL}${activity.imageUrl}`
-                            : "/activity-placeholder.jpg"
+                            : "/activity-placeholder.svg"
                     }
                     alt={activity.name}
                     loading="lazy"

@@ -38,6 +38,9 @@ enum ApprovalStatus {
   approved
   rejected
   pending_cancel
+  /// ผู้จัดยกเลิกกิจกรรมของตัวเอง — แยกจาก rejected (แอดมิน/ระบบปฏิเสธ) เพื่อไม่ให้
+  /// นักศึกษาสับสนว่าใครเป็นคนยกเลิก (ดู ActivitiesService.requestCancellation)
+  cancelled
 }
 
 enum RegistrationStatus {

@@ -2,6 +2,7 @@
 
 import { AppHeader, type AppNavLink } from "@/components/layout/app-header"
 import { SiteFooter } from "@/components/layout/site-footer"
+import { RoleGuard } from "@/components/auth/role-guard"
 
 const LINKS: AppNavLink[] = [
   { href: "/student", label: "หน้าหลัก", exact: true },
@@ -16,14 +17,16 @@ export default function StudentLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-screen flex-col">
-      <AppHeader
-        links={LINKS}
-        roleLabel="นักศึกษา"
-        accountHref="/student/profile"
-      />
-      <main className="flex-1">{children}</main>
-      <SiteFooter />
-    </div>
+    <RoleGuard allow={["student"]}>
+      <div className="flex min-h-screen flex-col">
+        <AppHeader
+          links={LINKS}
+          roleLabel="นักศึกษา"
+          accountHref="/student/profile"
+        />
+        <main className="flex-1">{children}</main>
+        <SiteFooter />
+      </div>
+    </RoleGuard>
   )
 }

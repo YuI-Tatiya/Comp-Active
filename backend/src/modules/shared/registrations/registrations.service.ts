@@ -17,6 +17,7 @@ import {
   SurveyQuestionType,
 } from '../../../common/enums/status.enum';
 import { isViewerEligibleForEvent, type Viewer } from '../events/event-visibility.util';
+import { MailService } from '../mail/mail.service';
 
 interface AnswerInput {
   questionId: number;
@@ -38,6 +39,7 @@ export class RegistrationsService {
     private readonly registrationsRepository: RegistrationsRepository,
     private readonly evaluationsService: EvaluationsService,
     private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
   ) {}
 
   async create(studentId: number, activityId: number, viewer: Viewer, answers: AnswerInput[] = []) {
@@ -144,7 +146,29 @@ export class RegistrationsService {
     });
 
     this.logger.log(`Registration confirmed: ID ${registrationId}`);
+
+    // อีเมลเป็นช่องทางเสริม ไม่ให้ล้มเหลวกระทบผลลัพธ์หลักที่ organizer กำลังรอ
+    void this.notifyRegistrationConfirmed(registrationId);
+
     return saved;
+  }
+
+  private async notifyRegistrationConfirmed(registrationId: number) {
+    try {
+      const full = await this.registrationsRepository.findByIdWithStudentAndActivity(registrationId);
+      if (!full) return;
+      await this.mailService.sendRegistrationConfirmed(
+        full.student.email,
+        full.student.name,
+        full.activity.name,
+        new Date(full.activity.date).toLocaleDateString('th-TH', { dateStyle: 'long' }),
+        `${full.activity.startTime} - ${full.activity.endTime}`,
+        full.activity.location,
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`notifyRegistrationConfirmed failed for registration ${registrationId}: ${msg}`);
+    }
   }
 
   async checkIn(registrationId: number) {

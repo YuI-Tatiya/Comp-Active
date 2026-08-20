@@ -74,6 +74,8 @@ export interface Activity<T = unknown> {
   volunteerRole?: string | null;
   approvalStatus: string;
   status: string;
+  /** เหตุผลที่ผู้จัดยกเลิกกิจกรรม — แสดงให้นักศึกษาเห็นเมื่อกิจกรรมถูกยกเลิก */
+  cancellationReason?: string | null;
   tags: Tag[];
   conditions: Condition[];
   benefits: Benefit[];
@@ -86,6 +88,17 @@ export interface Activity<T = unknown> {
 /** true ถ้ากิจกรรมไม่จำกัดจำนวนผู้เข้าร่วม */
 export function isUnlimitedCapacity(capacity: number | null | undefined): boolean {
   return capacity == null;
+}
+
+/**
+ * true ถ้าผู้จัดยกเลิกกิจกรรมนี้เอง (ApprovalStatus.CANCELLED)
+ *
+ * รองรับค่าเก่า "rejected" ไว้ด้วยเผื่อข้อมูลก่อนเปลี่ยน enum — backend เขียนค่าใหม่
+ * เป็น "cancelled" เสมอตั้งแต่นี้ไป (แยกจาก "rejected" ที่สงวนไว้สำหรับแอดมิน/ระบบ
+ * ปฏิเสธ ซึ่งยังไม่มี flow จริงในระบบตอนนี้)
+ */
+export function isCancelledByOrganizer(approvalStatus: string | null | undefined): boolean {
+  return approvalStatus === 'cancelled' || approvalStatus === 'rejected';
 }
 
 /** ข้อความแสดงจำนวนที่รับ — ใช้ที่เดียวกันทุกหน้าแทนการเขียน `capacity || 0` กระจัดกระจาย */
@@ -209,6 +222,9 @@ export const activitiesAPI = {
   getMy: () => fetchAPI<Activity[]>('/api/activities/my'),
   requestCancel: (id: number, reason: string) =>
     fetchAPI<void>(`/api/activities/${id}/request-cancel`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  /** จบกิจกรรม — ทำได้เฉพาะเมื่อเลยเวลาสิ้นสุดแล้ว (backend บังคับ) */
+  markCompleted: (id: number) =>
+    fetchAPI<Activity>(`/api/activities/${id}/complete`, { method: 'PATCH' }),
   getPlatformStats: () => fetchAPI<PlatformStats>('/api/activities/stats/platform'),
   getOrganizerStats: () => fetchAPI<OrganizerStats>('/api/activities/stats/organizer'),
   uploadImage: async (file: File) => {
@@ -316,6 +332,9 @@ export interface EventSummary {
   isPublic: boolean;
   registrationCloseAt?: string | null;
   visibility: string;
+  visibilityStudentIdFilter?: string | null;
+  visibilityProgram?: { programCode: string }[];
+  visibilityYears?: { year: number }[];
   createdAt: string;
   activities: Activity[];
   surveyQuestions?: EventSurveyQuestion[];
@@ -326,6 +345,10 @@ export const eventsAPI = {
     fetchAPI<EventSummary>('/api/events', { method: 'POST', body: JSON.stringify(body) }),
   getMy: () => fetchAPI<EventSummary[]>('/api/events/my'),
   getById: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}`),
+  update: (id: number, body: Partial<CreateEventBody> & { activities: (CreateEventActivityBody & { id?: number })[] }) =>
+    fetchAPI<EventSummary>(`/api/events/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  getAllPublic: () => fetchAPI<EventSummary[]>('/api/events'),
+  getPublicById: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}/public`),
   getSurveyResults: (id: number) => fetchAPI<SurveyResult[]>(`/api/events/${id}/survey-results`),
   uploadAttachment: async (file: File) => {
     const formData = new FormData();
