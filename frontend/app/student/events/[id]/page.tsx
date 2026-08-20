@@ -130,10 +130,10 @@ export default function EventDetailsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen bg-surface flex items-center justify-center">
                 <div className="text-center">
-                    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-500">กำลังโหลดรายละเอียดกิจกรรม...</p>
+                    <div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-fg-muted">กำลังโหลดรายละเอียดกิจกรรม...</p>
                 </div>
             </div>
         )
@@ -141,11 +141,11 @@ export default function EventDetailsPage() {
 
     if (error || !event) {
         return (
-            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-                <div className="bg-white p-8 rounded-xl shadow-sm max-w-md w-full text-center">
+            <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-4">
+                <div className="bg-bg p-8 rounded-xl shadow-sm max-w-md w-full text-center">
                     <div className="text-red-500 mb-4 text-5xl">⚠️</div>
                     <h2 className="text-xl font-bold mb-2">ไม่พบกิจกรรม</h2>
-                    <p className="text-gray-600 mb-6">{error || "กิจกรรมนี้อาจถูกลบหรือไม่มีอยู่จริง"}</p>
+                    <p className="text-fg-muted mb-6">{error || "กิจกรรมนี้อาจถูกลบหรือไม่มีอยู่จริง"}</p>
                     <Button onClick={() => router.push('/student/events')} className="w-full">
                         กลับไปหน้าค้นหากิจกรรม
                     </Button>
@@ -155,13 +155,13 @@ export default function EventDetailsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-12">
+        <div className="min-h-screen bg-surface pb-12">
             {/* Navigation Bar (assuming global layout or imported) */}
 
             <div className="max-w-7xl mx-auto px-4 py-8">
                 {/* Back Button */}
                 <div className="mb-6">
-                    <Link href="/student" className="inline-flex items-center text-gray-500 hover:text-gray-900 transition-colors">
+                    <Link href="/student" className="inline-flex items-center text-fg-muted hover:text-fg transition-colors">
                         <ArrowLeft className="w-4 h-4 mr-2" /> กลับ
                     </Link>
                 </div>
@@ -180,7 +180,7 @@ export default function EventDetailsPage() {
                                 </div>
                             )}
                             <div className="absolute top-4 left-4 flex gap-2">
-                                <Badge className="bg-blue-600 hover:bg-blue-700">{event.category}</Badge>
+                                <Badge className="bg-brand-600 hover:bg-brand-700">{event.category}</Badge>
                                 <Badge className={event.status === 'open' ? "bg-green-500 hover:bg-green-600" : "bg-gray-500 hover:bg-gray-600"}>
                                     {event.status === 'open' ? 'เปิดรับสมัคร' : event.status}
                                 </Badge>
@@ -189,9 +189,9 @@ export default function EventDetailsPage() {
 
                         {/* Title & Info */}
                         <div>
-                            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">{event.name}</h1>
-                            <div className="flex items-center text-gray-500 gap-2 mb-6">
-                                <Users className="w-5 h-5 text-gray-400" />
+                            <h1 className="text-2xl md:text-3xl font-bold text-fg mb-2">{event.name}</h1>
+                            <div className="flex items-center text-fg-muted gap-2 mb-6">
+                                <Users className="w-5 h-5 text-fg-subtle" />
                                 <span>จัดโดย {event.organizer?.name || 'ไม่ระบุ'}</span>
                             </div>
 
@@ -203,71 +203,71 @@ export default function EventDetailsPage() {
                                     <TabsTrigger value="benefits" className="flex-1">สิทธิประโยชน์</TabsTrigger>
                                 </TabsList>
 
-                                <TabsContent value="details" className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                                <TabsContent value="details" className="bg-bg p-6 rounded-xl border border-border shadow-sm">
                                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                        <Info className="w-5 h-5 text-blue-500" /> เกี่ยวกับกิจกรรม
+                                        <Info className="w-5 h-5 text-brand-600" /> เกี่ยวกับกิจกรรม
                                     </h3>
-                                    <p className="text-gray-600 leading-relaxed whitespace-pre-line">{event.description}</p>
+                                    <p className="text-fg-muted leading-relaxed whitespace-pre-line">{event.description}</p>
 
-                                    <div className="mt-8 pt-6 border-t border-gray-100">
-                                        <h4 className="text-sm font-semibold mb-3 text-gray-900">Tags</h4>
+                                    <div className="mt-8 pt-6 border-t border-border">
+                                        <h4 className="text-sm font-semibold mb-3 text-fg">Tags</h4>
                                         <div className="flex gap-2 flex-wrap">
                                             {event.tags?.map((tag: TagType) => (
-                                                <Badge key={tag.tagName} variant="secondary" className="px-3 py-1 text-gray-600 bg-gray-100 hover:bg-gray-200">
+                                                <Badge key={tag.tagName} variant="secondary" className="px-3 py-1 text-fg-muted bg-gray-100 hover:bg-gray-200">
                                                     <Tag className="w-3 h-3 mr-1" /> {tag.tagName}
                                                 </Badge>
-                                            )) || <span className="text-sm text-gray-500">ไม่มี Tags</span>}
+                                            )) || <span className="text-sm text-fg-muted">ไม่มี Tags</span>}
                                         </div>
                                     </div>
 
-                                    <div className="mt-8 pt-6 border-t border-gray-100">
-                                        <h4 className="text-sm font-semibold mb-3 text-gray-900">Soft Skills ที่จะได้รับ</h4>
+                                    <div className="mt-8 pt-6 border-t border-border">
+                                        <h4 className="text-sm font-semibold mb-3 text-fg">Soft Skills ที่จะได้รับ</h4>
                                         <div className="flex gap-2 flex-wrap">
                                             {event.softSkills && event.softSkills.length > 0 ? event.softSkills.map((skill: { skillType: string }, idx: number) => (
                                                 <Badge key={idx} variant="outline" className="px-3 py-1 text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100">
                                                     <CheckSquare className="w-3 h-3 mr-1" /> {softSkillLabel(skill.skillType)}
                                                 </Badge>
-                                            )) : <span className="text-sm text-gray-500">ไม่ได้ระบุ Soft Skills</span>}
+                                            )) : <span className="text-sm text-fg-muted">ไม่ได้ระบุ Soft Skills</span>}
                                         </div>
                                     </div>
                                 </TabsContent>
 
-                                <TabsContent value="conditions" className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                                <TabsContent value="conditions" className="bg-bg p-6 rounded-xl border border-border shadow-sm">
                                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                                         <CheckCircle className="w-5 h-5 text-orange-500" /> เงื่อนไขการเข้าร่วม
                                     </h3>
                                     {event.conditions && event.conditions.length > 0 ? (
                                         <ul className="space-y-3">
                                             {event.conditions.map((item: Condition, i: number) => (
-                                                <li key={i} className="flex gap-3 text-gray-600">
+                                                <li key={i} className="flex gap-3 text-fg-muted">
                                                     <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold flex-shrink-0">{i + 1}</div>
                                                     <span>{item.conditionText}</span>
                                                 </li>
                                             ))}
                                         </ul>
                                     ) : (
-                                        <div className="py-8 text-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                                            <p className="text-gray-500">ไม่มีข้อมูลเงื่อนไขการเข้าร่วม</p>
+                                        <div className="py-8 text-center bg-surface rounded-lg border border-dashed border-border">
+                                            <p className="text-fg-muted">ไม่มีข้อมูลเงื่อนไขการเข้าร่วม</p>
                                         </div>
                                     )}
                                 </TabsContent>
 
-                                <TabsContent value="benefits" className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                                <TabsContent value="benefits" className="bg-bg p-6 rounded-xl border border-border shadow-sm">
                                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                                         <Gift className="w-5 h-5 text-purple-500" /> สิทธิประโยชน์
                                     </h3>
                                     {event.benefits && event.benefits.length > 0 ? (
                                         <ul className="space-y-3">
                                             {event.benefits.map((item: Benefit, i: number) => (
-                                                <li key={i} className="flex gap-3 text-gray-600">
+                                                <li key={i} className="flex gap-3 text-fg-muted">
                                                     <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
                                                     <span>{item.benefitText}</span>
                                                 </li>
                                             ))}
                                         </ul>
                                     ) : (
-                                        <div className="py-8 text-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                                            <p className="text-gray-500">ไม่มีข้อมูลสิทธิประโยชน์ระบุไว้</p>
+                                        <div className="py-8 text-center bg-surface rounded-lg border border-dashed border-border">
+                                            <p className="text-fg-muted">ไม่มีข้อมูลสิทธิประโยชน์ระบุไว้</p>
                                         </div>
                                     )}
                                 </TabsContent>
@@ -277,64 +277,64 @@ export default function EventDetailsPage() {
 
                     {/* Sidebar (Right) */}
                     <div className="space-y-6">
-                        <Card className="border-gray-200 shadow-sm overflow-hidden">
+                        <Card className="border-border shadow-sm overflow-hidden">
                             <div className="p-6 space-y-6">
                                 <h3 className="font-semibold text-lg">ข้อมูลกิจกรรม</h3>
 
                                 <div className="space-y-4">
                                     <div className="flex gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 flex-shrink-0">
+                                        <div className="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center text-brand-600 flex-shrink-0">
                                             <Calendar className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <div className="text-xs text-gray-500">วันที่</div>
-                                            <div className="font-medium text-gray-900">{event.date}</div>
+                                            <div className="text-xs text-fg-muted">วันที่</div>
+                                            <div className="font-medium text-fg">{event.date}</div>
                                         </div>
                                     </div>
 
                                     <div className="flex gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 flex-shrink-0">
+                                        <div className="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center text-brand-600 flex-shrink-0">
                                             <Clock className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <div className="text-xs text-gray-500">เวลา</div>
-                                            <div className="font-medium text-gray-900">{event.startTime} - {event.endTime}</div>
+                                            <div className="text-xs text-fg-muted">เวลา</div>
+                                            <div className="font-medium text-fg">{event.startTime} - {event.endTime}</div>
                                         </div>
                                     </div>
 
                                     <div className="flex gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 flex-shrink-0">
+                                        <div className="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center text-brand-600 flex-shrink-0">
                                             <MapPin className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <div className="text-xs text-gray-500">สถานที่</div>
-                                            <div className="font-medium text-gray-900">{event.location}</div>
+                                            <div className="text-xs text-fg-muted">สถานที่</div>
+                                            <div className="font-medium text-fg">{event.location}</div>
                                         </div>
                                     </div>
 
-                                    <div className="pt-4 border-t border-gray-100">
+                                    <div className="pt-4 border-t border-border">
                                         <div className="flex justify-between items-center mb-2">
                                             <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
                                                 <Users className="w-4 h-4" /> ผู้เข้าร่วม
                                             </div>
-                                            <span className="text-sm text-gray-500">
+                                            <span className="text-sm text-fg-muted">
                                                 {event.registrations?.length || 0}{isUnlimitedCapacity(event.capacity) ? " คน (ไม่จำกัด)" : `/${event.capacity} คน`}
                                             </span>
                                         </div>
                                         {!isUnlimitedCapacity(event.capacity) && (
                                             <>
                                                 <Progress value={event.registrations?.length || 0} max={event.capacity} className="h-2" />
-                                                <p className="text-xs text-gray-400 mt-2 text-right">เหลืออีก {event.capacity! - (event.registrations?.length || 0)} ที่นั่ง</p>
+                                                <p className="text-xs text-fg-subtle mt-2 text-right">เหลืออีก {event.capacity! - (event.registrations?.length || 0)} ที่นั่ง</p>
                                             </>
                                         )}
                                     </div>
                                 </div>
 
                                 <div className="space-y-3 pt-2">
-                                    <Button className="w-full bg-blue-600 hover:bg-blue-700 h-11 text-base font-semibold" onClick={openRegisterDialog}>
+                                    <Button className="w-full bg-brand-600 hover:bg-brand-700 h-11 text-base font-semibold" onClick={openRegisterDialog}>
                                         ลงทะเบียนเข้าร่วม
                                     </Button>
-                                    <Button variant="outline" className="w-full border-gray-200 hover:bg-gray-50 text-gray-600">
+                                    <Button variant="outline" className="w-full border-border hover:bg-surface text-fg-muted">
                                         <Share2 className="w-4 h-4 mr-2" /> แชร์กิจกรรม
                                     </Button>
                                 </div>
