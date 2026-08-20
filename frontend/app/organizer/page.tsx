@@ -125,7 +125,7 @@ export default function OrganizerDashboardPage() {
                   <ActivityRow
                     key={a.id}
                     activity={a}
-                    href={`/organizer/events/${a.id}`}
+                    href={`/organizer/activities/${a.id}`}
                   />
                 ))
               ) : (

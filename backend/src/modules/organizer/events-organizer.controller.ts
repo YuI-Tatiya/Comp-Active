@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   UseGuards,
@@ -16,6 +17,7 @@ import { extname } from 'path';
 import * as crypto from 'crypto';
 import { EventsService } from '../shared/events/events.service';
 import { CreateEventDto } from '../shared/events/dto/create-event.dto';
+import { UpdateEventDto } from '../shared/events/dto/update-event.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -44,8 +46,12 @@ export class EventsOrganizerController {
    */
   @Get(':id')
   @ApiOperation({ summary: 'ดูรายละเอียดงาน (เจ้าของ / Admin)' })
-  async findById(@Param('id', ParseIntPipe) id: number) {
-    return this.eventsService.findById(id);
+  async findById(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+    @CurrentUser('role') userRole: UserRole,
+  ) {
+    return this.eventsService.findByIdForOrganizer(id, userId, userRole);
   }
 
   /**
@@ -59,6 +65,20 @@ export class EventsOrganizerController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.eventsService.getSurveyResults(id, userId, userRole);
+  }
+
+  /**
+   * PATCH /api/events/:id - แก้ไขงาน (เจ้าของ / Admin)
+   */
+  @Patch(':id')
+  @ApiOperation({ summary: 'แก้ไขงาน (เจ้าของ / Admin)' })
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+    @CurrentUser('role') userRole: UserRole,
+    @Body() updateDto: UpdateEventDto,
+  ) {
+    return this.eventsService.update(userId, userRole, id, updateDto);
   }
 
   /**

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import type { LucideIcon } from "lucide-react"
-import { API_BASE_URL, type Activity } from "@/lib/api"
+import { API_BASE_URL } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 const FALLBACK_IMAGE =
@@ -125,7 +125,8 @@ export function EventCardProgress({
    ───────────────────────────────────────────────────────────────────────── */
 
 interface EventCardProps {
-    activity: Activity
+    /** ต้องมีอย่างน้อย name + imageUrl — รับได้ทั้ง Activity และ EventSummary */
+    activity: { name: string; imageUrl?: string | null }
     /** ป้ายมุมซ้ายบนของรูป — หมวดหมู่ (public/student) หรือสถานะ (organizer) */
     badgeLeft?: React.ReactNode
     /** ป้ายมุมขวาบนของรูป — สถานะ (public/student) หรือสถานะอนุมัติ (organizer) */

@@ -316,6 +316,9 @@ export interface EventSummary {
   isPublic: boolean;
   registrationCloseAt?: string | null;
   visibility: string;
+  visibilityStudentIdFilter?: string | null;
+  visibilityProgram?: { programCode: string }[];
+  visibilityYears?: { year: number }[];
   createdAt: string;
   activities: Activity[];
   surveyQuestions?: EventSurveyQuestion[];
@@ -326,6 +329,10 @@ export const eventsAPI = {
     fetchAPI<EventSummary>('/api/events', { method: 'POST', body: JSON.stringify(body) }),
   getMy: () => fetchAPI<EventSummary[]>('/api/events/my'),
   getById: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}`),
+  update: (id: number, body: Partial<CreateEventBody> & { activities: (CreateEventActivityBody & { id?: number })[] }) =>
+    fetchAPI<EventSummary>(`/api/events/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  getAllPublic: () => fetchAPI<EventSummary[]>('/api/events'),
+  getPublicById: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}/public`),
   getSurveyResults: (id: number) => fetchAPI<SurveyResult[]>(`/api/events/${id}/survey-results`),
   uploadAttachment: async (file: File) => {
     const formData = new FormData();

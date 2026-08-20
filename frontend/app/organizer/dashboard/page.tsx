@@ -218,7 +218,7 @@ export default function OrganizerDashboard() {
                                                 </td>
                                                 <td className="px-6 py-5 text-right">
                                                     <Button size="sm" variant="ghost" className="rounded-xl font-semibold text-brand-600" asChild>
-                                                        <Link href={`/organizer/events/${activity.id}`}>
+                                                        <Link href={`/organizer/activities/${activity.id}`}>
                                                             จัดการรายคน →
                                                         </Link>
                                                     </Button>
