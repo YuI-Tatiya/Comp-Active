@@ -283,7 +283,7 @@ export default function EventDetailsPage() {
 
                                 <div className="space-y-4">
                                     <div className="flex gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center text-brand-600 flex-shrink-0">
+                                        <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 flex-shrink-0">
                                             <Calendar className="w-5 h-5" />
                                         </div>
                                         <div>
@@ -293,7 +293,7 @@ export default function EventDetailsPage() {
                                     </div>
 
                                     <div className="flex gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center text-brand-600 flex-shrink-0">
+                                        <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 flex-shrink-0">
                                             <Clock className="w-5 h-5" />
                                         </div>
                                         <div>
@@ -303,7 +303,7 @@ export default function EventDetailsPage() {
                                     </div>
 
                                     <div className="flex gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center text-brand-600 flex-shrink-0">
+                                        <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 flex-shrink-0">
                                             <MapPin className="w-5 h-5" />
                                         </div>
                                         <div>
