@@ -1,25 +1,20 @@
+// frontend/app/organizer/create/_components/section-1-event-basics.tsx
 "use client"
 
-import type { ChangeEvent } from "react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import type { EventFormState } from "./types"
+import { FormField, fieldInputClass } from "@/components/ui/form-field"
+import { ImageCropUpload } from "@/components/ui/image-crop-upload"
+import type { EventFormState, EventFormErrors } from "./types"
 
 interface Props {
     data: EventFormState
+    errors: EventFormErrors
     onChange: (patch: Partial<EventFormState>) => void
+    onFieldBlur: (field: keyof EventFormErrors) => void
 }
 
-export function SectionEventBasics({ data, onChange }: Props) {
-    function handleImageChange(e: ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0]
-        if (!file) return
-        const reader = new FileReader()
-        reader.onloadend = () => onChange({ imageFile: file, imagePreview: reader.result as string })
-        reader.readAsDataURL(file)
-    }
-
+export function SectionEventBasics({ data, errors, onChange, onFieldBlur }: Props) {
     return (
         <div className="space-y-6">
             <div>
@@ -29,31 +24,33 @@ export function SectionEventBasics({ data, onChange }: Props) {
                 </p>
             </div>
 
-            <div className="space-y-2">
-                <Label>ชื่องาน <span className="text-danger">*</span></Label>
-                <Input value={data.name} onChange={(e) => onChange({ name: e.target.value })} />
-            </div>
+            <FormField name="name" label="ชื่องาน" required error={errors.name}>
+                <Input
+                    value={data.name}
+                    onChange={(e) => onChange({ name: e.target.value })}
+                    onBlur={() => onFieldBlur("name")}
+                    className={fieldInputClass(errors.name)}
+                />
+            </FormField>
 
-            <div className="space-y-2">
-                <Label>รายละเอียด <span className="text-danger">*</span></Label>
+            <FormField name="description" label="รายละเอียด" required error={errors.description}>
                 <Textarea
                     value={data.description}
                     onChange={(e) => onChange({ description: e.target.value })}
-                    className="min-h-[120px]"
+                    onBlur={() => onFieldBlur("description")}
+                    className={`min-h-[120px] ${fieldInputClass(errors.description)}`}
                 />
-            </div>
+            </FormField>
 
             <div className="space-y-2">
-                <Label>รูปภาพหน้าปกงาน</Label>
-                <Input type="file" accept="image/*" onChange={handleImageChange} />
-                {data.imagePreview && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                        src={data.imagePreview}
-                        alt="Preview"
-                        className="mt-2 w-full max-w-sm rounded-lg border border-border"
+                <FormField name="imageFile" label="รูปภาพหน้าปกงาน">
+                    <ImageCropUpload
+                        label="รูปภาพหน้าปกงาน"
+                        preview={data.imagePreview}
+                        onChange={(file, preview) => onChange({ imageFile: file, imagePreview: preview })}
+                        onClear={() => onChange({ imageFile: null, imagePreview: null })}
                     />
-                )}
+                </FormField>
             </div>
         </div>
     )

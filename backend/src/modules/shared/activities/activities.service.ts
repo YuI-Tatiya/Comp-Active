@@ -2,21 +2,28 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { ActivitiesRepository } from './activities.repository';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 import { ActivityFilterDto } from './dto/activity-filter.dto';
-import { ApprovalStatus } from '../../../common/enums/status.enum';
+import { ActivityStatus, ApprovalStatus, AttendanceStatus } from '../../../common/enums/status.enum';
 import { UserRole } from '../../../common/enums/role.enum';
 import { isViewerEligibleForEvent, filterVisibleActivities, type Viewer } from '../events/event-visibility.util';
+import { RegistrationsRepository } from '../registrations/registrations.repository';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class ActivitiesService {
   private readonly logger = new Logger(ActivitiesService.name);
 
-  constructor(private readonly activitiesRepository: ActivitiesRepository) {}
+  constructor(
+    private readonly activitiesRepository: ActivitiesRepository,
+    private readonly registrationsRepository: RegistrationsRepository,
+    private readonly mailService: MailService,
+  ) {}
 
   async create(organizerId: number, createDto: CreateActivityDto) {
     const { tags, conditions, benefits, softSkills, date, ...activityData } = createDto;
@@ -117,6 +124,53 @@ export class ActivitiesService {
     return this.activitiesRepository.countAll();
   }
 
+  /**
+   * ปิดกิจกรรมว่า "จบแล้ว" — ปลดล็อกให้นักศึกษาทำแบบสำรวจ และหยุดรับสมัคร
+   * ต้องเลยเวลาสิ้นสุดจริงก่อน ไม่งั้นผู้จัดจะจบกิจกรรมที่ยังไม่ได้จัดได้
+   */
+  async markCompleted(activityId: number, organizerId: number, callerRole: UserRole) {
+    const activity = await this.findById(activityId);
+
+    if (callerRole !== UserRole.ADMIN && activity.organizerId !== organizerId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์จบกิจกรรมนี้');
+    }
+    if (activity.status === ActivityStatus.COMPLETED) {
+      throw new BadRequestException('กิจกรรมนี้จบไปแล้ว');
+    }
+    if (activity.approvalStatus === ApprovalStatus.CANCELLED || activity.approvalStatus === ApprovalStatus.REJECTED) {
+      throw new BadRequestException('กิจกรรมนี้ถูกยกเลิกไปแล้ว ไม่สามารถจบกิจกรรมได้');
+    }
+
+    // endAt เป็น null สำหรับกิจกรรมรุ่นเก่า จึงถอยไปใช้ date + endTime แทน
+    const endsAt = activity.endAt
+      ? new Date(activity.endAt)
+      : new Date(`${new Date(activity.date).toISOString().slice(0, 10)}T${activity.endTime || '23:59'}:00`);
+
+    if (!Number.isNaN(endsAt.getTime()) && endsAt.getTime() > Date.now()) {
+      throw new BadRequestException('ยังไม่ถึงเวลาสิ้นสุดกิจกรรม ยังจบกิจกรรมไม่ได้');
+    }
+
+    const saved = await this.activitiesRepository.markCompleted(activityId);
+    this.logger.log(`Activity completed: "${activity.name}" (ID: ${activityId})`);
+
+    void this.notifyActivityCompleted(activityId, activity.name);
+
+    return saved;
+  }
+
+  private async notifyActivityCompleted(activityId: number, activityName: string) {
+    try {
+      const registrations = await this.registrationsRepository.findByActivity(activityId);
+      const attended = registrations.filter((r: any) => r.attendance === AttendanceStatus.ATTENDED);
+      await Promise.all(
+        attended.map((r: any) => this.mailService.sendActivityCompleted(r.student.email, r.student.name, activityName)),
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`notifyActivityCompleted failed for activity ${activityId}: ${msg}`);
+    }
+  }
+
   async requestCancellation(activityId: number, organizerId: number, reason: string) {
     const activity = await this.findById(activityId);
 
@@ -124,9 +178,26 @@ export class ActivitiesService {
       throw new ForbiddenException('คุณไม่มีสิทธิ์ยกเลิกกิจกรรมนี้');
     }
 
-    const saved = await this.activitiesRepository.closeAndReject(activityId, reason);
+    const saved = await this.activitiesRepository.cancelByOrganizer(activityId, reason);
     this.logger.log(`Activity cancelled by organizer: "${activity.name}" (ID: ${activityId})`);
+
+    void this.notifyActivityCancelled(activityId, activity.name, reason);
+
     return saved;
+  }
+
+  private async notifyActivityCancelled(activityId: number, activityName: string, reason: string) {
+    try {
+      const registrations = await this.registrationsRepository.findByActivity(activityId);
+      await Promise.all(
+        registrations.map((r: any) =>
+          this.mailService.sendActivityCancelled(r.student.email, r.student.name, activityName, reason),
+        ),
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`notifyActivityCancelled failed for activity ${activityId}: ${msg}`);
+    }
   }
 
   async getOrganizerStats(organizerId: number) {

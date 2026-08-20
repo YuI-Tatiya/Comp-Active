@@ -1,0 +1,277 @@
+import { Test } from '@nestjs/testing';
+import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { EventsService } from './events.service';
+import { EventsRepository } from './events.repository';
+import { UserRole } from '../../../common/enums/role.enum';
+
+function makeEvent(overrides: Partial<any> = {}) {
+  return {
+    id: 1,
+    organizerId: 7,
+    name: 'Camp',
+    activities: [
+      { id: 10, name: 'Day 1', registrations: [] },
+      { id: 11, name: 'Day 2', registrations: [{ id: 99 }] },
+    ],
+    ...overrides,
+  };
+}
+
+function makeDto(activities: any[] = []) {
+  return {
+    name: 'Camp',
+    description: 'desc',
+    activities: activities.length
+      ? activities
+      : [
+          {
+            id: 10,
+            name: 'Day 1',
+            description: 'd',
+            category: 'Technology',
+            startAt: '2027-01-01T09:00:00.000Z',
+            endAt: '2027-01-01T12:00:00.000Z',
+            location: 'Room 1',
+          },
+          {
+            id: 11,
+            name: 'Day 2',
+            description: 'd',
+            category: 'Technology',
+            startAt: '2027-01-02T09:00:00.000Z',
+            endAt: '2027-01-02T12:00:00.000Z',
+            location: 'Room 1',
+          },
+        ],
+  } as any;
+}
+
+describe('EventsService.update', () => {
+  let service: EventsService;
+  let repo: { findById: jest.Mock; update: jest.Mock };
+
+  beforeEach(async () => {
+    repo = { findById: jest.fn(), update: jest.fn().mockResolvedValue({ id: 1 }) };
+    const module = await Test.createTestingModule({
+      providers: [EventsService, { provide: EventsRepository, useValue: repo }],
+    }).compile();
+    service = module.get(EventsService);
+  });
+
+  it('throws NotFoundException when the event does not exist', async () => {
+    repo.findById.mockResolvedValue(null);
+    await expect(service.update(7, UserRole.ORGANIZER, 1, makeDto())).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws ForbiddenException when the caller does not own the event', async () => {
+    repo.findById.mockResolvedValue(makeEvent());
+    await expect(service.update(999, UserRole.ORGANIZER, 1, makeDto())).rejects.toThrow(ForbiddenException);
+  });
+
+  it('allows an admin to update an event they do not own', async () => {
+    repo.findById.mockResolvedValue(makeEvent());
+    await service.update(999, UserRole.ADMIN, 1, makeDto());
+    expect(repo.update).toHaveBeenCalled();
+  });
+
+  it('rejects removing an activity that already has registrations', async () => {
+    repo.findById.mockResolvedValue(makeEvent());
+    // ส่งเฉพาะ activity id 10 กลับมา -> id 11 (มีคนลงทะเบียนแล้ว) ถูกเอาออก
+    await expect(
+      service.update(7, UserRole.ORGANIZER, 1, makeDto([
+        {
+          id: 10,
+          name: 'Day 1',
+          description: 'd',
+          category: 'Technology',
+          startAt: '2027-01-01T09:00:00.000Z',
+          endAt: '2027-01-01T12:00:00.000Z',
+          location: 'Room 1',
+        },
+      ])),
+    ).rejects.toThrow(BadRequestException);
+    expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  it('allows removing an activity with no registrations', async () => {
+    repo.findById.mockResolvedValue(makeEvent());
+    await service.update(7, UserRole.ORGANIZER, 1, makeDto([
+      {
+        id: 11,
+        name: 'Day 2',
+        description: 'd',
+        category: 'Technology',
+        startAt: '2027-01-02T09:00:00.000Z',
+        endAt: '2027-01-02T12:00:00.000Z',
+        location: 'Room 1',
+      },
+    ]));
+    expect(repo.update).toHaveBeenCalledWith(1, expect.anything(), [10]);
+  });
+});
+
+describe('EventsService.findByIdPublic', () => {
+  let service: EventsService;
+  let repo: { findByIdPublicSafe: jest.Mock };
+
+  beforeEach(async () => {
+    repo = { findByIdPublicSafe: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [EventsService, { provide: EventsRepository, useValue: repo }],
+    }).compile();
+    service = module.get(EventsService);
+  });
+
+  it('throws NotFoundException when the event does not exist', async () => {
+    repo.findByIdPublicSafe.mockResolvedValue(null);
+    await expect(service.findByIdPublic(1, null)).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws NotFoundException when the viewer is not eligible for a restricted event', async () => {
+    repo.findByIdPublicSafe.mockResolvedValue({
+      id: 1,
+      visibility: 'restricted',
+      visibilityStudentIdFilter: null,
+      visibilityProgram: [{ programCode: 'CS' }],
+      visibilityYears: [],
+      activities: [{ id: 10, approvalStatus: 'approved' }],
+    });
+    await expect(
+      service.findByIdPublic(1, { role: 'student', studentId: '653380001-1', program: 'IT' }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('returns the event when visibility is everyone', async () => {
+    const event = {
+      id: 1,
+      visibility: 'everyone',
+      visibilityProgram: [],
+      visibilityYears: [],
+      activities: [{ id: 10, approvalStatus: 'approved', _count: { registrations: 3 } }],
+    };
+    repo.findByIdPublicSafe.mockResolvedValue(event);
+    const result = await service.findByIdPublic(1, null);
+    expect(result.activities[0].registeredCount).toBe(3);
+  });
+
+  it('throws NotFoundException when the event has no approved activity', async () => {
+    repo.findByIdPublicSafe.mockResolvedValue({
+      id: 1,
+      visibility: 'everyone',
+      visibilityProgram: [],
+      visibilityYears: [],
+      activities: [{ id: 10, approvalStatus: 'pending_approval' }],
+    });
+    await expect(service.findByIdPublic(1, null)).rejects.toThrow(NotFoundException);
+  });
+
+  it('strips registrations, organizer.email, and unapproved sibling activities from the response', async () => {
+    repo.findByIdPublicSafe.mockResolvedValue({
+      id: 1,
+      visibility: 'everyone',
+      visibilityProgram: [],
+      visibilityYears: [],
+      activities: [
+        {
+          id: 10,
+          approvalStatus: 'approved',
+          registrations: [{ id: 1, studentId: 5 }],
+          organizer: { id: 3, name: 'Org', email: 'org@example.com' },
+          _count: { registrations: 1 },
+        },
+        { id: 11, approvalStatus: 'pending_approval', registrations: [], _count: { registrations: 0 } },
+      ],
+    });
+
+    const result = await service.findByIdPublic(1, null);
+
+    expect(result.activities).toHaveLength(1);
+    expect(result.activities[0].id).toBe(10);
+    expect(result.activities[0].registrations).toBeUndefined();
+    expect(result.activities[0]._count).toBeUndefined();
+    expect(result.activities[0].registeredCount).toBe(1);
+    expect(result.activities[0].organizer).toEqual({ id: 3, name: 'Org' });
+    expect((result.activities[0].organizer as any).email).toBeUndefined();
+  });
+});
+
+describe('EventsService.findAllPublic', () => {
+  let service: EventsService;
+  let repo: { findAllApproved: jest.Mock };
+
+  beforeEach(async () => {
+    repo = { findAllApproved: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [EventsService, { provide: EventsRepository, useValue: repo }],
+    }).compile();
+    service = module.get(EventsService);
+  });
+
+  it('filters unapproved activities and maps registeredCount for eligible events', async () => {
+    repo.findAllApproved.mockResolvedValue([
+      {
+        id: 1,
+        visibility: 'everyone',
+        visibilityProgram: [],
+        visibilityYears: [],
+        activities: [
+          { id: 10, approvalStatus: 'approved', registrations: [], organizer: { id: 3, name: 'Org', email: 'x@y.com' }, _count: { registrations: 2 } },
+          { id: 11, approvalStatus: 'pending_approval', registrations: [], _count: { registrations: 0 } },
+        ],
+      },
+    ]);
+
+    const [result] = await service.findAllPublic(null);
+    expect(result.activities).toHaveLength(1);
+    expect(result.activities[0].registeredCount).toBe(2);
+    expect(result.activities[0].organizer.email).toBeUndefined();
+  });
+});
+
+describe('EventsService.findByIdForOrganizer', () => {
+  let service: EventsService;
+  let repo: { findById: jest.Mock };
+
+  beforeEach(async () => {
+    repo = { findById: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [EventsService, { provide: EventsRepository, useValue: repo }],
+    }).compile();
+    service = module.get(EventsService);
+  });
+
+  it('throws NotFoundException when the event does not exist', async () => {
+    repo.findById.mockResolvedValue(null);
+    await expect(service.findByIdForOrganizer(1, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws NotFoundException (not Forbidden) when the caller does not own the event', async () => {
+    repo.findById.mockResolvedValue({ id: 1, organizerId: 7, activities: [] });
+    await expect(service.findByIdForOrganizer(1, 999, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
+  });
+
+  it('allows an admin to view an event they do not own', async () => {
+    repo.findById.mockResolvedValue({ id: 1, organizerId: 7, activities: [] });
+    await expect(service.findByIdForOrganizer(1, 999, UserRole.ADMIN)).resolves.toEqual(
+      expect.objectContaining({ id: 1 }),
+    );
+  });
+
+  it('maps registeredCount for the owning organizer, keeping full registration data', async () => {
+    repo.findById.mockResolvedValue({
+      id: 1,
+      organizerId: 7,
+      activities: [
+        {
+          id: 10,
+          registrations: [{ id: 1, student: { id: 5, name: 'A', studentId: '1', email: 'a@b.com' }, evaluation: null }],
+          _count: { registrations: 1 },
+        },
+      ],
+    });
+    const result = await service.findByIdForOrganizer(1, 7, UserRole.ORGANIZER);
+    expect(result.activities[0].registeredCount).toBe(1);
+    expect(result.activities[0].registrations[0].student.name).toBe('A');
+    expect(result.activities[0]._count).toBeUndefined();
+  });
+});

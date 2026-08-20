@@ -23,6 +23,7 @@ import { SeedModule } from './modules/shared/seed/seed.module';
 // register before the role modules' own literal-path routes (e.g. `/pending`,
 // `/my`) and swallow them.
 import { ActivitiesPublicModule } from './modules/shared/activities/activities-public.module';
+import { EventsPublicModule } from './modules/shared/events/events-public.module';
 import { VolunteerServicesPublicModule } from './modules/shared/volunteer-services/volunteer-services-public.module';
 
 @Module({
@@ -38,8 +39,11 @@ import { VolunteerServicesPublicModule } from './modules/shared/volunteer-servic
     PrismaModule,
 
     // Serve Static Files (For Uploaded Images)
+    // rootPath ต้องชี้ไปที่ <backend>/public เสมอ ห้ามอิง __dirname เพราะ prisma.config.ts
+    // อยู่นอก src/ ทำให้ tsc ดัน output ลงเป็น dist/src/ แทน dist/ — __dirname/../public
+    // จึงกลายเป็น dist/public ที่ไม่มีอยู่จริง ทำให้รูปที่อัปโหลดทั้งหมด 404
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'public'),
+      rootPath: join(process.cwd(), 'public'),
       serveRoot: '/',
     }),
 
@@ -54,6 +58,7 @@ import { VolunteerServicesPublicModule } from './modules/shared/volunteer-servic
     OrganizerModule,
     StudentModule,
     ActivitiesPublicModule,
+    EventsPublicModule,
     VolunteerServicesPublicModule,
   ],
 })
