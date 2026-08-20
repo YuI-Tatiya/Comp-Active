@@ -15,12 +15,21 @@ import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
 import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Edit, CheckSquare, Download, Loader2, Award } from "lucide-react"
 import Link from "next/link"
-import { eventsAPI, registrationsAPI, activitiesAPI, isUnlimitedCapacity, EventSummary, API_BASE_URL } from "@/lib/api"
+import { eventsAPI, registrationsAPI, activitiesAPI, isUnlimitedCapacity, EventSummary } from "@/lib/api"
 import { resolveEventImageUrl } from "@/lib/event-image"
 import { softSkillLabel } from "@/lib/soft-skills"
 import { categoryLabel } from "@/lib/categories"
 
 type EventActivity = EventSummary["activities"][number]
+
+/** รูปร่างของ registration ที่ backend คืนมาใน EventSummary.activities[].registrations — Activity<T> เป็น unknown[] โดย default */
+interface RegistrationRow {
+    id: number
+    student: { name: string; studentId: string; email: string }
+    status: string
+    attendance: string
+    evaluation?: unknown
+}
 
 export default function OrganizerEventDetailsPage() {
     const params = useParams()
@@ -64,7 +73,7 @@ export default function OrganizerEventDetailsPage() {
     const exportCSV = () => {
         if (!activeActivity?.registrations || activeActivity.registrations.length === 0) return
         const headers = ["ลำดับ", "ชื่อ-นามสกุล", "รหัสนักศึกษา", "อีเมล", "สถานะการลงทะเบียน", "เช็คอิน"]
-        const rows = (activeActivity.registrations as any[]).map((reg, idx) => [
+        const rows = (activeActivity.registrations as RegistrationRow[]).map((reg, idx) => [
             idx + 1,
             reg.student?.name || "-",
             reg.student?.studentId || "-",
@@ -237,7 +246,7 @@ export default function OrganizerEventDetailsPage() {
                                                     </thead>
                                                     <tbody className="divide-y divide-border">
                                                         {a.registrations && a.registrations.length > 0 ? (
-                                                            (a.registrations as any[]).map((reg) => (
+                                                            (a.registrations as RegistrationRow[]).map((reg) => (
                                                                 <tr key={reg.id} className="hover:bg-surface transition-colors">
                                                                     <td className="px-6 py-4">
                                                                         <div className="font-medium text-fg">{reg.student.name}</div>
