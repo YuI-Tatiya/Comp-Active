@@ -137,7 +137,7 @@ export class ActivitiesService {
     if (activity.status === ActivityStatus.COMPLETED) {
       throw new BadRequestException('กิจกรรมนี้จบไปแล้ว');
     }
-    if (activity.approvalStatus === ApprovalStatus.REJECTED) {
+    if (activity.approvalStatus === ApprovalStatus.CANCELLED || activity.approvalStatus === ApprovalStatus.REJECTED) {
       throw new BadRequestException('กิจกรรมนี้ถูกยกเลิกไปแล้ว ไม่สามารถจบกิจกรรมได้');
     }
 
@@ -178,7 +178,7 @@ export class ActivitiesService {
       throw new ForbiddenException('คุณไม่มีสิทธิ์ยกเลิกกิจกรรมนี้');
     }
 
-    const saved = await this.activitiesRepository.closeAndReject(activityId, reason);
+    const saved = await this.activitiesRepository.cancelByOrganizer(activityId, reason);
     this.logger.log(`Activity cancelled by organizer: "${activity.name}" (ID: ${activityId})`);
 
     void this.notifyActivityCancelled(activityId, activity.name, reason);

@@ -14,7 +14,7 @@ import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
 import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Edit, CheckSquare, Download, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { activitiesAPI, registrationsAPI, isUnlimitedCapacity, Activity, API_BASE_URL, SkillScores } from "@/lib/api"
+import { activitiesAPI, registrationsAPI, isUnlimitedCapacity, isCancelledByOrganizer, Activity, API_BASE_URL, SkillScores } from "@/lib/api"
 import {
     ActivityAboutPanel,
     ActivityRegistrationPanel,
@@ -216,7 +216,7 @@ export default function OrganizerEventDetailsPage() {
                         <Link href={`/organizer/activities/${event.id}/edit`}>
                             <Button variant="outline" size="sm"><Edit className="w-4 h-4 mr-2" /> แก้ไขกิจกรรม</Button>
                         </Link>
-                        {event.approvalStatus !== 'rejected' && event.status !== 'completed' && (
+                        {!isCancelledByOrganizer(event.approvalStatus) && event.status !== 'completed' && (
                             <Button variant="outline" size="sm" onClick={handleMarkCompleted} disabled={submitting}>
                                 <CheckSquare className="w-4 h-4 mr-2" /> จบกิจกรรม
                             </Button>
@@ -225,9 +225,9 @@ export default function OrganizerEventDetailsPage() {
                             variant="destructive"
                             size="sm"
                             onClick={() => setIsCancelOpen(true)}
-                            disabled={event.approvalStatus === 'rejected'}
+                            disabled={isCancelledByOrganizer(event.approvalStatus)}
                         >
-                            {event.approvalStatus === 'rejected' ? 'ยกเลิกแล้ว' : 'ยกเลิกกิจกรรม'}
+                            {isCancelledByOrganizer(event.approvalStatus) ? 'ยกเลิกแล้ว' : 'ยกเลิกกิจกรรม'}
                         </Button>
                     </div>
                 </div>
@@ -248,7 +248,7 @@ export default function OrganizerEventDetailsPage() {
                             {event.approvalStatus === 'pending_approval' && (
                                 <Badge variant="warning">รออนุมัติ</Badge>
                             )}
-                            {event.approvalStatus === 'rejected' && (
+                            {isCancelledByOrganizer(event.approvalStatus) && (
                                 <Badge variant="danger">กิจกรรมถูกยกเลิก</Badge>
                             )}
                         </div>

@@ -15,7 +15,7 @@ import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
 import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Edit, CheckSquare, Download, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { eventsAPI, registrationsAPI, activitiesAPI, isUnlimitedCapacity, EventSummary } from "@/lib/api"
+import { eventsAPI, registrationsAPI, activitiesAPI, isUnlimitedCapacity, isCancelledByOrganizer, EventSummary } from "@/lib/api"
 import { resolveEventImageUrl } from "@/lib/event-image"
 import {
     ActivityAboutPanel,
@@ -201,12 +201,12 @@ export default function OrganizerEventDetailsPage() {
                         <Link href={`/organizer/manage/${event.id}/edit`}>
                             <Button variant="outline" size="sm"><Edit className="w-4 h-4 mr-2" /> แก้ไขงาน</Button>
                         </Link>
-                        {activeActivity && activeActivity.approvalStatus !== "rejected" && activeActivity.status !== "completed" && (
+                        {activeActivity && !isCancelledByOrganizer(activeActivity.approvalStatus) && activeActivity.status !== "completed" && (
                             <Button variant="outline" size="sm" onClick={handleMarkCompleted} disabled={submitting}>
                                 <CheckSquare className="w-4 h-4 mr-2" /> จบกิจกรรม
                             </Button>
                         )}
-                        {activeActivity && activeActivity.approvalStatus !== "rejected" && (
+                        {activeActivity && !isCancelledByOrganizer(activeActivity.approvalStatus) && (
                             <Button variant="destructive" size="sm" onClick={() => setIsCancelOpen(true)}>
                                 ยกเลิกกิจกรรมนี้
                             </Button>

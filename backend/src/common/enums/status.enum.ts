@@ -10,6 +10,8 @@ export const ApprovalStatus = {
   APPROVED: 'approved',
   REJECTED: 'rejected',
   PENDING_CANCEL: 'pending_cancel',
+  /** ผู้จัดยกเลิกกิจกรรมของตัวเอง — แยกจาก REJECTED (แอดมิน/ระบบปฏิเสธ) */
+  CANCELLED: 'cancelled',
 } as const;
 export type ApprovalStatus = (typeof ApprovalStatus)[keyof typeof ApprovalStatus];
 

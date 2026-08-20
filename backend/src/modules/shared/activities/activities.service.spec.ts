@@ -78,6 +78,13 @@ describe('ActivitiesService.markCompleted', () => {
   });
 
   it('rejects completing an activity that was cancelled', async () => {
+    repo.findById.mockResolvedValue(makeActivity({ approvalStatus: ApprovalStatus.CANCELLED }));
+    await expect(service.markCompleted(5, 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
+    expect(repo.markCompleted).not.toHaveBeenCalled();
+  });
+
+  // ค่าเก่าก่อนแยก enum — REJECTED เคยถูกใช้แทนความหมาย "ผู้จัดยกเลิกเอง" ต้องยัง guard ไว้
+  it('also rejects completing an activity carrying the legacy REJECTED value', async () => {
     repo.findById.mockResolvedValue(makeActivity({ approvalStatus: ApprovalStatus.REJECTED }));
     await expect(service.markCompleted(5, 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
     expect(repo.markCompleted).not.toHaveBeenCalled();
@@ -117,7 +124,7 @@ function makeRegistration(overrides: Partial<any> = {}) {
 
 describe('ActivitiesService student-notification side effects', () => {
   let service: ActivitiesService;
-  let activitiesRepo: { findById: jest.Mock; markCompleted: jest.Mock; closeAndReject: jest.Mock };
+  let activitiesRepo: { findById: jest.Mock; markCompleted: jest.Mock; cancelByOrganizer: jest.Mock };
   let registrationsRepo: { findByActivity: jest.Mock };
   let mail: { sendActivityCompleted: jest.Mock; sendActivityCancelled: jest.Mock };
 
@@ -125,7 +132,7 @@ describe('ActivitiesService student-notification side effects', () => {
     activitiesRepo = {
       findById: jest.fn().mockResolvedValue(makeActivity()),
       markCompleted: jest.fn().mockResolvedValue({ id: 5, status: ActivityStatus.COMPLETED }),
-      closeAndReject: jest.fn().mockResolvedValue({ id: 5, approvalStatus: ApprovalStatus.REJECTED }),
+      cancelByOrganizer: jest.fn().mockResolvedValue({ id: 5, approvalStatus: ApprovalStatus.CANCELLED }),
     };
     registrationsRepo = { findByActivity: jest.fn().mockResolvedValue([]) };
     mail = { sendActivityCompleted: jest.fn(), sendActivityCancelled: jest.fn() };
@@ -160,9 +167,12 @@ describe('ActivitiesService student-notification side effects', () => {
       makeRegistration({ attendance: 'absent', student: { email: 'b@kku.ac.th', name: 'B' } }),
     ]);
 
-    await service.requestCancellation(5, 7, 'ฝนตกหนัก');
+    const saved = await service.requestCancellation(5, 7, 'ฝนตกหนัก');
     await flush();
 
+    // ต้องใช้ CANCELLED ไม่ใช่ REJECTED — REJECTED สงวนไว้สำหรับแอดมิน/ระบบปฏิเสธ
+    expect(activitiesRepo.cancelByOrganizer).toHaveBeenCalledWith(5, 'ฝนตกหนัก');
+    expect(saved.approvalStatus).toBe(ApprovalStatus.CANCELLED);
     expect(mail.sendActivityCancelled).toHaveBeenCalledTimes(2);
     expect(mail.sendActivityCancelled).toHaveBeenCalledWith('a@kku.ac.th', 'A', 'Workshop', 'ฝนตกหนัก');
     expect(mail.sendActivityCancelled).toHaveBeenCalledWith('b@kku.ac.th', 'B', 'Workshop', 'ฝนตกหนัก');

@@ -1,7 +1,7 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
-import { API_BASE_URL, capacityLabel, type Activity } from "@/lib/api"
+import { API_BASE_URL, capacityLabel, isCancelledByOrganizer, type Activity } from "@/lib/api"
 import { categoryLabel } from "@/lib/categories"
 import { softSkillLabel } from "@/lib/soft-skills"
 import {
@@ -70,7 +70,7 @@ function formatDateTime(iso: string | null | undefined): string {
  * เดิม organizer พิมพ์เหตุผลยกเลิกเก็บลง DB แล้วไม่มีใครเห็นเลยทั้งระบบ
  */
 export function ActivityStatusNotice({ activity }: { activity: Activity }) {
-    if (activity.approvalStatus === "rejected") {
+    if (isCancelledByOrganizer(activity.approvalStatus)) {
         return (
             <div className="rounded-xl border border-danger bg-danger-bg p-4">
                 <div className="flex items-center gap-2 font-semibold text-danger">

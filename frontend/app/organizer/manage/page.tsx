@@ -12,7 +12,7 @@ import {
     EventCardRow,
     formatEventDate,
 } from "@/components/ui/event-card"
-import { eventsAPI, activitiesAPI, EventSummary, Activity } from "@/lib/api"
+import { eventsAPI, activitiesAPI, isCancelledByOrganizer, EventSummary, Activity } from "@/lib/api"
 import { CATEGORIES } from "@/lib/categories"
 import { Calendar, MapPin, Clock, Loader2, Search, Plus, Layers } from "lucide-react"
 
@@ -20,6 +20,8 @@ import { Calendar, MapPin, Clock, Loader2, Search, Plus, Layers } from "lucide-r
 const APPROVAL_META: Record<string, { label: string; className: string }> = {
     approved: { label: "อนุมัติแล้ว", className: "bg-success/90" },
     pending_approval: { label: "รออนุมัติ", className: "bg-warning/90" },
+    cancelled: { label: "ยกเลิกแล้ว", className: "bg-danger/90" },
+    // ค่าเก่าก่อนแยก enum — backend ไม่เขียนค่านี้อีกแล้วแต่คงไว้เผื่อข้อมูลเก่า
     rejected: { label: "ยกเลิกแล้ว", className: "bg-danger/90" },
 }
 
@@ -121,7 +123,7 @@ export default function OrganizerManagePage() {
     /** สถานะรวมของงาน — ยกเลิกเมื่อกิจกรรมย่อยทุกตัวถูกยกเลิก, เปิดเมื่อมีอย่างน้อยหนึ่งตัวเปิดอยู่ */
     function eventStatus(ev: EventSummary): "open" | "closed" | "cancelled" {
         const list = ev.activities
-        if (list.length > 0 && list.every((a) => a.approvalStatus === "rejected")) return "cancelled"
+        if (list.length > 0 && list.every((a) => isCancelledByOrganizer(a.approvalStatus))) return "cancelled"
         return list.some((a) => a.status === "open") ? "open" : "closed"
     }
 
@@ -148,7 +150,7 @@ export default function OrganizerManagePage() {
         const q = searchQuery.trim().toLowerCase()
         return standaloneActivities.filter((a) => {
             const matchesSearch = !q || a.name.toLowerCase().includes(q)
-            const status = a.approvalStatus === "rejected" ? "cancelled" : a.status === "open" ? "open" : "closed"
+            const status = isCancelledByOrganizer(a.approvalStatus) ? "cancelled" : a.status === "open" ? "open" : "closed"
             const matchesStatus = !values.status || status === values.status
             const matchesCategory = !values.category || a.category === values.category
             // กิจกรรมเดี่ยวไม่มีแนวคิดการเผยแพร่ระดับงาน จึงซ่อนเมื่อผู้ใช้กรองด้วยเงื่อนไขนี้

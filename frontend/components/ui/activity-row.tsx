@@ -14,7 +14,10 @@ const APPROVAL_META: Record<
 > = {
     approved: { label: "อนุมัติแล้ว", variant: "success" },
     pending_approval: { label: "รออนุมัติ", variant: "warning" },
-    rejected: { label: "ถูกปฏิเสธ", variant: "danger" },
+    cancelled: { label: "ยกเลิกแล้ว", variant: "danger" },
+    // ค่าเก่าก่อนแยก enum — เดิม "rejected" ถูกใช้แทนความหมาย "ผู้จัดยกเลิกเอง" ทำให้
+    // ป้ายบอกผิด (เหมือนมีคนอื่นปฏิเสธ) backend ไม่เขียนค่านี้อีกแล้วแต่คงไว้เผื่อข้อมูลเก่า
+    rejected: { label: "ยกเลิกแล้ว", variant: "danger" },
     pending_cancel: { label: "รอยกเลิก", variant: "info" },
 }
 

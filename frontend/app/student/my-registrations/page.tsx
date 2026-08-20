@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { formatEventDate } from "@/components/ui/event-card"
-import { registrationsAPI, API_BASE_URL, EventSurveyQuestion, SurveyAnswerBody } from "@/lib/api"
+import { registrationsAPI, API_BASE_URL, isCancelledByOrganizer, EventSurveyQuestion, SurveyAnswerBody } from "@/lib/api"
 import { Calendar, Clock, MapPin, Plus, Loader2, CalendarX, X, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -266,10 +266,10 @@ export default function MyRegistrationsPage() {
 
                         {!!reg.evaluation && <Badge variant="default">ประเมินแล้ว</Badge>}
 
-                        {reg.activity.approvalStatus === "rejected" && (
+                        {isCancelledByOrganizer(reg.activity.approvalStatus) && (
                           <Badge variant="danger">กิจกรรมถูกยกเลิก</Badge>
                         )}
-                        {reg.activity.status === "completed" && reg.activity.approvalStatus !== "rejected" && (
+                        {reg.activity.status === "completed" && !isCancelledByOrganizer(reg.activity.approvalStatus) && (
                           <Badge variant="neutral">กิจกรรมจบแล้ว</Badge>
                         )}
                       </div>
@@ -277,7 +277,7 @@ export default function MyRegistrationsPage() {
                       <h3 className="mb-4 text-xl font-bold text-fg">{reg.activity.name}</h3>
 
                       {/* เหตุผลที่ผู้จัดยกเลิก — เดิมเก็บลง DB แล้วไม่เคยแสดงให้นักศึกษาเห็น */}
-                      {reg.activity.approvalStatus === "rejected" && (
+                      {isCancelledByOrganizer(reg.activity.approvalStatus) && (
                         <div className="mb-4 rounded-lg border border-danger bg-danger-bg px-4 py-3">
                           <p className="text-sm font-semibold text-danger">ผู้จัดยกเลิกกิจกรรมนี้</p>
                           <p className="mt-1 text-sm text-fg-muted">

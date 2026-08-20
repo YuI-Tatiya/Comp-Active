@@ -141,7 +141,7 @@ export class ActivitiesRepository {
     return this.prisma.activity.count();
   }
 
-  /** ปิดกิจกรรมแบบ "จบแล้ว" — ต่างจาก closeAndReject ตรงที่ไม่ใช่การยกเลิก */
+  /** ปิดกิจกรรมแบบ "จบแล้ว" — ต่างจาก cancelByOrganizer ตรงที่ไม่ใช่การยกเลิก */
   markCompleted(activityId: number) {
     return this.prisma.activity.update({
       where: { id: activityId },
@@ -150,11 +150,12 @@ export class ActivitiesRepository {
     });
   }
 
-  closeAndReject(activityId: number, reason: string) {
+  /** ผู้จัดยกเลิกกิจกรรมของตัวเอง — ใช้ CANCELLED ไม่ใช่ REJECTED (นั่นคือแอดมิน/ระบบปฏิเสธ) */
+  cancelByOrganizer(activityId: number, reason: string) {
     return this.prisma.activity.update({
       where: { id: activityId },
       data: {
-        approvalStatus: ApprovalStatus.REJECTED as any,
+        approvalStatus: ApprovalStatus.CANCELLED as any,
         status: ActivityStatus.CLOSED as any,
         cancellationReason: reason,
       },
