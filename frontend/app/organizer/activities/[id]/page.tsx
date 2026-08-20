@@ -20,6 +20,7 @@ import {
     ActivityRegistrationPanel,
     ActivityRewardsPanel,
 } from "@/components/activity/activity-info-panels"
+import { categoryLabel } from "@/lib/categories"
 
 interface Participant {
     id: number;
@@ -231,37 +232,39 @@ export default function OrganizerEventDetailsPage() {
                     </div>
                 </div>
 
+                <div className="mb-6">
+                    <div className="aspect-video w-full max-h-[280px] bg-surface-2 rounded-xl overflow-hidden relative border border-border">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={event.imageUrl ? `${API_BASE_URL}${event.imageUrl}` : "/activity-placeholder.svg"}
+                            alt={event.name}
+                            className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+                            {event.category && <Badge variant="default">{categoryLabel(event.category)}</Badge>}
+                            <Badge variant={event.status === 'open' ? "success" : "neutral"}>
+                                {event.status === 'open' ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
+                            </Badge>
+                            {event.approvalStatus === 'pending_approval' && (
+                                <Badge variant="warning">รออนุมัติ</Badge>
+                            )}
+                            {event.approvalStatus === 'rejected' && (
+                                <Badge variant="danger">กิจกรรมถูกยกเลิก</Badge>
+                            )}
+                        </div>
+                    </div>
+                    <h1 className="mt-4 text-2xl md:text-3xl font-bold text-fg">{event.name}</h1>
+                    <p className="mt-2 text-fg-muted whitespace-pre-line">{event.description || "ไม่มีรายละเอียด"}</p>
+                    <div className="mt-2 flex items-center text-fg-muted gap-2">
+                        <Users className="w-4 h-4 text-fg-subtle" aria-hidden="true" />
+                        <span className="text-sm">จัดโดยคุณ</span>
+                    </div>
+                </div>
+
                 <div className="grid lg:grid-cols-3 gap-8">
                     {/* Left Content */}
                     <div className="lg:col-span-2 space-y-8">
-                        <div className="aspect-video w-full bg-surface-2 rounded-xl overflow-hidden relative border border-border">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                src={event.imageUrl ? `${API_BASE_URL}${event.imageUrl}` : "/activity-placeholder.svg"}
-                                alt={event.name}
-                                className="w-full h-full object-cover"
-                            />
-                            <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-                                {event.category && <Badge variant="default">{event.category}</Badge>}
-                                <Badge variant={event.status === 'open' ? "success" : "neutral"}>
-                                    {event.status === 'open' ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
-                                </Badge>
-                                {event.approvalStatus === 'pending_approval' && (
-                                    <Badge variant="warning">รออนุมัติ</Badge>
-                                )}
-                                {event.approvalStatus === 'rejected' && (
-                                    <Badge variant="danger">กิจกรรมถูกยกเลิก</Badge>
-                                )}
-                            </div>
-                        </div>
-
                         <div>
-                            <h1 className="text-2xl md:text-3xl font-bold text-fg mb-2">{event.name}</h1>
-                            <div className="flex items-center text-fg-muted gap-2 mb-6">
-                                <Users className="w-5 h-5 text-fg-subtle" aria-hidden="true" />
-                                <span>จัดโดยคุณ</span>
-                            </div>
-
                             <Tabs defaultValue="participants" className="w-full">
                                 <TabsList className="w-full justify-start bg-surface-2 p-1 rounded-lg mb-6">
                                     <TabsTrigger value="participants" className="flex-1">ผู้เข้าร่วม ({event.registrations?.length || 0})</TabsTrigger>
