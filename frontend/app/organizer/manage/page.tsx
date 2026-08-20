@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import { Container } from "@/components/layout/container"
 import {
     EventCard,
@@ -14,7 +13,6 @@ import {
     formatEventDate,
 } from "@/components/ui/event-card"
 import { eventsAPI, activitiesAPI, EventSummary, Activity } from "@/lib/api"
-import { resolveEventImageUrl } from "@/lib/event-image"
 import { Calendar, MapPin, Clock, Loader2, Search, Plus, Layers } from "lucide-react"
 
 /** สถานะการอนุมัติของกิจกรรมย่อย — ตรงกับ ApprovalStatus ใน backend/prisma/schema.prisma */
