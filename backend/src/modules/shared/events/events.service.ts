@@ -3,7 +3,7 @@ import { EventsRepository, PreparedActivityData } from './events.repository';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { diffHours, formatHHmm } from '../../../common/utils/time.util';
-import { ActivityQuestionType, SurveyQuestionType, EventVisibility } from '../../../common/enums/status.enum';
+import { ActivityQuestionType, SurveyQuestionType, EventVisibility, ApprovalStatus } from '../../../common/enums/status.enum';
 import { UserRole } from '../../../common/enums/role.enum';
 import { isViewerEligibleForEvent, Viewer } from './event-visibility.util';
 
@@ -216,8 +216,11 @@ export class EventsService {
 
   async findByIdPublic(id: number, viewer: Viewer | null) {
     const event = await this.eventsRepository.findById(id);
-    // ให้ error เดียวกับ "ไม่พบ" เสมอ ไม่ว่าจะไม่มีจริงๆ หรือมีแต่ไม่มีสิทธิ์เห็น
-    if (!event || !isViewerEligibleForEvent(viewer, event as any)) {
+    const hasApprovedActivity = (event as any)?.activities?.some(
+      (a: any) => a.approvalStatus === ApprovalStatus.APPROVED,
+    );
+    // ให้ error เดียวกับ "ไม่พบ" เสมอ ไม่ว่าจะไม่มีจริงๆ, ไม่มีกิจกรรมย่อยที่อนุมัติแล้ว, หรือมีแต่ไม่มีสิทธิ์เห็น
+    if (!event || !hasApprovedActivity || !isViewerEligibleForEvent(viewer, event as any)) {
       throw new NotFoundException(`ไม่พบงาน ID: ${id}`);
     }
     return event;

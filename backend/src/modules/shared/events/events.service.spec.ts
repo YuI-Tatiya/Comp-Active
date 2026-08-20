@@ -141,8 +141,25 @@ describe('EventsService.findByIdPublic', () => {
   });
 
   it('returns the event when visibility is everyone', async () => {
-    const event = { id: 1, visibility: 'everyone', visibilityProgram: [], visibilityYears: [] };
+    const event = {
+      id: 1,
+      visibility: 'everyone',
+      visibilityProgram: [],
+      visibilityYears: [],
+      activities: [{ id: 10, approvalStatus: 'approved' }],
+    };
     repo.findById.mockResolvedValue(event);
     await expect(service.findByIdPublic(1, null)).resolves.toBe(event);
+  });
+
+  it('throws NotFoundException when the event has no approved activity', async () => {
+    repo.findById.mockResolvedValue({
+      id: 1,
+      visibility: 'everyone',
+      visibilityProgram: [],
+      visibilityYears: [],
+      activities: [{ id: 10, approvalStatus: 'pending_approval' }],
+    });
+    await expect(service.findByIdPublic(1, null)).rejects.toThrow(NotFoundException);
   });
 });

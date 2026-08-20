@@ -259,7 +259,7 @@ export class EventsRepository {
   /** งานที่มีอย่างน้อย 1 กิจกรรมย่อยที่ approved แล้ว — ใช้สำหรับรายการสาธารณะ */
   findAllApproved() {
     return this.prisma.event.findMany({
-      where: { activities: { some: { approvalStatus: 'approved' as any } } },
+      where: { activities: { some: { approvalStatus: ApprovalStatus.APPROVED as any } } },
       include: eventInclude,
       orderBy: { createdAt: 'desc' },
     });
