@@ -12,10 +12,14 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
-import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Edit, CheckSquare, Download, Loader2 } from "lucide-react"
+import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Edit, CheckSquare, Download, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { activitiesAPI, registrationsAPI, isUnlimitedCapacity, Activity, API_BASE_URL, SkillScores } from "@/lib/api"
-import { softSkillLabel } from "@/lib/soft-skills"
+import {
+    ActivityAboutPanel,
+    ActivityRegistrationPanel,
+    ActivityRewardsPanel,
+} from "@/components/activity/activity-info-panels"
 
 interface Participant {
     id: number;
@@ -128,6 +132,22 @@ export default function OrganizerEventDetailsPage() {
         }
     }
 
+    const handleMarkCompleted = async () => {
+        if (!event) return
+        if (!confirm(`ยืนยันจบกิจกรรม "${event.name}"? ระบบจะปิดรับสมัครและปลดล็อกแบบสำรวจให้ผู้เข้าร่วม`)) return
+        try {
+            setSubmitting(true)
+            await activitiesAPI.markCompleted(id)
+            alert("จบกิจกรรมเรียบร้อยแล้ว")
+            fetchEventDetails(id)
+        } catch (err: unknown) {
+            const e = err as Error
+            alert(e.message || "จบกิจกรรมไม่สำเร็จ")
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
     const handleConfirm = async (regId: number) => {
         try {
             await registrationsAPI.confirm(regId)
@@ -190,9 +210,16 @@ export default function OrganizerEventDetailsPage() {
                         <ArrowLeft className="w-4 h-4 mr-2" /> กลับสู่หน้าจัดการ
                     </Link>
                     <div className="flex gap-2">
-                        <Link href={`/organizer/manage/${event.id}/edit`}>
+                        {/* กิจกรรมเดี่ยวต้องแก้ผ่าน route ของตัวเอง — /organizer/manage/[id]/edit เป็น wizard ของ "งาน"
+                            ที่รับ Event id ถ้าส่ง Activity id เข้าไปจะเปิดงานอื่นมาแล้วเขียนทับตอนบันทึก */}
+                        <Link href={`/organizer/activities/${event.id}/edit`}>
                             <Button variant="outline" size="sm"><Edit className="w-4 h-4 mr-2" /> แก้ไขกิจกรรม</Button>
                         </Link>
+                        {event.approvalStatus !== 'rejected' && event.status !== 'completed' && (
+                            <Button variant="outline" size="sm" onClick={handleMarkCompleted} disabled={submitting}>
+                                <CheckSquare className="w-4 h-4 mr-2" /> จบกิจกรรม
+                            </Button>
+                        )}
                         <Button
                             variant="destructive"
                             size="sm"
@@ -239,9 +266,8 @@ export default function OrganizerEventDetailsPage() {
                                 <TabsList className="w-full justify-start bg-surface-2 p-1 rounded-lg mb-6">
                                     <TabsTrigger value="participants" className="flex-1">ผู้เข้าร่วม ({event.registrations?.length || 0})</TabsTrigger>
                                     <TabsTrigger value="details" className="flex-1">รายละเอียด</TabsTrigger>
-                                    <TabsTrigger value="conditions" className="flex-1">เงื่อนไข</TabsTrigger>
-                                    <TabsTrigger value="benefits" className="flex-1">สิทธิประโยชน์</TabsTrigger>
-                                    <TabsTrigger value="softskills" className="flex-1">Soft Skills</TabsTrigger>
+                                    <TabsTrigger value="rewards" className="flex-1">สิ่งที่จะได้รับ</TabsTrigger>
+                                    <TabsTrigger value="registration" className="flex-1">การลงทะเบียน</TabsTrigger>
                                 </TabsList>
 
                                 <TabsContent value="participants" className="bg-bg rounded-xl border border-border shadow-xs overflow-hidden">
@@ -336,87 +362,16 @@ export default function OrganizerEventDetailsPage() {
                                     </div>
                                 </TabsContent>
 
-                                <TabsContent value="details" className="bg-bg p-6 rounded-xl border border-border shadow-xs">
-                                    <h3 className="text-lg font-semibold text-fg mb-4 flex items-center gap-2">
-                                        <Info className="w-5 h-5 text-brand-600" aria-hidden="true" /> เกี่ยวกับกิจกรรม
-                                    </h3>
-                                    <p className="text-fg-muted leading-relaxed whitespace-pre-line">
-                                        {event.description || "ไม่มีรายละเอียดกิจกรรม"}
-                                    </p>
-                                    <div className="mt-8 pt-6 border-t border-border">
-                                        <h4 className="text-sm font-semibold mb-3 text-fg">Tags</h4>
-                                        {event.tags && event.tags.length > 0 ? (
-                                            <div className="flex gap-2 flex-wrap">
-                                                {event.tags.map(tag => (
-                                                    <Badge key={tag.tagName} variant="neutral" className="px-3 py-1">
-                                                        <Tag className="w-3 h-3 mr-1" aria-hidden="true" /> {tag.tagName}
-                                                    </Badge>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="text-sm text-fg-subtle">ไม่ได้ระบุ Tags</p>
-                                        )}
-                                    </div>
+                                <TabsContent value="details">
+                                    <ActivityAboutPanel activity={event} />
                                 </TabsContent>
 
-                                <TabsContent value="conditions" className="bg-bg p-6 rounded-xl border border-border shadow-xs">
-                                    <h3 className="text-lg font-semibold text-fg mb-4 flex items-center gap-2">
-                                        <CheckCircle className="w-5 h-5 text-warning" aria-hidden="true" /> เงื่อนไขการเข้าร่วม
-                                    </h3>
-                                    {event.conditions && event.conditions.length > 0 ? (
-                                        <ul className="space-y-3">
-                                            {event.conditions.map((item, i) => (
-                                                <li key={i} className="flex gap-3 text-fg-muted">
-                                                    <div className="w-6 h-6 rounded-full bg-warning-bg text-warning flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</div>
-                                                    <span>{item.conditionText}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <div className="py-8 text-center bg-surface rounded-lg border border-dashed border-border">
-                                            <p className="text-fg-muted">ไม่มีข้อมูลเงื่อนไขการเข้าร่วม</p>
-                                        </div>
-                                    )}
+                                <TabsContent value="rewards">
+                                    <ActivityRewardsPanel activity={event} />
                                 </TabsContent>
 
-                                <TabsContent value="benefits" className="bg-bg p-6 rounded-xl border border-border shadow-xs">
-                                    <h3 className="text-lg font-semibold text-fg mb-4 flex items-center gap-2">
-                                        <Info className="w-5 h-5 text-success" aria-hidden="true" /> สิทธิประโยชน์ที่ได้รับ
-                                    </h3>
-                                    {event.benefits && event.benefits.length > 0 ? (
-                                        <ul className="space-y-3">
-                                            {event.benefits.map((item, i) => (
-                                                <li key={i} className="flex gap-3 text-fg-muted">
-                                                    <CheckCircle className="w-5 h-5 text-success shrink-0" aria-hidden="true" />
-                                                    <span>{item.benefitText}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <div className="py-8 text-center bg-surface rounded-lg border border-dashed border-border">
-                                            <p className="text-fg-muted">ไม่มีข้อมูลสิทธิประโยชน์</p>
-                                        </div>
-                                    )}
-                                </TabsContent>
-
-                                <TabsContent value="softskills" className="bg-bg p-6 rounded-xl border border-border shadow-xs">
-                                    <h3 className="text-lg font-semibold text-fg mb-4 flex items-center gap-2">
-                                        <CheckSquare className="w-5 h-5 text-brand-600" aria-hidden="true" /> Soft Skills ที่จะได้รับ
-                                    </h3>
-                                    {event.softSkills && event.softSkills.length > 0 ? (
-                                        <div className="flex flex-wrap gap-3">
-                                            {event.softSkills.map((skill, i) => (
-                                                <div key={i} className="flex items-center gap-2 bg-brand-50 border border-border text-brand-700 px-4 py-2.5 rounded-xl font-medium">
-                                                    <CheckSquare className="w-4 h-4" aria-hidden="true" />
-                                                    <span>{softSkillLabel(skill.skillType)}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="py-8 text-center bg-surface rounded-lg border border-dashed border-border">
-                                            <p className="text-fg-muted">ไม่ได้ระบุ Soft Skills สำหรับกิจกรรมนี้</p>
-                                        </div>
-                                    )}
+                                <TabsContent value="registration">
+                                    <ActivityRegistrationPanel activity={event} />
                                 </TabsContent>
                             </Tabs>
                         </div>
