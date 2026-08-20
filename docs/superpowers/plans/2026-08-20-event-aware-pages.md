@@ -726,7 +726,7 @@ git commit -m "feat(events): add EventsService.update and PATCH /api/events/:id"
 - Test: `backend/src/modules/shared/events/events.service.spec.ts` (extend)
 
 **Interfaces:**
-- Consumes: `filterVisibleActivities`, `isViewerEligibleForEvent`, `Viewer` (existing, `event-visibility.util.ts`); `OptionalJwtAuthGuard`, `CurrentUser` (existing, used identically in `activities-public.controller.ts`); `ApprovalStatus` (existing enum).
+- Consumes: `isViewerEligibleForEvent`, `Viewer` (existing, `event-visibility.util.ts`); `OptionalJwtAuthGuard`, `CurrentUser` (existing, used identically in `activities-public.controller.ts`); `ApprovalStatus` (existing enum).
 - Produces: `EventsRepository.findAllApproved(): Promise<EventWithRelations[]>`, `EventsRepository.findByIdIfHasApprovedActivity(id): Promise<EventWithRelations | null>` (both consumed only within `EventsService` in this task); `EventsService.findAllPublic(viewer): Promise<EventSummary[]>`, `EventsService.findByIdPublic(id, viewer): Promise<EventSummary>` (consumed by the new controller here, and — via HTTP — by Task 9/10's frontend student pages).
 
 - [ ] **Step 1: Add repository queries**
@@ -746,7 +746,7 @@ Add to `EventsRepository` in `events.repository.ts`, after `findByOrganizer`:
 
 - [ ] **Step 2: Add service methods**
 
-Add to `EventsService` in `events.service.ts`, after `findByOrganizer`. Requires importing `Viewer`, `filterVisibleActivities`, `isViewerEligibleForEvent` from `./event-visibility.util` and `NotFoundException` (already imported for Task 2):
+Add to `EventsService` in `events.service.ts`, after `findByOrganizer`. Requires importing `Viewer`, `isViewerEligibleForEvent` from `./event-visibility.util` and `NotFoundException` (already imported for Task 2):
 
 ```typescript
   async findAllPublic(viewer: Viewer | null) {
@@ -766,7 +766,7 @@ Add to `EventsService` in `events.service.ts`, after `findByOrganizer`. Requires
   }
 ```
 
-Add the import line: `import { filterVisibleActivities, isViewerEligibleForEvent, Viewer } from './event-visibility.util';` (`filterVisibleActivities` is imported for symmetry with `activities.service.ts` even though `findAllPublic` filters events directly here — remove it from the import if your editor flags it unused, since `Activity`-level filtering isn't needed at the Event level).
+Add the import line: `import { isViewerEligibleForEvent, Viewer } from './event-visibility.util';` — do not import `filterVisibleActivities`; it operates on `Activity[]`, not `Event[]`, and is not used here.
 
 - [ ] **Step 3: Create the public controller**
 
@@ -1198,7 +1198,7 @@ export default function OrganizerManagePage() {
                                     return (
                                         <EventCard
                                             key={`event-${ev.id}`}
-                                            activity={{ name: ev.name, imageUrl: resolveEventImageUrl(ev, fa).startsWith("/activity-placeholder") ? null : ev.imageUrl ?? fa?.imageUrl }}
+                                            activity={{ name: ev.name, imageUrl: ev.imageUrl ?? fa?.imageUrl }}
                                             badgeLeft={
                                                 ev.activities.length > 1 ? (
                                                     <EventCardBadge variant="light">
@@ -1307,13 +1307,7 @@ export default function OrganizerManagePage() {
 }
 ```
 
-Note the `EventCard activity={{ name: ev.name, imageUrl: ... }}` line resolves the cover image inline: since `EventCard` internally does its own `imageUrl ? ... : placeholder` check (it doesn't call `resolveEventImageUrl` itself — that would double-prefix `API_BASE_URL`), pass the *raw* `imageUrl` (`ev.imageUrl ?? fa?.imageUrl`), not the resolved absolute URL. Simplify Step 2's card `activity` prop to:
-
-```tsx
-activity={{ name: ev.name, imageUrl: ev.imageUrl ?? fa?.imageUrl }}
-```
-
-(replacing the more convoluted `resolveEventImageUrl(...).startsWith(...)` line above — that line was overcomplicated; use this simpler one instead, since `EventCard` already has its own placeholder fallback).
+Note the `EventCard activity={{ name: ev.name, imageUrl: ... }}` line resolves the cover image inline: since `EventCard` internally does its own `imageUrl ? ... : placeholder` check (it doesn't call `resolveEventImageUrl` itself — that would double-prefix `API_BASE_URL`), pass the *raw* `imageUrl` (`ev.imageUrl ?? fa?.imageUrl`), not a resolved absolute URL. The code block above already does this correctly.
 
 - [ ] **Step 3: Manually verify**
 
