@@ -117,7 +117,7 @@ export function ImageCropUpload({
             {preview && (
                 <div className="relative mt-2 w-full max-w-sm overflow-hidden rounded-lg border border-border">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={preview} alt={label} className="aspect-video w-full object-cover" />
+                    <img src={preview} alt={label} className="w-full object-cover" style={{ aspectRatio: aspect }} />
                     {onClear && (
                         <button
                             type="button"
@@ -139,7 +139,7 @@ export function ImageCropUpload({
 
                     {rawUrl && (
                         <div className="space-y-4">
-                            <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-surface">
+                            <div className="relative w-full overflow-hidden rounded-lg border border-border bg-surface" style={{ aspectRatio: aspect }}>
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                     src={rawUrl}
