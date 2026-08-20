@@ -6,16 +6,20 @@ import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { ArrowLeft, Loader2, Plus } from "lucide-react"
 import { activitiesAPI, eventsAPI, type CreateEventActivityBody, type QuestionBody, type SurveyQuestionBody } from "@/lib/api"
+import { scrollToFirstError } from "@/components/ui/form-field"
 import { StepperSidebar, type StepMeta } from "./_components/stepper-sidebar"
 import { SectionEventBasics } from "./_components/section-1-event-basics"
 import { SectionActivities } from "./_components/section-2-activities"
 import { SectionSurvey } from "./_components/section-3-survey"
 import { SectionPublish } from "./_components/section-4-publish"
+import { SectionSuccess } from "./_components/section-5-success"
 import {
     createEmptyEvent,
     createEmptyActivity,
     type EventFormState,
     type ActivityFormState,
+    type EventFormErrors,
+    type ActivityFormErrors,
 } from "./_components/types"
 
 const STEPS: StepMeta[] = [
@@ -25,30 +29,73 @@ const STEPS: StepMeta[] = [
     { number: 4, title: "เผยแพร่", subtitle: "ตรวจสอบและยืนยัน" },
 ]
 
-function validateEvent(event: EventFormState): string | null {
-    if (!event.name.trim()) return "กรุณากรอกชื่องาน"
-    if (!event.description.trim()) return "กรุณากรอกรายละเอียดงาน"
-    return null
+function validateEventField(event: EventFormState, field: keyof EventFormErrors): string | undefined {
+    switch (field) {
+        case "name":
+            return event.name.trim() ? undefined : "กรุณากรอกชื่องาน"
+        case "description":
+            return event.description.trim() ? undefined : "กรุณากรอกรายละเอียดงาน"
+    }
 }
 
-function validateActivities(activities: ActivityFormState[]): string | null {
-    if (activities.length === 0) return "ต้องมีอย่างน้อย 1 กิจกรรม"
-    for (const [i, a] of activities.entries()) {
-        const label = `กิจกรรมที่ ${i + 1}`
-        if (!a.name.trim()) return `${label}: กรุณากรอกชื่อกิจกรรม`
-        if (!a.category) return `${label}: กรุณาเลือกหมวดหมู่`
-        if (!a.description.trim()) return `${label}: กรุณากรอกรายละเอียด`
-        if (!a.startAt || !a.endAt) return `${label}: กรุณาระบุวันเวลาเริ่ม-สิ้นสุด`
-        if (new Date(a.endAt) <= new Date(a.startAt)) return `${label}: เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม`
-        if (!a.location.trim()) return `${label}: กรุณากรอกสถานที่`
-        if (a.capacityEnabled && (!a.capacity || parseInt(a.capacity) < 1)) {
-            return `${label}: กรุณาระบุจำนวนที่รับ`
-        }
-        if (a.certEnabled && !a.volunteerRole.trim()) {
-            return `${label}: กรุณาระบุชื่อบทบาทสำหรับใบจิตอาสา`
-        }
+function validateEventFields(event: EventFormState): EventFormErrors {
+    const errors: EventFormErrors = {}
+    const nameErr = validateEventField(event, "name")
+    if (nameErr) errors.name = nameErr
+    const descErr = validateEventField(event, "description")
+    if (descErr) errors.description = descErr
+    return errors
+}
+
+function validateActivityField(a: ActivityFormState, field: keyof ActivityFormErrors): string | undefined {
+    switch (field) {
+        case "name":
+            return a.name.trim() ? undefined : "กรุณากรอกชื่อกิจกรรม"
+        case "category":
+            return a.category ? undefined : "กรุณาเลือกหมวดหมู่"
+        case "description":
+            return a.description.trim() ? undefined : "กรุณากรอกรายละเอียด"
+        case "startAt":
+            return a.startAt ? undefined : "กรุณาระบุวันเวลาเริ่ม"
+        case "endAt":
+            if (!a.endAt) return "กรุณาระบุวันเวลาสิ้นสุด"
+            if (a.startAt && new Date(a.endAt) <= new Date(a.startAt)) return "เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม"
+            return undefined
+        case "location":
+            return a.location.trim() ? undefined : "กรุณากรอกสถานที่"
+        case "capacity":
+            if (!a.capacityEnabled) return undefined
+            return !a.capacity || parseInt(a.capacity) < 1 ? "กรุณาระบุจำนวนที่รับ" : undefined
+        case "volunteerRole":
+            if (!a.certEnabled) return undefined
+            return a.volunteerRole.trim() ? undefined : "กรุณาระบุชื่อบทบาทสำหรับใบจิตอาสา"
     }
-    return null
+}
+
+const ACTIVITY_FIELDS: (keyof ActivityFormErrors)[] = [
+    "name", "category", "description", "startAt", "endAt", "location", "capacity", "volunteerRole",
+]
+
+function validateActivityFields(a: ActivityFormState): ActivityFormErrors {
+    const errors: ActivityFormErrors = {}
+    for (const field of ACTIVITY_FIELDS) {
+        const message = validateActivityField(a, field)
+        if (message) errors[field] = message
+    }
+    return errors
+}
+
+function validateAllActivities(activities: ActivityFormState[]): Record<string, ActivityFormErrors> {
+    const map: Record<string, ActivityFormErrors> = {}
+    for (const a of activities) {
+        const errs = validateActivityFields(a)
+        if (Object.keys(errs).length > 0) map[a.key] = errs
+    }
+    return map
+}
+
+function countErrors(errors: Record<string, string | undefined>): number {
+    return Object.values(errors).filter(Boolean).length
 }
 
 export default function CreateEventPage() {
@@ -58,7 +105,10 @@ export default function CreateEventPage() {
     const [activities, setActivities] = useState<ActivityFormState[]>(() => [createEmptyActivity()])
     const [activeActivityKey, setActiveActivityKey] = useState(() => activities[0].key)
     const [submitting, setSubmitting] = useState(false)
+    const [submitted, setSubmitted] = useState(false)
     const [error, setError] = useState("")
+    const [eventErrors, setEventErrors] = useState<EventFormErrors>({})
+    const [activityErrors, setActivityErrors] = useState<Record<string, ActivityFormErrors>>({})
 
     function patchEvent(patch: Partial<EventFormState>) {
         setEvent((prev) => ({ ...prev, ...patch }))
@@ -66,6 +116,21 @@ export default function CreateEventPage() {
 
     function patchActivity(key: string, patch: Partial<ActivityFormState>) {
         setActivities((prev) => prev.map((a) => (a.key === key ? { ...a, ...patch } : a)))
+    }
+
+    function handleEventFieldBlur(field: keyof EventFormErrors) {
+        const message = validateEventField(event, field)
+        setEventErrors((prev) => ({ ...prev, [field]: message }))
+    }
+
+    function handleActivityFieldBlur(key: string, field: keyof ActivityFormErrors) {
+        const activity = activities.find((a) => a.key === key)
+        if (!activity) return
+        const message = validateActivityField(activity, field)
+        setActivityErrors((prev) => ({
+            ...prev,
+            [key]: { ...prev[key], [field]: message },
+        }))
     }
 
     function handleAddActivity() {
@@ -92,23 +157,44 @@ export default function CreateEventPage() {
     }
 
     function handleNext() {
-        let err: string | null = null
-        if (step === 1) err = validateEvent(event)
-        else if (step === 2) err = validateActivities(activities)
-        // ขั้นที่ 3 (แบบสำรวจ) ไม่มีฟิลด์บังคับ — ไปต่อได้เสมอ
-        if (err) {
-            setError(err)
-            return
+        if (step === 1) {
+            const errs = validateEventFields(event)
+            setEventErrors(errs)
+            const n = countErrors(errs)
+            if (n > 0) {
+                setError(`มี ${n} ฟิลด์ที่ต้องแก้ไข`)
+                scrollToFirstError(errs)
+                return
+            }
+        } else if (step === 2) {
+            if (activities.length === 0) {
+                setError("ต้องมีอย่างน้อย 1 กิจกรรม")
+                return
+            }
+            const errsByKey = validateAllActivities(activities)
+            setActivityErrors(errsByKey)
+            const total = Object.values(errsByKey).reduce((sum, e) => sum + countErrors(e), 0)
+            if (total > 0) {
+                setError(`มี ${total} ฟิลด์ที่ต้องแก้ไข`)
+                const firstKey = Object.keys(errsByKey)[0]
+                if (firstKey) setActiveActivityKey(firstKey)
+                scrollToFirstError(errsByKey[firstKey] ?? {})
+                return
+            }
         }
+        // ขั้นที่ 3 (แบบสำรวจ) ไม่มีฟิลด์บังคับ — ไปต่อได้เสมอ
         setError("")
         setStep((prev) => Math.min(prev + 1, STEPS.length))
     }
 
     async function handleSubmit() {
-        const eventErr = validateEvent(event)
-        const activitiesErr = validateActivities(activities)
-        if (eventErr || activitiesErr) {
-            setError(eventErr || activitiesErr || "")
+        const eventErrs = validateEventFields(event)
+        const activityErrsByKey = validateAllActivities(activities)
+        setEventErrors(eventErrs)
+        setActivityErrors(activityErrsByKey)
+        const total = countErrors(eventErrs) + Object.values(activityErrsByKey).reduce((sum, e) => sum + countErrors(e), 0)
+        if (total > 0) {
+            setError(`มี ${total} ฟิลด์ที่ต้องแก้ไข`)
             return
         }
 
@@ -186,7 +272,7 @@ export default function CreateEventPage() {
                     event.visibility === "restricted" ? event.visibilityStudentIdFilter || undefined : undefined,
             })
 
-            router.push("/organizer/manage")
+            setSubmitted(true)
         } catch (err: unknown) {
             const e = err as Error
             setError(e.message || "สร้างงานไม่สำเร็จ")
@@ -195,78 +281,105 @@ export default function CreateEventPage() {
         }
     }
 
+    function handleCreateAnother() {
+        const nextActivities = [createEmptyActivity()]
+        setEvent(createEmptyEvent())
+        setActivities(nextActivities)
+        setActiveActivityKey(nextActivities[0].key)
+        setStep(1)
+        setSubmitted(false)
+        setEventErrors({})
+        setActivityErrors({})
+        setError("")
+    }
+
     return (
         <div className="bg-surface">
             <Container className="py-10">
-                <div className="mb-8 flex items-center">
-                    <Button variant="ghost" onClick={handleBack} className="mr-4">
-                        <ArrowLeft className="size-4" />
-                        กลับ
-                    </Button>
-                    <div>
-                        <h1 className="flex items-center gap-2 text-2xl font-black text-fg">
-                            <div className="rounded-lg bg-brand-100 p-2 text-brand-600">
-                                <Plus className="size-5" />
+                {submitted ? (
+                    <SectionSuccess event={event} activities={activities} onCreateAnother={handleCreateAnother} />
+                ) : (
+                    <>
+                        <div className="mb-8 flex items-center">
+                            <Button variant="ghost" onClick={handleBack} className="mr-4">
+                                <ArrowLeft className="size-4" />
+                                กลับ
+                            </Button>
+                            <div>
+                                <h1 className="flex items-center gap-2 text-2xl font-black text-fg">
+                                    <div className="rounded-lg bg-brand-100 p-2 text-brand-600">
+                                        <Plus className="size-5" />
+                                    </div>
+                                    สร้างงานใหม่
+                                </h1>
+                                <p className="mt-1 text-fg-muted">
+                                    งานหนึ่งมีได้หลายกิจกรรมย่อย พร้อมตั้งค่าใบจิตอาสาและการให้คะแนน Soft Skills
+                                </p>
                             </div>
-                            สร้างงานใหม่
-                        </h1>
-                        <p className="mt-1 text-fg-muted">
-                            งานหนึ่งมีได้หลายกิจกรรมย่อย พร้อมตั้งค่าใบจิตอาสาและการให้คะแนน Soft Skills
-                        </p>
-                    </div>
-                </div>
+                        </div>
 
-                <div className="grid grid-cols-1 gap-8 md:grid-cols-[220px_1fr]">
-                    <StepperSidebar steps={STEPS} currentStep={step} className="hidden md:flex" />
+                        <div className="grid grid-cols-1 gap-8 md:grid-cols-[220px_1fr]">
+                            <StepperSidebar steps={STEPS} currentStep={step} className="hidden md:flex" />
 
-                    <div>
-                        <div className="min-h-[500px] rounded-2xl border border-border bg-bg p-8 shadow-xs">
-                            {error && (
-                                <div className="mb-6 rounded-lg border border-danger bg-danger-bg px-4 py-3 text-center text-sm text-danger">
-                                    {error}
+                            <div>
+                                <div className="min-h-[500px] rounded-2xl border border-border bg-bg p-8 shadow-xs">
+                                    {error && (
+                                        <div className="mb-6 rounded-lg border border-danger bg-danger-bg px-4 py-3 text-center text-sm text-danger">
+                                            {error}
+                                        </div>
+                                    )}
+
+                                    {step === 1 && (
+                                        <SectionEventBasics
+                                            data={event}
+                                            errors={eventErrors}
+                                            onChange={patchEvent}
+                                            onFieldBlur={handleEventFieldBlur}
+                                        />
+                                    )}
+                                    {step === 2 && (
+                                        <SectionActivities
+                                            activities={activities}
+                                            activeKey={activeActivityKey}
+                                            errorsByKey={activityErrors}
+                                            onActiveKeyChange={setActiveActivityKey}
+                                            onChangeActivity={patchActivity}
+                                            onFieldBlur={handleActivityFieldBlur}
+                                            onAdd={handleAddActivity}
+                                            onRemove={handleRemoveActivity}
+                                        />
+                                    )}
+                                    {step === 3 && <SectionSurvey event={event} onChange={patchEvent} />}
+                                    {step === 4 && (
+                                        <SectionPublish event={event} activities={activities} onChangeEvent={patchEvent} />
+                                    )}
                                 </div>
-                            )}
 
-                            {step === 1 && <SectionEventBasics data={event} onChange={patchEvent} />}
-                            {step === 2 && (
-                                <SectionActivities
-                                    activities={activities}
-                                    activeKey={activeActivityKey}
-                                    onActiveKeyChange={setActiveActivityKey}
-                                    onChangeActivity={patchActivity}
-                                    onAdd={handleAddActivity}
-                                    onRemove={handleRemoveActivity}
-                                />
-                            )}
-                            {step === 3 && <SectionSurvey event={event} onChange={patchEvent} />}
-                            {step === 4 && (
-                                <SectionPublish event={event} activities={activities} onChangeEvent={patchEvent} />
-                            )}
+                                <div className="mt-6 flex justify-between">
+                                    <Button variant="outline" onClick={handleBack}>
+                                        {step === 1 ? "ยกเลิก" : "ก่อนหน้า"}
+                                    </Button>
+                                    <Button
+                                        onClick={step === STEPS.length ? handleSubmit : handleNext}
+                                        disabled={submitting}
+                                        className="w-36"
+                                    >
+                                        {submitting ? (
+                                            <>
+                                                <Loader2 className="size-4 animate-spin" />
+                                                กำลังสร้าง...
+                                            </>
+                                        ) : step === STEPS.length ? (
+                                            "สร้างงาน"
+                                        ) : (
+                                            "ถัดไป"
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
-
-                        <div className="mt-6 flex justify-between">
-                            <Button variant="outline" onClick={handleBack}>
-                                {step === 1 ? "ยกเลิก" : "ก่อนหน้า"}
-                            </Button>
-                            <Button
-                                onClick={step === STEPS.length ? handleSubmit : handleNext}
-                                disabled={submitting}
-                                className="w-36"
-                            >
-                                {submitting ? (
-                                    <>
-                                        <Loader2 className="size-4 animate-spin" />
-                                        กำลังสร้าง...
-                                    </>
-                                ) : step === STEPS.length ? (
-                                    "สร้างงาน"
-                                ) : (
-                                    "ถัดไป"
-                                )}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
+                    </>
+                )}
             </Container>
         </div>
     )

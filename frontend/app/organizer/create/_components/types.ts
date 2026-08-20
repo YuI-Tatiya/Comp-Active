@@ -92,3 +92,10 @@ export function createEmptyActivity(): ActivityFormState {
         questions: [],
     }
 }
+
+export type EventFormErrors = Partial<Record<"name" | "description", string>>
+
+export type ActivityFormErrors = Partial<Record<
+    "name" | "category" | "description" | "startAt" | "endAt" | "location" | "capacity" | "volunteerRole",
+    string
+>>
