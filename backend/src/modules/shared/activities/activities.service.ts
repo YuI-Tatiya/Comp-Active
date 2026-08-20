@@ -2,13 +2,14 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { ActivitiesRepository } from './activities.repository';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 import { ActivityFilterDto } from './dto/activity-filter.dto';
-import { ApprovalStatus } from '../../../common/enums/status.enum';
+import { ActivityStatus, ApprovalStatus } from '../../../common/enums/status.enum';
 import { UserRole } from '../../../common/enums/role.enum';
 import { isViewerEligibleForEvent, filterVisibleActivities, type Viewer } from '../events/event-visibility.util';
 
@@ -115,6 +116,37 @@ export class ActivitiesService {
 
   countAll() {
     return this.activitiesRepository.countAll();
+  }
+
+  /**
+   * ปิดกิจกรรมว่า "จบแล้ว" — ปลดล็อกให้นักศึกษาทำแบบสำรวจ และหยุดรับสมัคร
+   * ต้องเลยเวลาสิ้นสุดจริงก่อน ไม่งั้นผู้จัดจะจบกิจกรรมที่ยังไม่ได้จัดได้
+   */
+  async markCompleted(activityId: number, organizerId: number, callerRole: UserRole) {
+    const activity = await this.findById(activityId);
+
+    if (callerRole !== UserRole.ADMIN && activity.organizerId !== organizerId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์จบกิจกรรมนี้');
+    }
+    if (activity.status === ActivityStatus.COMPLETED) {
+      throw new BadRequestException('กิจกรรมนี้จบไปแล้ว');
+    }
+    if (activity.approvalStatus === ApprovalStatus.REJECTED) {
+      throw new BadRequestException('กิจกรรมนี้ถูกยกเลิกไปแล้ว ไม่สามารถจบกิจกรรมได้');
+    }
+
+    // endAt เป็น null สำหรับกิจกรรมรุ่นเก่า จึงถอยไปใช้ date + endTime แทน
+    const endsAt = activity.endAt
+      ? new Date(activity.endAt)
+      : new Date(`${new Date(activity.date).toISOString().slice(0, 10)}T${activity.endTime || '23:59'}:00`);
+
+    if (!Number.isNaN(endsAt.getTime()) && endsAt.getTime() > Date.now()) {
+      throw new BadRequestException('ยังไม่ถึงเวลาสิ้นสุดกิจกรรม ยังจบกิจกรรมไม่ได้');
+    }
+
+    const saved = await this.activitiesRepository.markCompleted(activityId);
+    this.logger.log(`Activity completed: "${activity.name}" (ID: ${activityId})`);
+    return saved;
   }
 
   async requestCancellation(activityId: number, organizerId: number, reason: string) {

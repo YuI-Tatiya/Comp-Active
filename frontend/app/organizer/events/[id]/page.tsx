@@ -126,6 +126,22 @@ export default function OrganizerEventDetailsPage() {
         }
     }
 
+    const handleMarkCompleted = async () => {
+        if (!activeActivity) return
+        if (!confirm(`ยืนยันจบกิจกรรม "${activeActivity.name}"? ระบบจะปิดรับสมัครและปลดล็อกแบบสำรวจให้ผู้เข้าร่วม`)) return
+        try {
+            setSubmitting(true)
+            await activitiesAPI.markCompleted(activeActivity.id)
+            alert("จบกิจกรรมเรียบร้อยแล้ว")
+            fetchEventDetails(id)
+        } catch (err: unknown) {
+            const e = err as Error
+            alert(e.message || "จบกิจกรรมไม่สำเร็จ")
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
     const handleConfirm = async (regId: number) => {
         try {
             await registrationsAPI.confirm(regId)
@@ -183,7 +199,12 @@ export default function OrganizerEventDetailsPage() {
                         <Link href={`/organizer/manage/${event.id}/edit`}>
                             <Button variant="outline" size="sm"><Edit className="w-4 h-4 mr-2" /> แก้ไขงาน</Button>
                         </Link>
-                        {activeActivity && (
+                        {activeActivity && activeActivity.approvalStatus !== "rejected" && activeActivity.status !== "completed" && (
+                            <Button variant="outline" size="sm" onClick={handleMarkCompleted} disabled={submitting}>
+                                <CheckSquare className="w-4 h-4 mr-2" /> จบกิจกรรม
+                            </Button>
+                        )}
+                        {activeActivity && activeActivity.approvalStatus !== "rejected" && (
                             <Button variant="destructive" size="sm" onClick={() => setIsCancelOpen(true)}>
                                 ยกเลิกกิจกรรมนี้
                             </Button>

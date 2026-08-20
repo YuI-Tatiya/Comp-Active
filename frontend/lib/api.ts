@@ -74,6 +74,8 @@ export interface Activity<T = unknown> {
   volunteerRole?: string | null;
   approvalStatus: string;
   status: string;
+  /** เหตุผลที่ผู้จัดยกเลิกกิจกรรม — แสดงให้นักศึกษาเห็นเมื่อกิจกรรมถูกยกเลิก */
+  cancellationReason?: string | null;
   tags: Tag[];
   conditions: Condition[];
   benefits: Benefit[];
@@ -209,6 +211,9 @@ export const activitiesAPI = {
   getMy: () => fetchAPI<Activity[]>('/api/activities/my'),
   requestCancel: (id: number, reason: string) =>
     fetchAPI<void>(`/api/activities/${id}/request-cancel`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  /** จบกิจกรรม — ทำได้เฉพาะเมื่อเลยเวลาสิ้นสุดแล้ว (backend บังคับ) */
+  markCompleted: (id: number) =>
+    fetchAPI<Activity>(`/api/activities/${id}/complete`, { method: 'PATCH' }),
   getPlatformStats: () => fetchAPI<PlatformStats>('/api/activities/stats/platform'),
   getOrganizerStats: () => fetchAPI<OrganizerStats>('/api/activities/stats/organizer'),
   uploadImage: async (file: File) => {

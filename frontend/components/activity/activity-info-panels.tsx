@@ -5,6 +5,7 @@ import { API_BASE_URL, capacityLabel, type Activity } from "@/lib/api"
 import { categoryLabel } from "@/lib/categories"
 import { softSkillLabel } from "@/lib/soft-skills"
 import {
+    AlertTriangle,
     Award,
     CalendarClock,
     CheckSquare,
@@ -64,10 +65,47 @@ function formatDateTime(iso: string | null | undefined): string {
     return d.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })
 }
 
+/**
+ * แถบแจ้งสถานะกิจกรรมให้ผู้อ่านรู้ว่าเกิดอะไรขึ้น
+ * เดิม organizer พิมพ์เหตุผลยกเลิกเก็บลง DB แล้วไม่มีใครเห็นเลยทั้งระบบ
+ */
+export function ActivityStatusNotice({ activity }: { activity: Activity }) {
+    if (activity.approvalStatus === "rejected") {
+        return (
+            <div className="rounded-xl border border-danger bg-danger-bg p-4">
+                <div className="flex items-center gap-2 font-semibold text-danger">
+                    <AlertTriangle className="size-4" aria-hidden="true" /> กิจกรรมนี้ถูกยกเลิก
+                </div>
+                <p className="mt-1.5 text-sm text-fg-muted">
+                    {activity.cancellationReason
+                        ? `เหตุผล: ${activity.cancellationReason}`
+                        : "ผู้จัดไม่ได้ระบุเหตุผล"}
+                </p>
+            </div>
+        )
+    }
+
+    if (activity.status === "completed") {
+        return (
+            <div className="rounded-xl border border-border bg-surface p-4">
+                <div className="flex items-center gap-2 font-semibold text-fg">
+                    <CheckSquare className="size-4 text-success" aria-hidden="true" /> กิจกรรมนี้จบแล้ว
+                </div>
+                <p className="mt-1.5 text-sm text-fg-muted">
+                    ผู้ที่เช็คอินเข้าร่วมสามารถทำแบบสำรวจได้ที่หน้า “กิจกรรมของฉัน”
+                </p>
+            </div>
+        )
+    }
+
+    return null
+}
+
 /** แผง "รายละเอียด" — คำอธิบาย, หมวดหมู่, ผู้จัด, ไฟล์แนบ, tags */
 export function ActivityAboutPanel({ activity }: { activity: Activity }) {
     return (
         <div className={PANEL_CLASS}>
+            <ActivityStatusNotice activity={activity} />
             <div>
                 <PanelHeading icon={Info} tone="text-brand-600">เกี่ยวกับกิจกรรมนี้</PanelHeading>
                 <p className="mt-4 text-fg-muted leading-relaxed whitespace-pre-line">

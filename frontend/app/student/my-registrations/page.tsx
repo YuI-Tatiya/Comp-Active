@@ -28,6 +28,9 @@ interface Registration {
     location: string
     category: string
     imageUrl?: string
+    status?: string
+    approvalStatus?: string
+    cancellationReason?: string | null
   }
 }
 
@@ -262,9 +265,28 @@ export default function MyRegistrationsPage() {
                         )}
 
                         {!!reg.evaluation && <Badge variant="default">ประเมินแล้ว</Badge>}
+
+                        {reg.activity.approvalStatus === "rejected" && (
+                          <Badge variant="danger">กิจกรรมถูกยกเลิก</Badge>
+                        )}
+                        {reg.activity.status === "completed" && reg.activity.approvalStatus !== "rejected" && (
+                          <Badge variant="neutral">กิจกรรมจบแล้ว</Badge>
+                        )}
                       </div>
 
                       <h3 className="mb-4 text-xl font-bold text-fg">{reg.activity.name}</h3>
+
+                      {/* เหตุผลที่ผู้จัดยกเลิก — เดิมเก็บลง DB แล้วไม่เคยแสดงให้นักศึกษาเห็น */}
+                      {reg.activity.approvalStatus === "rejected" && (
+                        <div className="mb-4 rounded-lg border border-danger bg-danger-bg px-4 py-3">
+                          <p className="text-sm font-semibold text-danger">ผู้จัดยกเลิกกิจกรรมนี้</p>
+                          <p className="mt-1 text-sm text-fg-muted">
+                            {reg.activity.cancellationReason
+                              ? `เหตุผล: ${reg.activity.cancellationReason}`
+                              : "ผู้จัดไม่ได้ระบุเหตุผล"}
+                          </p>
+                        </div>
+                      )}
 
                       <div className="mb-6 grid grid-cols-1 gap-y-3 gap-x-12 sm:grid-cols-2">
                         <div className="flex items-center gap-2 text-sm text-fg-muted">

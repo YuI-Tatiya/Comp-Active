@@ -141,6 +141,15 @@ export class ActivitiesRepository {
     return this.prisma.activity.count();
   }
 
+  /** ปิดกิจกรรมแบบ "จบแล้ว" — ต่างจาก closeAndReject ตรงที่ไม่ใช่การยกเลิก */
+  markCompleted(activityId: number) {
+    return this.prisma.activity.update({
+      where: { id: activityId },
+      data: { status: ActivityStatus.COMPLETED as any },
+      include: { ...activityInclude, registrations: true },
+    });
+  }
+
   closeAndReject(activityId: number, reason: string) {
     return this.prisma.activity.update({
       where: { id: activityId },

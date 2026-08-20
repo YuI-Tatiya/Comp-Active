@@ -134,6 +134,19 @@ export class ActivitiesOrganizerController {
   }
 
   /**
+   * PATCH /api/activities/:id/complete - จบกิจกรรม (เจ้าของ / Admin)
+   */
+  @Patch(':id/complete')
+  @ApiOperation({ summary: 'จบกิจกรรม — ปิดรับสมัครและปลดล็อกแบบสำรวจ (เจ้าของ / Admin)' })
+  async markCompleted(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+    @CurrentUser('role') userRole: UserRole,
+  ) {
+    return this.activitiesService.markCompleted(id, userId, userRole);
+  }
+
+  /**
    * POST /api/activities/:id/request-cancel - ร้องขอการยกเลิกกิจกรรม (Organizer)
    */
   @Post(':id/request-cancel')
