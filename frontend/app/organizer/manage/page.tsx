@@ -174,7 +174,7 @@ export default function OrganizerManagePage() {
                                                 activity={ev}
                                                 badgeRight={<EventCardBadge className={ap.className}>{ap.label}</EventCardBadge>}
                                                 actions={
-                                                    <Link href={`/organizer/events/${ev.id}`} className="flex-1">
+                                                    <Link href={`/organizer/activities/${ev.id}`} className="flex-1">
                                                         <Button className="w-full shadow-md shadow-brand-500/20 font-bold rounded-xl h-11">ดูรายละเอียด</Button>
                                                     </Link>
                                                 }

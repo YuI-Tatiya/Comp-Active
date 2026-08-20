@@ -169,12 +169,6 @@ export default function OrganizerEventDetailsPage() {
         )
     }
 
-    const unlimited = activeActivity ? isUnlimitedCapacity(activeActivity.capacity) : true
-    const capacity = activeActivity?.capacity || 0
-    const registered = activeActivity?.registrations?.length || 0
-    const fillPercent = !unlimited && capacity > 0 ? Math.round((registered / capacity) * 100) : 0
-    const seatsLeft = Math.max(capacity - registered, 0)
-
     return (
         <div className="bg-surface pb-12">
             <Container className="py-8">
@@ -214,7 +208,13 @@ export default function OrganizerEventDetailsPage() {
                         ))}
                     </TabsList>
 
-                    {event.activities.map((a) => (
+                    {event.activities.map((a) => {
+                        const unlimited = isUnlimitedCapacity(a.capacity)
+                        const capacity = a.capacity || 0
+                        const registered = a.registrations?.length || 0
+                        const fillPercent = !unlimited && capacity > 0 ? Math.round((registered / capacity) * 100) : 0
+                        const seatsLeft = Math.max(capacity - registered, 0)
+                        return (
                         <TabsContent key={a.id} value={String(a.id)}>
                             <div className="grid lg:grid-cols-3 gap-8">
                                 <div className="lg:col-span-2 space-y-6">
@@ -412,7 +412,8 @@ export default function OrganizerEventDetailsPage() {
                                 </div>
                             </div>
                         </TabsContent>
-                    ))}
+                        )
+                    })}
                 </Tabs>
             </Container>
 

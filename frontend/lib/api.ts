@@ -316,6 +316,9 @@ export interface EventSummary {
   isPublic: boolean;
   registrationCloseAt?: string | null;
   visibility: string;
+  visibilityStudentIdFilter?: string | null;
+  visibilityProgram?: { programCode: string }[];
+  visibilityYears?: { year: number }[];
   createdAt: string;
   activities: Activity[];
   surveyQuestions?: EventSurveyQuestion[];

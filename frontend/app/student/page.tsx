@@ -183,7 +183,7 @@ export default function StudentDashboardPage() {
                     key={r.id}
                     activity={r.activity}
                     status={r.status}
-                    href={`/student/events/${r.activity.id}`}
+                    href={`/student/activities/${r.activity.id}`}
                   />
                 ))
               ) : (
@@ -292,7 +292,7 @@ export default function StudentDashboardPage() {
                   <ActivityCard
                     key={ev.id}
                     activity={ev}
-                    href={`/student/events/${ev.id}`}
+                    href={`/student/activities/${ev.id}`}
                   />
                 ))}
               </div>

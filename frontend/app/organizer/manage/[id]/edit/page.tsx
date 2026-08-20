@@ -54,9 +54,9 @@ function eventToFormState(event: EventSummary): EventFormState {
             scaleMax: q.scaleMax,
         })),
         visibility: (event.visibility as "everyone" | "restricted") ?? "everyone",
-        visibilityPrograms: [],
-        visibilityYears: [],
-        visibilityStudentIdFilter: "",
+        visibilityPrograms: (event.visibilityProgram ?? []).map((p) => p.programCode),
+        visibilityYears: (event.visibilityYears ?? []).map((y) => y.year),
+        visibilityStudentIdFilter: event.visibilityStudentIdFilter ?? "",
     }
 }
 

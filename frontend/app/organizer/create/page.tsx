@@ -25,7 +25,6 @@ import {
     validateEventField,
     validateEventFields,
     validateActivityField,
-    validateActivityFields,
     validateAllActivities,
     countErrors,
 } from "./_components/validation"

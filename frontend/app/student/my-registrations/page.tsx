@@ -296,7 +296,7 @@ export default function MyRegistrationsPage() {
                         )}
 
                         <Button size="sm" className="rounded-xl font-bold" asChild>
-                          <Link href={`/student/events/${reg.activity.id}`}>ดูรายละเอียดกิจกรรม</Link>
+                          <Link href={`/student/activities/${reg.activity.id}`}>ดูรายละเอียดกิจกรรม</Link>
                         </Button>
 
                         {reg.attendance === "attended" && (

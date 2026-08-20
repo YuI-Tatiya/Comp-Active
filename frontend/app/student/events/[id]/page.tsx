@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
-import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Gift, CheckSquare, AlertTriangle } from "lucide-react"
+import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Gift, CheckSquare, AlertTriangle, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { eventsAPI, registrationsAPI, isUnlimitedCapacity, capacityLabel, EventSummary, RegistrationAnswerBody } from "@/lib/api"
 import { resolveEventImageUrl } from "@/lib/event-image"
@@ -124,9 +124,9 @@ export default function StudentEventDetailsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-surface flex items-center justify-center">
+            <div className="bg-surface flex items-center justify-center">
                 <div className="text-center">
-                    <div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <Loader2 className="mx-auto mb-4 size-8 animate-spin text-brand-600" aria-hidden="true" />
                     <p className="text-fg-muted">กำลังโหลดรายละเอียดงาน...</p>
                 </div>
             </div>
@@ -135,7 +135,7 @@ export default function StudentEventDetailsPage() {
 
     if (error || !event) {
         return (
-            <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-4">
+            <div className="bg-surface flex flex-col items-center justify-center p-4">
                 <div className="bg-bg p-8 rounded-xl shadow-sm max-w-md w-full text-center border border-border">
                     <AlertTriangle className="mx-auto mb-4 size-12 text-danger" aria-hidden="true" />
                     <h2 className="text-xl font-bold mb-2 text-fg">ไม่พบงาน</h2>
@@ -145,9 +145,6 @@ export default function StudentEventDetailsPage() {
             </div>
         )
     }
-
-    const unlimited = activeActivity ? isUnlimitedCapacity(activeActivity.capacity) : true
-    const registeredCount = activeActivity?.registeredCount ?? 0
 
     return (
         <div className="min-h-screen bg-surface pb-12">
@@ -179,7 +176,10 @@ export default function StudentEventDetailsPage() {
                         ))}
                     </TabsList>
 
-                    {event.activities.map((a) => (
+                    {event.activities.map((a) => {
+                        const unlimited = isUnlimitedCapacity(a.capacity)
+                        const registeredCount = a.registeredCount ?? 0
+                        return (
                         <TabsContent key={a.id} value={String(a.id)}>
                             <div className="grid lg:grid-cols-3 gap-8">
                                 <div className="lg:col-span-2 space-y-8">
@@ -280,7 +280,18 @@ export default function StudentEventDetailsPage() {
                                                 </div>
                                             </div>
                                             <div className="space-y-3 pt-2">
-                                                <Button className="w-full h-11 text-base font-semibold" onClick={openRegisterDialog}>ลงทะเบียนเข้าร่วม</Button>
+                                                {a.status !== "open" && (
+                                                    <div className="flex justify-center">
+                                                        <Badge variant="neutral">ปิดรับสมัคร</Badge>
+                                                    </div>
+                                                )}
+                                                <Button
+                                                    className="w-full h-11 text-base font-semibold"
+                                                    onClick={openRegisterDialog}
+                                                    disabled={a.status !== "open"}
+                                                >
+                                                    ลงทะเบียนเข้าร่วม
+                                                </Button>
                                                 <Button
                                                     variant="outline"
                                                     className="w-full"
@@ -297,7 +308,8 @@ export default function StudentEventDetailsPage() {
                                 </div>
                             </div>
                         </TabsContent>
-                    ))}
+                        )
+                    })}
                 </Tabs>
             </Container>
 
