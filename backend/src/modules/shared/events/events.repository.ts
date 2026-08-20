@@ -49,6 +49,25 @@ export interface PreparedEventData {
   visibilityStudentIdFilter?: string;
 }
 
+export interface PreparedActivityUpdateData extends PreparedActivityData {
+  /** ไม่มี = สร้างกิจกรรมย่อยใหม่ */
+  id?: number;
+}
+
+export interface PreparedEventUpdateData {
+  name: string;
+  description: string;
+  imageUrl?: string;
+  isPublic: boolean;
+  registrationCloseAt?: Date;
+  activities: PreparedActivityUpdateData[];
+  surveyQuestions: PreparedSurveyQuestionData[];
+  visibility: string;
+  visibilityPrograms: string[];
+  visibilityYears: number[];
+  visibilityStudentIdFilter?: string;
+}
+
 export const eventInclude = {
   activities: { include: activityInclude },
   surveyQuestions: true,
@@ -116,6 +135,112 @@ export class EventsRepository {
       }
 
       return tx.event.findUnique({ where: { id: event.id }, include: eventInclude }) as any;
+    });
+  }
+
+  update(eventId: number, data: PreparedEventUpdateData, removedActivityIds: number[]) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.event.update({
+        where: { id: eventId },
+        data: {
+          name: data.name,
+          description: data.description,
+          imageUrl: data.imageUrl,
+          isPublic: data.isPublic,
+          registrationCloseAt: data.registrationCloseAt,
+          visibility: data.visibility as any,
+          visibilityStudentIdFilter: data.visibilityStudentIdFilter,
+        },
+      });
+
+      // แบบสำรวจ — แทนที่ทั้งชุดเสมอ (ง่ายและถูกต้องกว่า diff รายข้อ)
+      await tx.eventSurveyQuestion.deleteMany({ where: { eventId } });
+      if (data.surveyQuestions.length) {
+        await tx.eventSurveyQuestion.createMany({
+          data: data.surveyQuestions.map((q, sortOrder) => ({
+            eventId,
+            label: q.label,
+            type: q.type as any,
+            scaleMax: q.scaleMax,
+            sortOrder,
+          })),
+        });
+      }
+
+      // เงื่อนไขการมองเห็น — แทนที่ทั้งชุดเสมอเช่นกัน
+      await tx.eventVisibilityProgram.deleteMany({ where: { eventId } });
+      if (data.visibilityPrograms.length) {
+        await tx.eventVisibilityProgram.createMany({
+          data: data.visibilityPrograms.map((programCode) => ({ eventId, programCode })),
+        });
+      }
+      await tx.eventVisibilityYear.deleteMany({ where: { eventId } });
+      if (data.visibilityYears.length) {
+        await tx.eventVisibilityYear.createMany({
+          data: data.visibilityYears.map((year) => ({ eventId, year })),
+        });
+      }
+
+      // กิจกรรมย่อยที่ถูกเอาออก — cascade ลบ tags/conditions/benefits/softSkills/questions ให้เองผ่าน schema
+      if (removedActivityIds.length) {
+        await tx.activity.deleteMany({ where: { id: { in: removedActivityIds } } });
+      }
+
+      for (const activity of data.activities) {
+        const { softSkillRates, questions, id, ...activityData } = activity;
+
+        if (id) {
+          await tx.activity.update({ where: { id }, data: activityData as any });
+
+          await tx.activitySoftSkill.deleteMany({ where: { activityId: id } });
+          if (softSkillRates.length) {
+            await tx.activitySoftSkill.createMany({
+              data: softSkillRates.map(({ skillType, rate }) => ({ activityId: id, skillType: skillType as any, rate })),
+            });
+          }
+
+          await tx.activityQuestion.deleteMany({ where: { activityId: id } });
+          for (const [sortOrder, q] of questions.entries()) {
+            await tx.activityQuestion.create({
+              data: {
+                activityId: id,
+                label: q.label,
+                type: q.type as any,
+                required: q.required,
+                sortOrder,
+                options: q.options.length
+                  ? { create: q.options.map((label, optSortOrder) => ({ label, sortOrder: optSortOrder })) }
+                  : undefined,
+              },
+            });
+          }
+        } else {
+          await tx.activity.create({
+            data: {
+              ...activityData,
+              organizerId: (await tx.event.findUniqueOrThrow({ where: { id: eventId }, select: { organizerId: true } })).organizerId,
+              eventId,
+              approvalStatus: 'approved' as any,
+              softSkills: {
+                create: softSkillRates.map(({ skillType, rate }) => ({ skillType: skillType as any, rate })),
+              },
+              questions: {
+                create: questions.map((q, sortOrder) => ({
+                  label: q.label,
+                  type: q.type as any,
+                  required: q.required,
+                  sortOrder,
+                  options: q.options.length
+                    ? { create: q.options.map((label, optSortOrder) => ({ label, sortOrder: optSortOrder })) }
+                    : undefined,
+                })),
+              },
+            } as any,
+          });
+        }
+      }
+
+      return tx.event.findUnique({ where: { id: eventId }, include: eventInclude }) as any;
     });
   }
 
