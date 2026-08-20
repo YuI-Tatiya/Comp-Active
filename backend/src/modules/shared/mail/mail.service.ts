@@ -200,4 +200,103 @@ export class MailService {
     });
     this.logger.log(`Admin invite email sent to ${email}`);
   }
+
+  // ── นักศึกษา: แจ้งเตือนเกี่ยวกับการลงทะเบียนกิจกรรม ──────────────────────────
+  // เจตนาไม่ throw เมื่อส่งไม่สำเร็จ — อีเมลเป็นช่องทางเสริม นักศึกษายังเห็นสถานะ
+  // ได้ปกติผ่าน /student/my-registrations ต่อให้อีเมลส่งไม่ออก การกระทำหลัก
+  // (ยืนยัน/ยกเลิก/จบกิจกรรม) จึงไม่ควรล้มเหลวตามอีเมล
+
+  async sendRegistrationConfirmed(
+    email: string,
+    studentName: string,
+    activityName: string,
+    dateLabel: string,
+    timeLabel: string,
+    location: string,
+  ) {
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: `ยืนยันการลงทะเบียน "${activityName}" แล้ว - Comp Active`,
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
+            <div style="background:linear-gradient(135deg,#22c55e,#15803d);padding:32px;border-radius:16px 16px 0 0;">
+              <h1 style="color:#fff;margin:0;font-size:22px;">✅ ยืนยันการลงทะเบียนแล้ว</h1>
+            </div>
+            <div style="background:#fff;padding:32px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 16px 16px;">
+              <p>สวัสดีคุณ <strong>${studentName}</strong>,</p>
+              <p>การลงทะเบียนเข้าร่วมกิจกรรม <strong>${activityName}</strong> ของคุณได้รับการยืนยันแล้ว</p>
+              <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin:20px 0;">
+                <p style="margin:0 0 6px;font-size:14px;color:#166534;">📅 วันที่: <strong>${dateLabel}</strong></p>
+                <p style="margin:0 0 6px;font-size:14px;color:#166534;">🕐 เวลา: <strong>${timeLabel}</strong></p>
+                <p style="margin:0;font-size:14px;color:#166534;">📍 สถานที่: <strong>${location}</strong></p>
+              </div>
+              <p style="font-size:13px;color:#64748b;">อย่าลืมมาเช็คอินในวันงานเพื่อรับคะแนน Soft Skills และสิทธิ์ทำแบบสำรวจหลังงาน</p>
+              <p style="font-size:12px;color:#94a3b8;margin-top:28px;">ทีมงาน Comp Active · College of Computing</p>
+            </div>
+          </div>
+        `,
+      });
+      this.logger.log(`Registration confirmed email sent to ${email}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to send registration-confirmed email to ${email}: ${msg}`);
+    }
+  }
+
+  async sendActivityCancelled(email: string, studentName: string, activityName: string, reason: string) {
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: `กิจกรรม "${activityName}" ถูกยกเลิก - Comp Active`,
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
+            <div style="background:#dc2626;padding:32px;border-radius:16px 16px 0 0;">
+              <h1 style="color:#fff;margin:0;font-size:22px;">⚠️ กิจกรรมถูกยกเลิก</h1>
+            </div>
+            <div style="background:#fff;padding:32px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 16px 16px;">
+              <p>สวัสดีคุณ <strong>${studentName}</strong>,</p>
+              <p>ผู้จัดได้ยกเลิกกิจกรรม <strong>${activityName}</strong> ที่คุณลงทะเบียนไว้</p>
+              <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:20px;margin:20px 0;">
+                <p style="margin:0 0 8px;font-size:13px;color:#dc2626;font-weight:600;">เหตุผล</p>
+                <p style="margin:0;color:#7f1d1d;font-size:14px;">${reason || 'ผู้จัดไม่ได้ระบุเหตุผล'}</p>
+              </div>
+              <p style="font-size:13px;color:#64748b;">คุณสามารถค้นหากิจกรรมอื่นที่เปิดรับสมัครอยู่ได้ที่หน้ากิจกรรมทั้งหมด</p>
+              <p style="font-size:12px;color:#94a3b8;margin-top:28px;">ทีมงาน Comp Active · College of Computing</p>
+            </div>
+          </div>
+        `,
+      });
+      this.logger.log(`Activity cancelled email sent to ${email}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to send activity-cancelled email to ${email}: ${msg}`);
+    }
+  }
+
+  async sendActivityCompleted(email: string, studentName: string, activityName: string) {
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: `กิจกรรม "${activityName}" จบแล้ว - Comp Active`,
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
+            <div style="background:linear-gradient(135deg,#4299e1,#2b6cb0);padding:32px;border-radius:16px 16px 0 0;">
+              <h1 style="color:#fff;margin:0;font-size:22px;">🎉 ขอบคุณที่เข้าร่วมกิจกรรม</h1>
+            </div>
+            <div style="background:#fff;padding:32px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 16px 16px;">
+              <p>สวัสดีคุณ <strong>${studentName}</strong>,</p>
+              <p>กิจกรรม <strong>${activityName}</strong> ที่คุณเข้าร่วมได้จบลงแล้ว ระบบได้บันทึกคะแนน Soft Skills ให้คุณเรียบร้อยแล้ว</p>
+              <p>หากงานนี้มีแบบสำรวจความคิดเห็น กรุณาเข้าไปตอบแบบสำรวจได้ที่หน้า "กิจกรรมของฉัน" เพื่อช่วยให้ผู้จัดพัฒนากิจกรรมครั้งต่อไป</p>
+              <p style="font-size:12px;color:#94a3b8;margin-top:28px;">ทีมงาน Comp Active · College of Computing</p>
+            </div>
+          </div>
+        `,
+      });
+      this.logger.log(`Activity completed email sent to ${email}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to send activity-completed email to ${email}: ${msg}`);
+    }
+  }
 }

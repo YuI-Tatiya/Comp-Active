@@ -82,6 +82,14 @@ export class RegistrationsRepository {
     });
   }
 
+  /** ใช้สำหรับส่งอีเมลยืนยันการลงทะเบียน — ต้องการอีเมล/ชื่อนักศึกษาและรายละเอียดกิจกรรม */
+  findByIdWithStudentAndActivity(id: number) {
+    return this.prisma.registration.findUnique({
+      where: { id },
+      include: { student: true, activity: true },
+    });
+  }
+
   findByStudent(studentId: number) {
     return this.prisma.registration.findMany({
       where: { studentId },

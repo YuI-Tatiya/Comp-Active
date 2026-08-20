@@ -2,6 +2,8 @@ import { Test } from '@nestjs/testing';
 import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ActivitiesService } from './activities.service';
 import { ActivitiesRepository } from './activities.repository';
+import { RegistrationsRepository } from '../registrations/registrations.repository';
+import { MailService } from '../mail/mail.service';
 import { UserRole } from '../../../common/enums/role.enum';
 import { ActivityStatus, ApprovalStatus } from '../../../common/enums/status.enum';
 
@@ -35,7 +37,15 @@ describe('ActivitiesService.markCompleted', () => {
       markCompleted: jest.fn().mockResolvedValue({ id: 5, status: ActivityStatus.COMPLETED }),
     };
     const module = await Test.createTestingModule({
-      providers: [ActivitiesService, { provide: ActivitiesRepository, useValue: repo }],
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: repo },
+        // markCompleted/requestCancellation fire best-effort student-notification emails
+        // in the background (void this.notifyX(...)) — not under test here, mocked out
+        // so module compilation succeeds and no real network call is attempted.
+        { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn().mockResolvedValue([]) } },
+        { provide: MailService, useValue: { sendActivityCompleted: jest.fn(), sendActivityCancelled: jest.fn() } },
+      ],
     }).compile();
     service = module.get(ActivitiesService);
   });
@@ -90,5 +100,81 @@ describe('ActivitiesService.markCompleted', () => {
     repo.findById.mockResolvedValue(makeActivity({ endAt: null, date: FUTURE, endTime: '12:00' }));
     await expect(service.markCompleted(5, 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
     expect(repo.markCompleted).not.toHaveBeenCalled();
+  });
+});
+
+/** ปล่อยให้ microtask ของ `void this.notifyX(...)` (fire-and-forget) รันจนจบก่อน assert */
+const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+function makeRegistration(overrides: Partial<any> = {}) {
+  return {
+    id: 1,
+    attendance: 'absent',
+    student: { email: 'student@kku.ac.th', name: 'Student A' },
+    ...overrides,
+  } as any;
+}
+
+describe('ActivitiesService student-notification side effects', () => {
+  let service: ActivitiesService;
+  let activitiesRepo: { findById: jest.Mock; markCompleted: jest.Mock; closeAndReject: jest.Mock };
+  let registrationsRepo: { findByActivity: jest.Mock };
+  let mail: { sendActivityCompleted: jest.Mock; sendActivityCancelled: jest.Mock };
+
+  beforeEach(async () => {
+    activitiesRepo = {
+      findById: jest.fn().mockResolvedValue(makeActivity()),
+      markCompleted: jest.fn().mockResolvedValue({ id: 5, status: ActivityStatus.COMPLETED }),
+      closeAndReject: jest.fn().mockResolvedValue({ id: 5, approvalStatus: ApprovalStatus.REJECTED }),
+    };
+    registrationsRepo = { findByActivity: jest.fn().mockResolvedValue([]) };
+    mail = { sendActivityCompleted: jest.fn(), sendActivityCancelled: jest.fn() };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: activitiesRepo },
+        { provide: RegistrationsRepository, useValue: registrationsRepo },
+        { provide: MailService, useValue: mail },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+  });
+
+  it('markCompleted only emails registrants who actually attended', async () => {
+    registrationsRepo.findByActivity.mockResolvedValue([
+      makeRegistration({ attendance: 'attended', student: { email: 'went@kku.ac.th', name: 'Went' } }),
+      makeRegistration({ attendance: 'absent', student: { email: 'skipped@kku.ac.th', name: 'Skipped' } }),
+    ]);
+
+    await service.markCompleted(5, 7, UserRole.ORGANIZER);
+    await flush();
+
+    expect(mail.sendActivityCompleted).toHaveBeenCalledTimes(1);
+    expect(mail.sendActivityCompleted).toHaveBeenCalledWith('went@kku.ac.th', 'Went', 'Workshop');
+  });
+
+  it('requestCancellation emails every registrant regardless of attendance, with the given reason', async () => {
+    registrationsRepo.findByActivity.mockResolvedValue([
+      makeRegistration({ attendance: 'attended', student: { email: 'a@kku.ac.th', name: 'A' } }),
+      makeRegistration({ attendance: 'absent', student: { email: 'b@kku.ac.th', name: 'B' } }),
+    ]);
+
+    await service.requestCancellation(5, 7, 'ฝนตกหนัก');
+    await flush();
+
+    expect(mail.sendActivityCancelled).toHaveBeenCalledTimes(2);
+    expect(mail.sendActivityCancelled).toHaveBeenCalledWith('a@kku.ac.th', 'A', 'Workshop', 'ฝนตกหนัก');
+    expect(mail.sendActivityCancelled).toHaveBeenCalledWith('b@kku.ac.th', 'B', 'Workshop', 'ฝนตกหนัก');
+  });
+
+  it('does not let a notification failure surface as an error from the caller-facing method', async () => {
+    registrationsRepo.findByActivity.mockRejectedValue(new Error('db down'));
+
+    await expect(service.markCompleted(5, 7, UserRole.ORGANIZER)).resolves.toEqual({
+      id: 5,
+      status: ActivityStatus.COMPLETED,
+    });
+    await flush();
   });
 });
