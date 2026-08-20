@@ -69,7 +69,7 @@ export interface PreparedEventUpdateData {
 }
 
 export const eventInclude = {
-  activities: { include: activityInclude },
+  activities: { include: { ...activityInclude, registrations: true } },
   surveyQuestions: true,
   visibilityProgram: true,
   visibilityYears: true,
