@@ -5,6 +5,7 @@ import { UpdateEventDto } from './dto/update-event.dto';
 import { diffHours, formatHHmm } from '../../../common/utils/time.util';
 import { ActivityQuestionType, SurveyQuestionType, EventVisibility } from '../../../common/enums/status.enum';
 import { UserRole } from '../../../common/enums/role.enum';
+import { isViewerEligibleForEvent, Viewer } from './event-visibility.util';
 
 @Injectable()
 export class EventsService {
@@ -204,6 +205,22 @@ export class EventsService {
 
   findByOrganizer(organizerId: number) {
     return this.eventsRepository.findByOrganizer(organizerId);
+  }
+
+  async findAllPublic(viewer: Viewer | null) {
+    const events = await this.eventsRepository.findAllApproved();
+    return events.filter((e: any) =>
+      isViewerEligibleForEvent(viewer, e as any),
+    );
+  }
+
+  async findByIdPublic(id: number, viewer: Viewer | null) {
+    const event = await this.eventsRepository.findById(id);
+    // ให้ error เดียวกับ "ไม่พบ" เสมอ ไม่ว่าจะไม่มีจริงๆ หรือมีแต่ไม่มีสิทธิ์เห็น
+    if (!event || !isViewerEligibleForEvent(viewer, event as any)) {
+      throw new NotFoundException(`ไม่พบงาน ID: ${id}`);
+    }
+    return event;
   }
 
   async getSurveyResults(eventId: number, callerId: number, callerRole: UserRole) {

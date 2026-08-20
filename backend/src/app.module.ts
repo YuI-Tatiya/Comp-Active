@@ -23,6 +23,7 @@ import { SeedModule } from './modules/shared/seed/seed.module';
 // register before the role modules' own literal-path routes (e.g. `/pending`,
 // `/my`) and swallow them.
 import { ActivitiesPublicModule } from './modules/shared/activities/activities-public.module';
+import { EventsPublicModule } from './modules/shared/events/events-public.module';
 import { VolunteerServicesPublicModule } from './modules/shared/volunteer-services/volunteer-services-public.module';
 
 @Module({
@@ -54,6 +55,7 @@ import { VolunteerServicesPublicModule } from './modules/shared/volunteer-servic
     OrganizerModule,
     StudentModule,
     ActivitiesPublicModule,
+    EventsPublicModule,
     VolunteerServicesPublicModule,
   ],
 })

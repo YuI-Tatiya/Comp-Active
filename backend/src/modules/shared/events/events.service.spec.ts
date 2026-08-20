@@ -109,3 +109,40 @@ describe('EventsService.update', () => {
     expect(repo.update).toHaveBeenCalledWith(1, expect.anything(), [10]);
   });
 });
+
+describe('EventsService.findByIdPublic', () => {
+  let service: EventsService;
+  let repo: { findById: jest.Mock };
+
+  beforeEach(async () => {
+    repo = { findById: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [EventsService, { provide: EventsRepository, useValue: repo }],
+    }).compile();
+    service = module.get(EventsService);
+  });
+
+  it('throws NotFoundException when the event does not exist', async () => {
+    repo.findById.mockResolvedValue(null);
+    await expect(service.findByIdPublic(1, null)).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws NotFoundException when the viewer is not eligible for a restricted event', async () => {
+    repo.findById.mockResolvedValue({
+      id: 1,
+      visibility: 'restricted',
+      visibilityStudentIdFilter: null,
+      visibilityProgram: [{ programCode: 'CS' }],
+      visibilityYears: [],
+    });
+    await expect(
+      service.findByIdPublic(1, { role: 'student', studentId: '653380001-1', program: 'IT' }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('returns the event when visibility is everyone', async () => {
+    const event = { id: 1, visibility: 'everyone', visibilityProgram: [], visibilityYears: [] };
+    repo.findById.mockResolvedValue(event);
+    await expect(service.findByIdPublic(1, null)).resolves.toBe(event);
+  });
+});
