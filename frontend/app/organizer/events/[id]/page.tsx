@@ -22,6 +22,8 @@ import {
     ActivityRegistrationPanel,
     ActivityRewardsPanel,
 } from "@/components/activity/activity-info-panels"
+import { EventSurveyResults } from "@/components/activity/event-survey-results"
+import { programLabel } from "@/lib/programs"
 
 type EventActivity = EventSummary["activities"][number]
 
@@ -223,6 +225,39 @@ export default function OrganizerEventDetailsPage() {
                     </div>
                     <h1 className="mt-4 text-2xl md:text-3xl font-bold text-fg">{event.name}</h1>
                     <p className="mt-2 text-fg-muted whitespace-pre-line">{event.description}</p>
+
+                    {/* กลุ่มเป้าหมายที่ตั้งไว้ตอนสร้าง — เดิมดูย้อนไม่ได้เลย ต้องเปิด wizard แก้ไขถึงจะเห็น */}
+                    {event.visibility === "restricted" && (
+                        <div className="mt-4 rounded-xl border border-border bg-surface p-4">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-fg">
+                                <Users className="size-4 text-brand-600" aria-hidden="true" /> เห็นเฉพาะกลุ่มที่กำหนด
+                            </div>
+                            <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+                                <div>
+                                    <dt className="text-xs text-fg-muted">สาขา</dt>
+                                    <dd className="text-fg">
+                                        {event.visibilityProgram?.length
+                                            ? event.visibilityProgram.map((p) => programLabel(p.programCode)).join(", ")
+                                            : "ทุกสาขา"}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt className="text-xs text-fg-muted">ชั้นปี</dt>
+                                    <dd className="text-fg">
+                                        {event.visibilityYears?.length
+                                            ? event.visibilityYears.map((y) => `ปี ${y.year}`).join(", ")
+                                            : "ทุกชั้นปี"}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt className="text-xs text-fg-muted">ตัวกรองรหัสนักศึกษา</dt>
+                                    <dd className="whitespace-pre-line break-words font-mono text-xs text-fg">
+                                        {event.visibilityStudentIdFilter || "ไม่กำหนด"}
+                                    </dd>
+                                </div>
+                            </dl>
+                        </div>
+                    )}
                 </div>
 
                 <Tabs value={activeActivityId ? String(activeActivityId) : undefined} onValueChange={(v) => setActiveActivityId(Number(v))}>
@@ -369,6 +404,9 @@ export default function OrganizerEventDetailsPage() {
                         )
                     })}
                 </Tabs>
+
+                {/* แบบสำรวจเป็นข้อมูลระดับงาน ไม่ผูกกับกิจกรรมย่อยตัวใดตัวหนึ่ง จึงอยู่นอกแท็บ */}
+                <EventSurveyResults eventId={event.id} />
             </Container>
 
             <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>
