@@ -12,13 +12,16 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
-import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Gift, CheckSquare, AlertTriangle, Loader2 } from "lucide-react"
+import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, AlertTriangle, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { eventsAPI, registrationsAPI, isUnlimitedCapacity, capacityLabel, EventSummary, RegistrationAnswerBody } from "@/lib/api"
 import { resolveEventImageUrl } from "@/lib/event-image"
 import { useAuth } from "@/lib/auth-context"
-import { softSkillLabel } from "@/lib/soft-skills"
-import { categoryLabel } from "@/lib/categories"
+import {
+    ActivityAboutPanel,
+    ActivityRegistrationPanel,
+    ActivityRewardsPanel,
+} from "@/components/activity/activity-info-panels"
 
 type EventActivity = EventSummary["activities"][number]
 
@@ -186,65 +189,20 @@ export default function StudentEventDetailsPage() {
                                     <Tabs defaultValue="details" className="w-full">
                                         <TabsList className="w-full justify-start bg-surface-2 p-1 rounded-lg mb-6">
                                             <TabsTrigger value="details" className="flex-1">รายละเอียด</TabsTrigger>
-                                            <TabsTrigger value="conditions" className="flex-1">เงื่อนไข</TabsTrigger>
-                                            <TabsTrigger value="benefits" className="flex-1">สิทธิประโยชน์</TabsTrigger>
+                                            <TabsTrigger value="rewards" className="flex-1">สิ่งที่จะได้รับ</TabsTrigger>
+                                            <TabsTrigger value="registration" className="flex-1">การลงทะเบียน</TabsTrigger>
                                         </TabsList>
 
-                                        <TabsContent value="details" className="bg-bg p-6 rounded-xl border border-border shadow-xs">
-                                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-fg"><Info className="w-5 h-5 text-brand-600" aria-hidden="true" /> เกี่ยวกับกิจกรรมนี้</h3>
-                                            <p className="text-fg-muted leading-relaxed whitespace-pre-line">{a.description}</p>
-                                            <p className="mt-4 text-sm text-fg-muted"><strong className="text-fg">หมวดหมู่:</strong> {categoryLabel(a.category)}</p>
-
-                                            {a.tags && a.tags.length > 0 && (
-                                                <div className="mt-8 pt-6 border-t border-border">
-                                                    <h4 className="text-sm font-semibold mb-3 text-fg">Tags</h4>
-                                                    <div className="flex gap-2 flex-wrap">
-                                                        {a.tags.map((tag) => (
-                                                            <Badge key={tag.tagName} variant="neutral" className="px-3 py-1"><Tag className="w-3 h-3 mr-1" aria-hidden="true" /> {tag.tagName}</Badge>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            <div className="mt-8 pt-6 border-t border-border">
-                                                <h4 className="text-sm font-semibold mb-3 text-fg">Soft Skills ที่จะได้รับ</h4>
-                                                <div className="flex gap-2 flex-wrap">
-                                                    {a.softSkills && a.softSkills.length > 0 ? a.softSkills.map((skill, idx) => (
-                                                        <Badge key={idx} variant="outline" className="px-3 py-1 bg-brand-50 text-brand-700 border-border">
-                                                            <CheckSquare className="w-3 h-3 mr-1" aria-hidden="true" /> {softSkillLabel(skill.skillType)}
-                                                        </Badge>
-                                                    )) : <span className="text-sm text-fg-muted">ไม่ได้ระบุ Soft Skills</span>}
-                                                </div>
-                                            </div>
+                                        <TabsContent value="details">
+                                            <ActivityAboutPanel activity={a} />
                                         </TabsContent>
 
-                                        <TabsContent value="conditions" className="bg-bg p-6 rounded-xl border border-border shadow-xs">
-                                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-fg"><CheckCircle className="w-5 h-5 text-warning" aria-hidden="true" /> เงื่อนไขการเข้าร่วม</h3>
-                                            {a.conditions && a.conditions.length > 0 ? (
-                                                <ul className="space-y-3">
-                                                    {a.conditions.map((item, i) => (
-                                                        <li key={i} className="flex gap-3 text-fg-muted">
-                                                            <div className="w-6 h-6 rounded-full bg-warning-bg text-warning flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</div>
-                                                            <span>{item.conditionText}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            ) : (
-                                                <div className="py-8 text-center bg-surface rounded-lg border border-dashed border-border"><p className="text-fg-muted">ไม่มีข้อมูลเงื่อนไขการเข้าร่วม</p></div>
-                                            )}
+                                        <TabsContent value="rewards">
+                                            <ActivityRewardsPanel activity={a} />
                                         </TabsContent>
 
-                                        <TabsContent value="benefits" className="bg-bg p-6 rounded-xl border border-border shadow-xs">
-                                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-fg"><Gift className="w-5 h-5 text-success" aria-hidden="true" /> สิทธิประโยชน์</h3>
-                                            {a.benefits && a.benefits.length > 0 ? (
-                                                <ul className="space-y-3">
-                                                    {a.benefits.map((item, i) => (
-                                                        <li key={i} className="flex gap-3 text-fg-muted"><CheckCircle className="w-5 h-5 text-success shrink-0" aria-hidden="true" /><span>{item.benefitText}</span></li>
-                                                    ))}
-                                                </ul>
-                                            ) : (
-                                                <div className="py-8 text-center bg-surface rounded-lg border border-dashed border-border"><p className="text-fg-muted">ไม่มีข้อมูลสิทธิประโยชน์ระบุไว้</p></div>
-                                            )}
+                                        <TabsContent value="registration">
+                                            <ActivityRegistrationPanel activity={a} registrationCloseAt={event.registrationCloseAt} />
                                         </TabsContent>
                                     </Tabs>
                                 </div>

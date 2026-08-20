@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Container } from "@/components/layout/container"
+import { FilterBar, type FilterSpec } from "@/components/ui/filter-bar"
 import {
     EventCard,
     EventCardBadge,
@@ -13,6 +13,7 @@ import {
     formatEventDate,
 } from "@/components/ui/event-card"
 import { eventsAPI, activitiesAPI, EventSummary, Activity } from "@/lib/api"
+import { CATEGORIES } from "@/lib/categories"
 import { Calendar, MapPin, Clock, Loader2, Search, Plus, Layers } from "lucide-react"
 
 /** สถานะการอนุมัติของกิจกรรมย่อย — ตรงกับ ApprovalStatus ใน backend/prisma/schema.prisma */
@@ -36,12 +37,58 @@ function firstActivity(ev: EventSummary): Activity | undefined {
     return [...ev.activities].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
 }
 
+/** วันจัดกิจกรรมย่อยที่เร็วที่สุด — ใช้เรียงลำดับ "ใกล้จัดงาน" */
+function earliestDate(ev: EventSummary): number {
+    const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
+    return times.length ? Math.min(...times) : Number.POSITIVE_INFINITY
+}
+
+const FILTERS: FilterSpec[] = [
+    {
+        key: "status",
+        label: "สถานะ",
+        options: [
+            { value: "", label: "ทั้งหมด" },
+            { value: "open", label: "เปิดรับสมัคร" },
+            { value: "closed", label: "ปิดแล้ว" },
+            { value: "cancelled", label: "ยกเลิก" },
+        ],
+    },
+    {
+        key: "visibility",
+        label: "การเผยแพร่",
+        options: [
+            { value: "", label: "ทั้งหมด" },
+            { value: "public", label: "เผยแพร่แล้ว" },
+            { value: "private", label: "ไม่เผยแพร่" },
+        ],
+    },
+    {
+        key: "category",
+        label: "หมวดหมู่",
+        options: [{ value: "", label: "ทุกหมวดหมู่" }, ...CATEGORIES.map((c) => ({ value: c.value, label: c.label }))],
+    },
+    {
+        key: "sort",
+        label: "เรียงลำดับ",
+        neutralValue: "newest",
+        options: [
+            { value: "newest", label: "สร้างล่าสุด" },
+            { value: "soon", label: "ใกล้จัดงาน" },
+            { value: "registrations", label: "ยอดลงทะเบียนสูงสุด" },
+        ],
+    },
+]
+
+const INITIAL_VALUES: Record<string, string> = { status: "", visibility: "", category: "", sort: "newest" }
+
 /** หน้าจัดการกิจกรรมของผู้จัด — แสดงเป็น "งาน" (Event) พร้อมกิจกรรมย่อย, และกิจกรรมเดี่ยวรุ่นเก่าแยกไว้ด้านล่าง */
 export default function OrganizerManagePage() {
     const [events, setEvents] = useState<EventSummary[]>([])
     const [standaloneActivities, setStandaloneActivities] = useState<Activity[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
+    const [values, setValues] = useState<Record<string, string>>(INITIAL_VALUES)
 
     useEffect(() => {
         loadData()
@@ -62,10 +109,54 @@ export default function OrganizerManagePage() {
         }
     }
 
-    const filteredEvents = events.filter((e) => e.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    const filteredStandalone = standaloneActivities.filter((a) =>
-        a.name.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    function setFilter(key: string, value: string) {
+        setValues((prev) => ({ ...prev, [key]: value }))
+    }
+
+    function resetFilters() {
+        setSearchQuery("")
+        setValues(INITIAL_VALUES)
+    }
+
+    /** สถานะรวมของงาน — ยกเลิกเมื่อกิจกรรมย่อยทุกตัวถูกยกเลิก, เปิดเมื่อมีอย่างน้อยหนึ่งตัวเปิดอยู่ */
+    function eventStatus(ev: EventSummary): "open" | "closed" | "cancelled" {
+        const list = ev.activities
+        if (list.length > 0 && list.every((a) => a.approvalStatus === "rejected")) return "cancelled"
+        return list.some((a) => a.status === "open") ? "open" : "closed"
+    }
+
+    const filteredEvents = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase()
+        const list = events.filter((ev) => {
+            const matchesSearch =
+                !q || ev.name.toLowerCase().includes(q) || ev.activities.some((a) => a.name.toLowerCase().includes(q))
+            const matchesStatus = !values.status || eventStatus(ev) === values.status
+            const matchesVisibility =
+                !values.visibility || (values.visibility === "public" ? ev.isPublic : !ev.isPublic)
+            const matchesCategory = !values.category || ev.activities.some((a) => a.category === values.category)
+            return matchesSearch && matchesStatus && matchesVisibility && matchesCategory
+        })
+
+        return [...list].sort((a, b) => {
+            if (values.sort === "soon") return earliestDate(a) - earliestDate(b)
+            if (values.sort === "registrations") return eventRegisteredCount(b) - eventRegisteredCount(a)
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        })
+    }, [events, searchQuery, values])
+
+    const filteredStandalone = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase()
+        return standaloneActivities.filter((a) => {
+            const matchesSearch = !q || a.name.toLowerCase().includes(q)
+            const status = a.approvalStatus === "rejected" ? "cancelled" : a.status === "open" ? "open" : "closed"
+            const matchesStatus = !values.status || status === values.status
+            const matchesCategory = !values.category || a.category === values.category
+            // กิจกรรมเดี่ยวไม่มีแนวคิดการเผยแพร่ระดับงาน จึงซ่อนเมื่อผู้ใช้กรองด้วยเงื่อนไขนี้
+            const matchesVisibility = !values.visibility
+            return matchesSearch && matchesStatus && matchesCategory && matchesVisibility
+        })
+    }, [standaloneActivities, searchQuery, values])
+
     const totalCount = filteredEvents.length + filteredStandalone.length
 
     return (
@@ -86,24 +177,17 @@ export default function OrganizerManagePage() {
                     </Button>
                 </div>
 
-                <div className="mb-10 w-full md:w-80">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-3.5 h-4 w-4 text-fg-subtle" />
-                        <Input
-                            type="text"
-                            placeholder="ค้นหางาน..."
-                            className="pl-10 h-12 rounded-xl shadow-sm focus-visible:ring-brand-500"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-                </div>
-
-                {!loading && (
-                    <p className="mb-4 text-sm text-fg-muted">
-                        พบ <span className="font-semibold text-fg">{totalCount}</span> รายการ
-                    </p>
-                )}
+                <FilterBar
+                    searchValue={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    searchPlaceholder="ค้นหาชื่องานหรือกิจกรรม..."
+                    filters={FILTERS}
+                    values={values}
+                    onFilterChange={setFilter}
+                    onReset={resetFilters}
+                    resultCount={loading ? undefined : totalCount}
+                    resultUnit="รายการ"
+                />
 
                 {loading ? (
                     <div className="py-32 flex flex-col items-center justify-center">

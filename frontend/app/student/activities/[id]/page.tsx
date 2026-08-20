@@ -10,11 +10,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Gift, CheckSquare } from "lucide-react"
+import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft } from "lucide-react"
 import Link from "next/link"
-import { activitiesAPI, registrationsAPI, isUnlimitedCapacity, Activity, Tag as TagType, Condition, Benefit, API_BASE_URL, RegistrationAnswerBody } from "@/lib/api"
+import { activitiesAPI, registrationsAPI, isUnlimitedCapacity, Activity, API_BASE_URL, RegistrationAnswerBody } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
-import { softSkillLabel } from "@/lib/soft-skills"
+import { categoryLabel } from "@/lib/categories"
+import {
+    ActivityAboutPanel,
+    ActivityRegistrationPanel,
+    ActivityRewardsPanel,
+} from "@/components/activity/activity-info-panels"
 
 // Local types removed, using Activity from @/lib/api
 
@@ -143,7 +148,7 @@ export default function EventDetailsPage() {
         return (
             <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-4">
                 <div className="bg-bg p-8 rounded-xl shadow-sm max-w-md w-full text-center">
-                    <div className="text-red-500 mb-4 text-5xl">⚠️</div>
+                    <div className="text-danger mb-4 text-5xl">⚠️</div>
                     <h2 className="text-xl font-bold mb-2">ไม่พบกิจกรรม</h2>
                     <p className="text-fg-muted mb-6">{error || "กิจกรรมนี้อาจถูกลบหรือไม่มีอยู่จริง"}</p>
                     <Button onClick={() => router.push('/student/events')} className="w-full">
@@ -170,19 +175,19 @@ export default function EventDetailsPage() {
                     {/* Main Content (Left) */}
                     <div className="lg:col-span-2 space-y-8">
                         {/* Hero Image */}
-                        <div className="aspect-video w-full bg-gray-200 rounded-xl overflow-hidden relative">
+                        <div className="aspect-video w-full bg-surface-2 rounded-xl overflow-hidden relative border border-border">
                             {event.imageUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={`${API_BASE_URL}${event.imageUrl}`} alt={event.name} className="w-full h-full object-cover" />
                             ) : (
-                                <div className="absolute inset-0 flex items-center justify-center text-white bg-gradient-to-br from-blue-500 to-purple-600">
+                                <div className="absolute inset-0 flex items-center justify-center text-fg-subtle">
                                     ไม่มีรูปภาพ
                                 </div>
                             )}
                             <div className="absolute top-4 left-4 flex gap-2">
-                                <Badge className="bg-brand-600 hover:bg-brand-700">{event.category}</Badge>
-                                <Badge className={event.status === 'open' ? "bg-green-500 hover:bg-green-600" : "bg-gray-500 hover:bg-gray-600"}>
-                                    {event.status === 'open' ? 'เปิดรับสมัคร' : event.status}
+                                <Badge className="bg-brand-600">{categoryLabel(event.category)}</Badge>
+                                <Badge className={event.status === 'open' ? "bg-success/90" : "bg-fg-subtle/90"}>
+                                    {event.status === 'open' ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
                                 </Badge>
                             </div>
                         </div>
@@ -197,79 +202,22 @@ export default function EventDetailsPage() {
 
                             {/* Tabs */}
                             <Tabs defaultValue="details" className="w-full">
-                                <TabsList className="w-full justify-start bg-gray-100 p-1 rounded-lg mb-6">
+                                <TabsList className="w-full justify-start bg-surface-2 p-1 rounded-lg mb-6">
                                     <TabsTrigger value="details" className="flex-1">รายละเอียด</TabsTrigger>
-                                    <TabsTrigger value="conditions" className="flex-1">เงื่อนไข</TabsTrigger>
-                                    <TabsTrigger value="benefits" className="flex-1">สิทธิประโยชน์</TabsTrigger>
+                                    <TabsTrigger value="rewards" className="flex-1">สิ่งที่จะได้รับ</TabsTrigger>
+                                    <TabsTrigger value="registration" className="flex-1">การลงทะเบียน</TabsTrigger>
                                 </TabsList>
 
-                                <TabsContent value="details" className="bg-bg p-6 rounded-xl border border-border shadow-sm">
-                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                        <Info className="w-5 h-5 text-brand-600" /> เกี่ยวกับกิจกรรม
-                                    </h3>
-                                    <p className="text-fg-muted leading-relaxed whitespace-pre-line">{event.description}</p>
-
-                                    <div className="mt-8 pt-6 border-t border-border">
-                                        <h4 className="text-sm font-semibold mb-3 text-fg">Tags</h4>
-                                        <div className="flex gap-2 flex-wrap">
-                                            {event.tags?.map((tag: TagType) => (
-                                                <Badge key={tag.tagName} variant="secondary" className="px-3 py-1 text-fg-muted bg-gray-100 hover:bg-gray-200">
-                                                    <Tag className="w-3 h-3 mr-1" /> {tag.tagName}
-                                                </Badge>
-                                            )) || <span className="text-sm text-fg-muted">ไม่มี Tags</span>}
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-8 pt-6 border-t border-border">
-                                        <h4 className="text-sm font-semibold mb-3 text-fg">Soft Skills ที่จะได้รับ</h4>
-                                        <div className="flex gap-2 flex-wrap">
-                                            {event.softSkills && event.softSkills.length > 0 ? event.softSkills.map((skill: { skillType: string }, idx: number) => (
-                                                <Badge key={idx} variant="outline" className="px-3 py-1 text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100">
-                                                    <CheckSquare className="w-3 h-3 mr-1" /> {softSkillLabel(skill.skillType)}
-                                                </Badge>
-                                            )) : <span className="text-sm text-fg-muted">ไม่ได้ระบุ Soft Skills</span>}
-                                        </div>
-                                    </div>
+                                <TabsContent value="details">
+                                    <ActivityAboutPanel activity={event} />
                                 </TabsContent>
 
-                                <TabsContent value="conditions" className="bg-bg p-6 rounded-xl border border-border shadow-sm">
-                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                        <CheckCircle className="w-5 h-5 text-orange-500" /> เงื่อนไขการเข้าร่วม
-                                    </h3>
-                                    {event.conditions && event.conditions.length > 0 ? (
-                                        <ul className="space-y-3">
-                                            {event.conditions.map((item: Condition, i: number) => (
-                                                <li key={i} className="flex gap-3 text-fg-muted">
-                                                    <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold flex-shrink-0">{i + 1}</div>
-                                                    <span>{item.conditionText}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <div className="py-8 text-center bg-surface rounded-lg border border-dashed border-border">
-                                            <p className="text-fg-muted">ไม่มีข้อมูลเงื่อนไขการเข้าร่วม</p>
-                                        </div>
-                                    )}
+                                <TabsContent value="rewards">
+                                    <ActivityRewardsPanel activity={event} />
                                 </TabsContent>
 
-                                <TabsContent value="benefits" className="bg-bg p-6 rounded-xl border border-border shadow-sm">
-                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                        <Gift className="w-5 h-5 text-purple-500" /> สิทธิประโยชน์
-                                    </h3>
-                                    {event.benefits && event.benefits.length > 0 ? (
-                                        <ul className="space-y-3">
-                                            {event.benefits.map((item: Benefit, i: number) => (
-                                                <li key={i} className="flex gap-3 text-fg-muted">
-                                                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                                                    <span>{item.benefitText}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <div className="py-8 text-center bg-surface rounded-lg border border-dashed border-border">
-                                            <p className="text-fg-muted">ไม่มีข้อมูลสิทธิประโยชน์ระบุไว้</p>
-                                        </div>
-                                    )}
+                                <TabsContent value="registration">
+                                    <ActivityRegistrationPanel activity={event} />
                                 </TabsContent>
                             </Tabs>
                         </div>
@@ -314,7 +262,7 @@ export default function EventDetailsPage() {
 
                                     <div className="pt-4 border-t border-border">
                                         <div className="flex justify-between items-center mb-2">
-                                            <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                            <div className="flex items-center gap-2 text-sm font-medium text-fg">
                                                 <Users className="w-4 h-4" /> ผู้เข้าร่วม
                                             </div>
                                             <span className="text-sm text-fg-muted">
@@ -349,18 +297,18 @@ export default function EventDetailsPage() {
                 <DialogContent className="sm:max-w-[480px]">
                     <DialogHeader>
                         <DialogTitle>ลงทะเบียนเข้าร่วมกิจกรรม</DialogTitle>
-                        <p className="text-gray-500 text-sm">กรุณายืนยันข้อมูลของคุณเพื่อยืนยันตัวตนก่อนลงทะเบียน</p>
+                        <p className="text-fg-muted text-sm">กรุณายืนยันข้อมูลของคุณเพื่อยืนยันตัวตนก่อนลงทะเบียน</p>
                     </DialogHeader>
 
                     <form onSubmit={handleRegister} className="space-y-4 py-2">
                         {formError && (
-                            <div className="bg-red-50 border border-red-200 text-red-700 text-sm font-medium px-4 py-3 rounded-lg flex items-center gap-2">
+                            <div className="bg-danger-bg border border-danger text-danger text-sm font-medium px-4 py-3 rounded-lg flex items-center gap-2">
                                 <span>⚠️</span> {formError}
                             </div>
                         )}
 
                         <div className="space-y-2">
-                            <Label htmlFor="reg-name">ชื่อ-นามสกุล <span className="text-red-500">*</span></Label>
+                            <Label htmlFor="reg-name">ชื่อ-นามสกุล <span className="text-danger">*</span></Label>
                             <Input
                                 id="reg-name"
                                 value={registerForm.name}
@@ -370,7 +318,7 @@ export default function EventDetailsPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="reg-studentId">รหัสนักศึกษา <span className="text-red-500">*</span></Label>
+                            <Label htmlFor="reg-studentId">รหัสนักศึกษา <span className="text-danger">*</span></Label>
                             <Input
                                 id="reg-studentId"
                                 value={registerForm.studentId}
@@ -380,7 +328,7 @@ export default function EventDetailsPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="reg-email">อีเมล <span className="text-red-500">*</span></Label>
+                            <Label htmlFor="reg-email">อีเมล <span className="text-danger">*</span></Label>
                             <Input
                                 id="reg-email"
                                 type="email"
@@ -393,10 +341,10 @@ export default function EventDetailsPage() {
 
                         {event.questions && event.questions.length > 0 && (
                             <div className="space-y-4 border-t border-gray-100 pt-4">
-                                <p className="text-sm font-medium text-gray-700">คำถามเพิ่มเติม</p>
+                                <p className="text-sm font-medium text-fg">คำถามเพิ่มเติม</p>
                                 {event.questions.map((q) => (
                                     <div key={q.id} className="space-y-2">
-                                        <Label>{q.label} {q.required && <span className="text-red-500">*</span>}</Label>
+                                        <Label>{q.label} {q.required && <span className="text-danger">*</span>}</Label>
                                         {q.type === 'text' && (
                                             <Input
                                                 value={answers[q.id]?.textValue || ''}
@@ -408,7 +356,7 @@ export default function EventDetailsPage() {
                                         {q.type === 'single_choice' && (
                                             <div className="space-y-1.5">
                                                 {q.options.map((opt) => (
-                                                    <label key={opt.id} className="flex items-center gap-2 text-sm text-gray-700">
+                                                    <label key={opt.id} className="flex items-center gap-2 text-sm text-fg-muted">
                                                         <input
                                                             type="radio"
                                                             name={`question-${q.id}`}
@@ -428,7 +376,7 @@ export default function EventDetailsPage() {
                                                     const selected = answers[q.id]?.optionIds ?? []
                                                     const checked = selected.includes(opt.id)
                                                     return (
-                                                        <label key={opt.id} className="flex items-center gap-2 text-sm text-gray-700">
+                                                        <label key={opt.id} className="flex items-center gap-2 text-sm text-fg-muted">
                                                             <input
                                                                 type="checkbox"
                                                                 checked={checked}
@@ -450,11 +398,11 @@ export default function EventDetailsPage() {
                             </div>
                         )}
 
-                        <p className="text-xs text-gray-400 bg-gray-50 px-3 py-2 rounded-lg">* ข้อมูลจะถูกตรวจสอบกับบัญชีผู้ใช้ที่ลงทะเบียนไว้ หากไม่ตรงกันจะไม่สามารถลงทะเบียนได้</p>
+                        <p className="text-xs text-fg-subtle bg-surface px-3 py-2 rounded-lg">* ข้อมูลจะถูกตรวจสอบกับบัญชีผู้ใช้ที่ลงทะเบียนไว้ หากไม่ตรงกันจะไม่สามารถลงทะเบียนได้</p>
 
                         <DialogFooter className="pt-2">
                             <Button type="button" variant="outline" onClick={() => setIsRegisterOpen(false)} disabled={submitting}>ยกเลิก</Button>
-                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={submitting}>
+                            <Button type="submit" disabled={submitting}>
                                 {submitting ? 'กำลังลงทะเบียน...' : 'ยืนยันการลงทะเบียน'}
                             </Button>
                         </DialogFooter>

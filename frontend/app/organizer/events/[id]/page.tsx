@@ -13,12 +13,15 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
-import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Edit, CheckSquare, Download, Loader2, Award } from "lucide-react"
+import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Edit, CheckSquare, Download, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { eventsAPI, registrationsAPI, activitiesAPI, isUnlimitedCapacity, EventSummary } from "@/lib/api"
 import { resolveEventImageUrl } from "@/lib/event-image"
-import { softSkillLabel } from "@/lib/soft-skills"
-import { categoryLabel } from "@/lib/categories"
+import {
+    ActivityAboutPanel,
+    ActivityRegistrationPanel,
+    ActivityRewardsPanel,
+} from "@/components/activity/activity-info-panels"
 
 type EventActivity = EventSummary["activities"][number]
 
@@ -222,9 +225,8 @@ export default function OrganizerEventDetailsPage() {
                                         <TabsList className="w-full justify-start bg-surface-2 p-1 rounded-lg mb-6">
                                             <TabsTrigger value="participants" className="flex-1">ผู้เข้าร่วม ({a.registrations?.length || 0})</TabsTrigger>
                                             <TabsTrigger value="details" className="flex-1">รายละเอียด</TabsTrigger>
-                                            <TabsTrigger value="conditions" className="flex-1">เงื่อนไข</TabsTrigger>
-                                            <TabsTrigger value="benefits" className="flex-1">สิทธิประโยชน์</TabsTrigger>
-                                            <TabsTrigger value="softskills" className="flex-1">Soft Skills</TabsTrigger>
+                                            <TabsTrigger value="rewards" className="flex-1">สิ่งที่จะได้รับ</TabsTrigger>
+                                            <TabsTrigger value="registration" className="flex-1">การลงทะเบียน</TabsTrigger>
                                         </TabsList>
 
                                         <TabsContent value="participants" className="bg-bg rounded-xl border border-border shadow-xs overflow-hidden">
@@ -291,85 +293,16 @@ export default function OrganizerEventDetailsPage() {
                                             </div>
                                         </TabsContent>
 
-                                        <TabsContent value="details" className="bg-bg p-6 rounded-xl border border-border shadow-xs space-y-6">
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-fg mb-4 flex items-center gap-2"><Info className="w-5 h-5 text-brand-600" aria-hidden="true" /> เกี่ยวกับกิจกรรมนี้</h3>
-                                                <p className="text-fg-muted leading-relaxed whitespace-pre-line">{a.description || "ไม่มีรายละเอียด"}</p>
-                                            </div>
-                                            <div className="flex flex-wrap gap-4 text-sm text-fg-muted">
-                                                <span><strong className="text-fg">หมวดหมู่:</strong> {categoryLabel(a.category)}</span>
-                                                {a.volunteerRole && (
-                                                    <span className="flex items-center gap-1"><Award className="size-4 text-brand-600" aria-hidden="true" /> <strong className="text-fg">ใบจิตอาสา:</strong> {a.volunteerRole} ({a.volunteerHours ?? "-"} ชม.)</span>
-                                                )}
-                                            </div>
-                                            {a.tags && a.tags.length > 0 && (
-                                                <div className="pt-4 border-t border-border">
-                                                    <h4 className="text-sm font-semibold mb-3 text-fg">Tags</h4>
-                                                    <div className="flex gap-2 flex-wrap">
-                                                        {a.tags.map((tag) => (
-                                                            <Badge key={tag.tagName} variant="neutral" className="px-3 py-1"><Tag className="w-3 h-3 mr-1" aria-hidden="true" /> {tag.tagName}</Badge>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {a.questions && a.questions.length > 0 && (
-                                                <div className="pt-4 border-t border-border">
-                                                    <h4 className="text-sm font-semibold mb-3 text-fg">คำถามเพิ่มเติมตอนลงทะเบียน</h4>
-                                                    <ul className="space-y-2">
-                                                        {a.questions.map((q) => (
-                                                            <li key={q.id} className="text-sm text-fg-muted">
-                                                                {q.label} {q.required && <span className="text-danger">*</span>}
-                                                                {q.options?.length ? ` — ${q.options.map((o) => o.label).join(", ")}` : ""}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            )}
+                                        <TabsContent value="details">
+                                            <ActivityAboutPanel activity={a} />
                                         </TabsContent>
 
-                                        <TabsContent value="conditions" className="bg-bg p-6 rounded-xl border border-border shadow-xs">
-                                            <h3 className="text-lg font-semibold text-fg mb-4 flex items-center gap-2"><CheckCircle className="w-5 h-5 text-warning" aria-hidden="true" /> เงื่อนไขการเข้าร่วม</h3>
-                                            {a.conditions && a.conditions.length > 0 ? (
-                                                <ul className="space-y-3">
-                                                    {a.conditions.map((item, i) => (
-                                                        <li key={i} className="flex gap-3 text-fg-muted">
-                                                            <div className="w-6 h-6 rounded-full bg-warning-bg text-warning flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</div>
-                                                            <span>{item.conditionText}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            ) : (
-                                                <div className="py-8 text-center bg-surface rounded-lg border border-dashed border-border"><p className="text-fg-muted">ไม่มีข้อมูลเงื่อนไขการเข้าร่วม</p></div>
-                                            )}
+                                        <TabsContent value="rewards">
+                                            <ActivityRewardsPanel activity={a} />
                                         </TabsContent>
 
-                                        <TabsContent value="benefits" className="bg-bg p-6 rounded-xl border border-border shadow-xs">
-                                            <h3 className="text-lg font-semibold text-fg mb-4 flex items-center gap-2"><Info className="w-5 h-5 text-success" aria-hidden="true" /> สิทธิประโยชน์ที่ได้รับ</h3>
-                                            {a.benefits && a.benefits.length > 0 ? (
-                                                <ul className="space-y-3">
-                                                    {a.benefits.map((item, i) => (
-                                                        <li key={i} className="flex gap-3 text-fg-muted"><CheckCircle className="w-5 h-5 text-success shrink-0" aria-hidden="true" /><span>{item.benefitText}</span></li>
-                                                    ))}
-                                                </ul>
-                                            ) : (
-                                                <div className="py-8 text-center bg-surface rounded-lg border border-dashed border-border"><p className="text-fg-muted">ไม่มีข้อมูลสิทธิประโยชน์</p></div>
-                                            )}
-                                        </TabsContent>
-
-                                        <TabsContent value="softskills" className="bg-bg p-6 rounded-xl border border-border shadow-xs">
-                                            <h3 className="text-lg font-semibold text-fg mb-4 flex items-center gap-2"><CheckSquare className="w-5 h-5 text-brand-600" aria-hidden="true" /> Soft Skills ที่จะได้รับ</h3>
-                                            {a.softSkills && a.softSkills.length > 0 ? (
-                                                <div className="flex flex-wrap gap-3">
-                                                    {a.softSkills.map((skill, i) => (
-                                                        <div key={i} className="flex items-center gap-2 bg-brand-50 border border-border text-brand-700 px-4 py-2.5 rounded-xl font-medium">
-                                                            <CheckSquare className="w-4 h-4" aria-hidden="true" />
-                                                            <span>{softSkillLabel(skill.skillType)}{skill.rate !== undefined ? ` · น้ำหนัก ${skill.rate}` : ""}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="py-8 text-center bg-surface rounded-lg border border-dashed border-border"><p className="text-fg-muted">ไม่ได้ระบุ Soft Skills สำหรับกิจกรรมนี้</p></div>
-                                            )}
+                                        <TabsContent value="registration">
+                                            <ActivityRegistrationPanel activity={a} registrationCloseAt={event.registrationCloseAt} />
                                         </TabsContent>
                                     </Tabs>
                                 </div>
