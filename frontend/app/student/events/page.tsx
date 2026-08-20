@@ -11,26 +11,39 @@ import {
     EventCardRow,
     formatEventDate,
 } from "@/components/ui/event-card"
-import { activitiesAPI, capacityLabel, Activity } from "@/lib/api"
+import { eventsAPI, capacityLabel, EventSummary } from "@/lib/api"
 import { CATEGORIES } from "@/lib/categories"
-import { Calendar, MapPin, Users, Loader2, Search } from "lucide-react"
+import { Calendar, MapPin, Users, Loader2, Search, Layers } from "lucide-react"
 
-/** หน้ารายการกิจกรรมฝั่งนักศึกษา — การ์ดใช้ <EventCard> ร่วมกับหน้ารายการอื่น */
+function nearestUpcomingActivity(ev: EventSummary) {
+    return [...ev.activities].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
+}
+
+function eventRegisteredCount(ev: EventSummary): number {
+    return ev.activities.reduce((sum, a) => sum + (a.registeredCount ?? 0), 0)
+}
+
+function eventCapacity(ev: EventSummary): number | null {
+    if (ev.activities.some((a) => a.capacity == null)) return null
+    return ev.activities.reduce((sum, a) => sum + (a.capacity ?? 0), 0)
+}
+
+/** หน้ารายการงานฝั่งนักศึกษา — 1 การ์ดต่อ 1 งาน แม้งานนั้นจะมีหลายกิจกรรมย่อยก็ตาม */
 export default function StudentEventsPage() {
-    const [activities, setActivities] = useState<Activity[]>([])
+    const [events, setEvents] = useState<EventSummary[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
     const [category, setCategory] = useState("")
 
     useEffect(() => {
-        loadActivities()
+        loadEvents()
     }, [])
 
-    async function loadActivities() {
+    async function loadEvents() {
         try {
             setLoading(true)
-            const data = await activitiesAPI.getAll()
-            setActivities(Array.isArray(data) ? data : [])
+            const data = await eventsAPI.getAllPublic()
+            setEvents(Array.isArray(data) ? data : [])
         } catch (err) {
             console.error(err)
         } finally {
@@ -38,12 +51,9 @@ export default function StudentEventsPage() {
         }
     }
 
-    // Filter activities by search query and selected category
-    const filteredActivities = activities.filter(a => {
-        const matchesSearch =
-            a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (a.category && a.category.toLowerCase().includes(searchQuery.toLowerCase()))
-        const matchesCategory = !category || a.category === category
+    const filteredEvents = events.filter((ev) => {
+        const matchesSearch = ev.name.toLowerCase().includes(searchQuery.toLowerCase())
+        const matchesCategory = !category || ev.activities.some((a) => a.category === category)
         return matchesSearch && matchesCategory
     })
 
@@ -54,7 +64,7 @@ export default function StudentEventsPage() {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
                     <div>
                         <h1 className="text-3xl font-black text-fg mb-2">กิจกรรมทั้งหมด</h1>
-                        <p className="text-fg-muted">เลือกกิจกรรมที่สนใจและลงทะเบียนเข้าร่วมได้ทันที</p>
+                        <p className="text-fg-muted">เลือกงานที่สนใจและลงทะเบียนเข้าร่วมได้ทันที</p>
                     </div>
 
                     <div className="w-full md:w-auto">
@@ -62,7 +72,7 @@ export default function StudentEventsPage() {
                             <Search className="absolute left-3 top-3.5 h-4 w-4 text-fg-subtle" />
                             <Input
                                 type="text"
-                                placeholder="ค้นหากิจกรรม..."
+                                placeholder="ค้นหางาน..."
                                 className="pl-10 h-12 rounded-xl shadow-sm focus-visible:ring-brand-500"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -71,7 +81,6 @@ export default function StudentEventsPage() {
                     </div>
                 </div>
 
-                {/* ตัวกรองหมวดหมู่ — คลิกเพื่อดูกิจกรรมตามหมวดหมู่ */}
                 <div className="flex flex-wrap gap-2 mb-10">
                     <button
                         type="button"
@@ -100,10 +109,9 @@ export default function StudentEventsPage() {
                     ))}
                 </div>
 
-                {/* จำนวนผลลัพธ์ — ซ่อนตอนโหลดเพื่อไม่ให้เห็นเลข 0 วูบหนึ่ง */}
                 {!loading && (
                     <p className="mb-4 text-sm text-fg-muted">
-                        พบ <span className="font-semibold text-fg">{filteredActivities.length}</span> กิจกรรม
+                        พบ <span className="font-semibold text-fg">{filteredEvents.length}</span> งาน
                     </p>
                 )}
 
@@ -112,48 +120,58 @@ export default function StudentEventsPage() {
                         <Loader2 className="w-12 h-12 text-brand-600 animate-spin mb-4" />
                         <p className="text-lg text-fg-muted font-medium animate-pulse">กำลังดึงข้อมูลกิจกรรมล่าสุด...</p>
                     </div>
-                ) : filteredActivities.length > 0 ? (
+                ) : filteredEvents.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {filteredActivities.map((ev) => (
-                            <EventCard
-                                key={ev.id}
-                                activity={ev}
-                                description={ev.description}
-                                badgeLeft={
-                                    ev.category ? (
-                                        <EventCardBadge variant="light">{ev.category}</EventCardBadge>
-                                    ) : undefined
-                                }
-                                badgeRight={
-                                    <EventCardBadge
-                                        className={ev.status === "open" || !ev.status ? "bg-success/90" : "bg-fg-subtle/90"}
-                                    >
-                                        {ev.status === "open" || !ev.status ? "กำลังเปิด" : "ปิดรับสมัคร"}
-                                    </EventCardBadge>
-                                }
-                                actions={
-                                    // ต่างจาก /events ตรงนี้: ล็อกอินแล้ว จึงลิงก์เข้าหน้ารายละเอียดของโซน student ได้เลย
-                                    <>
-                                        <Link href={`/student/events/${ev.id}`} className="flex-1">
-                                            <Button variant="outline" className="w-full font-bold rounded-xl h-11">ดูรายละเอียด</Button>
-                                        </Link>
-                                        <Link href={`/student/events/${ev.id}?register=true`} className="flex-1">
-                                            <Button className="w-full shadow-md shadow-brand-500/20 font-bold rounded-xl h-11">ลงทะเบียน</Button>
-                                        </Link>
-                                    </>
-                                }
-                            >
-                                <EventCardRow icon={Calendar} tone="brand">
-                                    {formatEventDate(ev.date)} • {ev.startTime}
-                                </EventCardRow>
-                                <EventCardRow icon={MapPin} tone="danger">
-                                    <span className="truncate">{ev.location}</span>
-                                </EventCardRow>
-                                <EventCardRow icon={Users} tone="success">
-                                    {ev.registeredCount || 0} ผู้เข้าร่วม ({capacityLabel(ev.capacity)})
-                                </EventCardRow>
-                            </EventCard>
-                        ))}
+                        {filteredEvents.map((ev) => {
+                            const fa = nearestUpcomingActivity(ev)
+                            const capacity = eventCapacity(ev)
+                            return (
+                                <EventCard
+                                    key={ev.id}
+                                    activity={{ name: ev.name, imageUrl: ev.imageUrl ?? fa?.imageUrl }}
+                                    description={ev.description}
+                                    badgeLeft={
+                                        ev.activities.length > 1 ? (
+                                            <EventCardBadge variant="light">
+                                                <Layers className="mr-1 inline size-3" aria-hidden="true" />
+                                                {ev.activities.length} กิจกรรมย่อย
+                                            </EventCardBadge>
+                                        ) : fa?.category ? (
+                                            <EventCardBadge variant="light">{fa.category}</EventCardBadge>
+                                        ) : undefined
+                                    }
+                                    badgeRight={
+                                        <EventCardBadge className={!fa || fa.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
+                                            {!fa || fa.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}
+                                        </EventCardBadge>
+                                    }
+                                    actions={
+                                        <>
+                                            <Link href={`/student/events/${ev.id}`} className="flex-1">
+                                                <Button variant="outline" className="w-full font-bold rounded-xl h-11">ดูรายละเอียด</Button>
+                                            </Link>
+                                            <Link href={`/student/events/${ev.id}`} className="flex-1">
+                                                <Button className="w-full shadow-md shadow-brand-500/20 font-bold rounded-xl h-11">ลงทะเบียน</Button>
+                                            </Link>
+                                        </>
+                                    }
+                                >
+                                    {fa && (
+                                        <EventCardRow icon={Calendar} tone="brand">
+                                            {formatEventDate(fa.date)} • {fa.startTime}
+                                        </EventCardRow>
+                                    )}
+                                    {fa && (
+                                        <EventCardRow icon={MapPin} tone="danger">
+                                            <span className="truncate">{fa.location}</span>
+                                        </EventCardRow>
+                                    )}
+                                    <EventCardRow icon={Users} tone="success">
+                                        {eventRegisteredCount(ev)} ผู้เข้าร่วม ({capacityLabel(capacity)})
+                                    </EventCardRow>
+                                </EventCard>
+                            )
+                        })}
                     </div>
                 ) : (
                     <div className="py-32 text-center bg-bg rounded-3xl border border-border shadow-sm mt-8">
@@ -161,7 +179,7 @@ export default function StudentEventsPage() {
                             <Search className="w-10 h-10 text-fg-subtle" />
                         </div>
                         <h3 className="text-xl font-bold text-fg mb-2">ไม่พบกิจกรรมที่ค้นหา</h3>
-                        <p className="text-fg-muted">ลองใช้คำค้นหาอื่น เลือกหมวดหมู่อื่น หรือรอกิจกรรมใหม่เปิดรับสมัครเร็วๆ นี้</p>
+                        <p className="text-fg-muted">ลองใช้คำค้นหาอื่น เลือกหมวดหมู่อื่น หรือรองานใหม่เปิดรับสมัครเร็วๆ นี้</p>
                         <Button
                             variant="outline"
                             className="mt-6 rounded-full px-8"
