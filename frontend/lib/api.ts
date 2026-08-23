@@ -106,6 +106,19 @@ export function capacityLabel(capacity: number | null | undefined): string {
   return isUnlimitedCapacity(capacity) ? 'ไม่จำกัดจำนวน' : `${capacity} คน`;
 }
 
+/**
+ * true ถ้ายังนับเป็น "ลงทะเบียนอยู่ที่ยกเลิกได้" — ใช้จุดเดียวกันทุกหน้า (my-registrations,
+ * activities/[id], events/[id]) กันไม่ให้เกณฑ์หลุดจากกันอีก (เคยเกิดบั๊กที่ my-registrations
+ * ตัด status "confirmed" ออกไปด้วยทั้งที่ backend อนุญาตให้ยกเลิก confirmed ได้ปกติ — ทำให้
+ * หน้านี้กับหน้ารายละเอียดกิจกรรมแสดงปุ่มยกเลิกไม่ตรงกันสำหรับ registration เดียวกัน)
+ *
+ * เกณฑ์: ยังไม่ถูกยกเลิก และยังไม่ถูกประเมินผล (มี evaluation แปลว่าเช็คอินและกิจกรรมเสร็จสิ้นไปแล้ว
+ * ซึ่ง backend ผูก evaluation ไว้กับ attendance เสมอ จึงใช้แทนการเช็ค attendance ได้ตรงๆ)
+ */
+export function isActiveRegistration(r: { status: string; evaluation?: unknown }): boolean {
+  return r.status !== 'cancelled' && !r.evaluation;
+}
+
 export interface PlatformStats {
   totalActivities: number;
   totalParticipants: number;

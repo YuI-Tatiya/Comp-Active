@@ -123,6 +123,12 @@ export class RegistrationsService {
       throw new BadRequestException('รายการนี้ถูกยกเลิกแล้ว');
     }
 
+    // กันยกเลิกย้อนหลังหลังเช็คอินไปแล้ว — เดิม endpoint นี้ไม่เช็คเลย ต้องพึ่ง frontend ล้วนๆ
+    // ซึ่งเลี่ยงได้ง่ายด้วยการยิง API ตรง ทำให้ attendance ค้างเป็น attended แต่ status กลายเป็น cancelled
+    if (registration.attendance === AttendanceStatus.ATTENDED) {
+      throw new BadRequestException('ไม่สามารถยกเลิกได้ เนื่องจากเช็คอินเข้าร่วมกิจกรรมนี้ไปแล้ว');
+    }
+
     await this.registrationsRepository.update(registrationId, { status: RegistrationStatus.CANCELLED as any });
 
     this.logger.log(`Registration cancelled: ID ${registrationId}`);
