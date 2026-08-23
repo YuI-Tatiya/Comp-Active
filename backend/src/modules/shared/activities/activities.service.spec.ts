@@ -4,6 +4,7 @@ import { ActivitiesService } from './activities.service';
 import { ActivitiesRepository } from './activities.repository';
 import { RegistrationsRepository } from '../registrations/registrations.repository';
 import { MailService } from '../mail/mail.service';
+import { UsersRepository } from '../users/users.repository';
 import { UserRole } from '../../../common/enums/role.enum';
 import { ActivityStatus, ApprovalStatus } from '../../../common/enums/status.enum';
 
@@ -45,6 +46,7 @@ describe('ActivitiesService.markCompleted', () => {
         // so module compilation succeeds and no real network call is attempted.
         { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn().mockResolvedValue([]) } },
         { provide: MailService, useValue: { sendActivityCompleted: jest.fn(), sendActivityCancelled: jest.fn() } },
+        { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -143,6 +145,7 @@ describe('ActivitiesService student-notification side effects', () => {
         { provide: ActivitiesRepository, useValue: activitiesRepo },
         { provide: RegistrationsRepository, useValue: registrationsRepo },
         { provide: MailService, useValue: mail },
+        { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
       ],
     }).compile();
     service = module.get(ActivitiesService);

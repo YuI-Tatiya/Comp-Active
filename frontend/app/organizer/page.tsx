@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
@@ -8,8 +8,16 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { SectionHeading } from "@/components/ui/section-heading"
 import { StatTile } from "@/components/ui/stat-tile"
-import { ActivityRow } from "@/components/ui/activity-row"
+import { FilterBar, type FilterSpec } from "@/components/ui/filter-bar"
+import {
+  EventCard,
+  EventCardBadge,
+  EventCardProgress,
+  EventCardRow,
+  formatEventDate,
+} from "@/components/ui/event-card"
 import { activitiesAPI, Activity, OrganizerStats } from "@/lib/api"
+import { CATEGORIES, categoryLabel } from "@/lib/categories"
 import { useAuth } from "@/lib/auth-context"
 import {
   ArrowRight,
@@ -18,36 +26,104 @@ import {
   CalendarPlus,
   Users,
   Clock,
-  CheckCircle2,
+  Calendar,
+  MapPin,
+  Search,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+
+const STATUS_META: Record<string, { label: string; className: string }> = {
+  open: { label: "เปิดรับสมัคร", className: "bg-success/90" },
+  closed: { label: "ปิดรับสมัคร", className: "bg-fg-subtle/90" },
+  completed: { label: "จบแล้ว", className: "bg-info/90" },
+}
+
+const FILTERS: FilterSpec[] = [
+  {
+    key: "status",
+    label: "สถานะ",
+    options: [
+      { value: "", label: "ทั้งหมด" },
+      { value: "open", label: "เปิดรับสมัคร" },
+      { value: "closed", label: "ปิดรับสมัคร" },
+      { value: "completed", label: "จบแล้ว" },
+    ],
+  },
+  {
+    key: "category",
+    label: "หมวดหมู่",
+    options: [{ value: "", label: "ทุกหมวดหมู่" }, ...CATEGORIES.map((c) => ({ value: c.value, label: c.label }))],
+  },
+  {
+    key: "sort",
+    label: "เรียงลำดับ",
+    neutralValue: "newest",
+    options: [
+      { value: "newest", label: "สร้างล่าสุด" },
+      { value: "soon", label: "ใกล้จัดงาน" },
+      { value: "registrations", label: "ยอดลงทะเบียนสูงสุด" },
+    ],
+  },
+]
+
+const INITIAL_VALUES: Record<string, string> = { status: "", category: "", sort: "newest" }
 
 export default function OrganizerDashboardPage() {
   const { user } = useAuth()
   const [stats, setStats] = useState<OrganizerStats | null>(null)
   const [myActivities, setMyActivities] = useState<Activity[]>([])
+  // กิจกรรมทั้งหมดในระบบ (ทุกผู้จัด) — ใช้ feed สาธารณะเดียวกับหน้า /events
+  const [allActivities, setAllActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [values, setValues] = useState<Record<string, string>>(INITIAL_VALUES)
 
   useEffect(() => {
-    Promise.allSettled([activitiesAPI.getOrganizerStats(), activitiesAPI.getMy()])
-      .then(([statsRes, listRes]) => {
+    Promise.allSettled([
+      activitiesAPI.getOrganizerStats(),
+      activitiesAPI.getMy(),
+      activitiesAPI.getAll(),
+    ])
+      .then(([statsRes, listRes, allRes]) => {
         if (statsRes.status === "fulfilled") setStats(statsRes.value)
         if (listRes.status === "fulfilled" && Array.isArray(listRes.value)) {
           setMyActivities(listRes.value as Activity[])
+        }
+        if (allRes.status === "fulfilled" && Array.isArray(allRes.value)) {
+          setAllActivities(allRes.value as Activity[])
         }
       })
       .finally(() => setLoading(false))
   }, [])
 
   const pending = myActivities.filter((a) => a.approvalStatus === "pending_approval")
-  const completed = myActivities.filter((a) => a.status === "completed")
-
-  // เรียงกิจกรรมของฉันตามวันที่ใกล้ที่สุดก่อน
-  const recent = [...myActivities]
-    .sort((a, b) => +new Date(b.date) - +new Date(a.date))
-    .slice(0, 5)
-
   const pendingCount = stats?.pendingApprovals ?? pending.length
+
+  function setFilter(key: string, value: string) {
+    setValues((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function resetFilters() {
+    setSearchQuery("")
+    setValues(INITIAL_VALUES)
+  }
+
+  const filteredActivities = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    const list = allActivities.filter((a) => {
+      const matchesSearch = !q || a.name.toLowerCase().includes(q)
+      const matchesStatus = !values.status || a.status === values.status
+      const matchesCategory = !values.category || a.category === values.category
+      return matchesSearch && matchesStatus && matchesCategory
+    })
+
+    return [...list].sort((a, b) => {
+      if (values.sort === "soon") return +new Date(a.date) - +new Date(b.date)
+      if (values.sort === "registrations") return (b.registeredCount ?? 0) - (a.registeredCount ?? 0)
+      // Activity ไม่มี createdAt — ใช้ id (auto-increment) แทนลำดับการสร้าง
+      return b.id - a.id
+    })
+  }, [allActivities, searchQuery, values])
 
   return (
     <>
@@ -82,8 +158,8 @@ export default function OrganizerDashboardPage() {
               icon={CalendarCheck}
             />
             <StatTile
-              label="ผู้สมัครรวม"
-              value={loading ? "—" : (stats?.totalRegistrations ?? 0).toLocaleString("th-TH")}
+              label="นักศึกษาทั้งหมด"
+              value={loading ? "—" : (stats?.totalStudents ?? 0).toLocaleString("th-TH")}
               icon={Users}
             />
             <StatTile
@@ -98,116 +174,94 @@ export default function OrganizerDashboardPage() {
         </Container>
       </section>
 
-      {/* ── กิจกรรมของฉัน + ต้องดำเนินการ ────────────────────────────────── */}
+      {/* ── กิจกรรมทั้งหมดในระบบ ────────────────────────────────────────── */}
       <section>
-        <Container className="grid gap-6 py-10 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+        <Container className="py-10">
+          <div>
             <SectionHeading
-              title="กิจกรรมของฉัน"
-              description={loading ? undefined : `${myActivities.length} รายการ`}
+              title="กิจกรรมทั้งหมด"
+              description={loading ? undefined : `${allActivities.length} รายการ`}
               action={
                 <Button variant="link" asChild className="px-0">
                   <Link href="/organizer/manage">
-                    จัดการทั้งหมด
+                    จัดการกิจกรรมของฉัน
                     <ArrowRight />
                   </Link>
                 </Button>
               }
             />
 
-            <div className="mt-5 space-y-3">
+            <div className="mt-5">
+              <FilterBar
+                searchValue={searchQuery}
+                onSearchChange={setSearchQuery}
+                searchPlaceholder="ค้นหาชื่อกิจกรรม..."
+                filters={FILTERS}
+                values={values}
+                onFilterChange={setFilter}
+                onReset={resetFilters}
+                resultCount={loading ? undefined : filteredActivities.length}
+                resultUnit="รายการ"
+              />
+
               {loading ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-[76px] w-full rounded-lg" />
-                ))
-              ) : recent.length > 0 ? (
-                recent.map((a) => (
-                  <ActivityRow
-                    key={a.id}
-                    activity={a}
-                    href={`/organizer/activities/${a.id}`}
-                  />
-                ))
-              ) : (
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-[380px] w-full rounded-2xl" />
+                  ))}
+                </div>
+              ) : filteredActivities.length > 0 ? (
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                  {filteredActivities.map((a) => {
+                    const status = STATUS_META[a.status] ?? STATUS_META.open
+                    return (
+                      <EventCard
+                        key={a.id}
+                        activity={a}
+                        badgeLeft={<EventCardBadge variant="light">{categoryLabel(a.category)}</EventCardBadge>}
+                        badgeRight={<EventCardBadge className={status.className}>{status.label}</EventCardBadge>}
+                        actions={
+                          <Link href={`/events/${a.id}`} className="flex-1">
+                            <Button className="h-11 w-full rounded-xl font-bold shadow-md shadow-brand-500/20">
+                              ดูรายละเอียด
+                            </Button>
+                          </Link>
+                        }
+                      >
+                        <EventCardRow icon={Calendar} tone="brand">
+                          {formatEventDate(a.date)}
+                        </EventCardRow>
+                        <EventCardRow icon={MapPin} tone="danger">
+                          <span className="truncate">{a.location}</span>
+                        </EventCardRow>
+                        <EventCardProgress registered={a.registeredCount ?? 0} capacity={a.capacity} />
+                      </EventCard>
+                    )
+                  })}
+                </div>
+              ) : allActivities.length === 0 ? (
                 <EmptyState
                   icon={CalendarPlus}
-                  title="ยังไม่มีกิจกรรม"
-                  description="เริ่มสร้างกิจกรรมแรกของคุณเพื่อเปิดรับสมัครนักศึกษา"
+                  title="ยังไม่มีกิจกรรมในระบบ"
+                  description="รอกิจกรรมใหม่เปิดรับสมัครเร็วๆ นี้ หรือเริ่มสร้างกิจกรรมของคุณเอง"
                   action={
                     <Button asChild>
-                      <Link href="/organizer/manage">จัดการกิจกรรม</Link>
+                      <Link href="/organizer/create">สร้างกิจกรรมใหม่</Link>
+                    </Button>
+                  }
+                />
+              ) : (
+                <EmptyState
+                  icon={Search}
+                  title="ไม่พบกิจกรรมที่ค้นหา"
+                  description="ลองใช้คำค้นหาอื่น หรือล้างตัวกรองเพื่อดูกิจกรรมทั้งหมด"
+                  action={
+                    <Button variant="outline" onClick={resetFilters}>
+                      ล้างตัวกรอง
                     </Button>
                   }
                 />
               )}
-            </div>
-          </div>
-
-          {/* ต้องดำเนินการ */}
-          <div className="rounded-xl border border-border bg-bg p-5 shadow-xs">
-            <h2 className="text-base font-semibold text-fg">ต้องดำเนินการ</h2>
-
-            {loading ? (
-              <div className="mt-4 space-y-3">
-                <Skeleton className="h-14 w-full rounded-lg" />
-                <Skeleton className="h-14 w-full rounded-lg" />
-              </div>
-            ) : pendingCount === 0 && completed.length === 0 ? (
-              <div className="mt-4 flex items-start gap-2.5 rounded-lg bg-success-bg p-3">
-                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" />
-                <p className="text-sm text-fg-muted">ไม่มีรายการค้าง ทุกอย่างเรียบร้อย</p>
-              </div>
-            ) : (
-              <ul className="mt-4 space-y-2.5">
-                {pendingCount > 0 && (
-                  <li>
-                    <Link
-                      href="/organizer/manage"
-                      className="flex items-start gap-2.5 rounded-lg bg-warning-bg p-3 transition-opacity hover:opacity-80"
-                    >
-                      <Clock className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
-                      <div>
-                        <p className="text-sm font-medium text-fg">
-                          {pendingCount} กิจกรรมรออนุมัติ
-                        </p>
-                        <p className="mt-0.5 text-xs text-fg-muted">
-                          รอผู้ดูแลระบบตรวจสอบก่อนเผยแพร่
-                        </p>
-                      </div>
-                    </Link>
-                  </li>
-                )}
-                {completed.length > 0 && (
-                  <li>
-                    <Link
-                      href="/organizer/manage"
-                      className="flex items-start gap-2.5 rounded-lg bg-surface p-3 transition-colors hover:bg-surface-2"
-                    >
-                      <CalendarCheck
-                        className="mt-0.5 size-4 shrink-0 text-fg-subtle"
-                        aria-hidden="true"
-                      />
-                      <div>
-                        <p className="text-sm font-medium text-fg">
-                          {completed.length} กิจกรรมจบแล้ว
-                        </p>
-                        <p className="mt-0.5 text-xs text-fg-muted">
-                          ตรวจสอบการเข้าร่วมและประเมินทักษะผู้เข้าร่วม
-                        </p>
-                      </div>
-                    </Link>
-                  </li>
-                )}
-              </ul>
-            )}
-
-            <div className="mt-5 space-y-2 border-t border-border pt-4">
-              <Button variant="outline" asChild className="w-full justify-start">
-                <Link href="/organizer/dashboard">ดูแดชบอร์ดสถิติ</Link>
-              </Button>
-              <Button variant="ghost" asChild className="w-full justify-start">
-                <Link href="/organizer/settings">ตั้งค่าบัญชี</Link>
-              </Button>
             </div>
           </div>
         </Container>

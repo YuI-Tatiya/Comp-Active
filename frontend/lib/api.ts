@@ -115,6 +115,8 @@ export interface OrganizerStats {
   totalActivities: number;
   activeActivities: number;
   totalRegistrations: number;
+  // นักศึกษาที่มีบัญชีในระบบทั้งหมด ไม่รวมบัญชีที่ถูกระงับ (ไม่ได้ผูกกับผู้จัดคนใดคนหนึ่ง)
+  totalStudents: number;
   pendingApprovals?: number;
 }
 

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { UserRole } from '../../../common/enums/role.enum';
 
 export const ADMIN_SAFE_SELECT = {
   id: true,
@@ -69,5 +70,9 @@ export class UsersRepository {
 
   countAll() {
     return this.prisma.user.count();
+  }
+
+  countActiveStudents() {
+    return this.prisma.user.count({ where: { role: UserRole.STUDENT, isBlocked: false } });
   }
 }

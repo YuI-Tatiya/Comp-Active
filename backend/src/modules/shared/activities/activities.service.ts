@@ -14,6 +14,7 @@ import { UserRole } from '../../../common/enums/role.enum';
 import { isViewerEligibleForEvent, filterVisibleActivities, type Viewer } from '../events/event-visibility.util';
 import { RegistrationsRepository } from '../registrations/registrations.repository';
 import { MailService } from '../mail/mail.service';
+import { UsersRepository } from '../users/users.repository';
 
 @Injectable()
 export class ActivitiesService {
@@ -23,6 +24,7 @@ export class ActivitiesService {
     private readonly activitiesRepository: ActivitiesRepository,
     private readonly registrationsRepository: RegistrationsRepository,
     private readonly mailService: MailService,
+    private readonly usersRepository: UsersRepository,
   ) {}
 
   async create(organizerId: number, createDto: CreateActivityDto) {
@@ -201,7 +203,10 @@ export class ActivitiesService {
   }
 
   async getOrganizerStats(organizerId: number) {
-    const activities = await this.activitiesRepository.findManyByOrganizerWithCount(organizerId);
+    const [activities, totalStudents] = await Promise.all([
+      this.activitiesRepository.findManyByOrganizerWithCount(organizerId),
+      this.usersRepository.countActiveStudents(),
+    ]);
 
     const totalActivities = activities.length;
     const activeActivities = activities.filter(
@@ -212,7 +217,7 @@ export class ActivitiesService {
       0,
     );
 
-    return { totalActivities, activeActivities, totalRegistrations };
+    return { totalActivities, activeActivities, totalRegistrations, totalStudents };
   }
 
   async getPlatformStats() {
