@@ -6,11 +6,15 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Container } from "@/components/layout/container"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
+import { Select } from "@/components/ui/select"
 import { formatEventDate } from "@/components/ui/event-card"
-import { registrationsAPI, API_BASE_URL, isCancelledByOrganizer, EventSurveyQuestion, SurveyAnswerBody } from "@/lib/api"
-import { Calendar, Clock, MapPin, Plus, Loader2, CalendarX, X, Star } from "lucide-react"
+import { registrationsAPI, API_BASE_URL, isCancelledByOrganizer, isActiveRegistration, EventSurveyQuestion, SurveyAnswerBody } from "@/lib/api"
+import { getCategory } from "@/lib/categories"
+import { Calendar, Clock, MapPin, Plus, Loader2, CalendarX, X, Star, Sparkles, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface Registration {
@@ -45,6 +49,8 @@ export default function MyRegistrationsPage() {
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<"upcoming" | "history">("upcoming")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [sortBy, setSortBy] = useState<"date_asc" | "date_desc" | "name_asc">("date_asc")
   const [message, setMessage] = useState("")
   // เก็บชนิดของข้อความแยกไว้ ไม่เดาจากตัวข้อความ —
   // "ยกเลิกไม่สำเร็จ".includes("สำเร็จ") เป็น true จึงเคยขึ้นกล่องเขียวตอนพัง
@@ -58,9 +64,18 @@ export default function MyRegistrationsPage() {
   const [surveySubmitting, setSurveySubmitting] = useState(false)
   const [surveyError, setSurveyError] = useState("")
 
+  // ยืนยันก่อนยกเลิกลงทะเบียน — ใช้ ConfirmDialog แทน confirm() ของเบราว์เซอร์
+  const [cancelTargetId, setCancelTargetId] = useState<number | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+
   useEffect(() => {
     loadRegistrations()
   }, [])
+
+  // ค่าเริ่มต้นของการเรียงลำดับตามความหมายของแต่ละแท็บ — เร็วๆ นี้ = ใกล้ถึงก่อน, ประวัติ = ล่าสุดก่อน
+  useEffect(() => {
+    setSortBy(activeTab === "upcoming" ? "date_asc" : "date_desc")
+  }, [activeTab])
 
   async function loadRegistrations() {
     try {
@@ -74,18 +89,22 @@ export default function MyRegistrationsPage() {
     }
   }
 
-  async function handleCancel(id: number) {
-    if (!confirm("คุณแน่ใจหรือไม่ที่จะยกเลิกการลงทะเบียน?")) return
+  async function confirmCancel() {
+    if (cancelTargetId == null) return
     setMessage("")
+    setCancelling(true)
     try {
-      await registrationsAPI.cancel(id)
+      await registrationsAPI.cancel(cancelTargetId)
       setMessageType("success")
       setMessage("ยกเลิกสำเร็จ")
+      setCancelTargetId(null)
       loadRegistrations()
     } catch (err: unknown) {
       const e = err as Error
       setMessageType("error")
       setMessage(e.message || "ยกเลิกไม่สำเร็จ")
+    } finally {
+      setCancelling(false)
     }
   }
 
@@ -129,10 +148,20 @@ export default function MyRegistrationsPage() {
     }
   }
 
-  const filteredRegs = registrations.filter((r) => {
+  const tabRegs = registrations.filter((r) => {
     if (activeTab === "upcoming") return r.status !== "cancelled" && !r.evaluation
     return r.status === "cancelled" || r.evaluation
   })
+
+  const q = searchQuery.trim().toLowerCase()
+  const filteredRegs = [...tabRegs]
+    .filter((r) => !q || r.activity.name.toLowerCase().includes(q))
+    .sort((a, b) => {
+      if (sortBy === "name_asc") return a.activity.name.localeCompare(b.activity.name, "th")
+      const da = new Date(a.activity.date).getTime()
+      const db = new Date(b.activity.date).getTime()
+      return sortBy === "date_asc" ? da - db : db - da
+    })
 
   const upcomingCount = registrations.filter((r) => r.status !== "cancelled" && !r.evaluation).length
   const historyCount = registrations.filter((r) => r.status === "cancelled" || r.evaluation).length
@@ -146,14 +175,30 @@ export default function MyRegistrationsPage() {
     // ไม่ใส่ min-h-screen — app/student/layout.tsx จัดการให้แล้ว
     <div className="bg-surface pb-12">
       {/* หัวข้อ — ไม่ใส่ sticky เพราะ AppHeader ปักที่ top-0 z-50 อยู่แล้ว แถบนี้จะมุดหายไปใต้มัน */}
-      <div className="border-b border-border bg-bg">
-        <Container className="py-8">
+      <div className="relative overflow-hidden border-b border-border bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -left-16 -top-24 size-72 animate-pulse rounded-full bg-cat-volunteer/30 blur-3xl [animation-duration:4s]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-24 right-10 size-64 animate-pulse rounded-full bg-cat-art/30 blur-3xl [animation-duration:6s]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute right-1/3 top-0 size-40 animate-pulse rounded-full bg-cat-tech/25 blur-3xl [animation-duration:5s]"
+        />
+        <Container className="relative z-10 py-8">
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
-              <h1 className="mb-1 text-3xl font-bold tracking-tight text-fg">กิจกรรมของฉัน</h1>
-              <p className="text-fg-muted">ติดตามสถานะการเข้าร่วมและการประเมินผลของคุณ</p>
+              <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-sm">
+                <Sparkles className="size-3.5 animate-pulse" aria-hidden="true" />
+                เส้นทางการเติบโตของคุณ
+              </span>
+              <h1 className="mb-1 text-3xl font-black tracking-tight text-white">กิจกรรมของฉัน</h1>
+              <p className="text-white/85">ติดตามสถานะการเข้าร่วมและการประเมินผลของคุณ</p>
             </div>
-            <Button size="lg" className="rounded-xl" asChild>
+            <Button size="lg" className="rounded-xl bg-white text-brand-700 shadow-md hover:bg-white/90" asChild>
               <Link href="/student/events">
                 <Plus />
                 ค้นหากิจกรรมเพิ่ม
@@ -204,6 +249,35 @@ export default function MyRegistrationsPage() {
           ))}
         </div>
 
+        {/* ค้นหา + เรียงลำดับ — ช่วยหากิจกรรมเจอไวขึ้นเมื่อมีรายการสะสมเยอะ */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden="true" />
+            <Input
+              type="text"
+              placeholder="ค้นหาชื่อกิจกรรม..."
+              className="h-10 rounded-lg pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="my-reg-sort" className="shrink-0 text-xs font-semibold text-fg-muted">
+              เรียงลำดับ
+            </label>
+            <Select
+              id="my-reg-sort"
+              className="h-10 w-44 rounded-lg"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            >
+              <option value="date_asc">ใกล้ถึงก่อน</option>
+              <option value="date_desc">ล่าสุดก่อน</option>
+              <option value="name_asc">ชื่อ ก-ฮ</option>
+            </Select>
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex flex-col items-center justify-center py-32">
             <Loader2 className="mb-4 size-12 animate-spin text-brand-600" />
@@ -214,25 +288,40 @@ export default function MyRegistrationsPage() {
             <div className="mx-auto mb-6 flex size-20 items-center justify-center rounded-full bg-surface">
               <CalendarX className="size-8 text-fg-subtle" aria-hidden="true" />
             </div>
-            <h3 className="mb-2 text-xl font-bold text-fg">ไม่มีรายการกิจกรรม</h3>
-            <p className="mx-auto mb-8 max-w-sm text-fg-muted">
-              คุณยังไม่มีกิจกรรมในหมวดนี้ เริ่มสำรวจกิจกรรมใหม่ๆ ได้เลย!
-            </p>
-            <Button className="rounded-xl px-8" asChild>
-              <Link href="/student/events">ไปหน้ากิจกรรม</Link>
-            </Button>
+            {q && tabRegs.length > 0 ? (
+              <>
+                <h3 className="mb-2 text-xl font-bold text-fg">ไม่พบกิจกรรมที่ตรงกับคำค้นหา</h3>
+                <p className="mx-auto mb-8 max-w-sm text-fg-muted">ลองค้นด้วยคำอื่น หรือล้างคำค้นหาเพื่อดูรายการทั้งหมด</p>
+                <Button variant="outline" className="rounded-xl px-8" onClick={() => setSearchQuery("")}>
+                  ล้างคำค้นหา
+                </Button>
+              </>
+            ) : (
+              <>
+                <h3 className="mb-2 text-xl font-bold text-fg">ไม่มีรายการกิจกรรม</h3>
+                <p className="mx-auto mb-8 max-w-sm text-fg-muted">
+                  คุณยังไม่มีกิจกรรมในหมวดนี้ เริ่มสำรวจกิจกรรมใหม่ๆ ได้เลย!
+                </p>
+                <Button className="rounded-xl px-8" asChild>
+                  <Link href="/student/events">ไปหน้ากิจกรรม</Link>
+                </Button>
+              </>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6">
             {filteredRegs.map((reg) => {
               const st = STATUS_BADGE[reg.status] ?? STATUS_BADGE.pending
+              const catDot = getCategory(reg.activity.category)?.dot ?? "bg-fg-subtle"
 
               return (
                 <div
                   key={reg.id}
-                  className="rounded-2xl border border-border bg-bg p-2 pr-6 shadow-xs transition-shadow hover:shadow-md"
+                  className="relative overflow-hidden rounded-2xl border border-border bg-bg p-2 pr-6 shadow-xs transition-shadow hover:shadow-md"
                 >
-                  <div className="flex flex-col gap-6 md:flex-row">
+                  {/* แถบสีคาดตามหมวดหมู่ — ช่วยกวาดสายตาหากิจกรรมเจอไวขึ้นเมื่อมีหลายใบ */}
+                  <span aria-hidden="true" className={cn("absolute inset-y-0 left-0 w-1.5", catDot)} />
+                  <div className="flex flex-col gap-6 pl-3 md:flex-row">
                     {/* รูปกิจกรรม */}
                     <div className="relative h-48 w-full shrink-0 overflow-hidden rounded-2xl bg-surface-2 md:h-auto md:w-48">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -305,19 +394,8 @@ export default function MyRegistrationsPage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-3 pt-2">
-                        {reg.status !== "cancelled" && reg.status !== "confirmed" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="rounded-xl font-bold text-danger"
-                            onClick={() => handleCancel(reg.id)}
-                          >
-                            ยกเลิกกิจกรรม
-                          </Button>
-                        )}
-
-                        <Button size="sm" className="rounded-xl font-bold" asChild>
+                      <div className="flex flex-wrap items-center gap-3 pt-2">
+                        <Button size="sm" className="rounded-xl font-bold shadow-sm" asChild>
                           <Link href={`/student/activities/${reg.activity.id}`}>ดูรายละเอียดกิจกรรม</Link>
                         </Button>
 
@@ -328,13 +406,24 @@ export default function MyRegistrationsPage() {
                             className="rounded-xl font-bold"
                             onClick={() => openSurvey(reg.id)}
                           >
-                            ให้คะแนนกิจกรรม
+                            <Star className="size-4" aria-hidden="true" /> ให้คะแนนกิจกรรม
                           </Button>
                         )}
 
                         {!!reg.evaluation && (
                           <Button variant="outline" size="sm" className="rounded-xl font-bold" asChild>
                             <Link href="/student/profile">ดูผลประเมิน Soft Skills</Link>
+                          </Button>
+                        )}
+
+                        {isActiveRegistration(reg) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="ml-auto rounded-xl font-bold text-danger hover:bg-danger-bg hover:text-danger"
+                            onClick={() => setCancelTargetId(reg.id)}
+                          >
+                            ยกเลิกกิจกรรม
                           </Button>
                         )}
                       </div>
@@ -415,6 +504,18 @@ export default function MyRegistrationsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={cancelTargetId !== null}
+        onOpenChange={(open) => !open && setCancelTargetId(null)}
+        title="ยกเลิกการลงทะเบียน?"
+        description="เมื่อยกเลิกแล้ว ที่นั่งของคุณจะถูกปล่อยคืนให้ผู้อื่น และต้องลงทะเบียนใหม่หากเปลี่ยนใจภายหลัง"
+        confirmLabel="ยกเลิกการลงทะเบียน"
+        cancelLabel="ไม่ยกเลิก"
+        tone="danger"
+        loading={cancelling}
+        onConfirm={confirmCancel}
+      />
     </div>
   )
 }

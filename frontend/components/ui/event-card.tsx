@@ -133,10 +133,10 @@ interface EventCardProps {
     badgeRight?: React.ReactNode
     /** คำอธิบายใต้ชื่อ — ไม่ส่งมาก็ไม่แสดง (organizer ไม่ใช้) */
     description?: string | null
-    /** แถวข้อมูล + แถบความคืบหน้า */
-    children: React.ReactNode
-    /** ปุ่มท้ายการ์ด — ปกติคือ 2 ปุ่มที่ห่อด้วย flex-1 */
-    actions: React.ReactNode
+    /** แถวข้อมูล + แถบความคืบหน้า — ไม่ส่งมาก็ไม่แสดง (การ์ดแบบย่อไม่มีแถวข้อมูล) */
+    children?: React.ReactNode
+    /** ปุ่มท้ายการ์ด — ปกติคือ 2 ปุ่มที่ห่อด้วย flex-1 — ไม่ส่งมาก็ไม่แสดง */
+    actions?: React.ReactNode
 }
 
 /**
@@ -189,9 +189,9 @@ export function EventCard({
                     </p>
                 )}
 
-                <div className="mt-auto space-y-2">{children}</div>
+                {children && <div className="mt-auto space-y-2">{children}</div>}
 
-                <div className="mt-6 flex gap-3">{actions}</div>
+                {actions && <div className="mt-6 flex gap-3">{actions}</div>}
             </div>
         </div>
     )
