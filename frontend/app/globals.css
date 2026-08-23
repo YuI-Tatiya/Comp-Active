@@ -69,6 +69,12 @@
 
   /* ── Animation ──────────────────────────────────────────────────────────── */
   --animate-marquee: marquee 30s linear infinite;
+  --animate-toast-in: toast-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-toast-out: toast-out 0.2s ease-in forwards;
+  --animate-toast-pop: toast-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+  --animate-dialog-pop: dialog-pop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-dialog-backdrop: dialog-backdrop 0.2s ease-out;
+  --animate-icon-pop: icon-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
 }
 
 /* track ถูก render ซ้ำ 2 ชุดต่อกัน — เลื่อนแค่ -50% ของความกว้าง track (w-max)
@@ -79,6 +85,72 @@
   }
   to {
     transform: translateX(-50%);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@keyframes toast-pop {
+  0% {
+    transform: scale(0);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes dialog-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes dialog-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes icon-pop {
+  0% {
+    transform: scale(0) rotate(-10deg);
+  }
+  60% {
+    transform: scale(1.15) rotate(4deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
   }
 }
 

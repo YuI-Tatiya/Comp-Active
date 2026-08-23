@@ -19,11 +19,11 @@ const Dialog = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+                className="fixed inset-0 animate-dialog-backdrop bg-black/50 backdrop-blur-sm"
                 onClick={() => onOpenChange?.(false)}
             />
             {/* Content */}
-            <div className="relative z-50 w-full max-w-lg rounded-lg bg-bg p-6 shadow-lg animate-in fade-in-0 zoom-in-95 duration-200">
+            <div className="relative z-50 w-full max-w-lg animate-dialog-pop rounded-2xl border border-border bg-bg p-6 shadow-lg">
                 {children}
             </div>
         </div>
