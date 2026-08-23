@@ -29,7 +29,7 @@ import {
  * ยังเก็บคอลัมน์ไว้เหมือนเดิม ถ้าวันหน้าเพิ่มช่องกรอกค่อยเพิ่มแผงกลับมาได้
  */
 
-const PANEL_CLASS = "bg-bg p-6 rounded-xl border border-border shadow-xs space-y-6"
+const PANEL_CLASS = "bg-bg p-6 sm:p-8 rounded-2xl border border-border shadow-xs space-y-6"
 
 function EmptyNote({ children }: { children: React.ReactNode }) {
     return (
@@ -45,7 +45,7 @@ function PanelHeading({ icon: Icon, tone, children }: {
     children: React.ReactNode
 }) {
     return (
-        <h3 className="text-lg font-semibold text-fg flex items-center gap-2">
+        <h3 className="text-xl font-bold text-fg flex items-center gap-2">
             <Icon className={`w-5 h-5 ${tone}`} aria-hidden={true} /> {children}
         </h3>
     )

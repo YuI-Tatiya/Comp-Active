@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { X, Award, TrendingUp, CalendarCheck } from "lucide-react"
+import { X, Award, TrendingUp, CalendarCheck, Search } from "lucide-react"
+import { Toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,7 +18,6 @@ import { registrationsAPI, evaluationsAPI, SkillsData, Activity, usersAPI } from
 import { SOFT_SKILLS, softSkillLabelByField } from "@/lib/soft-skills"
 import { Select } from "@/components/ui/select"
 import { EDUCATION_LEVELS, getProgramsByLevel } from "@/lib/programs"
-import { cn } from "@/lib/utils"
 
 interface Registration {
     id: number;
@@ -43,15 +43,36 @@ export default function StudentProfilePage() {
     const [skillsData, setSkillsData] = useState<SkillsData | null>(null)
     const [loading, setLoading] = useState(true)
 
+    // ตัวกรอง "ผลการประเมิน Soft Skills ต่อกิจกรรม"
+    const [historySearch, setHistorySearch] = useState("")
+    const [historySkillFilter, setHistorySkillFilter] = useState("")
+    const [historySort, setHistorySort] = useState<"newest" | "oldest" | "name">("newest")
+
     const [editForm, setEditForm] = useState(EMPTY_FORM)
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
     const [confirmPassword, setConfirmPassword] = useState("")
 
-    // แจ้งเตือนในหน้า แทน alert() ของเบราว์เซอร์
-    const [message, setMessage] = useState("")
-    const [messageType, setMessageType] = useState<"success" | "error">("success")
     const [modalError, setModalError] = useState("")
     const [submitting, setSubmitting] = useState(false)
+
+    // ป๊อปอัปแจ้งผลสำเร็จ แทนแบนเนอร์แจ้งเตือนแบบเดิม
+    const [toast, setToast] = useState<{ open: boolean; message: string; description?: string }>({
+        open: false,
+        message: "",
+    })
+    const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    const showToast = (message: string, description?: string) => {
+        setToast({ open: true, message, description })
+        if (toastTimer.current) clearTimeout(toastTimer.current)
+        toastTimer.current = setTimeout(() => setToast((prev) => ({ ...prev, open: false })), 2800)
+    }
+
+    useEffect(() => {
+        return () => {
+            if (toastTimer.current) clearTimeout(toastTimer.current)
+        }
+    }, [])
 
     /** ดึงค่าจาก user มาใส่ฟอร์ม — ใช้ทั้งตอนโหลดและตอนกดยกเลิก */
     function formFromUser() {
@@ -91,10 +112,21 @@ export default function StudentProfilePage() {
     }
 
     const chartData = SOFT_SKILLS.map((s) => ({
-        subject: s.labelEn,
+        subject: s.label,
         A: skillsData?.average[s.field] ?? 0,
         fullMark: 1,
     }))
+
+    const historyQuery = historySearch.trim().toLowerCase()
+    const filteredHistory = (skillsData?.history ?? [])
+        .filter((entry) => !historyQuery || entry.activityName.toLowerCase().includes(historyQuery))
+        .filter((entry) => !historySkillFilter || (entry.scores[historySkillFilter as keyof typeof entry.scores] ?? 0) > 0)
+        .sort((a, b) => {
+            if (historySort === "name") return a.activityName.localeCompare(b.activityName, "th")
+            const da = new Date(a.date).getTime()
+            const db = new Date(b.date).getTime()
+            return historySort === "oldest" ? da - db : db - da
+        })
 
     const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target
@@ -102,7 +134,6 @@ export default function StudentProfilePage() {
     }
 
     const handleSaveProfileClick = () => {
-        setMessage("")
         setModalError("")
         setConfirmPassword("")
         setIsConfirmModalOpen(true)
@@ -161,8 +192,7 @@ export default function StudentProfilePage() {
             setIsConfirmModalOpen(false)
             setConfirmPassword("")
             setEditForm((prev) => ({ ...prev, password: "" }))
-            setMessageType("success")
-            setMessage("บันทึกข้อมูลส่วนตัวเรียบร้อยแล้ว")
+            showToast("บันทึกข้อมูลสำเร็จ!", "ข้อมูลส่วนตัวของคุณได้รับการอัปเดตเรียบร้อยแล้ว")
 
             // โหลด user ใหม่ ไม่งั้นชื่อบนหัวหน้าและ navbar ยังเป็นของเดิม
             await refreshUser()
@@ -189,28 +219,6 @@ export default function StudentProfilePage() {
                             <Badge variant="neutral">{user?.email || "ไม่ระบุอีเมล"}</Badge>
                         </div>
                     </div>
-
-                    {message && (
-                        <div
-                            role="alert"
-                            className={cn(
-                                "flex items-center justify-between gap-3 rounded-xl border border-border p-4 text-sm font-medium",
-                                messageType === "success"
-                                    ? "bg-success-bg text-success"
-                                    : "bg-danger-bg text-danger"
-                            )}
-                        >
-                            {message}
-                            <button
-                                type="button"
-                                onClick={() => setMessage("")}
-                                aria-label="ปิดข้อความ"
-                                className="shrink-0 opacity-70 transition-opacity hover:opacity-100"
-                            >
-                                <X className="size-4" aria-hidden="true" />
-                            </button>
-                        </div>
-                    )}
 
                     <Tabs defaultValue="softskills" className="w-full">
                         <TabsList className="mb-8 grid w-full grid-cols-2 gap-1 rounded-full bg-surface-2 p-1.5">
@@ -266,7 +274,7 @@ export default function StudentProfilePage() {
                                             />
                                             <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
                                             <Radar
-                                                name="Student Skills"
+                                                name="ทักษะของนักศึกษา"
                                                 dataKey="A"
                                                 stroke="var(--color-brand-600)"
                                                 strokeWidth={2}
@@ -282,13 +290,66 @@ export default function StudentProfilePage() {
                                     <h4 className="mb-6 text-xl font-bold text-fg">
                                         ผลการประเมิน Soft Skills ต่อกิจกรรม
                                     </h4>
+
+                                    {!loading && skillsData?.history && skillsData.history.length > 0 && (
+                                        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+                                            <div className="relative w-full sm:max-w-xs">
+                                                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden="true" />
+                                                <Input
+                                                    type="text"
+                                                    placeholder="ค้นหาชื่อกิจกรรม..."
+                                                    className="h-10 rounded-lg pl-10"
+                                                    value={historySearch}
+                                                    onChange={(e) => setHistorySearch(e.target.value)}
+                                                />
+                                            </div>
+                                            <Select
+                                                className="h-10 rounded-lg sm:w-56"
+                                                value={historySkillFilter}
+                                                onChange={(e) => setHistorySkillFilter(e.target.value)}
+                                            >
+                                                <option value="">ทุกทักษะ</option>
+                                                {SOFT_SKILLS.map((s) => (
+                                                    <option key={s.field} value={s.field}>{s.label}</option>
+                                                ))}
+                                            </Select>
+                                            <Select
+                                                className="h-10 rounded-lg sm:w-44"
+                                                value={historySort}
+                                                onChange={(e) => setHistorySort(e.target.value as typeof historySort)}
+                                            >
+                                                <option value="newest">ล่าสุดก่อน</option>
+                                                <option value="oldest">เก่าสุดก่อน</option>
+                                                <option value="name">ชื่อ ก-ฮ</option>
+                                            </Select>
+                                        </div>
+                                    )}
+
                                     <div className="space-y-4">
                                         {loading ? (
                                             <div className="animate-pulse py-8 text-center font-medium text-fg-muted">
                                                 กำลังโหลดข้อมูล...
                                             </div>
-                                        ) : skillsData?.history && skillsData.history.length > 0 ? (
-                                            skillsData.history.map((entry) => {
+                                        ) : !skillsData?.history || skillsData.history.length === 0 ? (
+                                            <div className="rounded-xl border border-border bg-surface py-12 text-center font-medium text-fg-muted">
+                                                ยังไม่มีผลประเมิน Soft Skills จากกิจกรรมใดๆ เลย
+                                            </div>
+                                        ) : filteredHistory.length === 0 ? (
+                                            <div className="rounded-xl border border-border bg-surface py-12 text-center">
+                                                <p className="font-medium text-fg-muted">ไม่พบผลการประเมินที่ตรงกับตัวกรอง</p>
+                                                <Button
+                                                    variant="outline"
+                                                    className="mt-4 rounded-xl"
+                                                    onClick={() => {
+                                                        setHistorySearch("")
+                                                        setHistorySkillFilter("")
+                                                    }}
+                                                >
+                                                    ล้างตัวกรอง
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            filteredHistory.map((entry) => {
                                                 const awarded = Object.entries(entry.scores)
                                                     .filter(([, v]) => v > 0)
                                                     .map(([k]) => softSkillLabelByField(k))
@@ -319,10 +380,6 @@ export default function StudentProfilePage() {
                                                     </div>
                                                 )
                                             })
-                                        ) : (
-                                            <div className="rounded-xl border border-border bg-surface py-12 text-center font-medium text-fg-muted">
-                                                ยังไม่มีผลประเมิน Soft Skills จากกิจกรรมใดๆ เลย
-                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -482,10 +539,7 @@ export default function StudentProfilePage() {
                                         <Button
                                             variant="outline"
                                             className="h-12 rounded-xl px-8 font-bold"
-                                            onClick={() => {
-                                                setEditForm(formFromUser())
-                                                setMessage("")
-                                            }}
+                                            onClick={() => setEditForm(formFromUser())}
                                         >
                                             ยกเลิก
                                         </Button>
@@ -565,6 +619,8 @@ export default function StudentProfilePage() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            <Toast open={toast.open} message={toast.message} description={toast.description} />
         </div>
     )
 }
