@@ -20,6 +20,7 @@ import {
     ActivityRegistrationPanel,
     ActivityRewardsPanel,
 } from "@/components/activity/activity-info-panels"
+import { EventSurveyResults } from "@/components/activity/event-survey-results"
 import { categoryLabel } from "@/lib/categories"
 
 interface Participant {
@@ -54,7 +55,7 @@ export default function OrganizerEventDetailsPage() {
 
     const handleShare = () => {
         if (!event) return
-        const publicUrl = `${window.location.origin}/events/${event.id}`
+        const publicUrl = `${window.location.origin}/events/activities/${event.id}`
         navigator.clipboard.writeText(publicUrl)
         alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")
     }
@@ -203,6 +204,12 @@ export default function OrganizerEventDetailsPage() {
     const fillPercent = !unlimited && capacity > 0 ? Math.round((registered / capacity) * 100) : 0
     const seatsLeft = Math.max(capacity - registered, 0)
 
+    // กิจกรรมย่อยของงาน (มี eventId) แก้ผ่าน wizard ของงานแม่ — กิจกรรมเดี่ยวใช้ฟอร์มของตัวเอง
+    const isEventActivity = event.eventId != null
+    const editHref = isEventActivity
+        ? `/organizer/manage/${event.eventId}/edit`
+        : `/organizer/activities/${event.id}/edit`
+
     return (
         <div className="bg-surface pb-12">
             <Container className="py-8">
@@ -211,9 +218,10 @@ export default function OrganizerEventDetailsPage() {
                         <ArrowLeft className="w-4 h-4 mr-2" /> กลับสู่หน้าจัดการ
                     </Link>
                     <div className="flex gap-2">
-                        {/* กิจกรรมเดี่ยวต้องแก้ผ่าน route ของตัวเอง — /organizer/manage/[id]/edit เป็น wizard ของ "งาน"
-                            ที่รับ Event id ถ้าส่ง Activity id เข้าไปจะเปิดงานอื่นมาแล้วเขียนทับตอนบันทึก */}
-                        <Link href={`/organizer/activities/${event.id}/edit`}>
+                        {/* กิจกรรมย่อยของงานต้องแก้ผ่าน wizard ของงานแม่ (/organizer/manage/[eventId]/edit)
+                            เพราะข้อมูลอย่างแบบสำรวจ/วันปิดรับสมัคร/กลุ่มเป้าหมายอยู่ระดับงาน แก้ผ่านฟอร์มกิจกรรมเดี่ยวไม่ได้
+                            — ส่ง Event id ไม่ใช่ Activity id เข้า route นี้ ส่วนกิจกรรมเดี่ยวยังใช้ route ของตัวเองตามเดิม */}
+                        <Link href={editHref}>
                             <Button variant="outline" size="sm"><Edit className="w-4 h-4 mr-2" /> แก้ไขกิจกรรม</Button>
                         </Link>
                         {!isCancelledByOrganizer(event.approvalStatus) && event.status !== 'completed' && (
@@ -233,12 +241,12 @@ export default function OrganizerEventDetailsPage() {
                 </div>
 
                 <div className="mb-6">
-                    <div className="aspect-video w-full max-h-[280px] bg-surface-2 rounded-xl overflow-hidden relative border border-border">
+                    <div className="aspect-video w-full bg-surface-2 rounded-2xl overflow-hidden relative border border-border shadow-sm">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                             src={event.imageUrl ? `${API_BASE_URL}${event.imageUrl}` : "/activity-placeholder.svg"}
                             alt={event.name}
-                            className="w-full h-full object-cover"
+                            className="size-full object-cover"
                         />
                         <div className="absolute top-4 left-4 flex flex-wrap gap-2">
                             {event.category && <Badge variant="default">{categoryLabel(event.category)}</Badge>}
@@ -445,6 +453,20 @@ export default function OrganizerEventDetailsPage() {
                         </Card>
                     </div>
                 </div>
+
+                <EventSurveyResults
+                    id={event.id}
+                    fetchResults={activitiesAPI.getSurveyResults}
+                    editHref={editHref}
+                    subjectLabel={isEventActivity ? "งาน" : "กิจกรรม"}
+                    subjectName={event.name}
+                    // แบบสำรวจของกิจกรรมย่อยเป็นของงานแม่ใบเดียวใช้ร่วมกัน ผลที่เห็นจึงรวมผู้ตอบจากทุกกิจกรรมย่อย
+                    scopeNote={
+                        isEventActivity
+                            ? "กิจกรรมนี้เป็นกิจกรรมย่อยของงาน — แบบสำรวจเป็นใบเดียวของทั้งงาน ผลด้านล่างจึงรวมผู้ตอบจากทุกกิจกรรมย่อยในงานเดียวกัน"
+                            : undefined
+                    }
+                />
             </Container>
 
             {/* Cancellation Dialog */}

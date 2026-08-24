@@ -2,37 +2,20 @@
 
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
+import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { Search, X } from "lucide-react"
 import { CATEGORIES } from "@/lib/categories"
+import {
+    STATUS_OPTIONS,
+    RANGE_OPTIONS,
+    SORT_OPTIONS,
+    SORT_HELP,
+    RANGE_HELP,
+    type EventsFilterValues,
+} from "@/lib/events-filter"
 import { cn } from "@/lib/utils"
 
-export interface EventsFilterValues {
-    search: string
-    categories: string[]
-    statuses: string[]
-    certOnly: boolean
-    range: string
-    sort: string
-}
-
-const STATUS_OPTIONS = [
-    { value: "open", label: "เปิดรับสมัคร" },
-    { value: "closed", label: "ปิดรับสมัคร" },
-]
-
-const RANGE_OPTIONS = [
-    { value: "", label: "ทุกช่วงเวลา" },
-    { value: "today", label: "วันนี้-พรุ่งนี้" },
-    { value: "week", label: "ภายใน 7 วัน" },
-    { value: "month", label: "ภายใน 30 วัน" },
-]
-
-const SORT_OPTIONS = [
-    { value: "soon", label: "ใกล้ถึงก่อน" },
-    { value: "newest", label: "เพิ่มล่าสุด" },
-    { value: "seats", label: "ที่นั่งเหลือมาก" },
-    { value: "name", label: "ชื่อ ก-ฮ" },
-]
+export type { EventsFilterValues }
 
 interface EventsFilterSidebarProps {
     values: EventsFilterValues
@@ -136,9 +119,12 @@ export function EventsFilterSidebar({ values, onChange, onReset, resultCount, cl
             </fieldset>
 
             <div>
-                <label className="mb-1.5 block text-xs font-semibold text-fg-muted" htmlFor="events-filter-range">
-                    ช่วงเวลา
-                </label>
+                <div className="mb-1.5 flex items-center gap-1">
+                    <label className="text-xs font-semibold text-fg-muted" htmlFor="events-filter-range">
+                        ช่วงเวลา
+                    </label>
+                    <InfoTooltip text={RANGE_HELP} label="คำอธิบายตัวกรองช่วงเวลา" />
+                </div>
                 <Select
                     id="events-filter-range"
                     className="h-10 rounded-lg"
@@ -154,9 +140,12 @@ export function EventsFilterSidebar({ values, onChange, onReset, resultCount, cl
             </div>
 
             <div>
-                <label className="mb-1.5 block text-xs font-semibold text-fg-muted" htmlFor="events-filter-sort">
-                    เรียงลำดับ
-                </label>
+                <div className="mb-1.5 flex items-center gap-1">
+                    <label className="text-xs font-semibold text-fg-muted" htmlFor="events-filter-sort">
+                        เรียงลำดับ
+                    </label>
+                    <InfoTooltip text={SORT_HELP} label="คำอธิบายตัวเลือกเรียงลำดับ" />
+                </div>
                 <Select
                     id="events-filter-sort"
                     className="h-10 rounded-lg"

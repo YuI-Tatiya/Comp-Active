@@ -110,12 +110,18 @@ export class RegistrationsRepository {
     return this.prisma.registration.count();
   }
 
+  // ดึงทั้งแบบสำรวจระดับ "งาน" (activity.event.surveyQuestions) และระดับ "กิจกรรมเดี่ยว"
+  // (activity.surveyQuestions) มาพร้อมกัน — กิจกรรมหนึ่งมีได้แค่ทางใดทางหนึ่งเสมอ (มี event หรือไม่มี)
+  // service เป็นคนเลือกใช้ชุดที่ตรงกับกิจกรรมนั้นจริงๆ
   findByIdWithEventSurveyQuestions(id: number) {
     return this.prisma.registration.findUnique({
       where: { id },
       include: {
         activity: {
-          include: { event: { include: { surveyQuestions: { orderBy: { sortOrder: 'asc' } } } } },
+          include: {
+            event: { include: { surveyQuestions: { orderBy: { sortOrder: 'asc' } } } },
+            surveyQuestions: { orderBy: { sortOrder: 'asc' } },
+          },
         },
       },
     });

@@ -9,9 +9,12 @@ import { ActivitiesRepository } from './activities.repository';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 import { ActivityFilterDto } from './dto/activity-filter.dto';
-import { ActivityStatus, ApprovalStatus, AttendanceStatus } from '../../../common/enums/status.enum';
+import { CreateSurveyQuestionDto } from '../events/dto/create-survey-question.dto';
+import { ActivityStatus, ApprovalStatus, AttendanceStatus, SurveyQuestionType } from '../../../common/enums/status.enum';
 import { UserRole } from '../../../common/enums/role.enum';
 import { isViewerEligibleForEvent, filterVisibleActivities, type Viewer } from '../events/event-visibility.util';
+import { buildSurveyResults } from '../events/survey-results.util';
+import { EventsRepository } from '../events/events.repository';
 import { RegistrationsRepository } from '../registrations/registrations.repository';
 import { MailService } from '../mail/mail.service';
 
@@ -21,12 +24,25 @@ export class ActivitiesService {
 
   constructor(
     private readonly activitiesRepository: ActivitiesRepository,
+    // ใช้อ่านแบบสำรวจของงานแม่ เมื่อกิจกรรมที่ดูอยู่เป็นกิจกรรมย่อยของงาน
+    private readonly eventsRepository: EventsRepository,
     private readonly registrationsRepository: RegistrationsRepository,
     private readonly mailService: MailService,
   ) {}
 
+  /** เกณฑ์เดียวกับ EventsService — คะแนนเต็มของคำถามแบบ rating ต้องมีอย่างน้อย 2 */
+  private validateSurveyQuestions(surveyQuestions: CreateSurveyQuestionDto[] | undefined): void {
+    (surveyQuestions ?? []).forEach((q, index) => {
+      if (q.type === SurveyQuestionType.RATING && q.scaleMax !== undefined && q.scaleMax < 2) {
+        throw new BadRequestException(`คำถามแบบสำรวจข้อที่ ${index + 1}: คะแนนเต็มต้องมีอย่างน้อย 2`);
+      }
+    });
+  }
+
   async create(organizerId: number, createDto: CreateActivityDto) {
-    const { tags, conditions, benefits, softSkills, date, ...activityData } = createDto;
+    const { tags, conditions, benefits, softSkills, surveyQuestions, date, ...activityData } = createDto;
+
+    this.validateSurveyQuestions(surveyQuestions);
 
     const activity = await this.activitiesRepository.create(organizerId, {
       ...activityData,
@@ -35,6 +51,14 @@ export class ActivitiesService {
       conditions: { create: conditions?.map((conditionText) => ({ conditionText })) ?? [] },
       benefits: { create: benefits?.map((benefitText) => ({ benefitText })) ?? [] },
       softSkills: { create: softSkills?.map((skillType) => ({ skillType })) ?? [] },
+      surveyQuestions: {
+        create: (surveyQuestions ?? []).map((q, sortOrder) => ({
+          label: q.label,
+          type: q.type,
+          scaleMax: q.scaleMax ?? 5,
+          sortOrder,
+        })),
+      },
     });
 
     this.logger.log(`Activity created: "${activity.name}" (ID: ${activity.id})`);
@@ -97,12 +121,24 @@ export class ActivitiesService {
       throw new ForbiddenException('คุณไม่มีสิทธิ์แก้ไขกิจกรรมนี้');
     }
 
-    const { tags, conditions, benefits, softSkills, date, ...activityData } = updateDto;
+    const { tags, conditions, benefits, softSkills, surveyQuestions, date, ...activityData } = updateDto;
+
+    this.validateSurveyQuestions(surveyQuestions);
 
     const updated = await this.activitiesRepository.updateWithRelations(
       activityId,
       { ...activityData, ...(date && { date: new Date(date) }) },
-      { tags, conditions, benefits, softSkills },
+      {
+        tags,
+        conditions,
+        benefits,
+        softSkills,
+        surveyQuestions: surveyQuestions?.map((q) => ({
+          label: q.label,
+          type: q.type,
+          scaleMax: q.scaleMax ?? 5,
+        })),
+      },
     );
 
     this.logger.log(`Activity updated: "${activity.name}" (ID: ${activityId})`);
@@ -223,5 +259,30 @@ export class ActivitiesService {
       totalActivities,
       totalParticipants: distinctStudents.length,
     };
+  }
+
+  /**
+   * ผลสรุปแบบสำรวจของกิจกรรม — โครงสร้าง response ตรงกับ EventsService.getSurveyResults()
+   * เพื่อให้ frontend ใช้คอมโพเนนต์เดียวกันแสดงผลได้ทั้งสองหน้า
+   *
+   * กิจกรรมย่อยของงาน (eventId ไม่ null) ไม่มีแบบสำรวจของตัวเอง — แบบสำรวจถูกสร้างไว้ที่ระดับงาน
+   * ใบเดียวใช้ร่วมกันทุกกิจกรรมย่อย จึงคืนผลของ "งานแม่" ทั้งก้อน (รวมผู้ตอบจากทุกกิจกรรมย่อย)
+   * ไม่ใช่คืนค่าว่างเปล่าเหมือนเดิม
+   */
+  async getSurveyResults(activityId: number, callerId: number, callerRole: UserRole) {
+    const activity = await this.activitiesRepository.findByIdWithSurveyAnswers(activityId);
+
+    if (!activity) throw new NotFoundException('ไม่พบกิจกรรม');
+    if (callerRole !== UserRole.ADMIN && activity.organizerId !== callerId) {
+      throw new BadRequestException('คุณไม่มีสิทธิ์ดูผลสำรวจของกิจกรรมนี้');
+    }
+
+    if (activity.eventId != null) {
+      const event = await this.eventsRepository.findByIdWithSurveyAnswers(activity.eventId);
+      if (!event) throw new NotFoundException('ไม่พบงานที่กิจกรรมนี้สังกัดอยู่');
+      return buildSurveyResults(event.surveyQuestions);
+    }
+
+    return buildSurveyResults(activity.surveyQuestions);
   }
 }

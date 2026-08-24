@@ -1,25 +1,107 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
+import type { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCircle, Gift } from "lucide-react"
-import Link from "next/link"
+import { Toast } from "@/components/ui/toast"
+import { Container } from "@/components/layout/container"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
-import { Container } from "@/components/layout/container"
-import { activitiesAPI, isUnlimitedCapacity, Activity, Tag as TagType, Condition, Benefit, API_BASE_URL } from "@/lib/api"
+import { formatEventDate } from "@/components/ui/event-card"
+import { cn } from "@/lib/utils"
+import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, AlertTriangle, Loader2, CalendarClock, Layers } from "lucide-react"
+import Link from "next/link"
+import { eventsAPI, isUnlimitedCapacity, EventSummary } from "@/lib/api"
+import { resolveEventImageUrl } from "@/lib/event-image"
+import {
+    ActivityAboutPanel,
+    ActivityRegistrationPanel,
+    ActivityRewardsPanel,
+} from "@/components/activity/activity-info-panels"
 
+type EventActivity = EventSummary["activities"][number]
+
+function formatDateTime(iso: string | null | undefined): string {
+    if (!iso) return "-"
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return "-"
+    return d.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })
+}
+
+const QUICK_FACT_TONES = {
+    brand: "bg-brand-50 text-brand-600",
+    success: "bg-success-bg text-success",
+    warning: "bg-warning-bg text-warning",
+    danger: "bg-danger-bg text-danger",
+} as const
+
+/** การ์ดข้อมูลย่อยขนาดเท่ากัน 4 ช่อง — วันที่/เวลา/สถานที่/ที่นั่งเหลือ */
+function QuickFact({
+    icon: Icon,
+    label,
+    value,
+    tone = "brand",
+}: {
+    icon: LucideIcon
+    label: string
+    value: React.ReactNode
+    tone?: keyof typeof QUICK_FACT_TONES
+}) {
+    return (
+        <div className="rounded-2xl border border-border bg-bg p-4 shadow-xs">
+            <div className={cn("mb-3 flex size-10 items-center justify-center rounded-xl", QUICK_FACT_TONES[tone])}>
+                <Icon className="size-5" aria-hidden="true" />
+            </div>
+            <div className="text-xs text-fg-muted">{label}</div>
+            <div
+                className="mt-0.5 truncate text-sm font-semibold text-fg"
+                title={typeof value === "string" ? value : undefined}
+            >
+                {value}
+            </div>
+        </div>
+    )
+}
+
+/** หน้ารายละเอียดงานสำหรับผู้เยี่ยมชมทั่วไป (ไม่ต้องล็อกอิน) — คู่กับ /student/events/[id] */
 export default function PublicEventDetailsPage() {
     const params = useParams()
     const router = useRouter()
-    const [event, setEvent] = useState<Activity | null>(null)
+    const [event, setEvent] = useState<EventSummary | null>(null)
+    const [activeActivityId, setActiveActivityId] = useState<number | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
+    const [toast, setToast] = useState<{ open: boolean; message: string; description?: string }>({
+        open: false,
+        message: "",
+    })
+    const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    useEffect(() => {
+        return () => {
+            if (toastTimer.current) clearTimeout(toastTimer.current)
+        }
+    }, [])
+
+    const showToast = (message: string, description?: string) => {
+        setToast({ open: true, message, description })
+        if (toastTimer.current) clearTimeout(toastTimer.current)
+        toastTimer.current = setTimeout(() => setToast((prev) => ({ ...prev, open: false })), 2500)
+    }
+
+    const handleShare = () => {
+        navigator.clipboard.writeText(`${window.location.origin}/events/${event?.id}`)
+        showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")
+    }
+
+    const handleRegisterClick = () => {
+        alert("กรุณาเข้าสู่ระบบก่อนทำการลงทะเบียน")
+        router.push("/auth")
+    }
 
     useEffect(() => {
         if (params.id) {
@@ -30,41 +112,28 @@ export default function PublicEventDetailsPage() {
     const fetchEventDetails = async (id: number) => {
         try {
             setLoading(true)
-            const data = await activitiesAPI.getById(id)
+            const data = await eventsAPI.getPublicById(id)
             setEvent(data)
+            setActiveActivityId((prev) => prev ?? data.activities[0]?.id ?? null)
         } catch (err: unknown) {
-            const e = err as Error;
-            setError(e.message || "โหลดข้อมูลกิจกรรมไม่สำเร็จ")
+            const e = err as Error
+            setError(e.message || "โหลดข้อมูลงานไม่สำเร็จ")
         } finally {
             setLoading(false)
         }
     }
 
-    const formatDate = (dateString: string) => {
-        try {
-            const date = new Date(dateString)
-            return new Intl.DateTimeFormat('th-TH', {
-                day: 'numeric', month: 'short', year: 'numeric'
-            }).format(date)
-        } catch {
-            return dateString
-        }
-    }
-
-    const handleRegisterClick = () => {
-        // Redirect to auth with a message or simply router.push
-        alert("กรุณาเข้าสู่ระบบก่อนทำการลงทะเบียน")
-        router.push("/auth")
-    }
+    const activeActivity: EventActivity | undefined = event?.activities.find((a) => a.id === activeActivityId)
 
     if (loading) {
         return (
             <div className="min-h-screen bg-surface flex flex-col">
                 <SiteHeader />
                 <div className="flex flex-1 flex-col items-center justify-center">
-                    <Spinner />
-                    <p className="text-fg-muted mt-4">กำลังโหลดรายละเอียดกิจกรรม...</p>
+                    <Loader2 className="mx-auto mb-4 size-8 animate-spin text-brand-600" aria-hidden="true" />
+                    <p className="text-fg-muted">กำลังโหลดรายละเอียดงาน...</p>
                 </div>
+                <SiteFooter />
             </div>
         )
     }
@@ -74,211 +143,193 @@ export default function PublicEventDetailsPage() {
             <div className="min-h-screen bg-surface flex flex-col">
                 <SiteHeader />
                 <div className="flex flex-1 flex-col items-center justify-center p-4">
-                    <div className="bg-bg p-8 rounded-[24px] shadow-sm border border-border max-w-md w-full text-center">
-                        <div className="text-danger mb-4 text-5xl">⚠️</div>
-                        <h2 className="text-xl font-bold mb-2 text-fg">ไม่พบกิจกรรม</h2>
-                        <p className="text-fg-muted mb-6">{error || "กิจกรรมนี้อาจถูกลบหรือไม่มีอยู่จริง"}</p>
-                        <Button onClick={() => router.push('/events')} className="w-full rounded-xl">
-                            กลับไปหน้าค้นหากิจกรรม
-                        </Button>
+                    <div className="bg-bg p-8 rounded-xl shadow-sm max-w-md w-full text-center border border-border">
+                        <AlertTriangle className="mx-auto mb-4 size-12 text-danger" aria-hidden="true" />
+                        <h2 className="text-xl font-bold mb-2 text-fg">ไม่พบงาน</h2>
+                        <p className="text-fg-muted mb-6">{error || "งานนี้อาจถูกลบหรือไม่มีอยู่จริง"}</p>
+                        <Button onClick={() => router.push("/events")} className="w-full">กลับไปหน้าค้นหากิจกรรม</Button>
                     </div>
                 </div>
+                <SiteFooter />
             </div>
         )
     }
+
+    const capacity = activeActivity?.capacity ?? null
+    const registeredCount = activeActivity?.registeredCount ?? 0
+    const unlimited = isUnlimitedCapacity(capacity)
+    const seatsRemaining = !unlimited && capacity ? Math.max(capacity - registeredCount, 0) : null
+    const percent = !unlimited && capacity ? Math.min((registeredCount / capacity) * 100, 100) : 0
+    const urgency: "success" | "warning" | "danger" = percent >= 100 ? "danger" : percent >= 80 ? "warning" : "success"
+    const urgencyBar = { success: "bg-success", warning: "bg-warning", danger: "bg-danger" }[urgency]
+    const urgencyText = { success: "text-fg-subtle", warning: "text-warning", danger: "text-danger" }[urgency]
 
     return (
         <div className="min-h-screen bg-surface font-sans flex flex-col">
             <SiteHeader />
 
-            <Container className="py-8 flex-1">
-                {/* Back Button */}
+            <Container className="py-8 flex-1 pb-12">
                 <div className="mb-6">
-                    <Link href="/events" className="inline-flex items-center text-fg-muted hover:text-fg font-medium transition-colors bg-bg px-4 py-2 rounded-full shadow-sm border border-border">
-                        <ArrowLeft className="w-4 h-4 mr-2" /> กลับไปยังรายการกิจกรรม
+                    <Link href="/events" className="inline-flex items-center text-fg-muted hover:text-fg transition-colors">
+                        <ArrowLeft className="w-4 h-4 mr-2" /> กลับ
                     </Link>
                 </div>
 
-                <div className="grid lg:grid-cols-3 gap-8">
-                    {/* Main Content (Left) */}
-                    <div className="lg:col-span-2 space-y-8">
-                        {/* Hero Image */}
-                        <div className="aspect-video w-full bg-fg rounded-[24px] overflow-hidden relative shadow-md">
-                            {event.imageUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={`${API_BASE_URL}${event.imageUrl}`} alt={event.name} className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="absolute inset-0 flex items-center justify-center text-white/50 bg-fg text-lg font-medium">
-                                    ไม่มีรูปภาพ
-                                </div>
-                            )}
-                            <div className="absolute top-4 left-4 flex gap-2">
-                                <Badge className="bg-bg text-brand-700 hover:bg-bg shadow-md text-xs font-bold px-3 py-1">{event.category}</Badge>
-                                <Badge className={`shadow-md text-xs font-bold px-3 py-1 text-white ${event.status === 'open' || !event.status ? "bg-success hover:bg-success/90" : "bg-fg-subtle hover:bg-fg-subtle/90"}`}>
-                                    {event.status === 'open' || !event.status ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
-                                </Badge>
-                            </div>
-                        </div>
-
-                        {/* Title & Info */}
-                        <div className="bg-bg p-8 rounded-[24px] shadow-sm border border-border">
-                            <h1 className="text-3xl font-black text-fg mb-2">{event.name}</h1>
-                            <div className="flex items-center text-fg-muted gap-2 mb-8 font-medium">
-                                <Users className="w-5 h-5 text-fg-subtle" />
-                                <span>จัดโดย {event.organizer?.name || 'ไม่ระบุผู้จัด'}</span>
-                            </div>
-
-                            {/* Tabs */}
-                            <Tabs defaultValue="details" className="w-full">
-                                <TabsList className="w-full justify-start bg-surface p-1.5 rounded-xl mb-6">
-                                    <TabsTrigger value="details" className="flex-1 rounded-lg data-[state=active]:bg-bg data-[state=active]:shadow-sm font-bold text-fg-muted data-[state=active]:text-brand-600">รายละเอียด</TabsTrigger>
-                                    <TabsTrigger value="conditions" className="flex-1 rounded-lg data-[state=active]:bg-bg data-[state=active]:shadow-sm font-bold text-fg-muted data-[state=active]:text-brand-600">เงื่อนไข</TabsTrigger>
-                                    <TabsTrigger value="benefits" className="flex-1 rounded-lg data-[state=active]:bg-bg data-[state=active]:shadow-sm font-bold text-fg-muted data-[state=active]:text-brand-600">สิทธิประโยชน์</TabsTrigger>
-                                </TabsList>
-
-                                <TabsContent value="details" className="bg-surface p-6 rounded-2xl border border-border">
-                                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-fg">
-                                        <Info className="w-5 h-5 text-brand-500" /> เกี่ยวกับกิจกรรม
-                                    </h3>
-                                    <p className="text-fg-muted leading-relaxed whitespace-pre-line">{event.description}</p>
-
-                                    <div className="mt-8 pt-6 border-t border-border">
-                                        <h4 className="text-sm font-bold mb-3 text-fg">ป้ายกำกับ (Tags)</h4>
-                                        <div className="flex gap-2 flex-wrap">
-                                            {event.tags?.map((tag: TagType) => (
-                                                <Badge key={tag.tagName} variant="secondary" className="px-3 py-1 font-medium text-fg-muted bg-bg border border-border hover:bg-surface">
-                                                    <Tag className="w-3 h-3 mr-1" /> {tag.tagName}
-                                                </Badge>
-                                            )) || <span className="text-sm text-fg-muted">ไม่มีป้ายกำกับ</span>}
-                                        </div>
-                                    </div>
-                                </TabsContent>
-
-                                <TabsContent value="conditions" className="bg-surface p-6 rounded-2xl border border-border">
-                                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-fg">
-                                        <CheckCircle className="w-5 h-5 text-cat-competition" /> เงื่อนไขการเข้าร่วม
-                                    </h3>
-                                    {event.conditions && event.conditions.length > 0 ? (
-                                        <ul className="space-y-3">
-                                            {event.conditions.map((item: Condition, i: number) => (
-                                                <li key={i} className="flex gap-3 text-fg-muted font-medium">
-                                                    <div className="w-6 h-6 rounded-full bg-cat-competition-bg text-cat-competition flex items-center justify-center text-xs font-bold flex-shrink-0">{i + 1}</div>
-                                                    <span>{item.conditionText}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <div className="py-8 text-center bg-bg rounded-xl border border-dashed border-border">
-                                            <p className="text-fg-muted font-medium">ไม่มีข้อมูลเงื่อนไขการเข้าร่วม</p>
-                                        </div>
-                                    )}
-                                </TabsContent>
-
-                                <TabsContent value="benefits" className="bg-surface p-6 rounded-2xl border border-border">
-                                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-fg">
-                                        <Gift className="w-5 h-5 text-cat-academic" /> สิทธิประโยชน์
-                                    </h3>
-                                    {event.benefits && event.benefits.length > 0 ? (
-                                        <ul className="space-y-3">
-                                            {event.benefits.map((item: Benefit, i: number) => (
-                                                <li key={i} className="flex gap-3 text-fg-muted font-medium">
-                                                    <CheckCircle className="w-5 h-5 text-success flex-shrink-0" />
-                                                    <span>{item.benefitText}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <div className="py-8 text-center bg-bg rounded-xl border border-dashed border-border">
-                                            <p className="text-fg-muted font-medium">ไม่มีข้อมูลสิทธิประโยชน์ระบุไว้</p>
-                                        </div>
-                                    )}
-                                </TabsContent>
-                            </Tabs>
-                        </div>
+                {/* Hero — รูปปก 16:9 แท้ ไม่มี max-h มาบังคับทับสัดส่วนที่ครอปไว้ตอนอัปโหลด */}
+                <div className="relative mb-3 overflow-hidden rounded-3xl border border-border bg-surface-2 shadow-sm">
+                    <div className="aspect-video w-full">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={resolveEventImageUrl(event, activeActivity)}
+                            alt={event.name}
+                            className="size-full object-cover"
+                        />
                     </div>
-
-                    {/* Sidebar (Right) */}
-                    <div className="space-y-6">
-                        <Card className="border-border shadow-xl shadow-fg/5 rounded-[24px] overflow-hidden sticky top-28">
-                            <div className="p-8 space-y-8">
-                                <h3 className="font-black text-xl text-fg border-b border-border pb-4">ข้อมูลภาพรวม</h3>
-
-                                <div className="space-y-6">
-                                    <div className="flex gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-cat-tech-bg flex items-center justify-center text-cat-tech flex-shrink-0 shadow-sm">
-                                            <Calendar className="w-6 h-6" />
-                                        </div>
-                                        <div>
-                                            <div className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-1">วันที่จัดกิจกรรม</div>
-                                            <div className="font-bold text-fg">{formatDate(event.date)}</div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-cat-competition-bg flex items-center justify-center text-cat-competition flex-shrink-0 shadow-sm">
-                                            <Clock className="w-6 h-6" />
-                                        </div>
-                                        <div>
-                                            <div className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-1">เวลา</div>
-                                            <div className="font-bold text-fg">{event.startTime} - {event.endTime}</div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-cat-sports-bg flex items-center justify-center text-cat-sports flex-shrink-0 shadow-sm">
-                                            <MapPin className="w-6 h-6" />
-                                        </div>
-                                        <div>
-                                            <div className="text-xs font-bold text-fg-subtle uppercase tracking-wider mb-1">สถานที่</div>
-                                            <div className="font-bold text-fg leading-tight">{event.location}</div>
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-6 border-t border-border">
-                                        <div className="flex justify-between items-center mb-3">
-                                            <div className="flex items-center gap-2 text-sm font-bold text-fg-muted">
-                                                <Users className="w-4 h-4 text-cat-volunteer" /> จำนวนที่รับสมัคร
-                                            </div>
-                                            <span className="text-sm font-black text-fg">
-                                                {event.registeredCount || 0}{isUnlimitedCapacity(event.capacity) ? " คน (ไม่จำกัด)" : `/${event.capacity} คน`}
-                                            </span>
-                                        </div>
-                                        {!isUnlimitedCapacity(event.capacity) && (
-                                            <>
-                                                <Progress value={event.registeredCount || 0} max={event.capacity} className="h-2.5 bg-surface" />
-                                                <p className="text-sm font-medium text-success mt-3 text-center bg-success-bg py-1.5 rounded-lg border border-success/20">
-                                                    เหลืออีก {event.capacity! - (event.registeredCount || 0)} ที่นั่งว่าง
-                                                </p>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4 pt-4 border-t border-border relative">
-                                    <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-border to-transparent"></div>
-                                    <Button
-                                        className="w-full h-14 rounded-xl text-lg font-black shadow-lg shadow-brand-500/30 transition-all hover:-translate-y-1"
-                                        onClick={handleRegisterClick}
-                                    >
-                                        ลงทะเบียนกิจกรรม
-                                    </Button>
-                                    <Button variant="outline" className="w-full font-bold rounded-xl h-12">
-                                        <Share2 className="w-4 h-4 mr-2" /> แชร์กิจกรรม
-                                    </Button>
-                                </div>
-                            </div>
-                        </Card>
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent"
+                    />
+                    <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+                        {event.activities.length > 1 && (
+                            <Badge className="bg-brand-600 text-white">{event.activities.length} กิจกรรมย่อย</Badge>
+                        )}
+                    </div>
+                    {activeActivity && (
+                        <div className="absolute right-4 top-4">
+                            <Badge className={activeActivity.status === "open" ? "bg-success text-white" : "bg-fg-subtle text-white"}>
+                                {activeActivity.status === "open" ? "กำลังเปิดรับสมัคร" : "ปิดรับสมัคร"}
+                            </Badge>
+                        </div>
+                    )}
+                    <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8">
+                        <h1 className="text-2xl font-black text-white drop-shadow-sm sm:text-3xl md:text-4xl">{event.name}</h1>
+                        {activeActivity?.organizer?.name && (
+                            <p className="mt-1 text-sm text-white/85">จัดโดย {activeActivity.organizer.name}</p>
+                        )}
                     </div>
                 </div>
+
+                {event.description && (
+                    <p className="mb-8 max-w-3xl whitespace-pre-line leading-relaxed text-fg-muted">{event.description}</p>
+                )}
+
+                {/* ตัวเลือกกิจกรรมย่อย — pill ระดับเดียว ไม่ซ้อน tab อีกชั้น */}
+                {event.activities.length > 1 && (
+                    <div className="mb-8 flex flex-wrap gap-2">
+                        {event.activities.map((a) => {
+                            const active = a.id === activeActivityId
+                            return (
+                                <button
+                                    key={a.id}
+                                    type="button"
+                                    onClick={() => setActiveActivityId(a.id)}
+                                    className={cn(
+                                        "rounded-full border px-4 py-2 text-sm font-semibold transition-colors",
+                                        active
+                                            ? "border-brand-600 bg-brand-600 text-white shadow-sm"
+                                            : "border-border bg-bg text-fg-muted hover:border-brand-300 hover:text-fg"
+                                    )}
+                                >
+                                    {a.name}
+                                </button>
+                            )
+                        })}
+                    </div>
+                )}
+
+                {activeActivity && (
+                    <div className="grid gap-8 lg:grid-cols-3">
+                        <div className="space-y-8 lg:col-span-2">
+                            {/* ชื่อกิจกรรมย่อยที่กำลังดูอยู่ — ต้องแสดงเสมอ ไม่ผูกกับจำนวนกิจกรรมย่อย
+                                เดิมชื่อโผล่แค่ในปุ่ม pill ด้านบนซึ่งซ่อนเมื่อมีกิจกรรมย่อยตัวเดียว
+                                ทำให้งานที่มีกิจกรรมย่อยตัวเดียวไม่แสดงชื่อกิจกรรมย่อยที่ไหนเลย */}
+                            <div>
+                                <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-bold text-brand-700">
+                                    <Layers className="size-3.5" aria-hidden="true" />
+                                    กิจกรรมย่อย
+                                </span>
+                                <h2 className="text-xl font-bold text-fg sm:text-2xl">{activeActivity.name}</h2>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                                <QuickFact icon={Calendar} label="วันที่" value={formatEventDate(activeActivity.date)} />
+                                <QuickFact icon={Clock} label="เวลา" value={`${activeActivity.startTime} - ${activeActivity.endTime}`} />
+                                <QuickFact icon={MapPin} label="สถานที่" value={activeActivity.location} tone="success" />
+                                <QuickFact
+                                    icon={Users}
+                                    label="ที่นั่งเหลือ"
+                                    value={unlimited ? "ไม่จำกัด" : `${seatsRemaining} ที่นั่ง`}
+                                    tone={unlimited ? "brand" : urgency}
+                                />
+                            </div>
+
+                            <ActivityAboutPanel activity={activeActivity} showActivityImage />
+                            <ActivityRewardsPanel activity={activeActivity} />
+                            <ActivityRegistrationPanel activity={activeActivity} registrationCloseAt={event.registrationCloseAt} />
+                        </div>
+
+                        <div className="lg:col-span-1">
+                            <div className="lg:sticky lg:top-24">
+                                <Card className="overflow-hidden rounded-2xl border-border shadow-sm">
+                                    <div className="space-y-5 p-6">
+                                        <div>
+                                            <div className="mb-2 flex items-center justify-between text-sm">
+                                                <span className="flex items-center gap-1.5 font-medium text-fg">
+                                                    <Users className="size-4" aria-hidden="true" /> ผู้เข้าร่วม
+                                                </span>
+                                                <span className="text-fg-muted">
+                                                    {registeredCount}{unlimited ? " คน (ไม่จำกัด)" : `/${capacity} คน`}
+                                                </span>
+                                            </div>
+                                            {!unlimited && capacity && (
+                                                <>
+                                                    <Progress value={registeredCount} max={capacity} indicatorClassName={urgencyBar} />
+                                                    <p className={cn("mt-2 text-right text-xs font-medium", urgencyText)}>
+                                                        {seatsRemaining === 0 ? "เต็มแล้ว" : `เหลืออีก ${seatsRemaining} ที่นั่ง`}
+                                                    </p>
+                                                </>
+                                            )}
+                                        </div>
+
+                                        {event.registrationCloseAt && (
+                                            <div className="flex items-center gap-2 rounded-xl bg-surface px-3 py-2.5 text-xs text-fg-muted">
+                                                <CalendarClock className="size-4 shrink-0" aria-hidden="true" />
+                                                ปิดรับสมัคร {formatDateTime(event.registrationCloseAt)}
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-3">
+                                            {activeActivity.status !== "open" && (
+                                                <div className="flex justify-center">
+                                                    <Badge variant="neutral">ปิดรับสมัคร</Badge>
+                                                </div>
+                                            )}
+                                            <Button
+                                                className="h-11 w-full rounded-xl text-base font-semibold"
+                                                onClick={handleRegisterClick}
+                                                disabled={activeActivity.status !== "open"}
+                                            >
+                                                ลงทะเบียนเข้าร่วม
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full rounded-xl"
+                                                onClick={handleShare}
+                                            >
+                                                <Share2 className="w-4 h-4 mr-2" aria-hidden="true" /> แชร์งานนี้
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </Card>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </Container>
+
+            <Toast open={toast.open} message={toast.message} description={toast.description} />
 
             <SiteFooter />
         </div>
-    )
-}
-
-function Spinner() {
-    return (
-        <div className="w-10 h-10 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
     )
 }

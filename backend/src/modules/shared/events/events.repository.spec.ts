@@ -14,12 +14,29 @@ describe('EventsRepository.update', () => {
         findUnique: jest.fn().mockResolvedValue({ id: 1, name: 'Updated' }),
         findUniqueOrThrow: jest.fn().mockResolvedValue({ organizerId: 42 }),
       },
-      eventSurveyQuestion: { deleteMany: jest.fn(), createMany: jest.fn() },
+      // update() now reconciles surveyQuestions/activityQuestion in place (findMany the
+      // existing rows, then update/create/delete the difference) instead of wiping the
+      // whole set — see the "ห้ามลบทั้งชุดแล้วสร้างใหม่" comment in events.repository.ts.
+      // findMany defaults to no existing rows so every test's incoming list is all-create.
+      eventSurveyQuestion: {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn(),
+        update: jest.fn(),
+        deleteMany: jest.fn(),
+      },
+      registrationSurveyAnswer: { deleteMany: jest.fn() },
       eventVisibilityProgram: { deleteMany: jest.fn(), createMany: jest.fn() },
       eventVisibilityYear: { deleteMany: jest.fn(), createMany: jest.fn() },
       activity: { deleteMany: jest.fn(), update: jest.fn(), create: jest.fn() },
       activitySoftSkill: { deleteMany: jest.fn(), createMany: jest.fn() },
-      activityQuestion: { deleteMany: jest.fn(), create: jest.fn() },
+      activityQuestion: {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn(),
+        update: jest.fn(),
+        deleteMany: jest.fn(),
+      },
+      activityQuestionOption: { create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
+      registrationAnswer: { deleteMany: jest.fn() },
     };
     prisma = { $transaction: jest.fn((cb) => cb(tx)) };
 

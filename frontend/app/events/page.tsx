@@ -1,38 +1,95 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Container } from "@/components/layout/container"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
+import { EventsFilterSidebar } from "@/components/ui/events-filter-sidebar"
+import { HorizontalScrollSection } from "@/components/ui/horizontal-scroll-section"
+import { EventCard, EventCardBadge } from "@/components/ui/event-card"
+import { eventsAPI, activitiesAPI, EventSummary, Activity } from "@/lib/api"
 import {
-    EventCard,
-    EventCardBadge,
-    EventCardRow,
-    formatEventDate,
-} from "@/components/ui/event-card"
-import { activitiesAPI, capacityLabel, Activity } from "@/lib/api"
-import { CATEGORIES } from "@/lib/categories"
-import { Calendar, MapPin, Users, Loader2, Search } from "lucide-react"
-import { Input } from "@/components/ui/input"
+    INITIAL_FILTERS,
+    activityFilterFields,
+    filterAndSortItems,
+    groupByCategory,
+    type EventsFilterValues,
+    type FilterableItem,
+} from "@/lib/events-filter"
+import { Loader2, Search, SlidersHorizontal, Sparkles } from "lucide-react"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
-import { Container } from "@/components/layout/container"
 
-/** หน้ารายการกิจกรรมสาธารณะ — การ์ดใช้ <EventCard> ร่วมกับหน้ารายการอื่น */
+function nearestUpcomingActivity(ev: EventSummary) {
+    return [...ev.activities].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
+}
+
+function eventRegisteredCount(ev: EventSummary): number {
+    return ev.activities.reduce((sum, a) => sum + (a.registeredCount ?? 0), 0)
+}
+
+function eventCapacity(ev: EventSummary): number | null {
+    if (ev.activities.some((a) => a.capacity == null)) return null
+    return ev.activities.reduce((sum, a) => sum + (a.capacity ?? 0), 0)
+}
+
+/** ที่นั่งคงเหลือรวมของงาน — null = ไม่จำกัด ใช้เรียงลำดับ "ที่นั่งเหลือมาก" */
+function seatsLeft(ev: EventSummary): number | null {
+    const cap = eventCapacity(ev)
+    if (cap == null) return null
+    return Math.max(cap - eventRegisteredCount(ev), 0)
+}
+
+function isOpen(ev: EventSummary): boolean {
+    return ev.activities.some((a) => a.status === "open")
+}
+
+function hasVolunteerCert(ev: EventSummary): boolean {
+    return ev.activities.some((a) => !!a.volunteerRole)
+}
+
+/** หมวดหมู่ทั้งหมดที่กิจกรรมย่อยของงานนี้ระบุไว้ — ใช้ให้การ์ดงานโผล่ในทุกหมวดที่เกี่ยวข้อง ไม่ใช่แค่หมวดเดียว */
+function eventCategories(ev: EventSummary): string[] {
+    return Array.from(new Set(ev.activities.map((a) => a.category).filter((c): c is string => !!c)))
+}
+
+/** วันจัดกิจกรรมย่อยที่เร็วที่สุดของงาน — ใช้เรียงลำดับ "ใกล้ถึงก่อน" */
+function earliestDate(ev: EventSummary): number {
+    const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
+    return times.length ? Math.min(...times) : Number.POSITIVE_INFINITY
+}
+
+/** การ์ดข้อมูลรวมที่ใช้แสดงผล — งาน (หลายกิจกรรมย่อย) และกิจกรรมเดี่ยว normalize มาเป็นรูปแบบเดียวกัน */
+interface CardItem extends FilterableItem {
+    key: string
+    imageUrl?: string | null
+    description?: string | null
+    href: string
+}
+
+/** หน้ารายการงานสาธารณะ — จัดกลุ่มตามหมวดหมู่ เลื่อนซ้าย-ขวาได้ในแต่ละแถว (คู่กับ /student/events) */
 export default function EventsPage() {
-    const [activities, setActivities] = useState<Activity[]>([])
+    const [events, setEvents] = useState<EventSummary[]>([])
+    const [standalone, setStandalone] = useState<Activity[]>([])
     const [loading, setLoading] = useState(true)
-    const [searchQuery, setSearchQuery] = useState("")
-    const [category, setCategory] = useState("")
+    const [filters, setFilters] = useState<EventsFilterValues>(INITIAL_FILTERS)
+    const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 
     useEffect(() => {
-        loadActivities()
+        loadEvents()
     }, [])
 
-    async function loadActivities() {
+    async function loadEvents() {
         try {
             setLoading(true)
-            const data = await activitiesAPI.getAll()
-            setActivities(Array.isArray(data) ? data : [])
+            // ดึงกิจกรรมเดี่ยว (eventId = null) มาด้วย ไม่งั้นกิจกรรมรุ่นเก่าจะหายไปจากสายตาผู้เยี่ยมชม
+            const [eventData, activityData] = await Promise.all([
+                eventsAPI.getAllPublic(),
+                activitiesAPI.getAll().catch(() => [] as Activity[]),
+            ])
+            setEvents(Array.isArray(eventData) ? eventData : [])
+            setStandalone(Array.isArray(activityData) ? activityData.filter((a) => !a.eventId) : [])
         } catch (err) {
             console.error(err)
         } finally {
@@ -40,134 +97,165 @@ export default function EventsPage() {
         }
     }
 
-    // Filter activities by search query and selected category
-    const filteredActivities = activities.filter(a => {
-        const matchesSearch =
-            a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (a.category && a.category.toLowerCase().includes(searchQuery.toLowerCase()))
-        const matchesCategory = !category || a.category === category
-        return matchesSearch && matchesCategory
-    })
+    function resetFilters() {
+        setFilters(INITIAL_FILTERS)
+    }
+
+    const allItems = useMemo<CardItem[]>(() => {
+        const fromEvents = events.map((ev): CardItem => {
+            const fa = nearestUpcomingActivity(ev)
+            return {
+                key: `event-${ev.id}`,
+                name: ev.name,
+                imageUrl: ev.imageUrl ?? fa?.imageUrl,
+                description: ev.description,
+                category: fa?.category,
+                categories: eventCategories(ev),
+                status: isOpen(ev) ? "open" : "closed",
+                href: `/events/${ev.id}`,
+                searchText: [ev.name, ...ev.activities.map((a) => a.name)].join(" ").toLowerCase(),
+                sortDate: earliestDate(ev),
+                createdAt: new Date(ev.createdAt).getTime(),
+                seats: seatsLeft(ev),
+                hasCert: hasVolunteerCert(ev),
+            }
+        })
+
+        const fromStandalone = standalone.map((a): CardItem => ({
+            ...activityFilterFields(a),
+            key: `activity-${a.id}`,
+            imageUrl: a.imageUrl,
+            description: a.description,
+            href: `/events/activities/${a.id}`,
+        }))
+
+        return [...fromEvents, ...fromStandalone]
+    }, [events, standalone])
+
+    const filteredAndSorted = useMemo(() => filterAndSortItems(allItems, filters), [allItems, filters])
+
+    const groupedByCategory = useMemo(() => groupByCategory(filteredAndSorted), [filteredAndSorted])
+
+    const totalCount = filteredAndSorted.length
 
     return (
-        <div className="min-h-screen bg-surface font-sans">
+        <div className="min-h-screen bg-surface font-sans flex flex-col">
             <SiteHeader />
 
-            {/* Main Content */}
-            <Container className="py-12">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
-                    <div>
-                        <h1 className="text-3xl font-black text-fg mb-2">กิจกรรมทั้งหมด</h1>
-                        <p className="text-fg-muted">ค้นพบกิจกรรมที่คุณสนใจและลงทะเบียนเข้าร่วมได้ทันที (จำเป็นต้องเข้าสู่ระบบ)</p>
+            <Container className="py-12 flex-1">
+                <div className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500 px-6 py-10 shadow-lg sm:px-10">
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-cat-volunteer/40 blur-3xl"
+                    />
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute -bottom-20 -left-10 size-56 rounded-full bg-cat-tech/40 blur-3xl"
+                    />
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute right-1/3 bottom-0 size-40 rounded-full bg-cat-art/30 blur-3xl"
+                    />
+                    <div className="relative z-10 max-w-2xl">
+                        <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-sm">
+                            <Sparkles className="size-3.5" aria-hidden="true" />
+                            พัฒนา Soft Skills ไปกับทุกกิจกรรม
+                        </span>
+                        <h1 className="mb-2 text-3xl font-black text-white sm:text-4xl">กิจกรรมทั้งหมด</h1>
+                        <p className="text-white/90">เลือกงานที่สนใจ กดเข้าไปดูรายละเอียดเพื่อลงทะเบียนเข้าร่วม</p>
                     </div>
+                </div>
 
-                    <div className="w-full md:w-auto">
-                        <div className="relative md:w-80">
-                            <Search className="absolute left-3 top-3.5 h-4 w-4 text-fg-subtle" />
-                            <Input
-                                type="text"
-                                placeholder="ค้นหากิจกรรม..."
-                                className="pl-10 h-12 rounded-xl shadow-sm focus-visible:ring-brand-500"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                <Button
+                    variant="outline"
+                    className="mb-6 gap-2 rounded-full lg:hidden"
+                    onClick={() => setMobileFiltersOpen(true)}
+                >
+                    <SlidersHorizontal className="size-4" aria-hidden="true" />
+                    ตัวกรอง
+                </Button>
+
+                <div className="lg:grid lg:grid-cols-[260px_1fr] lg:gap-10">
+                    <aside className="hidden lg:block">
+                        <div className="sticky top-24">
+                            <EventsFilterSidebar
+                                values={filters}
+                                onChange={setFilters}
+                                onReset={resetFilters}
+                                resultCount={loading ? undefined : totalCount}
                             />
                         </div>
+                    </aside>
+
+                    <Dialog open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>ตัวกรอง</DialogTitle>
+                            </DialogHeader>
+                            <DialogClose onClick={() => setMobileFiltersOpen(false)} />
+                            <div className="max-h-[65vh] overflow-y-auto pr-1">
+                                <EventsFilterSidebar
+                                    values={filters}
+                                    onChange={setFilters}
+                                    onReset={resetFilters}
+                                    resultCount={loading ? undefined : totalCount}
+                                />
+                            </div>
+                            <Button className="w-full rounded-xl" onClick={() => setMobileFiltersOpen(false)}>
+                                ดูผลลัพธ์ ({totalCount})
+                            </Button>
+                        </DialogContent>
+                    </Dialog>
+
+                    <div className="min-w-0">
+                        {loading ? (
+                            <div className="py-32 flex flex-col items-center justify-center">
+                                <Loader2 className="w-12 h-12 text-brand-600 animate-spin mb-4" />
+                                <p className="text-lg text-fg-muted font-medium animate-pulse">กำลังดึงข้อมูลกิจกรรมล่าสุด...</p>
+                            </div>
+                        ) : totalCount > 0 ? (
+                            <div className="space-y-12">
+                                {groupedByCategory.map(({ category, items }) => (
+                                    <HorizontalScrollSection key={category.value} title={category.label} count={items.length}>
+                                        {items.map((item) => (
+                                            <Link
+                                                key={item.key}
+                                                href={item.href}
+                                                className="block w-72 shrink-0 snap-start"
+                                            >
+                                                <EventCard
+                                                    activity={{ name: item.name, imageUrl: item.imageUrl }}
+                                                    description={item.description}
+                                                    badgeLeft={
+                                                        // ใช้หมวดของ "กลุ่มที่กำลังแสดงอยู่" ไม่ใช่หมวดเดียวของการ์ด —
+                                                        // งานที่มีกิจกรรมย่อยหลายหมวดโผล่ซ้ำได้หลายกลุ่ม ป้ายต้องตรงกับกลุ่มนั้นๆ
+                                                        <EventCardBadge variant="light">{category.label}</EventCardBadge>
+                                                    }
+                                                    badgeRight={
+                                                        <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
+                                                            {item.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}
+                                                        </EventCardBadge>
+                                                    }
+                                                />
+                                            </Link>
+                                        ))}
+                                    </HorizontalScrollSection>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="py-32 text-center bg-bg rounded-3xl border border-border shadow-sm">
+                                <div className="w-20 h-20 bg-surface rounded-full flex items-center justify-center mx-auto mb-6">
+                                    <Search className="w-10 h-10 text-fg-subtle" />
+                                </div>
+                                <h3 className="text-xl font-bold text-fg mb-2">ไม่พบกิจกรรมที่ค้นหา</h3>
+                                <p className="text-fg-muted">ลองใช้คำค้นหาอื่น เลือกตัวกรองอื่น หรือรองานใหม่เปิดรับสมัครเร็วๆ นี้</p>
+                                <Button variant="outline" className="mt-6 rounded-full px-8" onClick={resetFilters}>
+                                    ล้างตัวกรอง
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 </div>
-
-                {/* ตัวกรองหมวดหมู่ — คลิกเพื่อดูกิจกรรมตามหมวดหมู่ */}
-                <div className="flex flex-wrap gap-2 mb-10">
-                    <button
-                        type="button"
-                        onClick={() => setCategory("")}
-                        aria-pressed={category === ""}
-                        className={`rounded-full border px-4 py-2 text-sm font-bold transition-colors ${category === ""
-                            ? "border-brand-600 bg-brand-600 text-white shadow-md shadow-brand-500/20"
-                            : "border-border bg-bg text-fg-muted hover:border-border-strong hover:bg-surface"
-                            }`}
-                    >
-                        ทั้งหมด
-                    </button>
-                    {CATEGORIES.map((cat) => (
-                        <button
-                            key={cat.value}
-                            type="button"
-                            onClick={() => setCategory(cat.value)}
-                            aria-pressed={category === cat.value}
-                            className={`rounded-full border px-4 py-2 text-sm font-bold transition-colors ${category === cat.value
-                                ? "border-brand-600 bg-brand-600 text-white shadow-md shadow-brand-500/20"
-                                : "border-border bg-bg text-fg-muted hover:border-border-strong hover:bg-surface"
-                                }`}
-                        >
-                            {cat.label}
-                        </button>
-                    ))}
-                </div>
-
-                {loading ? (
-                    <div className="py-32 flex flex-col items-center justify-center">
-                        <Loader2 className="w-12 h-12 text-brand-600 animate-spin mb-4" />
-                        <p className="text-lg text-fg-muted font-medium animate-pulse">กำลังดึงข้อมูลกิจกรรมล่าสุด...</p>
-                    </div>
-                ) : filteredActivities.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {filteredActivities.map((ev) => (
-                            <EventCard
-                                key={ev.id}
-                                activity={ev}
-                                description={ev.description}
-                                badgeLeft={
-                                    ev.category ? (
-                                        <EventCardBadge variant="light">{ev.category}</EventCardBadge>
-                                    ) : undefined
-                                }
-                                badgeRight={
-                                    <EventCardBadge
-                                        className={ev.status === "open" || !ev.status ? "bg-success/90" : "bg-fg-subtle/90"}
-                                    >
-                                        {ev.status === "open" || !ev.status ? "กำลังเปิด" : "ปิดรับสมัคร"}
-                                    </EventCardBadge>
-                                }
-                                actions={
-                                    <>
-                                        <Link href={`/events/${ev.id}`} className="flex-1">
-                                            <Button variant="outline" className="w-full font-bold rounded-xl h-11">ดูรายละเอียด</Button>
-                                        </Link>
-                                        {/* Both buttons enforce sign in since they're just browsing */}
-                                        <Link href={`/auth`} className="flex-1">
-                                            <Button className="w-full shadow-md shadow-brand-500/20 font-bold rounded-xl h-11">ลงทะเบียน</Button>
-                                        </Link>
-                                    </>
-                                }
-                            >
-                                <EventCardRow icon={Calendar} tone="brand">
-                                    {formatEventDate(ev.date)} • {ev.startTime}
-                                </EventCardRow>
-                                <EventCardRow icon={MapPin} tone="danger">
-                                    <span className="truncate">{ev.location}</span>
-                                </EventCardRow>
-                                <EventCardRow icon={Users} tone="success">
-                                    {ev.registeredCount || 0} ผู้เข้าร่วม ({capacityLabel(ev.capacity)})
-                                </EventCardRow>
-                            </EventCard>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="py-32 text-center bg-bg rounded-3xl border border-border shadow-sm mt-8">
-                        <div className="w-20 h-20 bg-surface rounded-full flex items-center justify-center mx-auto mb-6">
-                            <Search className="w-10 h-10 text-fg-subtle" />
-                        </div>
-                        <h3 className="text-xl font-bold text-fg mb-2">ไม่พบกิจกรรมที่ค้นหา</h3>
-                        <p className="text-fg-muted">ลองใช้คำค้นหาอื่น เลือกหมวดหมู่อื่น หรือรอกิจกรรมใหม่เปิดรับสมัครเร็วๆ นี้</p>
-                        <Button
-                            variant="outline"
-                            className="mt-6 rounded-full px-8"
-                            onClick={() => { setSearchQuery(""); setCategory("") }}
-                        >
-                            ล้างตัวกรอง
-                        </Button>
-                    </div>
-                )}
             </Container>
 
             <SiteFooter />

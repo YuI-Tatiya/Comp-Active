@@ -61,7 +61,8 @@ export interface PreparedEventUpdateData {
   isPublic: boolean;
   registrationCloseAt?: Date;
   activities: PreparedActivityUpdateData[];
-  surveyQuestions: PreparedSurveyQuestionData[];
+  /** ไม่ส่งมา = ไม่แตะแบบสำรวจเดิม (ป้องกันการเผลอลบคำถาม+คำตอบทิ้งทั้งชุด) */
+  surveyQuestions?: PreparedSurveyQuestionData[];
   visibility: string;
   visibilityPrograms: string[];
   visibilityYears: number[];
@@ -175,18 +176,42 @@ export class EventsRepository {
         },
       });
 
-      // แบบสำรวจ — แทนที่ทั้งชุดเสมอ (ง่ายและถูกต้องกว่า diff รายข้อ)
-      await tx.eventSurveyQuestion.deleteMany({ where: { eventId } });
-      if (data.surveyQuestions.length) {
-        await tx.eventSurveyQuestion.createMany({
-          data: data.surveyQuestions.map((q, sortOrder) => ({
-            eventId,
-            label: q.label,
-            type: q.type as any,
-            scaleMax: q.scaleMax,
-            sortOrder,
-          })),
+      // แบบสำรวจ — จับคู่ตามลำดับข้อแล้วอัปเดตทับแถวเดิม ห้ามลบทั้งชุดแล้วสร้างใหม่
+      //
+      // เดิมทำแบบ deleteMany + createMany ซึ่งเป็นบั๊กทำข้อมูลหาย: RegistrationSurveyAnswer.questionId
+      // เป็น onDelete: Cascade ดังนั้นแค่ผู้จัดเปิด wizard แล้วกดบันทึกโดยไม่แตะแบบสำรวจเลย
+      // คำตอบที่นักศึกษาตอบไว้ทั้งหมดก็หายเกลี้ยง (คำถามได้ id ใหม่ ไม่มีคำตอบผูกอยู่)
+      if (data.surveyQuestions !== undefined) {
+        const existing = await tx.eventSurveyQuestion.findMany({
+          where: { eventId },
+          orderBy: { sortOrder: 'asc' },
         });
+
+        for (const [sortOrder, q] of data.surveyQuestions.entries()) {
+          const row = existing[sortOrder];
+          if (!row) {
+            await tx.eventSurveyQuestion.create({
+              data: { eventId, label: q.label, type: q.type as any, scaleMax: q.scaleMax, sortOrder },
+            });
+            continue;
+          }
+
+          // เปลี่ยนชนิดคำถาม = คำตอบเดิมใช้ไม่ได้แล้ว (คะแนนกับข้อความคนละอย่างกัน) ลบเฉพาะข้อนั้น
+          if (row.type !== (q.type as any)) {
+            await tx.registrationSurveyAnswer.deleteMany({ where: { questionId: row.id } });
+          }
+
+          await tx.eventSurveyQuestion.update({
+            where: { id: row.id },
+            data: { label: q.label, type: q.type as any, scaleMax: q.scaleMax, sortOrder },
+          });
+        }
+
+        // เหลือเฉพาะข้อที่ผู้จัดลบออกจริงๆ (จำนวนข้อใหม่น้อยกว่าเดิม) — คำตอบของข้อนั้นหายตาม ซึ่งถูกต้อง
+        const surplus = existing.slice(data.surveyQuestions.length);
+        if (surplus.length) {
+          await tx.eventSurveyQuestion.deleteMany({ where: { id: { in: surplus.map((r) => r.id) } } });
+        }
       }
 
       // เงื่อนไขการมองเห็น — แทนที่ทั้งชุดเสมอเช่นกัน
@@ -221,19 +246,71 @@ export class EventsRepository {
             });
           }
 
-          await tx.activityQuestion.deleteMany({ where: { activityId: id } });
+          // คำถามตอนลงทะเบียน — จับคู่ตามลำดับแล้วอัปเดตทับ ด้วยเหตุผลเดียวกับแบบสำรวจด้านบน
+          // (RegistrationAnswer.questionId และ RegistrationAnswerOption.optionId เป็น onDelete: Cascade
+          // ถ้าลบทั้งชุดแล้วสร้างใหม่ คำตอบที่นักศึกษากรอกตอนสมัคร เช่น ข้อจำกัดด้านอาหาร/ไซส์เสื้อ
+          // จะหายทั้งหมดเพียงเพราะผู้จัดกดบันทึกหน้าแก้ไขงาน)
+          const existingQuestions = await tx.activityQuestion.findMany({
+            where: { activityId: id },
+            orderBy: { sortOrder: 'asc' },
+            include: { options: { orderBy: { sortOrder: 'asc' } } },
+          });
+
           for (const [sortOrder, q] of questions.entries()) {
-            await tx.activityQuestion.create({
-              data: {
-                activityId: id,
-                label: q.label,
-                type: q.type as any,
-                required: q.required,
-                sortOrder,
-                options: q.options.length
-                  ? { create: q.options.map((label, optSortOrder) => ({ label, sortOrder: optSortOrder })) }
-                  : undefined,
-              },
+            const row = existingQuestions[sortOrder];
+
+            if (!row) {
+              await tx.activityQuestion.create({
+                data: {
+                  activityId: id,
+                  label: q.label,
+                  type: q.type as any,
+                  required: q.required,
+                  sortOrder,
+                  options: q.options.length
+                    ? { create: q.options.map((label, optSortOrder) => ({ label, sortOrder: optSortOrder })) }
+                    : undefined,
+                },
+              });
+              continue;
+            }
+
+            // เปลี่ยนชนิดคำถาม = คำตอบเดิมใช้ไม่ได้แล้ว ลบเฉพาะข้อนั้น
+            if (row.type !== (q.type as any)) {
+              await tx.registrationAnswer.deleteMany({ where: { questionId: row.id } });
+            }
+
+            await tx.activityQuestion.update({
+              where: { id: row.id },
+              data: { label: q.label, type: q.type as any, required: q.required, sortOrder },
+            });
+
+            // ตัวเลือกของคำถาม — จับคู่ตามลำดับเช่นกัน เพื่อไม่ให้ RegistrationAnswerOption หายไปด้วย
+            for (const [optSortOrder, label] of q.options.entries()) {
+              const optRow = row.options[optSortOrder];
+              if (optRow) {
+                await tx.activityQuestionOption.update({
+                  where: { id: optRow.id },
+                  data: { label, sortOrder: optSortOrder },
+                });
+              } else {
+                await tx.activityQuestionOption.create({
+                  data: { questionId: row.id, label, sortOrder: optSortOrder },
+                });
+              }
+            }
+            const surplusOptions = row.options.slice(q.options.length);
+            if (surplusOptions.length) {
+              await tx.activityQuestionOption.deleteMany({
+                where: { id: { in: surplusOptions.map((o) => o.id) } },
+              });
+            }
+          }
+
+          const surplusQuestions = existingQuestions.slice(questions.length);
+          if (surplusQuestions.length) {
+            await tx.activityQuestion.deleteMany({
+              where: { id: { in: surplusQuestions.map((r) => r.id) } },
             });
           }
         } else {
@@ -296,7 +373,25 @@ export class EventsRepository {
   findByIdWithSurveyAnswers(id: number) {
     return this.prisma.event.findUnique({
       where: { id },
-      include: { surveyQuestions: { include: { answers: true }, orderBy: { sortOrder: 'asc' } } },
+      include: {
+        surveyQuestions: {
+          include: {
+            // ต้องดึง registration + student + activity มาด้วย ไม่ใช่แค่ answer ดิบ —
+            // organizer ต้องดูได้ว่า "นักศึกษาคนไหนตอบว่าอะไร" ไม่ใช่แค่ค่าเฉลี่ยรวม
+            answers: {
+              include: {
+                registration: {
+                  include: {
+                    student: { select: { id: true, name: true, studentId: true } },
+                    activity: { select: { id: true, name: true } },
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
     });
   }
 }

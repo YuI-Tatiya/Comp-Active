@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ActivitiesService } from './activities.service';
 import { ActivitiesRepository } from './activities.repository';
+import { EventsRepository } from '../events/events.repository';
 import { RegistrationsRepository } from '../registrations/registrations.repository';
 import { MailService } from '../mail/mail.service';
 import { UserRole } from '../../../common/enums/role.enum';
@@ -40,6 +41,9 @@ describe('ActivitiesService.markCompleted', () => {
       providers: [
         ActivitiesService,
         { provide: ActivitiesRepository, useValue: repo },
+        // getSurveyResults falls back to the parent event's survey questions when the
+        // activity is a sub-activity — not under test here, mocked out just for DI.
+        { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
         // markCompleted/requestCancellation fire best-effort student-notification emails
         // in the background (void this.notifyX(...)) — not under test here, mocked out
         // so module compilation succeeds and no real network call is attempted.
@@ -141,6 +145,7 @@ describe('ActivitiesService student-notification side effects', () => {
       providers: [
         ActivitiesService,
         { provide: ActivitiesRepository, useValue: activitiesRepo },
+        { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
         { provide: RegistrationsRepository, useValue: registrationsRepo },
         { provide: MailService, useValue: mail },
       ],

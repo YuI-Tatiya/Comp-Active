@@ -43,8 +43,10 @@ export const CATEGORIES: CategoryMeta[] = [
         badge: "bg-cat-sports-bg text-cat-sports",
     },
     {
+        // value คือค่าที่เก็บใน DB (Activity.category) ห้ามแก้ ไม่งั้นกิจกรรมเดิมทั้งหมดจะกรองไม่เจอ
+        // — เปลี่ยนเฉพาะ label ที่ใช้แสดงผลเท่านั้น
         value: "Art & Culture",
-        label: "ศิลปะ",
+        label: "ประเพณีและวัฒนธรรมองค์กร",
         dot: "bg-cat-art",
         badge: "bg-cat-art-bg text-cat-art",
     },
