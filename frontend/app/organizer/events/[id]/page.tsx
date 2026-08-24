@@ -215,9 +215,9 @@ export default function OrganizerEventDetailsPage() {
                 </div>
 
                 <div className="mb-6">
-                    <div className="aspect-video w-full max-h-[280px] bg-surface-2 rounded-xl overflow-hidden relative border border-border">
+                    <div className="aspect-video w-full bg-surface-2 rounded-2xl overflow-hidden relative border border-border shadow-sm">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={resolveEventImageUrl(event, activeActivity)} alt={event.name} className="w-full h-full object-cover" />
+                        <img src={resolveEventImageUrl(event, activeActivity)} alt={event.name} className="size-full object-cover" />
                         <div className="absolute top-4 left-4 flex flex-wrap gap-2">
                             <Badge variant={event.isPublic ? "success" : "neutral"}>{event.isPublic ? "เผยแพร่แล้ว" : "ไม่เผยแพร่"}</Badge>
                             {event.activities.length > 1 && <Badge variant="default">{event.activities.length} กิจกรรมย่อย</Badge>}
@@ -406,7 +406,12 @@ export default function OrganizerEventDetailsPage() {
                 </Tabs>
 
                 {/* แบบสำรวจเป็นข้อมูลระดับงาน ไม่ผูกกับกิจกรรมย่อยตัวใดตัวหนึ่ง จึงอยู่นอกแท็บ */}
-                <EventSurveyResults eventId={event.id} />
+                <EventSurveyResults
+                    id={event.id}
+                    fetchResults={eventsAPI.getSurveyResults}
+                    editHref={`/organizer/manage/${event.id}/edit`}
+                    subjectName={event.name}
+                />
             </Container>
 
             <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>

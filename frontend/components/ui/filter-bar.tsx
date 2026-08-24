@@ -6,9 +6,9 @@ import { Select } from "@/components/ui/select"
 import { Search, SlidersHorizontal, X } from "lucide-react"
 
 /**
- * แถบค้นหา + ตัวกรอง ใช้ร่วมกันระหว่าง /student/events และ /organizer/manage
- * แต่ละหน้าส่ง "ชุดตัวกรอง" ของตัวเองเข้ามา เพราะเงื่อนไขที่ให้กรองต่างกัน
- * (นักศึกษาสนใจสถานะรับสมัคร/ใบจิตอาสา ส่วนผู้จัดสนใจการเผยแพร่/ยอดลงทะเบียน)
+ * แถบค้นหา + ตัวกรอง แบบ card เดี่ยว — ใช้ที่ /organizer/manage
+ * รับ "ชุดตัวกรอง" (FilterSpec[]) จากหน้าที่เรียกใช้ จึงปรับจำนวน/ตัวเลือกได้อิสระ
+ * โดยไม่ต้องแก้ component นี้ — ช่องตัวกรองจัดด้วย auto-fill grid ให้แถวสม่ำเสมอเสมอ
  */
 
 export interface FilterOption {
@@ -56,59 +56,61 @@ export function FilterBar({
         }).length + (searchValue.trim() ? 1 : 0)
 
     return (
-        <div className="mb-8 space-y-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-                <div className="lg:w-80">
-                    <label className="mb-1.5 block text-xs font-semibold text-fg-muted" htmlFor="filter-search">
-                        ค้นหา
-                    </label>
-                    <div className="relative">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
-                        <Input
-                            id="filter-search"
-                            type="text"
-                            placeholder={searchPlaceholder}
-                            className="h-10 rounded-lg pl-10 shadow-sm focus-visible:ring-brand-500"
-                            value={searchValue}
-                            onChange={(e) => onSearchChange(e.target.value)}
-                        />
-                    </div>
-                </div>
-
-                <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3 lg:flex lg:flex-wrap">
-                    {filters.map((f) => (
-                        <div key={f.key} className="lg:w-44">
-                            <label
-                                className="mb-1.5 block text-xs font-semibold text-fg-muted"
-                                htmlFor={`filter-${f.key}`}
-                            >
-                                {f.label}
-                            </label>
-                            <Select
-                                id={`filter-${f.key}`}
-                                className="h-10 rounded-lg"
-                                value={values[f.key] ?? f.neutralValue ?? ""}
-                                onChange={(e) => onFilterChange(f.key, e.target.value)}
-                            >
-                                {f.options.map((o) => (
-                                    <option key={o.value} value={o.value}>
-                                        {o.label}
-                                    </option>
-                                ))}
-                            </Select>
-                        </div>
-                    ))}
+        <div className="mb-8 space-y-4 rounded-2xl border border-border bg-bg p-5 shadow-xs">
+            <div className="max-w-md">
+                <label className="mb-1.5 block text-xs font-semibold text-fg-muted" htmlFor="filter-search">
+                    ค้นหา
+                </label>
+                <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
+                    <Input
+                        id="filter-search"
+                        type="text"
+                        placeholder={searchPlaceholder}
+                        className="h-10 rounded-lg pl-10 focus-visible:ring-brand-500"
+                        value={searchValue}
+                        onChange={(e) => onSearchChange(e.target.value)}
+                    />
                 </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-                {resultCount !== undefined && (
+            {/* auto-fill แทน flex-wrap — ทุกช่องกว้างเท่ากันเสมอไม่ว่าจะมีตัวกรองกี่ตัว
+                ไม่ทิ้งช่องว้างท้ายแถวแบบสุ่มเวลาจำนวนตัวกรองหารไม่ลงตัวกับความกว้างจอ */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(160px,1fr))]">
+                {filters.map((f) => (
+                    <div key={f.key}>
+                        <label
+                            className="mb-1.5 block text-xs font-semibold text-fg-muted"
+                            htmlFor={`filter-${f.key}`}
+                        >
+                            {f.label}
+                        </label>
+                        <Select
+                            id={`filter-${f.key}`}
+                            className="h-10 rounded-lg"
+                            value={values[f.key] ?? f.neutralValue ?? ""}
+                            onChange={(e) => onFilterChange(f.key, e.target.value)}
+                        >
+                            {f.options.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                    {o.label}
+                                </option>
+                            ))}
+                        </Select>
+                    </div>
+                ))}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+                {resultCount !== undefined ? (
                     <p className="text-sm text-fg-muted">
                         พบ <span className="font-semibold text-fg">{resultCount}</span> {resultUnit}
                     </p>
+                ) : (
+                    <span />
                 )}
                 {activeCount > 0 && (
-                    <>
+                    <div className="flex items-center gap-3">
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
                             <SlidersHorizontal className="size-3" aria-hidden="true" />
                             ใช้ตัวกรอง {activeCount} รายการ
@@ -116,7 +118,7 @@ export function FilterBar({
                         <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={onReset}>
                             <X className="size-3" aria-hidden="true" /> ล้างตัวกรอง
                         </Button>
-                    </>
+                    </div>
                 )}
             </div>
         </div>

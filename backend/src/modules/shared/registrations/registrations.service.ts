@@ -221,7 +221,8 @@ export class RegistrationsService {
       throw new BadRequestException('ต้องเช็คอินเข้าร่วมกิจกรรมก่อนจึงจะให้คะแนนได้');
     }
 
-    return registration.activity.event?.surveyQuestions ?? [];
+    // งานมี event ผูกอยู่ก็ใช้แบบสำรวจของ event; กิจกรรมเดี่ยวไม่มี event ก็ใช้แบบสำรวจของตัวเอง
+    return registration.activity.event?.surveyQuestions ?? registration.activity.surveyQuestions ?? [];
   }
 
   async submitSurvey(registrationId: number, studentId: number, answers: SurveyAnswerInput[]) {
@@ -234,7 +235,7 @@ export class RegistrationsService {
       throw new BadRequestException('ต้องเช็คอินเข้าร่วมกิจกรรมก่อนจึงจะให้คะแนนได้');
     }
 
-    const questions = registration.activity.event?.surveyQuestions ?? [];
+    const questions = registration.activity.event?.surveyQuestions ?? registration.activity.surveyQuestions ?? [];
     if (questions.length === 0) {
       throw new BadRequestException('กิจกรรมนี้ไม่มีแบบสำรวจ');
     }

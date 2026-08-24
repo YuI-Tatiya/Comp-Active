@@ -33,6 +33,9 @@ next-env.d.ts
 backend/public/uploads/
 # หมายเหตุ: โฟลเดอร์ uploads/ จะถูกสร้างอัตโนมัติเมื่อรัน backend ครั้งแรก
 
+# === Generated Prisma Client (สร้างใหม่ด้วย prisma generate — ซ้ำกับ backend/.gitignore เผื่อไฟล์นั้นหาย) ===
+backend/generated/
+
 # === Test Coverage ===
 coverage/
 

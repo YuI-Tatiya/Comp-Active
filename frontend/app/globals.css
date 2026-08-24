@@ -2,10 +2,10 @@
 
 @theme {
   /* ── Typography ─────────────────────────────────────────────────────────────
-     Latin ใช้ Montserrat/Inter ตามดีไซน์ใหม่ ส่วนอักษรไทยไม่มี glyph ในสองฟอนต์นี้
-     จึง fallback ไปที่ Kanit (ฟอนต์เดิม) เพื่อไม่ให้ข้อความไทยแตก ─────────────── */
-  --font-sans: var(--font-inter), var(--font-kanit), ui-sans-serif, system-ui, sans-serif;
-  --font-heading: var(--font-montserrat), var(--font-kanit), ui-sans-serif, system-ui, sans-serif;
+     Sarabun รองรับทั้งไทย+ละตินในตัวเดียว (self-host ผ่าน next/font ใน layout.tsx)
+     จึงไม่ต้องผสมฟอนต์แยกไทย/ละตินแบบเดิมอีก — sans กับ heading เลยชี้ไปตัวเดียวกัน ── */
+  --font-sans: var(--font-sarabun), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-sarabun), ui-sans-serif, system-ui, sans-serif;
 
   /* ── Brand (Chakra-blue scale ตาม design system ใหม่) ─────────────────────
      Primary #1A365D → brand-900 / Secondary #3182CE → brand-600 (ปุ่มหลัก) /

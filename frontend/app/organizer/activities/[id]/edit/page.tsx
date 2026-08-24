@@ -7,9 +7,16 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Check, Plus, X, ArrowLeft, Loader2, Edit, CheckSquare } from "lucide-react"
+import { Check, Plus, X, ArrowLeft, Loader2, Edit, CheckSquare, Star } from "lucide-react"
 import { activitiesAPI, Activity, API_BASE_URL } from "@/lib/api"
 import { SOFT_SKILLS, softSkillLabel } from "@/lib/soft-skills"
+import { CATEGORIES, categoryLabel } from "@/lib/categories"
+import { DynamicQuestionBuilder, type BuilderQuestion } from "@/components/ui/dynamic-question-builder"
+
+const SURVEY_TYPE_OPTIONS = [
+    { value: "rating", label: "ให้คะแนน" },
+    { value: "text", label: "คำตอบแบบข้อความ" },
+]
 
 // Types for form data
 interface ActivityFormData {
@@ -26,6 +33,7 @@ interface ActivityFormData {
     benefits: string[]
     softSkills: string[]
     imageFile: File | null
+    surveyQuestions: BuilderQuestion[]
 }
 
 const initialData: ActivityFormData = {
@@ -41,10 +49,12 @@ const initialData: ActivityFormData = {
     conditions: [],
     benefits: [],
     softSkills: [],
-    imageFile: null
+    imageFile: null,
+    surveyQuestions: [],
 }
 
-const categories = ["Technology", "Academic", "Competition", "Sports", "Art & Culture", "Volunteer"]
+// เดิม hardcode รายชื่อหมวดเป็นค่าดิบภาษาอังกฤษไว้ที่นี่ ทำให้ dropdown โชว์ "Art & Culture"
+// และหลุดจาก lib/categories.ts เวลาแก้ชื่อหมวด — ใช้ตัวกลางที่เดียวแทน
 const suggestedTags = ["Programming", "Web Development", "AI", "Machine Learning", "Design", "UX", "UI", "Security", "Sports", "Music", "Volunteer", "Competition", "Workshop", "Seminar"]
 
 export default function EditActivityPage() {
@@ -81,7 +91,10 @@ export default function EditActivityPage() {
                     conditions: data.conditions ? data.conditions.map((c: { conditionText: string }) => c.conditionText) : [],
                     benefits: data.benefits ? data.benefits.map((b: { benefitText: string }) => b.benefitText) : [],
                     softSkills: data.softSkills ? data.softSkills.map((s: { skillType: string }) => s.skillType) : [],
-                    imageFile: null
+                    imageFile: null,
+                    surveyQuestions: data.surveyQuestions
+                        ? data.surveyQuestions.map((q) => ({ label: q.label, type: q.type, scaleMax: q.scaleMax }))
+                        : [],
                 });
                 if (data.imageUrl) {
                     setImagePreview(`${API_BASE_URL}${data.imageUrl}`);
@@ -97,7 +110,7 @@ export default function EditActivityPage() {
         fetchActivity();
     }, [id]);
 
-    const handleNext = () => setStep((prev) => Math.min(prev + 1, 4))
+    const handleNext = () => setStep((prev) => Math.min(prev + 1, 5))
     const handleBack = () => step === 1 ? router.back() : setStep((prev) => Math.max(prev - 1, 1))
 
     const updateField = <K extends keyof ActivityFormData>(field: K, value: ActivityFormData[K]) => {
@@ -147,7 +160,8 @@ export default function EditActivityPage() {
         { number: 1, title: "ข้อมูลพื้นฐาน", subtitle: "ชื่อและรายละเอียด" },
         { number: 2, title: "วันที่และสถานที่", subtitle: "เวลาและสถานที่จัดงาน" },
         { number: 3, title: "รายละเอียดเพิ่มเติม", subtitle: "เงื่อนไขและสิทธิประโยชน์" },
-        { number: 4, title: "ตรวจสอบและยืนยัน", subtitle: "ตรวจสอบข้อมูลก่อนบันทึก" },
+        { number: 4, title: "แบบสำรวจ", subtitle: "แบบสำรวจหลังกิจกรรม" },
+        { number: 5, title: "ตรวจสอบและยืนยัน", subtitle: "ตรวจสอบข้อมูลก่อนบันทึก" },
     ]
 
     return (
@@ -180,7 +194,7 @@ export default function EditActivityPage() {
                             <div className="absolute top-5 left-0 w-full h-0.5 bg-gray-200 -z-10"></div>
                             <div
                                 className="absolute top-5 left-0 h-0.5 bg-blue-600 -z-10 transition-all duration-300"
-                                style={{ width: `${((step - 1) / 3) * 100}%` }}
+                                style={{ width: `${((step - 1) / 4) * 100}%` }}
                             ></div>
 
                             {steps.map((s) => (
@@ -242,7 +256,7 @@ export default function EditActivityPage() {
                                             onChange={(e) => updateField('category', e.target.value)}
                                         >
                                             <option value="">เลือกหมวดหมู่</option>
-                                            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                            {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                                         </select>
                                     </div>
                                     <div className="space-y-2">
@@ -393,8 +407,28 @@ export default function EditActivityPage() {
                                 </div>
                             )}
 
-                            {/* STEP 4: Review */}
+                            {/* STEP 4: Post-event survey */}
                             {step === 4 && (
+                                <div className="space-y-6">
+                                    <div>
+                                        <Label className="text-base">แบบสำรวจความพึงพอใจ</Label>
+                                        <p className="mt-1 text-sm text-gray-500">
+                                            นักศึกษาจะได้ตอบแบบสำรวจนี้หลังเช็คอินเข้าร่วมกิจกรรมแล้ว — เว้นว่างไว้ได้ถ้าไม่ต้องการเก็บแบบสำรวจ
+                                        </p>
+                                    </div>
+                                    <DynamicQuestionBuilder
+                                        questions={formData.surveyQuestions}
+                                        onChange={(surveyQuestions) => updateField('surveyQuestions', surveyQuestions)}
+                                        typeOptions={SURVEY_TYPE_OPTIONS}
+                                        scaleTypes={["rating"]}
+                                        addLabel="เพิ่มคำถามแบบสำรวจ"
+                                        emptyLabel="ยังไม่มีคำถามแบบสำรวจ — นักศึกษาจะไม่เห็นแบบสำรวจสำหรับกิจกรรมนี้"
+                                    />
+                                </div>
+                            )}
+
+                            {/* STEP 5: Review */}
+                            {step === 5 && (
                                 <div className="space-y-6">
                                     <div className="text-center mb-6">
                                         <h3 className="text-xl font-semibold mb-2">ตรวจสอบข้อมูลกิจกรรม</h3>
@@ -415,7 +449,7 @@ export default function EditActivityPage() {
                                             </div>
                                             <div>
                                                 <Label className="text-gray-500 text-xs">หมวดหมู่</Label>
-                                                <div className="font-medium">{formData.category || "-"}</div>
+                                                <div className="font-medium">{categoryLabel(formData.category) || "-"}</div>
                                             </div>
                                             <div className="col-span-2">
                                                 <Label className="text-gray-500 text-xs">รายละเอียด</Label>
@@ -489,6 +523,24 @@ export default function EditActivityPage() {
                                                 ) : <div className="text-sm text-gray-500 mt-1">ไม่ได้ระบุ</div>}
                                             </div>
 
+                                            <div className="col-span-1 md:col-span-2">
+                                                <Label className="text-gray-500 text-xs">แบบสำรวจหลังกิจกรรม</Label>
+                                                {formData.surveyQuestions.length > 0 ? (
+                                                    <ul className="mt-2 space-y-1.5 text-sm text-gray-700">
+                                                        {formData.surveyQuestions.map((q, i) => (
+                                                            <li key={i} className="flex items-center gap-1.5">
+                                                                {q.type === "rating" ? (
+                                                                    <Star className="w-3.5 h-3.5 text-amber-500" />
+                                                                ) : (
+                                                                    <Edit className="w-3.5 h-3.5 text-blue-500" />
+                                                                )}
+                                                                {q.label || `คำถามข้อที่ ${i + 1}`}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                ) : <div className="text-sm text-gray-500 mt-1">ไม่ได้เก็บแบบสำรวจ</div>}
+                                            </div>
+
                                         </div>
                                     </div>
                                 </div>
@@ -503,7 +555,7 @@ export default function EditActivityPage() {
                             </Button>
 
                             <Button
-                                onClick={step === 4 ? async () => {
+                                onClick={step === 5 ? async () => {
                                     setSubmitting(true)
                                     setError("")
                                     try {
@@ -530,6 +582,11 @@ export default function EditActivityPage() {
                                             conditions: formData.conditions,
                                             benefits: formData.benefits,
                                             softSkills: formData.softSkills,
+                                            surveyQuestions: formData.surveyQuestions.map((q) => ({
+                                                label: q.label,
+                                                type: q.type,
+                                                scaleMax: q.scaleMax,
+                                            })),
                                         }
 
                                         if (imageUrl) {
@@ -548,7 +605,7 @@ export default function EditActivityPage() {
                                 className="bg-blue-600 hover:bg-blue-700 w-32"
                                 disabled={submitting}
                             >
-                                {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />กำลังบันทึก...</> : step === 4 ? 'บันทึก' : 'ถัดไป'}
+                                {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />กำลังบันทึก...</> : step === 5 ? 'บันทึก' : 'ถัดไป'}
                             </Button>
                         </div>
                     </>
