@@ -277,13 +277,17 @@ export default function OrganizerEventDetailsPage() {
                         <TabsContent key={a.id} value={String(a.id)}>
                             <div className="grid lg:grid-cols-3 gap-8">
                                 <div className="lg:col-span-2 space-y-6">
-                                    <Tabs defaultValue="participants" className="w-full">
+                                    <Tabs defaultValue="details" className="w-full">
                                         <TabsList className="w-full justify-start bg-surface-2 p-1 rounded-lg mb-6">
-                                            <TabsTrigger value="participants" className="flex-1">ผู้เข้าร่วม ({a.registrations?.length || 0})</TabsTrigger>
                                             <TabsTrigger value="details" className="flex-1">รายละเอียด</TabsTrigger>
-                                            <TabsTrigger value="rewards" className="flex-1">สิ่งที่จะได้รับ</TabsTrigger>
-                                            <TabsTrigger value="registration" className="flex-1">การลงทะเบียน</TabsTrigger>
+                                            <TabsTrigger value="participants" className="flex-1">ข้อมูลผู้เข้าร่วม ({a.registrations?.length || 0})</TabsTrigger>
+                                            <TabsTrigger value="registration" className="flex-1">คิวอาร์โค้ดลงทะเบียน</TabsTrigger>
                                         </TabsList>
+
+                                        <TabsContent value="details" className="space-y-6">
+                                            <ActivityAboutPanel activity={a} showActivityImage />
+                                            <ActivityRewardsPanel activity={a} />
+                                        </TabsContent>
 
                                         <TabsContent value="participants" className="bg-bg rounded-xl border border-border shadow-xs overflow-hidden">
                                             <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-border">
@@ -347,14 +351,6 @@ export default function OrganizerEventDetailsPage() {
                                                     </tbody>
                                                 </table>
                                             </div>
-                                        </TabsContent>
-
-                                        <TabsContent value="details">
-                                            <ActivityAboutPanel activity={a} showActivityImage />
-                                        </TabsContent>
-
-                                        <TabsContent value="rewards">
-                                            <ActivityRewardsPanel activity={a} />
                                         </TabsContent>
 
                                         <TabsContent value="registration">

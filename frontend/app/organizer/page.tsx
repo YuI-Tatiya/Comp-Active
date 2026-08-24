@@ -9,14 +9,8 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { SectionHeading } from "@/components/ui/section-heading"
 import { StatTile } from "@/components/ui/stat-tile"
 import { FilterBar, type FilterSpec } from "@/components/ui/filter-bar"
-import {
-  EventCard,
-  EventCardBadge,
-  EventCardProgress,
-  EventCardRow,
-  formatEventDate,
-} from "@/components/ui/event-card"
-import { activitiesAPI, Activity, OrganizerStats } from "@/lib/api"
+import { EventCard, EventCardBadge } from "@/components/ui/event-card"
+import { activitiesAPI, eventsAPI, Activity, EventSummary, OrganizerStats } from "@/lib/api"
 import { CATEGORIES, categoryLabel } from "@/lib/categories"
 import { useAuth } from "@/lib/auth-context"
 import {
@@ -26,16 +20,42 @@ import {
   CalendarPlus,
   Users,
   Clock,
-  Calendar,
-  MapPin,
   Search,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const STATUS_META: Record<string, { label: string; className: string }> = {
-  open: { label: "เปิดรับสมัคร", className: "bg-success/90" },
-  closed: { label: "ปิดรับสมัคร", className: "bg-fg-subtle/90" },
-  completed: { label: "จบแล้ว", className: "bg-info/90" },
+/** งานที่มีกิจกรรมย่อยหลายตัวจะรวมเป็นการ์ดเดียว — กดเข้าไปค่อยเจอกิจกรรมย่อยแต่ละตัว (เหมือนฝั่งนักศึกษา) */
+function nearestUpcomingActivity(ev: EventSummary) {
+  return [...ev.activities].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
+}
+
+function eventRegisteredCount(ev: EventSummary): number {
+  return ev.activities.reduce((sum, a) => sum + (a.registeredCount ?? 0), 0)
+}
+
+function isEventOpen(ev: EventSummary): boolean {
+  return ev.activities.some((a) => a.status === "open")
+}
+
+/** วันจัดกิจกรรมย่อยที่เร็วที่สุดของงาน — ใช้เรียงลำดับ "ใกล้จัดงาน" */
+function earliestDate(ev: EventSummary): number {
+  const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
+  return times.length ? Math.min(...times) : Number.POSITIVE_INFINITY
+}
+
+/** การ์ดข้อมูลรวมที่ใช้แสดงผล — งาน (หลายกิจกรรมย่อย) และกิจกรรมเดี่ยว normalize มาเป็นรูปแบบเดียวกัน */
+interface CardItem {
+  key: string
+  name: string
+  imageUrl?: string | null
+  description?: string | null
+  category?: string
+  status: "open" | "closed"
+  href: string
+  searchText: string
+  sortDate: number
+  createdAtMs: number
+  registeredCount: number
 }
 
 const FILTERS: FilterSpec[] = [
@@ -46,7 +66,6 @@ const FILTERS: FilterSpec[] = [
       { value: "", label: "ทั้งหมด" },
       { value: "open", label: "เปิดรับสมัคร" },
       { value: "closed", label: "ปิดรับสมัคร" },
-      { value: "completed", label: "จบแล้ว" },
     ],
   },
   {
@@ -72,8 +91,9 @@ export default function OrganizerDashboardPage() {
   const { user } = useAuth()
   const [stats, setStats] = useState<OrganizerStats | null>(null)
   const [myActivities, setMyActivities] = useState<Activity[]>([])
-  // กิจกรรมทั้งหมดในระบบ (ทุกผู้จัด) — ใช้ feed สาธารณะเดียวกับหน้า /events
-  const [allActivities, setAllActivities] = useState<Activity[]>([])
+  // งานและกิจกรรมเดี่ยวทั้งหมดในระบบ (ทุกผู้จัด) — ใช้ feed สาธารณะเดียวกับหน้า /events และ /student/events
+  const [events, setEvents] = useState<EventSummary[]>([])
+  const [standaloneActivities, setStandaloneActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [values, setValues] = useState<Record<string, string>>(INITIAL_VALUES)
@@ -82,22 +102,26 @@ export default function OrganizerDashboardPage() {
     Promise.allSettled([
       activitiesAPI.getOrganizerStats(),
       activitiesAPI.getMy(),
+      eventsAPI.getAllPublic(),
       activitiesAPI.getAll(),
     ])
-      .then(([statsRes, listRes, allRes]) => {
+      .then(([statsRes, listRes, eventsRes, allRes]) => {
         if (statsRes.status === "fulfilled") setStats(statsRes.value)
         if (listRes.status === "fulfilled" && Array.isArray(listRes.value)) {
           setMyActivities(listRes.value as Activity[])
         }
+        if (eventsRes.status === "fulfilled" && Array.isArray(eventsRes.value)) {
+          setEvents(eventsRes.value as EventSummary[])
+        }
         if (allRes.status === "fulfilled" && Array.isArray(allRes.value)) {
-          setAllActivities(allRes.value as Activity[])
+          // กิจกรรมเดี่ยว (ไม่ผูกกับงาน) เท่านั้น — ที่ผูกกับงานแสดงรวมในการ์ดของงานแล้ว
+          setStandaloneActivities((allRes.value as Activity[]).filter((a) => !a.eventId))
         }
       })
       .finally(() => setLoading(false))
   }, [])
 
-  const pending = myActivities.filter((a) => a.approvalStatus === "pending_approval")
-  const pendingCount = stats?.pendingApprovals ?? pending.length
+  const pendingRegistrationsCount = stats?.pendingRegistrations ?? 0
 
   function setFilter(key: string, value: string) {
     setValues((prev) => ({ ...prev, [key]: value }))
@@ -108,22 +132,57 @@ export default function OrganizerDashboardPage() {
     setValues(INITIAL_VALUES)
   }
 
+  const allItems = useMemo<CardItem[]>(() => {
+    const fromEvents = events.map((ev): CardItem => {
+      const fa = nearestUpcomingActivity(ev)
+      return {
+        key: `event-${ev.id}`,
+        name: ev.name,
+        imageUrl: ev.imageUrl ?? fa?.imageUrl,
+        description: ev.description,
+        category: fa?.category,
+        status: isEventOpen(ev) ? "open" : "closed",
+        href: `/organizer/events/view/${ev.id}`,
+        searchText: [ev.name, ...ev.activities.map((a) => a.name)].join(" ").toLowerCase(),
+        sortDate: earliestDate(ev),
+        createdAtMs: new Date(ev.createdAt).getTime(),
+        registeredCount: eventRegisteredCount(ev),
+      }
+    })
+
+    const fromStandalone = standaloneActivities.map((a): CardItem => ({
+      key: `activity-${a.id}`,
+      name: a.name,
+      imageUrl: a.imageUrl,
+      description: a.description,
+      category: a.category,
+      status: a.status === "open" ? "open" : "closed",
+      href: `/organizer/activities/view/${a.id}`,
+      searchText: a.name.toLowerCase(),
+      sortDate: +new Date(a.date),
+      // Activity ไม่มี createdAt — ใช้วันจัดกิจกรรมแทน ยังอยู่ในสเกลเดียวกับ createdAt ของ Event
+      createdAtMs: +new Date(a.date),
+      registeredCount: a.registeredCount ?? 0,
+    }))
+
+    return [...fromEvents, ...fromStandalone]
+  }, [events, standaloneActivities])
+
   const filteredActivities = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
-    const list = allActivities.filter((a) => {
-      const matchesSearch = !q || a.name.toLowerCase().includes(q)
-      const matchesStatus = !values.status || a.status === values.status
-      const matchesCategory = !values.category || a.category === values.category
+    const list = allItems.filter((item) => {
+      const matchesSearch = !q || item.searchText.includes(q)
+      const matchesStatus = !values.status || item.status === values.status
+      const matchesCategory = !values.category || item.category === values.category
       return matchesSearch && matchesStatus && matchesCategory
     })
 
     return [...list].sort((a, b) => {
-      if (values.sort === "soon") return +new Date(a.date) - +new Date(b.date)
-      if (values.sort === "registrations") return (b.registeredCount ?? 0) - (a.registeredCount ?? 0)
-      // Activity ไม่มี createdAt — ใช้ id (auto-increment) แทนลำดับการสร้าง
-      return b.id - a.id
+      if (values.sort === "soon") return a.sortDate - b.sortDate
+      if (values.sort === "registrations") return b.registeredCount - a.registeredCount
+      return b.createdAtMs - a.createdAtMs
     })
-  }, [allActivities, searchQuery, values])
+  }, [allItems, searchQuery, values])
 
   return (
     <>
@@ -164,10 +223,10 @@ export default function OrganizerDashboardPage() {
             />
             <StatTile
               label="รออนุมัติ"
-              value={loading ? "—" : pendingCount}
+              value={loading ? "—" : pendingRegistrationsCount}
               icon={Clock}
               className={cn(
-                !loading && pendingCount > 0 && "border-warning/30 bg-warning-bg"
+                !loading && pendingRegistrationsCount > 0 && "border-warning/30 bg-warning-bg"
               )}
             />
           </div>
@@ -180,7 +239,7 @@ export default function OrganizerDashboardPage() {
           <div>
             <SectionHeading
               title="กิจกรรมทั้งหมด"
-              description={loading ? undefined : `${allActivities.length} รายการ`}
+              description={loading ? undefined : `${allItems.length} รายการ`}
               action={
                 <Button variant="link" asChild className="px-0">
                   <Link href="/organizer/manage">
@@ -212,34 +271,22 @@ export default function OrganizerDashboardPage() {
                 </div>
               ) : filteredActivities.length > 0 ? (
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                  {filteredActivities.map((a) => {
-                    const status = STATUS_META[a.status] ?? STATUS_META.open
-                    return (
+                  {filteredActivities.map((item) => (
+                    <Link key={item.key} href={item.href} className="block">
                       <EventCard
-                        key={a.id}
-                        activity={a}
-                        badgeLeft={<EventCardBadge variant="light">{categoryLabel(a.category)}</EventCardBadge>}
-                        badgeRight={<EventCardBadge className={status.className}>{status.label}</EventCardBadge>}
-                        actions={
-                          <Link href={`/events/${a.id}`} className="flex-1">
-                            <Button className="h-11 w-full rounded-xl font-bold shadow-md shadow-brand-500/20">
-                              ดูรายละเอียด
-                            </Button>
-                          </Link>
+                        activity={{ name: item.name, imageUrl: item.imageUrl }}
+                        description={item.description}
+                        badgeLeft={<EventCardBadge variant="light">{categoryLabel(item.category)}</EventCardBadge>}
+                        badgeRight={
+                          <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
+                            {item.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}
+                          </EventCardBadge>
                         }
-                      >
-                        <EventCardRow icon={Calendar} tone="brand">
-                          {formatEventDate(a.date)}
-                        </EventCardRow>
-                        <EventCardRow icon={MapPin} tone="danger">
-                          <span className="truncate">{a.location}</span>
-                        </EventCardRow>
-                        <EventCardProgress registered={a.registeredCount ?? 0} capacity={a.capacity} />
-                      </EventCard>
-                    )
-                  })}
+                      />
+                    </Link>
+                  ))}
                 </div>
-              ) : allActivities.length === 0 ? (
+              ) : allItems.length === 0 ? (
                 <EmptyState
                   icon={CalendarPlus}
                   title="ยังไม่มีกิจกรรมในระบบ"

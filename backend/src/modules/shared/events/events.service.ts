@@ -199,6 +199,38 @@ export class EventsService {
     return this.mapRegisteredCount(updated);
   }
 
+  /** สลับสถานะเผยแพร่ของงาน — แยกจาก update() เพราะ update() ต้องส่ง activities ทั้งชุดมาด้วยเสมอ */
+  async setPublic(organizerId: number, callerRole: UserRole, eventId: number, isPublic: boolean) {
+    const event = await this.eventsRepository.findById(eventId);
+    if (!event) throw new NotFoundException('ไม่พบงาน');
+    if (callerRole !== UserRole.ADMIN && (event as any).organizerId !== organizerId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์แก้ไขงานนี้');
+    }
+
+    const updated = await this.eventsRepository.updatePublic(eventId, isPublic);
+    this.logger.log(`Event ${isPublic ? 'published' : 'unpublished'}: "${event.name}" (ID: ${eventId})`);
+    return updated;
+  }
+
+  /** ลบงานทั้งงานพร้อมกิจกรรมย่อย — บล็อกถ้ามีกิจกรรมย่อยตัวใดตัวหนึ่งมีผู้ลงทะเบียนแล้ว */
+  async delete(organizerId: number, callerRole: UserRole, eventId: number) {
+    const event = await this.eventsRepository.findById(eventId);
+    if (!event) throw new NotFoundException('ไม่พบงาน');
+    if (callerRole !== UserRole.ADMIN && (event as any).organizerId !== organizerId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์ลบงานนี้');
+    }
+
+    const hasRegistrations = ((event as any).activities ?? []).some(
+      (a: any) => (a.registrations?.length ?? 0) > 0,
+    );
+    if (hasRegistrations) {
+      throw new BadRequestException('ไม่สามารถลบงานนี้ได้ เนื่องจากมีกิจกรรมย่อยที่มีผู้ลงทะเบียนแล้ว');
+    }
+
+    await this.eventsRepository.deleteWithActivities(eventId);
+    this.logger.log(`Event deleted: "${event.name}" (ID: ${eventId})`);
+  }
+
   /** ใช้ภายใน service เท่านั้น (เช่น update() ตรวจสอบสิทธิ์/รายการกิจกรรมย่อย) — ไม่ได้ผูก registeredCount */
   findById(id: number) {
     return this.eventsRepository.findById(id);

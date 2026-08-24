@@ -130,6 +130,8 @@ export interface OrganizerStats {
   totalRegistrations: number;
   // นักศึกษาที่มีบัญชีในระบบทั้งหมด ไม่รวมบัญชีที่ถูกระงับ (ไม่ได้ผูกกับผู้จัดคนใดคนหนึ่ง)
   totalStudents: number;
+  // คำขอลงทะเบียนของนักศึกษาที่รอผู้จัดยืนยัน (ไม่ใช่สถานะอนุมัติกิจกรรมโดยแอดมิน)
+  pendingRegistrations: number;
   pendingApprovals?: number;
 }
 
@@ -362,6 +364,12 @@ export const eventsAPI = {
   getById: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}`),
   update: (id: number, body: Partial<CreateEventBody> & { activities: (CreateEventActivityBody & { id?: number })[] }) =>
     fetchAPI<EventSummary>(`/api/events/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  setPublic: (id: number, isPublic: boolean) =>
+    fetchAPI<{ id: number; isPublic: boolean }>(`/api/events/${id}/publish`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isPublic }),
+    }),
+  delete: (id: number) => fetchAPI<void>(`/api/events/${id}`, { method: 'DELETE' }),
   getAllPublic: () => fetchAPI<EventSummary[]>('/api/events'),
   getPublicById: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}/public`),
   getSurveyResults: (id: number) => fetchAPI<SurveyResult[]>(`/api/events/${id}/survey-results`),

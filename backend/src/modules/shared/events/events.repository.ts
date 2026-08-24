@@ -284,6 +284,22 @@ export class EventsRepository {
     });
   }
 
+  updatePublic(eventId: number, isPublic: boolean) {
+    return this.prisma.event.update({ where: { id: eventId }, data: { isPublic } });
+  }
+
+  /**
+   * ลบงานทั้งงานพร้อมกิจกรรมย่อยทั้งหมด — ต้องลบ Activity ก่อนเพราะความสัมพันธ์
+   * Activity.event เป็น onDelete: SetNull (ลบ Event เฉยๆ จะทำให้กิจกรรมย่อยกลายเป็น
+   * กิจกรรมเดี่ยวลอยๆ แทนที่จะถูกลบไปด้วย) — ผู้เรียกต้องเช็คว่าไม่มีผู้ลงทะเบียนก่อนแล้ว
+   */
+  deleteWithActivities(eventId: number) {
+    return this.prisma.$transaction([
+      this.prisma.activity.deleteMany({ where: { eventId } }),
+      this.prisma.event.delete({ where: { id: eventId } }),
+    ]);
+  }
+
   /** งานที่มีอย่างน้อย 1 กิจกรรมย่อยที่ approved แล้ว — ใช้สำหรับรายการสาธารณะ */
   findAllApproved() {
     return this.prisma.event.findMany({

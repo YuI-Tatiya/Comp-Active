@@ -110,6 +110,16 @@ export class RegistrationsRepository {
     return this.prisma.registration.count();
   }
 
+  /** จำนวนคำขอลงทะเบียนที่รอผู้จัดยืนยัน — นับรวมทุกกิจกรรมของผู้จัดคนนี้ */
+  countPendingByOrganizer(organizerId: number) {
+    return this.prisma.registration.count({
+      where: {
+        status: RegistrationStatus.PENDING as any,
+        activity: { organizerId },
+      },
+    });
+  }
+
   findByIdWithEventSurveyQuestions(id: number) {
     return this.prisma.registration.findUnique({
       where: { id },

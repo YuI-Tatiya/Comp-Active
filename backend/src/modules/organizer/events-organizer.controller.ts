@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -18,6 +19,7 @@ import * as crypto from 'crypto';
 import { EventsService } from '../shared/events/events.service';
 import { CreateEventDto } from '../shared/events/dto/create-event.dto';
 import { UpdateEventDto } from '../shared/events/dto/update-event.dto';
+import { SetEventPublicDto } from '../shared/events/dto/set-event-public.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -79,6 +81,33 @@ export class EventsOrganizerController {
     @Body() updateDto: UpdateEventDto,
   ) {
     return this.eventsService.update(userId, userRole, id, updateDto);
+  }
+
+  /**
+   * PATCH /api/events/:id/publish - สลับสถานะเผยแพร่ของงาน (เจ้าของ / Admin)
+   */
+  @Patch(':id/publish')
+  @ApiOperation({ summary: 'สลับสถานะเผยแพร่ของงาน (เจ้าของ / Admin)' })
+  async setPublic(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+    @CurrentUser('role') userRole: UserRole,
+    @Body() dto: SetEventPublicDto,
+  ) {
+    return this.eventsService.setPublic(userId, userRole, id, dto.isPublic);
+  }
+
+  /**
+   * DELETE /api/events/:id - ลบงานทั้งงานพร้อมกิจกรรมย่อย (เจ้าของ / Admin)
+   */
+  @Delete(':id')
+  @ApiOperation({ summary: 'ลบงานทั้งงานพร้อมกิจกรรมย่อย (เจ้าของ / Admin)' })
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+    @CurrentUser('role') userRole: UserRole,
+  ) {
+    await this.eventsService.delete(userId, userRole, id);
   }
 
   /**

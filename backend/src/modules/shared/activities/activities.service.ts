@@ -117,6 +117,9 @@ export class ActivitiesService {
     if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
       throw new ForbiddenException('คุณไม่มีสิทธิ์ลบกิจกรรมนี้');
     }
+    if (((activity as any).registrations?.length ?? 0) > 0) {
+      throw new BadRequestException('ไม่สามารถลบกิจกรรมนี้ได้ เนื่องจากมีผู้ลงทะเบียนแล้ว');
+    }
 
     await this.activitiesRepository.delete(activityId);
     this.logger.log(`Activity deleted: "${activity.name}" (ID: ${activityId})`);
@@ -203,9 +206,10 @@ export class ActivitiesService {
   }
 
   async getOrganizerStats(organizerId: number) {
-    const [activities, totalStudents] = await Promise.all([
+    const [activities, totalStudents, pendingRegistrations] = await Promise.all([
       this.activitiesRepository.findManyByOrganizerWithCount(organizerId),
       this.usersRepository.countActiveStudents(),
+      this.registrationsRepository.countPendingByOrganizer(organizerId),
     ]);
 
     const totalActivities = activities.length;
@@ -217,7 +221,7 @@ export class ActivitiesService {
       0,
     );
 
-    return { totalActivities, activeActivities, totalRegistrations, totalStudents };
+    return { totalActivities, activeActivities, totalRegistrations, totalStudents, pendingRegistrations };
   }
 
   async getPlatformStats() {
