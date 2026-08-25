@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
 import { cn } from "@/lib/utils"
-import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, AlertTriangle, Loader2, CalendarClock } from "lucide-react"
+import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, AlertTriangle, Loader2, CalendarClock, Layers } from "lucide-react"
 import Link from "next/link"
 import { eventsAPI, registrationsAPI, isUnlimitedCapacity, isActiveRegistration, EventSummary, RegistrationAnswerBody } from "@/lib/api"
 import { resolveEventImageUrl } from "@/lib/event-image"
@@ -344,6 +344,17 @@ export default function StudentEventDetailsPage() {
                 {activeActivity && (
                     <div className="grid gap-8 lg:grid-cols-3">
                         <div className="space-y-8 lg:col-span-2">
+                            {/* ชื่อกิจกรรมย่อยที่กำลังดูอยู่ — ต้องแสดงเสมอ ไม่ผูกกับจำนวนกิจกรรมย่อย
+                                เดิมชื่อโผล่แค่ในปุ่ม pill ด้านบนซึ่งซ่อนเมื่อมีกิจกรรมย่อยตัวเดียว
+                                ทำให้งานที่มีกิจกรรมย่อยตัวเดียวไม่แสดงชื่อกิจกรรมย่อยที่ไหนเลย */}
+                            <div>
+                                <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-bold text-brand-700">
+                                    <Layers className="size-3.5" aria-hidden="true" />
+                                    กิจกรรมย่อย
+                                </span>
+                                <h2 className="text-xl font-bold text-fg sm:text-2xl">{activeActivity.name}</h2>
+                            </div>
+
                             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                                 <QuickFact icon={Calendar} label="วันที่" value={formatEventDate(activeActivity.date)} />
                                 <QuickFact icon={Clock} label="เวลา" value={`${activeActivity.startTime} - ${activeActivity.endTime}`} />

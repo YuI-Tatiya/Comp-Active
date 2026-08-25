@@ -5,11 +5,18 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
-import { EventsFilterSidebar, type EventsFilterValues } from "@/components/ui/events-filter-sidebar"
+import { EventsFilterSidebar } from "@/components/ui/events-filter-sidebar"
 import { HorizontalScrollSection } from "@/components/ui/horizontal-scroll-section"
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
 import { eventsAPI, activitiesAPI, EventSummary, Activity } from "@/lib/api"
-import { CATEGORIES, categoryLabel } from "@/lib/categories"
+import {
+    INITIAL_FILTERS,
+    activityFilterFields,
+    filterAndSortItems,
+    groupByCategory,
+    type EventsFilterValues,
+    type FilterableItem,
+} from "@/lib/events-filter"
 import { Loader2, Search, SlidersHorizontal, Sparkles } from "lucide-react"
 
 function nearestUpcomingActivity(ev: EventSummary) {
@@ -40,6 +47,11 @@ function hasVolunteerCert(ev: EventSummary): boolean {
     return ev.activities.some((a) => !!a.volunteerRole)
 }
 
+/** หมวดหมู่ทั้งหมดที่กิจกรรมย่อยของงานนี้ระบุไว้ — ใช้ให้การ์ดงานโผล่ในทุกหมวดที่เกี่ยวข้อง ไม่ใช่แค่หมวดเดียว */
+function eventCategories(ev: EventSummary): string[] {
+    return Array.from(new Set(ev.activities.map((a) => a.category).filter((c): c is string => !!c)))
+}
+
 /** วันจัดกิจกรรมย่อยที่เร็วที่สุดของงาน — ใช้เรียงลำดับ "ใกล้ถึงก่อน" */
 function earliestDate(ev: EventSummary): number {
     const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
@@ -47,39 +59,11 @@ function earliestDate(ev: EventSummary): number {
 }
 
 /** การ์ดข้อมูลรวมที่ใช้แสดงผล — งาน (หลายกิจกรรมย่อย) และกิจกรรมเดี่ยว normalize มาเป็นรูปแบบเดียวกัน */
-interface CardItem {
+interface CardItem extends FilterableItem {
     key: string
-    name: string
     imageUrl?: string | null
     description?: string | null
-    category?: string
-    status: "open" | "closed"
     href: string
-    searchText: string
-    sortDate: number
-    createdAt: number
-    seats: number | null
-    hasCert: boolean
-}
-
-const INITIAL_FILTERS: EventsFilterValues = {
-    search: "",
-    categories: [],
-    statuses: [],
-    certOnly: false,
-    range: "",
-    sort: "soon",
-}
-
-/** true ถ้าวันที่จัดอยู่ในช่วงที่เลือก — "" = ไม่กรอง */
-function withinRange(sortDate: number, range: string): boolean {
-    if (!range) return true
-    if (!Number.isFinite(sortDate)) return false
-    const now = Date.now()
-    const day = 86_400_000
-    if (range === "today") return sortDate >= now - day && sortDate <= now + day
-    const days = range === "week" ? 7 : 30
-    return sortDate >= now - day && sortDate <= now + days * day
 }
 
 /** หน้ารายการงานฝั่งนักศึกษา — จัดกลุ่มตามหมวดหมู่ เลื่อนซ้าย-ขวาได้ในแต่ละแถว */
@@ -124,6 +108,7 @@ export default function StudentEventsPage() {
                 imageUrl: ev.imageUrl ?? fa?.imageUrl,
                 description: ev.description,
                 category: fa?.category,
+                categories: eventCategories(ev),
                 status: isOpen(ev) ? "open" : "closed",
                 href: `/student/events/${ev.id}`,
                 searchText: [ev.name, ...ev.activities.map((a) => a.name)].join(" ").toLowerCase(),
@@ -135,50 +120,19 @@ export default function StudentEventsPage() {
         })
 
         const fromStandalone = standalone.map((a): CardItem => ({
+            ...activityFilterFields(a),
             key: `activity-${a.id}`,
-            name: a.name,
             imageUrl: a.imageUrl,
             description: a.description,
-            category: a.category,
-            status: a.status === "open" ? "open" : "closed",
             href: `/student/activities/${a.id}`,
-            searchText: a.name.toLowerCase(),
-            sortDate: new Date(a.date).getTime(),
-            createdAt: new Date(a.date).getTime(),
-            seats: a.capacity == null ? null : Math.max(a.capacity - (a.registeredCount ?? 0), 0),
-            hasCert: !!a.volunteerRole,
         }))
 
         return [...fromEvents, ...fromStandalone]
     }, [events, standalone])
 
-    const filteredAndSorted = useMemo(() => {
-        const q = filters.search.trim().toLowerCase()
-        const list = allItems.filter((item) => {
-            const matchesSearch = !q || item.searchText.includes(q)
-            const matchesCategory = filters.categories.length === 0 || (!!item.category && filters.categories.includes(item.category))
-            const matchesStatus = filters.statuses.length === 0 || filters.statuses.includes(item.status)
-            const matchesCert = !filters.certOnly || item.hasCert
-            const matchesRange = withinRange(item.sortDate, filters.range)
-            return matchesSearch && matchesCategory && matchesStatus && matchesCert && matchesRange
-        })
+    const filteredAndSorted = useMemo(() => filterAndSortItems(allItems, filters), [allItems, filters])
 
-        return [...list].sort((a, b) => {
-            if (filters.sort === "newest") return b.createdAt - a.createdAt
-            if (filters.sort === "seats") return (b.seats ?? Number.MAX_SAFE_INTEGER) - (a.seats ?? Number.MAX_SAFE_INTEGER)
-            if (filters.sort === "name") return a.name.localeCompare(b.name, "th")
-            return a.sortDate - b.sortDate
-        })
-    }, [allItems, filters])
-
-    const groupedByCategory = useMemo(
-        () =>
-            CATEGORIES.map((c) => ({
-                category: c,
-                items: filteredAndSorted.filter((item) => item.category === c.value),
-            })).filter((g) => g.items.length > 0),
-        [filteredAndSorted]
-    )
+    const groupedByCategory = useMemo(() => groupByCategory(filteredAndSorted), [filteredAndSorted])
 
     const totalCount = filteredAndSorted.length
 
@@ -270,7 +224,9 @@ export default function StudentEventsPage() {
                                                     activity={{ name: item.name, imageUrl: item.imageUrl }}
                                                     description={item.description}
                                                     badgeLeft={
-                                                        <EventCardBadge variant="light">{categoryLabel(item.category)}</EventCardBadge>
+                                                        // ใช้หมวดของ "กลุ่มที่กำลังแสดงอยู่" ไม่ใช่หมวดเดียวของการ์ด —
+                                                        // งานที่มีกิจกรรมย่อยหลายหมวดโผล่ซ้ำได้หลายกลุ่ม ป้ายต้องตรงกับกลุ่มนั้นๆ
+                                                        <EventCardBadge variant="light">{category.label}</EventCardBadge>
                                                     }
                                                     badgeRight={
                                                         <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>

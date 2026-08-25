@@ -11,7 +11,8 @@ import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { eventsAPI, activitiesAPI, isCancelledByOrganizer, EventSummary, Activity } from "@/lib/api"
 import { CATEGORIES } from "@/lib/categories"
-import { Loader2, Search, Plus, Layers, Pencil, Eye, EyeOff, Trash2 } from "lucide-react"
+import { RANGE_OPTIONS, withinRange } from "@/lib/events-filter"
+import { Loader2, Search, Plus, CalendarPlus, Layers, Pencil, Eye, EyeOff, Trash2 } from "lucide-react"
 
 /** สถานะการอนุมัติของกิจกรรมย่อย — ตรงกับ ApprovalStatus ใน backend/prisma/schema.prisma */
 const APPROVAL_META: Record<string, { label: string; className: string }> = {
@@ -35,10 +36,43 @@ function eventRegisteredCount(ev: EventSummary): number {
     return ev.activities.reduce((sum, a) => sum + (a.registeredCount ?? 0), 0)
 }
 
-/** วันจัดกิจกรรมย่อยที่เร็วที่สุด — ใช้เรียงลำดับ "ใกล้จัดงาน" */
+/** วันจัดกิจกรรมย่อยที่เร็วที่สุด — ใช้เรียงลำดับ "ใกล้จัดงาน" และกรองช่วงเวลา */
 function earliestDate(ev: EventSummary): number {
     const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
     return times.length ? Math.min(...times) : Number.POSITIVE_INFINITY
+}
+
+/** งานมีใบรับรองจิตอาสาถ้ากิจกรรมย่อยตัวใดตัวหนึ่งออกใบรับรอง */
+function eventHasCert(ev: EventSummary): boolean {
+    return ev.activities.some((a) => !!a.volunteerRole)
+}
+
+interface SortableFields {
+    createdAt: number
+    eventDate: number
+    registered: number
+    name: string
+}
+
+/** ตัวเปรียบเทียบเรียงลำดับกลาง — ใช้ร่วมกันทั้งการ์ด "งาน" และ "กิจกรรมเดี่ยว" ให้ตัวเลือกเรียงลำดับมีความหมายตรงกันทั้งสองกลุ่ม */
+function compareBySort(sort: string, a: SortableFields, b: SortableFields): number {
+    switch (sort) {
+        case "oldest":
+            return a.createdAt - b.createdAt
+        case "soon":
+            return a.eventDate - b.eventDate
+        case "latest":
+            return b.eventDate - a.eventDate
+        case "registrations_desc":
+            return b.registered - a.registered
+        case "registrations_asc":
+            return a.registered - b.registered
+        case "name":
+            return a.name.localeCompare(b.name, "th")
+        default:
+            // newest — วันที่สร้างล่าสุดก่อน
+            return b.createdAt - a.createdAt
+    }
 }
 
 const FILTERS: FilterSpec[] = [
@@ -67,18 +101,43 @@ const FILTERS: FilterSpec[] = [
         options: [{ value: "", label: "ทุกหมวดหมู่" }, ...CATEGORIES.map((c) => ({ value: c.value, label: c.label }))],
     },
     {
+        key: "cert",
+        label: "ใบรับรอง",
+        options: [
+            { value: "", label: "ทั้งหมด" },
+            { value: "yes", label: "มีใบรับรองจิตอาสา" },
+            { value: "no", label: "ไม่มีใบรับรองจิตอาสา" },
+        ],
+    },
+    {
+        key: "range",
+        label: "ช่วงเวลาจัดงาน",
+        options: RANGE_OPTIONS,
+    },
+    {
         key: "sort",
         label: "เรียงลำดับ",
         neutralValue: "newest",
         options: [
-            { value: "newest", label: "สร้างล่าสุด" },
-            { value: "soon", label: "ใกล้จัดงาน" },
-            { value: "registrations", label: "ยอดลงทะเบียนสูงสุด" },
+            { value: "newest", label: "วันที่สร้าง: ล่าสุดก่อน" },
+            { value: "oldest", label: "วันที่สร้าง: เก่าสุดก่อน" },
+            { value: "soon", label: "วันจัดงาน: ใกล้ถึงก่อน" },
+            { value: "latest", label: "วันจัดงาน: ไกลสุดก่อน" },
+            { value: "registrations_desc", label: "ยอดลงทะเบียน: มากไปน้อย" },
+            { value: "registrations_asc", label: "ยอดลงทะเบียน: น้อยไปมาก" },
+            { value: "name", label: "ชื่องาน: ก → ฮ" },
         ],
     },
 ]
 
-const INITIAL_VALUES: Record<string, string> = { status: "", visibility: "", category: "", sort: "newest" }
+const INITIAL_VALUES: Record<string, string> = {
+    status: "",
+    visibility: "",
+    category: "",
+    cert: "",
+    range: "",
+    sort: "newest",
+}
 
 type DeleteTarget = { kind: "event"; id: number; name: string } | { kind: "activity"; id: number; name: string }
 
@@ -137,27 +196,41 @@ export default function OrganizerManagePage() {
             const matchesVisibility =
                 !values.visibility || (values.visibility === "public" ? ev.isPublic : !ev.isPublic)
             const matchesCategory = !values.category || ev.activities.some((a) => a.category === values.category)
-            return matchesSearch && matchesStatus && matchesVisibility && matchesCategory
+            const matchesCert = !values.cert || (values.cert === "yes" ? eventHasCert(ev) : !eventHasCert(ev))
+            const matchesRange = withinRange(earliestDate(ev), values.range)
+            return matchesSearch && matchesStatus && matchesVisibility && matchesCategory && matchesCert && matchesRange
         })
 
-        return [...list].sort((a, b) => {
-            if (values.sort === "soon") return earliestDate(a) - earliestDate(b)
-            if (values.sort === "registrations") return eventRegisteredCount(b) - eventRegisteredCount(a)
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        })
+        return [...list].sort((a, b) =>
+            compareBySort(
+                values.sort,
+                { createdAt: new Date(a.createdAt).getTime(), eventDate: earliestDate(a), registered: eventRegisteredCount(a), name: a.name },
+                { createdAt: new Date(b.createdAt).getTime(), eventDate: earliestDate(b), registered: eventRegisteredCount(b), name: b.name }
+            )
+        )
     }, [events, searchQuery, values])
 
     const filteredStandalone = useMemo(() => {
         const q = searchQuery.trim().toLowerCase()
-        return standaloneActivities.filter((a) => {
+        const list = standaloneActivities.filter((a) => {
             const matchesSearch = !q || a.name.toLowerCase().includes(q)
             const status = isCancelledByOrganizer(a.approvalStatus) ? "cancelled" : a.status === "open" ? "open" : "closed"
             const matchesStatus = !values.status || status === values.status
             const matchesCategory = !values.category || a.category === values.category
+            const matchesCert = !values.cert || (values.cert === "yes" ? !!a.volunteerRole : !a.volunteerRole)
+            const matchesRange = withinRange(new Date(a.date).getTime(), values.range)
             // กิจกรรมเดี่ยวไม่มีแนวคิดการเผยแพร่ระดับงาน จึงซ่อนเมื่อผู้ใช้กรองด้วยเงื่อนไขนี้
             const matchesVisibility = !values.visibility
-            return matchesSearch && matchesStatus && matchesCategory && matchesVisibility
+            return matchesSearch && matchesStatus && matchesCategory && matchesVisibility && matchesCert && matchesRange
         })
+
+        return [...list].sort((a, b) =>
+            compareBySort(
+                values.sort,
+                { createdAt: new Date(a.createdAt ?? a.date).getTime(), eventDate: new Date(a.date).getTime(), registered: a.registeredCount ?? 0, name: a.name },
+                { createdAt: new Date(b.createdAt ?? b.date).getTime(), eventDate: new Date(b.date).getTime(), registered: b.registeredCount ?? 0, name: b.name }
+            )
+        )
     }, [standaloneActivities, searchQuery, values])
 
     const totalCount = filteredEvents.length + filteredStandalone.length
@@ -238,9 +311,13 @@ export default function OrganizerManagePage() {
                         <p className="text-fg-muted">แก้ไข ดูรายละเอียด และติดตามยอดผู้ลงทะเบียนของงานที่คุณสร้าง</p>
                     </div>
 
-                    <Button asChild size="lg" className="w-full md:w-auto font-bold rounded-xl">
+                    <Button
+                        asChild
+                        size="lg"
+                        className="w-full gap-2 rounded-xl font-bold shadow-lg shadow-brand-500/30 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/40 md:w-auto"
+                    >
                         <Link href="/organizer/create">
-                            <Plus />
+                            <CalendarPlus className="size-5" aria-hidden="true" />
                             สร้างงานใหม่
                         </Link>
                     </Button>
@@ -339,20 +416,23 @@ export default function OrganizerManagePage() {
                             <>
                                 <h3 className="text-xl font-bold text-fg mb-2">ยังไม่มีงาน</h3>
                                 <p className="text-fg-muted">เริ่มต้นด้วยการสร้างงานแรกของคุณ</p>
-                                <Button asChild className="mt-6 rounded-full px-8">
-                                    <Link href="/organizer/create">สร้างงานใหม่</Link>
+                                <Button asChild className="mt-6 gap-2 rounded-full px-8 shadow-lg shadow-brand-500/30">
+                                    <Link href="/organizer/create">
+                                        <CalendarPlus className="size-4" aria-hidden="true" />
+                                        สร้างงานใหม่
+                                    </Link>
                                 </Button>
                             </>
                         ) : (
                             <>
                                 <h3 className="text-xl font-bold text-fg mb-2">ไม่พบกิจกรรมที่ค้นหา</h3>
-                                <p className="text-fg-muted">ลองใช้คำค้นหาอื่น หรือล้างการค้นหาเพื่อดูกิจกรรมทั้งหมด</p>
+                                <p className="text-fg-muted">ลองใช้คำค้นหาอื่น หรือล้างตัวกรองเพื่อดูกิจกรรมทั้งหมด</p>
                                 <Button
                                     variant="outline"
                                     className="mt-6 rounded-full px-8"
-                                    onClick={() => setSearchQuery("")}
+                                    onClick={resetFilters}
                                 >
-                                    ล้างการค้นหา
+                                    ล้างตัวกรอง
                                 </Button>
                             </>
                         )}

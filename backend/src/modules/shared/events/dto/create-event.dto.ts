@@ -15,30 +15,8 @@ import {
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CreateEventActivityDto } from './create-event-activity.dto';
-import { SurveyQuestionType, EventVisibility } from '../../../../common/enums/status.enum';
-
-class CreateSurveyQuestionDto {
-  @ApiProperty({ example: 'กิจกรรมนี้เป็นประโยชน์ต่อคุณมากน้อยเพียงใด?', description: 'ข้อความคำถาม' })
-  @IsString()
-  @IsNotEmpty()
-  label: string;
-
-  @ApiProperty({ enum: Object.values(SurveyQuestionType), example: SurveyQuestionType.RATING })
-  @IsIn(Object.values(SurveyQuestionType))
-  type: SurveyQuestionType;
-
-  @ApiPropertyOptional({
-    default: 5,
-    minimum: 2,
-    maximum: 10,
-    description: 'คะแนนเต็ม — ใช้เมื่อ type เป็น rating เท่านั้น',
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(2)
-  @Max(10)
-  scaleMax?: number;
-}
+import { CreateSurveyQuestionDto } from './create-survey-question.dto';
+import { EventVisibility } from '../../../../common/enums/status.enum';
 
 export class CreateEventDto {
   @ApiProperty({ example: 'ค่ายอาสาพัฒนาชนบท ปี 2569', description: 'ชื่องาน' })

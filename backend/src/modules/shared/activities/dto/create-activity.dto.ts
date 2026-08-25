@@ -1,6 +1,17 @@
-import { IsNotEmpty, IsString, IsNumber, IsOptional, IsArray, IsIn, Min } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  IsIn,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SoftSkillType } from '../../../../common/enums/soft-skill.enum';
+import { CreateSurveyQuestionDto } from '../../events/dto/create-survey-question.dto';
 
 export class CreateActivityDto {
   @ApiProperty({ example: 'อบรม React Workshop', description: 'ชื่อกิจกรรม' })
@@ -74,4 +85,14 @@ export class CreateActivityDto {
   @IsString()
   @IsOptional()
   imageUrl?: string;
+
+  @ApiPropertyOptional({
+    type: [CreateSurveyQuestionDto],
+    description: 'คำถามแบบสำรวจความพึงพอใจหลังกิจกรรม — เฉพาะกิจกรรมเดี่ยวที่ไม่ได้อยู่ในงานไหน',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateSurveyQuestionDto)
+  surveyQuestions?: CreateSurveyQuestionDto[];
 }

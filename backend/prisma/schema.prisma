@@ -234,6 +234,8 @@ model Activity {
   softSkills    ActivitySoftSkill[]
   questions     ActivityQuestion[]
   registrations Registration[]
+  // แบบสำรวจของกิจกรรมเดี่ยว (ไม่มี Event แม่) — งานที่มี Event จะใช้ Event.surveyQuestions แทน ไม่ใช่อันนี้
+  surveyQuestions EventSurveyQuestion[]
 
   @@map("activities")
 }
@@ -358,16 +360,20 @@ model RegistrationAnswerOption {
 
 // ─── งาน: แบบสำรวจความพึงพอใจหลังกิจกรรม ────────────────────────────────────────
 
+// เดิมผูกกับ Event เท่านั้น (eventId บังคับ) — ตอนนี้ผูกกับ Activity เดี่ยว (ไม่มี Event แม่) ได้ด้วย
+// จึงต้องเปิด eventId ให้ null ได้ และเพิ่ม activityId คู่กัน แอปพลิเคชันชั้น service คุมให้กรอกได้ทีละอย่างเท่านั้น
 model EventSurveyQuestion {
-  id        Int                @id @default(autoincrement())
-  eventId   Int                @map("event_id")
-  label     String
-  type      SurveyQuestionType
-  scaleMax  Int                @default(5) @map("scale_max")
-  sortOrder Int                @default(0) @map("sort_order")
+  id         Int                @id @default(autoincrement())
+  eventId    Int?               @map("event_id")
+  activityId Int?               @map("activity_id")
+  label      String
+  type       SurveyQuestionType
+  scaleMax   Int                @default(5) @map("scale_max")
+  sortOrder  Int                @default(0) @map("sort_order")
 
-  event   Event                      @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  answers RegistrationSurveyAnswer[]
+  event    Event?                     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  activity Activity?                  @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  answers  RegistrationSurveyAnswer[]
 
   @@map("event_survey_questions")
 }

@@ -49,6 +49,19 @@ export class ActivitiesOrganizerController {
   }
 
   /**
+   * GET /api/activities/:id/survey-results - ดูผลสรุปแบบสำรวจของกิจกรรมเดี่ยว (เจ้าของ / Admin)
+   */
+  @Get(':id/survey-results')
+  @ApiOperation({ summary: 'ดูผลสรุปแบบสำรวจของกิจกรรมเดี่ยว (เจ้าของ / Admin)' })
+  async getSurveyResults(
+    @CurrentUser('id') userId: number,
+    @CurrentUser('role') userRole: UserRole,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.activitiesService.getSurveyResults(id, userId, userRole);
+  }
+
+  /**
    * POST /api/activities - สร้างกิจกรรมใหม่ (Organizer)
    */
   @Post()

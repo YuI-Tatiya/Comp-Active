@@ -4,17 +4,14 @@ import Link from "next/link"
 import { Calendar, MapPin, Users } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { API_BASE_URL, isUnlimitedCapacity, type Activity } from "@/lib/api"
+import { categoryLabel } from "@/lib/categories"
 import { cn } from "@/lib/utils"
 
 const FALLBACK_IMAGE =
     "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop"
 
-const CATEGORY_LABELS: Record<string, string> = {
-    Technology: "เทคโนโลยี",
-    Academic: "วิชาการ",
-    Competition: "การแข่งขัน",
-    Volunteer: "อาสาสมัคร",
-}
+// เดิมมี map ชื่อหมวดของตัวเองที่ตกหล่นสองหมวด (Sports, Art & Culture) ทำให้การ์ดโชว์ค่าดิบ
+// ภาษาอังกฤษ และชื่อหมวดหลุดจาก lib/categories.ts เวลาแก้ — ใช้ตัวกลางที่เดียวแทน
 
 /** map ActivityStatus จาก schema.prisma → badge variant */
 const STATUS_META: Record<string, { label: string; variant: "success" | "info" | "neutral" }> = {
@@ -37,7 +34,7 @@ function formatDate(dateString: string) {
 
 interface ActivityCardProps {
     activity: Activity
-    /** ปลายทางเมื่อคลิก — เปลี่ยนได้สำหรับฝั่ง student (ค่าเริ่มต้น /events/[id]) */
+    /** ปลายทางเมื่อคลิก — เปลี่ยนได้สำหรับฝั่ง student (ค่าเริ่มต้น /events/activities/[id] — activity.id เป็น Activity ไม่ใช่ Event) */
     href?: string
     className?: string
 }
@@ -52,7 +49,7 @@ export function ActivityCard({ activity, href, className }: ActivityCardProps) {
 
     return (
         <Link
-            href={href ?? `/events/${activity.id}`}
+            href={href ?? `/events/activities/${activity.id}`}
             className={cn(
                 "group flex flex-col overflow-hidden rounded-xl border border-border bg-bg transition-colors hover:border-border-strong hover:shadow-sm",
                 className
@@ -79,7 +76,7 @@ export function ActivityCard({ activity, href, className }: ActivityCardProps) {
                 <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
                     {activity.category && (
                         <Badge variant="default">
-                            {CATEGORY_LABELS[activity.category] ?? activity.category}
+                            {categoryLabel(activity.category)}
                         </Badge>
                     )}
                     <Badge variant={status.variant}>{status.label}</Badge>

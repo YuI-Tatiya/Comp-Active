@@ -65,6 +65,11 @@ export interface Activity<T = unknown> {
   // กิจกรรมเก่า (สร้างก่อนมี event) จะเป็น null เพราะฟิลด์เดิมยังคงใช้งานได้ปกติ
   startAt?: string | null;
   endAt?: string | null;
+  /**
+   * วันที่ผู้จัดสร้าง/ประกาศกิจกรรม — คนละอย่างกับ date ที่เป็นวันจัดงาน
+   * ใช้เรียงลำดับ "วันที่ประกาศ" (เดิมหน้ารายการเอา date มาใช้แทนจึงเรียงผิดความหมาย)
+   */
+  createdAt?: string | null;
   location: string;
   registeredCount: number;
   // null = ไม่จำกัดจำนวน
@@ -81,6 +86,8 @@ export interface Activity<T = unknown> {
   benefits: Benefit[];
   softSkills?: { skillType: string; rate?: number }[];
   questions?: ActivityQuestion[];
+  /** แบบสำรวจหลังกิจกรรม — เฉพาะกิจกรรมเดี่ยวที่ไม่ได้อยู่ในงานไหน (eventId เป็น null) */
+  surveyQuestions?: EventSurveyQuestion[];
   organizer?: User;
   registrations?: T[];
 }
@@ -244,6 +251,8 @@ export const activitiesAPI = {
     fetchAPI<Activity>(`/api/activities/${id}/complete`, { method: 'PATCH' }),
   getPlatformStats: () => fetchAPI<PlatformStats>('/api/activities/stats/platform'),
   getOrganizerStats: () => fetchAPI<OrganizerStats>('/api/activities/stats/organizer'),
+  /** ผลสรุปแบบสำรวจของกิจกรรมเดี่ยว — โครงสร้างตรงกับ eventsAPI.getSurveyResults */
+  getSurveyResults: (id: number) => fetchAPI<EventSurveyResultsResponse>(`/api/activities/${id}/survey-results`),
   uploadImage: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -336,8 +345,31 @@ export interface SurveyResult {
   // เฉพาะ type "rating"
   scaleMax?: number;
   average?: number;
+  // จำนวนคนที่ให้แต่ละคะแนน คีย์คือคะแนน 1..scaleMax (string เพราะมาจาก JSON key) — เฉพาะ type "rating"
+  distribution?: Record<string, number>;
   // เฉพาะ type "text"
   responses?: string[];
+}
+
+/** คำตอบแบบสำรวจของนักศึกษาคนหนึ่ง ต่อคำถามหนึ่งข้อ */
+export interface SurveyAnswerValue {
+  ratingValue: number | null;
+  textValue: string | null;
+}
+
+/** แถวเดียวต่อผู้ตอบแบบสำรวจ 1 คน — รวมคำตอบทุกข้อของ registration นั้นไว้ด้วยกัน */
+export interface SurveyRespondent {
+  registrationId: number;
+  student: { id: number; name: string; studentId: string | null };
+  activityId: number;
+  activityName: string;
+  // คีย์คือ questionId (string เพราะมาจาก JSON key)
+  answers: Record<string, SurveyAnswerValue>;
+}
+
+export interface EventSurveyResultsResponse {
+  questions: SurveyResult[];
+  respondents: SurveyRespondent[];
 }
 
 export interface EventSummary {
@@ -372,7 +404,7 @@ export const eventsAPI = {
   delete: (id: number) => fetchAPI<void>(`/api/events/${id}`, { method: 'DELETE' }),
   getAllPublic: () => fetchAPI<EventSummary[]>('/api/events'),
   getPublicById: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}/public`),
-  getSurveyResults: (id: number) => fetchAPI<SurveyResult[]>(`/api/events/${id}/survey-results`),
+  getSurveyResults: (id: number) => fetchAPI<EventSurveyResultsResponse>(`/api/events/${id}/survey-results`),
   uploadAttachment: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);

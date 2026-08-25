@@ -11,6 +11,7 @@ import {
 } from '../../../common/enums/status.enum';
 import { UserRole } from '../../../common/enums/role.enum';
 import { isViewerEligibleForEvent, Viewer } from './event-visibility.util';
+import { buildSurveyResults } from './survey-results.util';
 
 @Injectable()
 export class EventsService {
@@ -160,7 +161,9 @@ export class EventsService {
       };
     });
 
-    const surveyQuestions = (dto.surveyQuestions ?? []).map((q, index) => {
+    // ไม่ส่ง surveyQuestions มาเลย = ไม่ได้ตั้งใจแก้แบบสำรวจ ปล่อยของเดิมไว้
+    // (เดิม `?? []` ทำให้กลายเป็น "ลบทุกข้อ" ซึ่งพาคำตอบของนักศึกษาหายไปด้วย)
+    const surveyQuestions = dto.surveyQuestions?.map((q, index) => {
       if (q.type === SurveyQuestionType.RATING && q.scaleMax !== undefined && q.scaleMax < 2) {
         throw new BadRequestException(`คำถามแบบสำรวจข้อที่ ${index + 1}: คะแนนเต็มต้องมีอย่างน้อย 2`);
       }
@@ -294,24 +297,6 @@ export class EventsService {
       throw new BadRequestException('คุณไม่มีสิทธิ์ดูผลสำรวจของงานนี้');
     }
 
-    return event.surveyQuestions.map((q) => {
-      if (q.type === SurveyQuestionType.RATING) {
-        const ratings = q.answers.map((a) => a.ratingValue).filter((v): v is number => v !== null);
-        const average = ratings.length ? ratings.reduce((sum, v) => sum + v, 0) / ratings.length : 0;
-
-        return {
-          questionId: q.id,
-          label: q.label,
-          type: q.type,
-          scaleMax: q.scaleMax,
-          responseCount: ratings.length,
-          average: Number(average.toFixed(2)),
-        };
-      }
-
-      const responses = q.answers.map((a) => a.textValue).filter((v): v is string => !!v);
-
-      return { questionId: q.id, label: q.label, type: q.type, responseCount: responses.length, responses };
-    });
+    return buildSurveyResults(event.surveyQuestions);
   }
 }

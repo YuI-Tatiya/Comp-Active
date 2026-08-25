@@ -10,6 +10,7 @@ export const activityInclude = {
   benefits: true,
   softSkills: true,
   questions: { include: { options: true } },
+  surveyQuestions: { orderBy: { sortOrder: 'asc' } },
   organizer: { select: { id: true, name: true, email: true } },
   event: {
     select: {
@@ -21,11 +22,18 @@ export const activityInclude = {
   },
 } as const;
 
+interface SurveyQuestionData {
+  label: string;
+  type: string;
+  scaleMax: number;
+}
+
 interface RelationUpdate {
   tags?: string[];
   conditions?: string[];
   benefits?: string[];
   softSkills?: SoftSkillType[];
+  surveyQuestions?: SurveyQuestionData[];
 }
 
 @Injectable()
@@ -67,6 +75,17 @@ export class ActivitiesRepository {
         conditions: true,
         benefits: true,
         softSkills: true,
+        // แดชบอร์ดผู้จัดต้องนับ "รอยืนยันผู้สมัคร" และ "รอประเมินทักษะ" ซึ่งดูจาก registration รายตัว
+        // ไม่ใช่แค่ยอดรวม — เดิม include มีแค่ _count ทำให้ตัวเลขสองช่องนั้นขึ้น 0 เสมอ
+        // select เฉพาะฟิลด์ที่ใช้จริง ไม่ดึงทั้งแถวเพราะผู้จัดรายเดียวอาจมีผู้ลงทะเบียนหลักพัน
+        registrations: {
+          select: {
+            id: true,
+            status: true,
+            attendance: true,
+            evaluation: { select: { id: true } },
+          },
+        },
         _count: { select: { registrations: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -111,6 +130,41 @@ export class ActivitiesRepository {
         }
       }
 
+      // แบบสำรวจ — จับคู่ตามลำดับข้อแล้วอัปเดตทับแถวเดิม (ตรรกะเดียวกับ EventsRepository.update)
+      // ห้ามลบทั้งชุดแล้วสร้างใหม่ เพราะ RegistrationSurveyAnswer.questionId เป็น onDelete: Cascade
+      // คำตอบที่นักศึกษาตอบไว้จะหายทั้งหมดเพียงเพราะผู้จัดกดบันทึกหน้าแก้ไข
+      if (relations.surveyQuestions !== undefined) {
+        const existing = await tx.eventSurveyQuestion.findMany({
+          where: { activityId },
+          orderBy: { sortOrder: 'asc' },
+        });
+
+        for (const [sortOrder, q] of relations.surveyQuestions.entries()) {
+          const row = existing[sortOrder];
+          if (!row) {
+            await tx.eventSurveyQuestion.create({
+              data: { activityId, label: q.label, type: q.type as any, scaleMax: q.scaleMax, sortOrder },
+            });
+            continue;
+          }
+
+          // เปลี่ยนชนิดคำถาม = คำตอบเดิมใช้ไม่ได้แล้ว ลบเฉพาะข้อนั้น
+          if (row.type !== (q.type as any)) {
+            await tx.registrationSurveyAnswer.deleteMany({ where: { questionId: row.id } });
+          }
+
+          await tx.eventSurveyQuestion.update({
+            where: { id: row.id },
+            data: { label: q.label, type: q.type as any, scaleMax: q.scaleMax, sortOrder },
+          });
+        }
+
+        const surplus = existing.slice(relations.surveyQuestions.length);
+        if (surplus.length) {
+          await tx.eventSurveyQuestion.deleteMany({ where: { id: { in: surplus.map((r) => r.id) } } });
+        }
+      }
+
       return tx.activity.findUnique({
         where: { id: activityId },
         include: { ...activityInclude, registrations: true },
@@ -120,6 +174,29 @@ export class ActivitiesRepository {
 
   delete(activityId: number) {
     return this.prisma.activity.delete({ where: { id: activityId } });
+  }
+
+  findByIdWithSurveyAnswers(id: number) {
+    return this.prisma.activity.findUnique({
+      where: { id },
+      include: {
+        surveyQuestions: {
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            answers: {
+              include: {
+                registration: {
+                  include: {
+                    student: { select: { id: true, name: true, studentId: true } },
+                    activity: { select: { id: true, name: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
   }
 
   countAll() {
