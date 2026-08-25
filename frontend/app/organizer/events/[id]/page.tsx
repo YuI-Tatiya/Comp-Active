@@ -8,12 +8,14 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
-import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Edit, CheckSquare, Download, Loader2 } from "lucide-react"
+import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Edit, CheckSquare, Download, Loader2, Search } from "lucide-react"
 import Link from "next/link"
 import { eventsAPI, registrationsAPI, activitiesAPI, isUnlimitedCapacity, isCancelledByOrganizer, EventSummary } from "@/lib/api"
 import { resolveEventImageUrl } from "@/lib/event-image"
@@ -22,18 +24,68 @@ import {
     ActivityRegistrationPanel,
     ActivityRewardsPanel,
 } from "@/components/activity/activity-info-panels"
-import { EventSurveyResults } from "@/components/activity/event-survey-results"
 import { programLabel } from "@/lib/programs"
 
 type EventActivity = EventSummary["activities"][number]
 
+interface RegistrationAnswerRow {
+    question: { id: number; label: string }
+    textValue?: string | null
+    options?: { option: { id: number; label: string } }[]
+}
+
 /** รูปร่างของ registration ที่ backend คืนมาใน EventSummary.activities[].registrations — Activity<T> เป็น unknown[] โดย default */
 interface RegistrationRow {
     id: number
-    student: { name: string; studentId: string; email: string }
+    student: { name: string; studentId: string; email: string; phone?: string | null }
     status: string
     attendance: string
     evaluation?: unknown
+    wantsCertLoanFund?: boolean
+    wantsCertScholarship?: boolean
+    answers?: RegistrationAnswerRow[]
+}
+
+/** ข้อความคำตอบของคำถามหนึ่งข้อ — text ใช้ตรงๆ, choice รวม label ตัวเลือกที่เลือกด้วยจุลภาค */
+function answerText(a: RegistrationAnswerRow): string {
+    if (a.textValue) return a.textValue
+    if (a.options && a.options.length > 0) return a.options.map((o) => o.option.label).join(", ")
+    return "-"
+}
+
+interface ParticipantFilters {
+    status: "" | "confirmed" | "pending"
+    wantsCertLoanFund: boolean
+    wantsCertScholarship: boolean
+}
+
+const INITIAL_PARTICIPANT_FILTERS: ParticipantFilters = {
+    status: "",
+    wantsCertLoanFund: false,
+    wantsCertScholarship: false,
+}
+
+/** กรองรายชื่อผู้เข้าร่วมด้วยคำค้นหา + ตัวกรองสถานะ/กยศ./ทุน — ใช้ทั้งแสดงตารางและ export CSV เพื่อให้ผลตรงกันเสมอ */
+function filterRegistrations(
+    registrations: RegistrationRow[] | undefined,
+    search: string,
+    filters: ParticipantFilters
+): RegistrationRow[] {
+    if (!registrations) return []
+    const q = search.trim().toLowerCase()
+    return registrations.filter((reg) => {
+        const matchesSearch =
+            !q ||
+            reg.student.name.toLowerCase().includes(q) ||
+            reg.student.studentId.toLowerCase().includes(q) ||
+            reg.student.email.toLowerCase().includes(q)
+        const matchesStatus = !filters.status || reg.status === filters.status
+        const matchesCert =
+            (!filters.wantsCertLoanFund && !filters.wantsCertScholarship) ||
+            (filters.wantsCertLoanFund && reg.wantsCertLoanFund) ||
+            (filters.wantsCertScholarship && reg.wantsCertScholarship)
+        return matchesSearch && matchesStatus && matchesCert
+    })
 }
 
 export default function OrganizerEventDetailsPage() {
@@ -47,6 +99,12 @@ export default function OrganizerEventDetailsPage() {
 
     const [isCancelOpen, setIsCancelOpen] = useState(false)
     const [cancelReason, setCancelReason] = useState("")
+
+    const [confirmAllIds, setConfirmAllIds] = useState<number[] | null>(null)
+    const [confirmingAll, setConfirmingAll] = useState(false)
+
+    const [participantSearch, setParticipantSearch] = useState("")
+    const [participantFilters, setParticipantFilters] = useState<ParticipantFilters>(INITIAL_PARTICIPANT_FILTERS)
 
     useEffect(() => {
         if (id) fetchEventDetails(id)
@@ -77,12 +135,35 @@ export default function OrganizerEventDetailsPage() {
 
     const exportCSV = () => {
         if (!activeActivity?.registrations || activeActivity.registrations.length === 0) return
-        const headers = ["ลำดับ", "ชื่อ-นามสกุล", "รหัสนักศึกษา", "อีเมล", "สถานะการลงทะเบียน", "เช็คอิน"]
-        const rows = (activeActivity.registrations as RegistrationRow[]).map((reg, idx) => [
+        const filtered = filterRegistrations(activeActivity.registrations as RegistrationRow[], participantSearch, participantFilters)
+        if (filtered.length === 0) return
+
+        // คอลัมน์คำถามลงทะเบียนแตกต่างกันไปตามกิจกรรม — สร้างหัวตารางจากคำถามจริงของกิจกรรมนี้
+        const questions = activeActivity.questions ?? []
+        const headers = [
+            "ลำดับ",
+            "ชื่อ-นามสกุล",
+            "รหัสนักศึกษา",
+            "อีเมล",
+            "เบอร์โทร",
+            ...questions.map((q) => q.label),
+            "ขอจิตอาสา กยศ.",
+            "ขอจิตอาสาทุนการศึกษา",
+            "สถานะการลงทะเบียน",
+            "เช็คอิน",
+        ]
+        const rows = filtered.map((reg, idx) => [
             idx + 1,
             reg.student?.name || "-",
             reg.student?.studentId || "-",
             reg.student?.email || "-",
+            reg.student?.phone || "-",
+            ...questions.map((q) => {
+                const a = reg.answers?.find((ans) => ans.question.id === q.id)
+                return a ? answerText(a) : "-"
+            }),
+            reg.wantsCertLoanFund ? "ขอ" : "-",
+            reg.wantsCertScholarship ? "ขอ" : "-",
             reg.status === "confirmed" ? "ยืนยันแล้ว" : "รอดำเนินการ",
             reg.attendance === "attended" ? "เข้าร่วมแล้ว" : "ยังไม่เช็คอิน",
         ])
@@ -91,7 +172,7 @@ export default function OrganizerEventDetailsPage() {
             `กิจกรรมย่อย: ${activeActivity.name}`,
             `วันที่จัด: ${formatEventDate(activeActivity.date)}  เวลา: ${activeActivity.startTime} - ${activeActivity.endTime}`,
             `สถานที่: ${activeActivity.location}`,
-            `จำนวนผู้ลงทะเบียนทั้งหมด: ${activeActivity.registrations.length} คน`,
+            `จำนวนผู้ลงทะเบียนที่ export (ตามตัวกรองที่เลือก): ${filtered.length} คน`,
             "",
             headers.join(","),
             ...rows.map((r) => r.map((cell) => `"${cell}"`).join(",")),
@@ -163,6 +244,24 @@ export default function OrganizerEventDetailsPage() {
         } catch (err: unknown) {
             const e = err as Error
             alert(e.message || "เช็คอินไม่สำเร็จ")
+        }
+    }
+
+    const handleConfirmAll = async () => {
+        if (!confirmAllIds || confirmAllIds.length === 0) return
+        setConfirmingAll(true)
+        try {
+            const results = await Promise.allSettled(confirmAllIds.map((regId) => registrationsAPI.confirm(regId)))
+            const failed = results.filter((r) => r.status === "rejected").length
+            setConfirmAllIds(null)
+            if (failed > 0) {
+                alert(`ยืนยันสำเร็จ ${confirmAllIds.length - failed} คน, ไม่สำเร็จ ${failed} คน`)
+            } else {
+                alert(`ยืนยันผู้เข้าร่วมสำเร็จทั้งหมด ${confirmAllIds.length} คน`)
+            }
+            fetchEventDetails(id)
+        } finally {
+            setConfirmingAll(false)
         }
     }
 
@@ -290,67 +389,158 @@ export default function OrganizerEventDetailsPage() {
                                         </TabsContent>
 
                                         <TabsContent value="participants" className="bg-bg rounded-xl border border-border shadow-xs overflow-hidden">
-                                            <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-border">
-                                                <p className="text-sm text-fg-muted">ผู้ลงทะเบียนทั้งหมด <span className="font-semibold text-fg">{a.registrations?.length || 0}</span> คน</p>
-                                                <Button size="sm" variant="outline" className="gap-2" onClick={exportCSV} disabled={!a.registrations?.length}>
-                                                    <Download className="w-4 h-4" /> Export CSV
-                                                </Button>
-                                            </div>
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-left">
-                                                    <thead>
-                                                        <tr className="bg-surface text-fg-muted text-sm">
-                                                            <th className="px-6 py-4 font-semibold">รายชื่อผู้เข้าร่วม</th>
-                                                            <th className="px-6 py-4 font-semibold">สถานะ</th>
-                                                            <th className="px-6 py-4 font-semibold">เช็คอิน</th>
-                                                            <th className="px-6 py-4 font-semibold text-right">การจัดการ</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-border">
-                                                        {a.registrations && a.registrations.length > 0 ? (
-                                                            (a.registrations as RegistrationRow[]).map((reg) => (
-                                                                <tr key={reg.id} className="hover:bg-surface transition-colors">
-                                                                    <td className="px-6 py-4">
-                                                                        <div className="font-medium text-fg">{reg.student.name}</div>
-                                                                        <div className="text-xs text-fg-muted">{reg.student.studentId} | {reg.student.email}</div>
-                                                                    </td>
-                                                                    <td className="px-6 py-4">
-                                                                        <Badge variant={reg.status === "confirmed" ? "default" : "neutral"}>
-                                                                            {reg.status === "confirmed" ? "ยืนยันแล้ว" : "รอการยืนยัน"}
-                                                                        </Badge>
-                                                                    </td>
-                                                                    <td className="px-6 py-4">
-                                                                        {reg.attendance === "attended" ? (
-                                                                            <Badge variant="success">เข้าร่วมแล้ว</Badge>
-                                                                        ) : (
-                                                                            <span className="text-sm text-fg-subtle">ยังไม่เช็คอิน</span>
-                                                                        )}
-                                                                    </td>
-                                                                    <td className="px-6 py-4 text-right">
-                                                                        <div className="flex justify-end gap-2">
-                                                                            {reg.status === "pending" && (
-                                                                                <Button size="sm" variant="outline" className="text-brand-600" onClick={() => handleConfirm(reg.id)}>ยืนยัน</Button>
-                                                                            )}
-                                                                            {reg.status === "confirmed" && reg.attendance !== "attended" && (
-                                                                                <Button size="sm" variant="outline" className="text-success" onClick={() => handleCheckIn(reg.id)}>เช็คอิน</Button>
-                                                                            )}
-                                                                            {reg.attendance === "attended" && (
-                                                                                reg.evaluation ? (
-                                                                                    <Badge variant="success" className="gap-1"><CheckSquare className="size-3" aria-hidden="true" />ประเมินอัตโนมัติแล้ว</Badge>
-                                                                                ) : (
-                                                                                    <Badge variant="neutral">ยังไม่มีคะแนน</Badge>
-                                                                                )
-                                                                            )}
+                                            {(() => {
+                                                const allRegs = (a.registrations as RegistrationRow[] | undefined) ?? []
+                                                const filteredRegs = filterRegistrations(allRegs, participantSearch, participantFilters)
+                                                const questions = a.questions ?? []
+                                                const pendingIdsInView = filteredRegs.filter((r) => r.status === "pending").map((r) => r.id)
+                                                return (
+                                                    <>
+                                                        <div className="space-y-3 px-6 py-4 border-b border-border">
+                                                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                                                <p className="text-sm text-fg-muted">
+                                                                    ผู้ลงทะเบียนทั้งหมด <span className="font-semibold text-fg">{allRegs.length}</span> คน
+                                                                    {filteredRegs.length !== allRegs.length && (
+                                                                        <> — พบ <span className="font-semibold text-fg">{filteredRegs.length}</span> คนตามตัวกรอง</>
+                                                                    )}
+                                                                </p>
+                                                                <div className="flex gap-2">
+                                                                    <Button
+                                                                        size="sm"
+                                                                        className="gap-2"
+                                                                        onClick={() => setConfirmAllIds(pendingIdsInView)}
+                                                                        disabled={pendingIdsInView.length === 0}
+                                                                    >
+                                                                        <CheckSquare className="w-4 h-4" /> ยืนยันทั้งหมด ({pendingIdsInView.length})
+                                                                    </Button>
+                                                                    <Button size="sm" variant="outline" className="gap-2" onClick={exportCSV} disabled={!filteredRegs.length}>
+                                                                        <Download className="w-4 h-4" /> Export CSV
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
+                                                                <div className="relative sm:w-64">
+                                                                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
+                                                                    <Input
+                                                                        value={participantSearch}
+                                                                        onChange={(e) => setParticipantSearch(e.target.value)}
+                                                                        placeholder="ค้นหาชื่อ, รหัสนักศึกษา, อีเมล..."
+                                                                        className="h-9 pl-9"
+                                                                    />
+                                                                </div>
+                                                                <Select
+                                                                    className="h-9 sm:w-52"
+                                                                    value={participantFilters.status}
+                                                                    onChange={(e) =>
+                                                                        setParticipantFilters((prev) => ({ ...prev, status: e.target.value as ParticipantFilters["status"] }))
+                                                                    }
+                                                                >
+                                                                    <option value="">สถานะ: ทั้งหมด</option>
+                                                                    <option value="confirmed">อนุมัติการเข้าร่วมกิจกรรมแล้ว</option>
+                                                                    <option value="pending">ยังไม่อนุมัติการเข้าร่วมกิจกรรม</option>
+                                                                </Select>
+                                                                <label className="flex items-center gap-1.5 text-sm text-fg-muted">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={participantFilters.wantsCertLoanFund}
+                                                                        onChange={(e) =>
+                                                                            setParticipantFilters((prev) => ({ ...prev, wantsCertLoanFund: e.target.checked }))
+                                                                        }
+                                                                    />
+                                                                    ขอจิตอาสา กยศ.
+                                                                </label>
+                                                                <label className="flex items-center gap-1.5 text-sm text-fg-muted">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={participantFilters.wantsCertScholarship}
+                                                                        onChange={(e) =>
+                                                                            setParticipantFilters((prev) => ({ ...prev, wantsCertScholarship: e.target.checked }))
+                                                                        }
+                                                                    />
+                                                                    ขอจิตอาสาทุน
+                                                                </label>
+                                                                {(participantSearch ||
+                                                                    participantFilters.status ||
+                                                                    participantFilters.wantsCertLoanFund ||
+                                                                    participantFilters.wantsCertScholarship) && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() => {
+                                                                            setParticipantSearch("")
+                                                                            setParticipantFilters(INITIAL_PARTICIPANT_FILTERS)
+                                                                        }}
+                                                                    >
+                                                                        ล้างตัวกรอง
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        {filteredRegs.length > 0 ? (
+                                                            <div className="max-h-[720px] overflow-y-auto divide-y divide-border">
+                                                                {filteredRegs.map((reg) => (
+                                                                    <div key={reg.id} className="p-5 hover:bg-surface/60 transition-colors">
+                                                                        <div className="flex flex-wrap items-start justify-between gap-3">
+                                                                            <div className="min-w-0">
+                                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                                    <span className="font-semibold text-fg">{reg.student.name}</span>
+                                                                                    <Badge variant={reg.status === "confirmed" ? "default" : "neutral"}>
+                                                                                        {reg.status === "confirmed" ? "ยืนยันแล้ว" : "รอการยืนยัน"}
+                                                                                    </Badge>
+                                                                                    {reg.attendance === "attended" && <Badge variant="success">เข้าร่วมแล้ว</Badge>}
+                                                                                    {reg.wantsCertLoanFund && <Badge variant="default">กยศ.</Badge>}
+                                                                                    {reg.wantsCertScholarship && <Badge variant="default">ทุน</Badge>}
+                                                                                </div>
+                                                                                <div className="mt-1 text-xs text-fg-muted">
+                                                                                    {reg.student.studentId} · {reg.student.email}
+                                                                                    {reg.student.phone && <> · {reg.student.phone}</>}
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div className="flex shrink-0 gap-2">
+                                                                                {reg.status === "pending" && (
+                                                                                    <Button size="sm" variant="outline" className="text-brand-600" onClick={() => handleConfirm(reg.id)}>ยืนยัน</Button>
+                                                                                )}
+                                                                                {reg.status === "confirmed" && reg.attendance !== "attended" && (
+                                                                                    <Button size="sm" variant="outline" className="text-success" onClick={() => handleCheckIn(reg.id)}>เช็คอิน</Button>
+                                                                                )}
+                                                                                {reg.attendance === "attended" && (
+                                                                                    reg.evaluation ? (
+                                                                                        <Badge variant="success" className="gap-1"><CheckSquare className="size-3" aria-hidden="true" />ประเมินอัตโนมัติแล้ว</Badge>
+                                                                                    ) : (
+                                                                                        <Badge variant="neutral">ยังไม่มีคะแนน</Badge>
+                                                                                    )
+                                                                                )}
+                                                                            </div>
                                                                         </div>
-                                                                    </td>
-                                                                </tr>
-                                                            ))
+
+                                                                        {questions.length > 0 && (
+                                                                            <div className="mt-3 max-h-32 overflow-y-auto rounded-lg bg-surface p-3">
+                                                                                <ul className="space-y-1">
+                                                                                    {questions.map((q) => {
+                                                                                        const ans = reg.answers?.find((a2) => a2.question.id === q.id)
+                                                                                        return (
+                                                                                            <li key={q.id} className="text-xs text-fg-muted">
+                                                                                                <span className="font-medium text-fg">{q.label}:</span>{" "}
+                                                                                                {ans ? answerText(ans) : "-"}
+                                                                                            </li>
+                                                                                        )
+                                                                                    })}
+                                                                                </ul>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
                                                         ) : (
-                                                            <tr><td colSpan={4} className="px-6 py-8 text-center text-fg-subtle">ยังไม่มีผู้ลงทะเบียน</td></tr>
+                                                            <p className="px-6 py-10 text-center text-fg-subtle">
+                                                                {allRegs.length === 0 ? "ยังไม่มีผู้ลงทะเบียน" : "ไม่พบผู้เข้าร่วมตามตัวกรองที่เลือก"}
+                                                            </p>
                                                         )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
+                                                    </>
+                                                )
+                                            })()}
                                         </TabsContent>
 
                                         <TabsContent value="registration">
@@ -400,9 +590,6 @@ export default function OrganizerEventDetailsPage() {
                         )
                     })}
                 </Tabs>
-
-                {/* แบบสำรวจเป็นข้อมูลระดับงาน ไม่ผูกกับกิจกรรมย่อยตัวใดตัวหนึ่ง จึงอยู่นอกแท็บ */}
-                <EventSurveyResults eventId={event.id} />
             </Container>
 
             <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>
@@ -427,6 +614,16 @@ export default function OrganizerEventDetailsPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmDialog
+                open={!!confirmAllIds}
+                onOpenChange={(open) => !open && setConfirmAllIds(null)}
+                title={`ยืนยันผู้เข้าร่วมทั้งหมด ${confirmAllIds?.length ?? 0} คน?`}
+                description="ระบบจะยืนยันการเข้าร่วมของทุกคนที่ยังรอการยืนยันในรายการที่กรองอยู่ตอนนี้"
+                confirmLabel="ยืนยันทั้งหมด"
+                loading={confirmingAll}
+                onConfirm={handleConfirmAll}
+            />
         </div>
     )
 }

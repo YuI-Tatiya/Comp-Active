@@ -406,9 +406,17 @@ export interface SurveyAnswerBody {
   textValue?: string;
 }
 
+export interface CertRequestBody {
+  wantsCertLoanFund?: boolean;
+  wantsCertScholarship?: boolean;
+}
+
 export const registrationsAPI = {
-  create: (activityId: number, answers?: RegistrationAnswerBody[]) =>
-    fetchAPI('/api/registrations', { method: 'POST', body: JSON.stringify({ activityId, answers }) }),
+  create: (activityId: number, answers?: RegistrationAnswerBody[], certRequest?: CertRequestBody) =>
+    fetchAPI('/api/registrations', {
+      method: 'POST',
+      body: JSON.stringify({ activityId, answers, ...certRequest }),
+    }),
   cancel: (id: number) => fetchAPI(`/api/registrations/${id}`, { method: 'DELETE' }),
   getMy: () => fetchAPI('/api/registrations/my'),
   getByActivity: (activityId: number) => fetchAPI(`/api/registrations/activity/${activityId}`),

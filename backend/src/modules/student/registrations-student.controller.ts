@@ -28,7 +28,10 @@ export class RegistrationsStudentController {
     @CurrentUser() viewer: Viewer,
     @Body() createDto: CreateRegistrationDto,
   ) {
-    return this.registrationsService.create(studentId, createDto.activityId, viewer, createDto.answers);
+    return this.registrationsService.create(studentId, createDto.activityId, viewer, createDto.answers, {
+      wantsCertLoanFund: createDto.wantsCertLoanFund,
+      wantsCertScholarship: createDto.wantsCertScholarship,
+    });
   }
 
   /**

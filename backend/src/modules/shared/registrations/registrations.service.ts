@@ -25,6 +25,11 @@ interface AnswerInput {
   optionIds?: number[];
 }
 
+interface CertRequestInput {
+  wantsCertLoanFund?: boolean;
+  wantsCertScholarship?: boolean;
+}
+
 interface SurveyAnswerInput {
   questionId: number;
   ratingValue?: number;
@@ -42,7 +47,13 @@ export class RegistrationsService {
     private readonly mailService: MailService,
   ) {}
 
-  async create(studentId: number, activityId: number, viewer: Viewer, answers: AnswerInput[] = []) {
+  async create(
+    studentId: number,
+    activityId: number,
+    viewer: Viewer,
+    answers: AnswerInput[] = [],
+    certRequest: CertRequestInput = {},
+  ) {
     const activity = await this.registrationsRepository.findActivityWithActiveCount(activityId);
 
     if (!activity) throw new NotFoundException('ไม่พบกิจกรรม');
@@ -70,7 +81,15 @@ export class RegistrationsService {
 
     const preparedAnswers = this.validateAndPrepareAnswers(activity.questions, answers);
 
-    const registration = await this.registrationsRepository.create(studentId, activityId, preparedAnswers);
+    // เลือกขอใบจิตอาสาได้เฉพาะกิจกรรมที่เปิดออกใบจิตอาสาไว้จริง — กันค่าหลุดมาจากกิจกรรมที่ไม่รองรับ
+    const offersVolunteerCert = !!(activity as any).volunteerRole;
+    const wantsCertLoanFund = offersVolunteerCert && !!certRequest.wantsCertLoanFund;
+    const wantsCertScholarship = offersVolunteerCert && !!certRequest.wantsCertScholarship;
+
+    const registration = await this.registrationsRepository.create(studentId, activityId, preparedAnswers, {
+      wantsCertLoanFund,
+      wantsCertScholarship,
+    });
 
     this.logger.log(`Registration created: student ${studentId} → activity ${activityId}`);
     return registration;

@@ -5,6 +5,7 @@ import {
   IsString,
   IsArray,
   IsInt,
+  IsBoolean,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -39,4 +40,14 @@ export class CreateRegistrationDto {
   @ValidateNested({ each: true })
   @Type(() => RegistrationAnswerDto)
   answers?: RegistrationAnswerDto[];
+
+  @ApiPropertyOptional({ description: 'ขอใบจิตอาสาเพื่อ กยศ. — มีผลเฉพาะกิจกรรมที่เปิดออกใบจิตอาสา' })
+  @IsOptional()
+  @IsBoolean()
+  wantsCertLoanFund?: boolean;
+
+  @ApiPropertyOptional({ description: 'ขอใบจิตอาสาเพื่อทุนการศึกษา — มีผลเฉพาะกิจกรรมที่เปิดออกใบจิตอาสา' })
+  @IsOptional()
+  @IsBoolean()
+  wantsCertScholarship?: boolean;
 }

@@ -287,6 +287,10 @@ model Registration {
   status       RegistrationStatus @default(pending)
   attendance   AttendanceStatus   @default(absent)
   checkInTime  DateTime?          @map("check_in_time")
+  // ขอใบจิตอาสาเพื่อ กยศ./ทุนการศึกษา — เลือกได้ทั้งสองอย่าง หรือไม่เลือกเลย (= ไม่ขอรับใบจิตอาสา)
+  // มีความหมายเฉพาะกิจกรรมที่เปิดออกใบจิตอาสา (Activity.volunteerRole ไม่ว่าง)
+  wantsCertLoanFund    Boolean @default(false) @map("wants_cert_loan_fund")
+  wantsCertScholarship Boolean @default(false) @map("wants_cert_scholarship")
 
   activity      Activity                   @relation(fields: [activityId], references: [id], onDelete: Cascade)
   student       User                       @relation(fields: [studentId], references: [id], onDelete: Cascade)

@@ -38,12 +38,15 @@ export class RegistrationsRepository {
     studentId: number,
     activityId: number,
     answers: { questionId: number; textValue?: string; optionIds: number[] }[] = [],
+    certRequest: { wantsCertLoanFund?: boolean; wantsCertScholarship?: boolean } = {},
   ) {
     return this.prisma.registration.create({
       data: {
         studentId,
         activityId,
         status: RegistrationStatus.PENDING as any,
+        wantsCertLoanFund: !!certRequest.wantsCertLoanFund,
+        wantsCertScholarship: !!certRequest.wantsCertScholarship,
         answers: {
           create: answers.map((a) => ({
             questionId: a.questionId,

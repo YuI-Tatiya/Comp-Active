@@ -85,8 +85,15 @@ export const eventOrganizerInclude = {
       ...activityInclude,
       registrations: {
         include: {
-          student: { select: { id: true, name: true, studentId: true, email: true } },
+          student: { select: { id: true, name: true, studentId: true, email: true, phone: true } },
           evaluation: true,
+          // คำตอบคำถามลงทะเบียน — organizer เห็นได้เต็ม เพื่อกรอง/ export ตามคำตอบ
+          answers: {
+            include: {
+              question: { select: { id: true, label: true } },
+              options: { include: { option: { select: { id: true, label: true } } } },
+            },
+          },
         },
       },
       _count: { select: { registrations: true } },
