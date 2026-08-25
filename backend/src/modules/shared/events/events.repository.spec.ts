@@ -78,7 +78,7 @@ describe('EventsRepository.update', () => {
             id: 10,
             name: 'A1',
             description: 'd',
-            category: 'Technology',
+            categories: ['Technology'],
             startAt: new Date(),
             endAt: new Date(),
             date: new Date(),
@@ -112,7 +112,7 @@ describe('EventsRepository.update', () => {
           {
             name: 'A2',
             description: 'd',
-            category: 'Technology',
+            categories: ['Technology'],
             startAt: new Date(),
             endAt: new Date(),
             date: new Date(),

@@ -195,7 +195,7 @@ export default function OrganizerManagePage() {
             const matchesStatus = !values.status || eventStatus(ev) === values.status
             const matchesVisibility =
                 !values.visibility || (values.visibility === "public" ? ev.isPublic : !ev.isPublic)
-            const matchesCategory = !values.category || ev.activities.some((a) => a.category === values.category)
+            const matchesCategory = !values.category || ev.activities.some((a) => a.categories.includes(values.category))
             const matchesCert = !values.cert || (values.cert === "yes" ? eventHasCert(ev) : !eventHasCert(ev))
             const matchesRange = withinRange(earliestDate(ev), values.range)
             return matchesSearch && matchesStatus && matchesVisibility && matchesCategory && matchesCert && matchesRange
@@ -216,7 +216,7 @@ export default function OrganizerManagePage() {
             const matchesSearch = !q || a.name.toLowerCase().includes(q)
             const status = isCancelledByOrganizer(a.approvalStatus) ? "cancelled" : a.status === "open" ? "open" : "closed"
             const matchesStatus = !values.status || status === values.status
-            const matchesCategory = !values.category || a.category === values.category
+            const matchesCategory = !values.category || a.categories.includes(values.category)
             const matchesCert = !values.cert || (values.cert === "yes" ? !!a.volunteerRole : !a.volunteerRole)
             const matchesRange = withinRange(new Date(a.date).getTime(), values.range)
             // กิจกรรมเดี่ยวไม่มีแนวคิดการเผยแพร่ระดับงาน จึงซ่อนเมื่อผู้ใช้กรองด้วยเงื่อนไขนี้

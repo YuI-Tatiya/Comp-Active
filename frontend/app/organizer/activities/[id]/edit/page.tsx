@@ -11,6 +11,7 @@ import { Check, Plus, X, ArrowLeft, Loader2, Edit, CheckSquare, Star } from "luc
 import { activitiesAPI, Activity, API_BASE_URL } from "@/lib/api"
 import { SOFT_SKILLS, softSkillLabel } from "@/lib/soft-skills"
 import { CATEGORIES, categoryLabel } from "@/lib/categories"
+import { toggleInArray } from "@/lib/utils"
 import { DynamicQuestionBuilder, type BuilderQuestion } from "@/components/ui/dynamic-question-builder"
 
 const SURVEY_TYPE_OPTIONS = [
@@ -22,7 +23,7 @@ const SURVEY_TYPE_OPTIONS = [
 interface ActivityFormData {
     name: string
     description: string
-    category: string
+    categories: string[]
     tags: string[]
     date: string
     startTime: string
@@ -39,7 +40,7 @@ interface ActivityFormData {
 const initialData: ActivityFormData = {
     name: "",
     description: "",
-    category: "",
+    categories: [],
     tags: [],
     date: "",
     startTime: "",
@@ -81,7 +82,7 @@ export default function EditActivityPage() {
                 setFormData({
                     name: data.name || "",
                     description: data.description || "",
-                    category: data.category || "",
+                    categories: data.categories || [],
                     tags: data.tags ? data.tags.map((t: { tagName: string }) => t.tagName) : [],
                     date: data.date || "",
                     startTime: data.startTime || "",
@@ -249,15 +250,27 @@ export default function EditActivityPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>หมวดหมู่ <span className="text-red-500">*</span></Label>
-                                        <select
-                                            className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-950"
-                                            value={formData.category}
-                                            onChange={(e) => updateField('category', e.target.value)}
-                                        >
-                                            <option value="">เลือกหมวดหมู่</option>
-                                            {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                                        </select>
+                                        <Label>หมวดหมู่ (เลือกได้มากกว่า 1) <span className="text-red-500">*</span></Label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {CATEGORIES.map(c => {
+                                                const selected = formData.categories.includes(c.value)
+                                                return (
+                                                    <label
+                                                        key={c.value}
+                                                        className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${selected ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            className="size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                            checked={selected}
+                                                            onChange={() => updateField('categories', toggleInArray(formData.categories, c.value))}
+                                                        />
+                                                        <span className={`size-2 rounded-full ${c.dot}`} aria-hidden="true" />
+                                                        {c.label}
+                                                    </label>
+                                                )
+                                            })}
+                                        </div>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>แท็ก</Label>
@@ -449,7 +462,11 @@ export default function EditActivityPage() {
                                             </div>
                                             <div>
                                                 <Label className="text-gray-500 text-xs">หมวดหมู่</Label>
-                                                <div className="font-medium">{categoryLabel(formData.category) || "-"}</div>
+                                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                                    {formData.categories.length > 0 ? formData.categories.map((c) => (
+                                                        <Badge key={c} variant="secondary" className="px-2.5 py-0.5 font-normal">{categoryLabel(c)}</Badge>
+                                                    )) : <span className="text-sm text-gray-500">-</span>}
+                                                </div>
                                             </div>
                                             <div className="col-span-2">
                                                 <Label className="text-gray-500 text-xs">รายละเอียด</Label>
@@ -571,7 +588,7 @@ export default function EditActivityPage() {
                                         const updateData: any = {
                                             name: formData.name,
                                             description: formData.description,
-                                            category: formData.category,
+                                            categories: formData.categories,
                                             date: formData.date,
                                             startTime: formData.startTime,
                                             endTime: formData.endTime,

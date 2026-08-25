@@ -11,6 +11,7 @@ import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Tag, Info, CheckCirc
 import Link from "next/link"
 import { Container } from "@/components/layout/container"
 import { activitiesAPI, isUnlimitedCapacity, Activity, Tag as TagType, Condition, Benefit, API_BASE_URL } from "@/lib/api"
+import { categoryLabel } from "@/lib/categories"
 
 /**
  * มุมมอง "ดูอย่างเดียว" ของกิจกรรมเดี่ยวสำหรับผู้จัด — ใช้ตอนกดดูกิจกรรมที่ไม่ใช่ของตัวเอง
@@ -107,8 +108,10 @@ export default function OrganizerActivityViewPage() {
                                     ไม่มีรูปภาพ
                                 </div>
                             )}
-                            <div className="absolute top-4 left-4 flex gap-2">
-                                <Badge className="bg-bg text-brand-700 hover:bg-bg shadow-md text-xs font-bold px-3 py-1">{activity.category}</Badge>
+                            <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+                                {activity.categories.map((c) => (
+                                    <Badge key={c} className="bg-bg text-brand-700 hover:bg-bg shadow-md text-xs font-bold px-3 py-1">{categoryLabel(c)}</Badge>
+                                ))}
                                 <Badge className={`shadow-md text-xs font-bold px-3 py-1 text-white ${activity.status === "open" || !activity.status ? "bg-success hover:bg-success/90" : "bg-fg-subtle hover:bg-fg-subtle/90"}`}>
                                     {activity.status === "open" || !activity.status ? "เปิดรับสมัคร" : "ปิดรับสมัคร"}
                                 </Badge>

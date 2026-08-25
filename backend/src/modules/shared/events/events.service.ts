@@ -51,7 +51,7 @@ export class EventsService {
       return {
         name: a.name,
         description: a.description,
-        category: a.category,
+        categories: a.categories,
         imageUrl: a.imageUrl,
         attachmentUrl: a.attachmentUrl,
         startAt,
@@ -144,7 +144,7 @@ export class EventsService {
         id: a.id,
         name: a.name,
         description: a.description,
-        category: a.category,
+        categories: a.categories,
         imageUrl: a.imageUrl,
         attachmentUrl: a.attachmentUrl,
         startAt,

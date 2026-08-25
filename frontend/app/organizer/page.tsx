@@ -10,8 +10,9 @@ import { SectionHeading } from "@/components/ui/section-heading"
 import { StatTile } from "@/components/ui/stat-tile"
 import { FilterBar, type FilterSpec } from "@/components/ui/filter-bar"
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
-import { activitiesAPI, eventsAPI, Activity, EventSummary, OrganizerStats } from "@/lib/api"
-import { CATEGORIES, categoryLabel } from "@/lib/categories"
+import { activitiesAPI, eventsAPI, isCancelledByOrganizer, Activity, EventSummary, OrganizerStats } from "@/lib/api"
+import { CATEGORIES, categoriesBadgeLabel } from "@/lib/categories"
+import { RANGE_OPTIONS, withinRange } from "@/lib/events-filter"
 import { useAuth } from "@/lib/auth-context"
 import {
   ArrowRight,
@@ -33,11 +34,24 @@ function eventRegisteredCount(ev: EventSummary): number {
   return ev.activities.reduce((sum, a) => sum + (a.registeredCount ?? 0), 0)
 }
 
-function isEventOpen(ev: EventSummary): boolean {
-  return ev.activities.some((a) => a.status === "open")
+/** สถานะรวมของงาน — ยกเลิกเมื่อกิจกรรมย่อยทุกตัวถูกยกเลิก, เปิดเมื่อมีอย่างน้อยหนึ่งตัวเปิดอยู่ */
+function eventStatus(ev: EventSummary): "open" | "closed" | "cancelled" {
+  const list = ev.activities
+  if (list.length > 0 && list.every((a) => isCancelledByOrganizer(a.approvalStatus))) return "cancelled"
+  return list.some((a) => a.status === "open") ? "open" : "closed"
 }
 
-/** วันจัดกิจกรรมย่อยที่เร็วที่สุดของงาน — ใช้เรียงลำดับ "ใกล้จัดงาน" */
+/** งานมีใบรับรองจิตอาสาถ้ากิจกรรมย่อยตัวใดตัวหนึ่งออกใบรับรอง */
+function eventHasCert(ev: EventSummary): boolean {
+  return ev.activities.some((a) => !!a.volunteerRole)
+}
+
+/** หมวดหมู่ทั้งหมดที่กิจกรรมย่อยของงานนี้ระบุไว้ — ใช้กรองด้วยหมวดหมู่ให้ตรงทุกกิจกรรมย่อย ไม่ใช่แค่ตัวเดียว */
+function eventCategories(ev: EventSummary): string[] {
+  return Array.from(new Set(ev.activities.flatMap((a) => a.categories)))
+}
+
+/** วันจัดกิจกรรมย่อยที่เร็วที่สุดของงาน — ใช้เรียงลำดับ "ใกล้จัดงาน" และกรองช่วงเวลา */
 function earliestDate(ev: EventSummary): number {
   const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
   return times.length ? Math.min(...times) : Number.POSITIVE_INFINITY
@@ -49,8 +63,11 @@ interface CardItem {
   name: string
   imageUrl?: string | null
   description?: string | null
-  category?: string
-  status: "open" | "closed"
+  categories: string[]
+  status: "open" | "closed" | "cancelled"
+  // กิจกรรมเดี่ยวไม่มีแนวคิดการเผยแพร่ระดับงาน — undefined = ไม่ใช้กรองด้วยเงื่อนไขนี้
+  isPublic?: boolean
+  hasCert: boolean
   href: string
   searchText: string
   sortDate: number
@@ -65,13 +82,37 @@ const FILTERS: FilterSpec[] = [
     options: [
       { value: "", label: "ทั้งหมด" },
       { value: "open", label: "เปิดรับสมัคร" },
-      { value: "closed", label: "ปิดรับสมัคร" },
+      { value: "closed", label: "ปิดแล้ว" },
+      { value: "cancelled", label: "ยกเลิก" },
+    ],
+  },
+  {
+    key: "visibility",
+    label: "การเผยแพร่",
+    options: [
+      { value: "", label: "ทั้งหมด" },
+      { value: "public", label: "เผยแพร่แล้ว" },
+      { value: "private", label: "ไม่เผยแพร่" },
     ],
   },
   {
     key: "category",
     label: "หมวดหมู่",
     options: [{ value: "", label: "ทุกหมวดหมู่" }, ...CATEGORIES.map((c) => ({ value: c.value, label: c.label }))],
+  },
+  {
+    key: "cert",
+    label: "ใบรับรอง",
+    options: [
+      { value: "", label: "ทั้งหมด" },
+      { value: "yes", label: "มีใบรับรองจิตอาสา" },
+      { value: "no", label: "ไม่มีใบรับรองจิตอาสา" },
+    ],
+  },
+  {
+    key: "range",
+    label: "ช่วงเวลาจัดงาน",
+    options: RANGE_OPTIONS,
   },
   {
     key: "sort",
@@ -85,7 +126,14 @@ const FILTERS: FilterSpec[] = [
   },
 ]
 
-const INITIAL_VALUES: Record<string, string> = { status: "", category: "", sort: "newest" }
+const INITIAL_VALUES: Record<string, string> = {
+  status: "",
+  visibility: "",
+  category: "",
+  cert: "",
+  range: "",
+  sort: "newest",
+}
 
 export default function OrganizerDashboardPage() {
   const { user } = useAuth()
@@ -140,8 +188,10 @@ export default function OrganizerDashboardPage() {
         name: ev.name,
         imageUrl: ev.imageUrl ?? fa?.imageUrl,
         description: ev.description,
-        category: fa?.category,
-        status: isEventOpen(ev) ? "open" : "closed",
+        categories: eventCategories(ev),
+        status: eventStatus(ev),
+        isPublic: ev.isPublic,
+        hasCert: eventHasCert(ev),
         href: `/organizer/events/view/${ev.id}`,
         searchText: [ev.name, ...ev.activities.map((a) => a.name)].join(" ").toLowerCase(),
         sortDate: earliestDate(ev),
@@ -155,8 +205,11 @@ export default function OrganizerDashboardPage() {
       name: a.name,
       imageUrl: a.imageUrl,
       description: a.description,
-      category: a.category,
-      status: a.status === "open" ? "open" : "closed",
+      categories: a.categories,
+      status: isCancelledByOrganizer(a.approvalStatus) ? "cancelled" : a.status === "open" ? "open" : "closed",
+      // กิจกรรมเดี่ยวไม่มีแนวคิดการเผยแพร่ระดับงาน — เว้นว่างไว้ ตัวกรอง "การเผยแพร่" จะไม่จับคู่กิจกรรมนี้เลย
+      isPublic: undefined,
+      hasCert: !!a.volunteerRole,
       href: `/organizer/activities/view/${a.id}`,
       searchText: a.name.toLowerCase(),
       sortDate: +new Date(a.date),
@@ -173,8 +226,12 @@ export default function OrganizerDashboardPage() {
     const list = allItems.filter((item) => {
       const matchesSearch = !q || item.searchText.includes(q)
       const matchesStatus = !values.status || item.status === values.status
-      const matchesCategory = !values.category || item.category === values.category
-      return matchesSearch && matchesStatus && matchesCategory
+      const matchesVisibility =
+        !values.visibility || (item.isPublic === undefined ? false : values.visibility === "public" ? item.isPublic : !item.isPublic)
+      const matchesCategory = !values.category || item.categories.includes(values.category)
+      const matchesCert = !values.cert || (values.cert === "yes" ? item.hasCert : !item.hasCert)
+      const matchesRange = withinRange(item.sortDate, values.range)
+      return matchesSearch && matchesStatus && matchesVisibility && matchesCategory && matchesCert && matchesRange
     })
 
     return [...list].sort((a, b) => {
@@ -276,7 +333,7 @@ export default function OrganizerDashboardPage() {
                       <EventCard
                         activity={{ name: item.name, imageUrl: item.imageUrl }}
                         description={item.description}
-                        badgeLeft={<EventCardBadge variant="light">{categoryLabel(item.category)}</EventCardBadge>}
+                        badgeLeft={<EventCardBadge variant="light">{categoriesBadgeLabel(item.categories)}</EventCardBadge>}
                         badgeRight={
                           <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
                             {item.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}

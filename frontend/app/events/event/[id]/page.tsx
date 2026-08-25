@@ -9,7 +9,7 @@ import { SiteFooter } from "@/components/layout/site-footer"
 import { Container } from "@/components/layout/container"
 import { EventCard, EventCardBadge, EventCardRow, formatEventDate } from "@/components/ui/event-card"
 import { eventsAPI, EventSummary } from "@/lib/api"
-import { categoryLabel } from "@/lib/categories"
+import { categoriesBadgeLabel } from "@/lib/categories"
 import { resolveEventImageUrl } from "@/lib/event-image"
 import { ArrowLeft, Calendar, MapPin, Users } from "lucide-react"
 
@@ -120,7 +120,7 @@ export default function PublicEventGroupPage() {
                         <Link key={a.id} href={`/events/${a.id}`} className="block">
                             <EventCard
                                 activity={a}
-                                badgeLeft={<EventCardBadge variant="light">{categoryLabel(a.category)}</EventCardBadge>}
+                                badgeLeft={<EventCardBadge variant="light">{categoriesBadgeLabel(a.categories)}</EventCardBadge>}
                                 badgeRight={
                                     <EventCardBadge className={a.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
                                         {a.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}

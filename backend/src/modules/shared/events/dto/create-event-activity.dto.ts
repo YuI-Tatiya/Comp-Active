@@ -8,6 +8,7 @@ import {
   IsBoolean,
   IsDateString,
   IsArray,
+  ArrayMinSize,
   IsIn,
   ValidateNested,
   ValidateIf,
@@ -65,10 +66,11 @@ export class CreateEventActivityDto {
   @IsNotEmpty()
   description: string;
 
-  @ApiProperty({ example: 'Volunteer', description: 'หมวดหมู่' })
-  @IsString()
-  @IsNotEmpty()
-  category: string;
+  @ApiProperty({ example: ['Volunteer', 'Technology'], description: 'หมวดหมู่ — เลือกได้มากกว่า 1' })
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  categories: string[];
 
   @ApiPropertyOptional({
     description: 'URL รูปภาพกิจกรรม (จาก /api/activities/upload-image) — ส่ง null เพื่อลบรูปเดิม',

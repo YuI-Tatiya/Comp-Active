@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   IsArray,
+  ArrayMinSize,
   IsIn,
   Min,
   ValidateNested,
@@ -24,10 +25,11 @@ export class CreateActivityDto {
   @IsNotEmpty()
   description: string;
 
-  @ApiProperty({ example: 'workshop', description: 'หมวดหมู่' })
-  @IsString()
-  @IsNotEmpty()
-  category: string;
+  @ApiProperty({ example: ['workshop', 'technology'], description: 'หมวดหมู่ — เลือกได้มากกว่า 1' })
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  categories: string[];
 
   @ApiProperty({ example: '2026-03-15', description: 'วันที่จัดกิจกรรม' })
   @IsString()

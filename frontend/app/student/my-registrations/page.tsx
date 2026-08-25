@@ -16,7 +16,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { Toast } from "@/components/ui/toast"
 import { RegistrationEvaluation } from "@/components/student/registration-evaluation"
 import { registrationsAPI, API_BASE_URL, isCancelledByOrganizer, isActiveRegistration, EventSurveyQuestion, SurveyAnswerBody, SkillScores } from "@/lib/api"
-import { getCategory, categoryLabel } from "@/lib/categories"
+import { getCategory, categoriesBadgeLabel } from "@/lib/categories"
 import { SOFT_SKILLS } from "@/lib/soft-skills"
 import {
   Calendar, Clock, MapPin, Loader2, CalendarX, X, Star, Sparkles, Search,
@@ -48,7 +48,7 @@ interface Registration {
     startTime: string
     endTime: string
     location: string
-    category: string
+    categories: string[]
     imageUrl?: string
     status?: string
     approvalStatus?: string
@@ -451,7 +451,7 @@ export default function MyRegistrationsPage() {
           <div className="grid grid-cols-1 gap-6">
             {filteredRegs.map((reg) => {
               const st = STATUS_BADGE[reg.status] ?? STATUS_BADGE.pending
-              const catDot = getCategory(reg.activity.category)?.dot ?? "bg-fg-subtle"
+              const catDot = getCategory(reg.activity.categories?.[0])?.dot ?? "bg-fg-subtle"
 
               return (
                 <div
@@ -473,10 +473,10 @@ export default function MyRegistrationsPage() {
                         alt={reg.activity.name}
                         className="size-full object-cover"
                       />
-                      {reg.activity.category && (
+                      {reg.activity.categories.length > 0 && (
                         <div className="absolute left-3 top-3">
                           <span className="rounded-lg bg-bg/95 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-700 shadow-sm">
-                            {categoryLabel(reg.activity.category)}
+                            {categoriesBadgeLabel(reg.activity.categories)}
                           </span>
                         </div>
                       )}

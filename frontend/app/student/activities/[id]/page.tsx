@@ -20,7 +20,7 @@ import Link from "next/link"
 import { activitiesAPI, registrationsAPI, isUnlimitedCapacity, isActiveRegistration, Activity, RegistrationAnswerBody } from "@/lib/api"
 import { resolveEventImageUrl } from "@/lib/event-image"
 import { useAuth } from "@/lib/auth-context"
-import { categoryLabel } from "@/lib/categories"
+import { categoriesBadgeLabel } from "@/lib/categories"
 import {
     ActivityAboutPanel,
     ActivityRegistrationPanel,
@@ -287,7 +287,7 @@ export default function StudentActivityDetailsPage() {
                         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent"
                     />
                     <div className="absolute left-4 top-4">
-                        <Badge className="bg-brand-600 text-white">{categoryLabel(event.category)}</Badge>
+                        <Badge className="bg-brand-600 text-white">{categoriesBadgeLabel(event.categories)}</Badge>
                     </div>
                     <div className="absolute right-4 top-4">
                         <Badge className={event.status === "open" ? "bg-success text-white" : "bg-fg-subtle text-white"}>

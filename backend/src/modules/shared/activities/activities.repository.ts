@@ -52,7 +52,7 @@ export class ActivitiesRepository {
       where: {
         approvalStatus: ApprovalStatus.APPROVED as any,
         ...(filterDto?.search && { name: { contains: filterDto.search, mode: 'insensitive' } }),
-        ...(filterDto?.category && { category: filterDto.category }),
+        ...(filterDto?.category && { categories: { has: filterDto.category } }),
         ...(filterDto?.status && { status: filterDto.status as any }),
       },
       include: { ...activityInclude, _count: { select: { registrations: true } } },
@@ -268,7 +268,7 @@ export class ActivitiesRepository {
   private static readonly NEWSFEED_SELECT = {
     id: true,
     name: true,
-    category: true,
+    categories: true,
     date: true,
     startTime: true,
     endTime: true,

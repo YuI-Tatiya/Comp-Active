@@ -7,15 +7,7 @@ import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { Logo } from "@/components/layout/logo"
-import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
-
-/** โซนของแต่ละ role — ใช้พาผู้ใช้ที่ล็อกอินอยู่แล้วกลับไปที่ของตัวเอง แทนที่จะโชว์ปุ่ม "เข้าสู่ระบบ" ซ้ำ */
-const ROLE_HOME: Record<string, string> = {
-    student: "/student",
-    organizer: "/organizer",
-    admin: "/admin",
-}
 
 const NAV_LINKS = [
     { href: "/", label: "หน้าหลัก" },
@@ -29,10 +21,9 @@ const NAV_LINKS = [
  */
 export function SiteHeader() {
     const pathname = usePathname()
-    const { user } = useAuth()
     const [open, setOpen] = React.useState(false)
-    const accountHref = user ? (ROLE_HOME[user.role] ?? "/") : "/auth"
-    const accountLabel = user ? "กลับไปยังระบบ" : "เข้าสู่ระบบ"
+    const accountHref = "/auth"
+    const accountLabel = "เข้าสู่ระบบ"
 
     // ปิดเมนูมือถือเมื่อเปลี่ยนหน้า
     React.useEffect(() => {

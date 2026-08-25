@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
-import { ActivityCard } from "@/components/ui/activity-card"
+import { EventCard, EventCardBadge } from "@/components/ui/event-card"
 import { ActivityCardSkeleton, Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { SectionHeading } from "@/components/ui/section-heading"
@@ -12,14 +12,17 @@ import { StatTile } from "@/components/ui/stat-tile"
 import { SkillRadar, SkillScoreList } from "@/components/ui/skill-radar"
 import { UpcomingItem, type UpcomingActivity } from "@/components/ui/upcoming-item"
 import { NewsCarousel } from "@/components/ui/news-carousel"
+import { categoriesBadgeLabel } from "@/lib/categories"
 import {
   activitiesAPI,
+  eventsAPI,
   registrationsAPI,
   evaluationsAPI,
   certificatesAPI,
   Activity,
   SkillsData,
 } from "@/lib/api"
+import { buildFeaturedCards, type FeaturedCardItem } from "@/lib/events-filter"
 import { useAuth } from "@/lib/auth-context"
 import { ArrowRight, CalendarCheck, CalendarX, Award, Sparkles, TrendingUp } from "lucide-react"
 
@@ -33,7 +36,7 @@ const XP_PER_LEVEL = 5000
 
 export default function StudentDashboardPage() {
   const { user } = useAuth()
-  const [recommended, setRecommended] = useState<Activity[]>([])
+  const [recommended, setRecommended] = useState<FeaturedCardItem[]>([])
   const [registrations, setRegistrations] = useState<MyRegistration[]>([])
   const [skills, setSkills] = useState<SkillsData | null>(null)
   const [certCount, setCertCount] = useState<number | null>(null)
@@ -41,9 +44,17 @@ export default function StudentDashboardPage() {
   const [loadingMine, setLoadingMine] = useState(true)
 
   useEffect(() => {
-    activitiesAPI
-      .getAll()
-      .then((data) => setRecommended(Array.isArray(data) ? data.slice(0, 3) : []))
+    // งานหนึ่งงาน (มีกิจกรรมย่อยกี่ตัวก็ตาม) ต้องแสดงเป็นการ์ดเดียว จึงต้องดึงทั้ง Event และ
+    // กิจกรรมเดี่ยวมารวมกัน ไม่ใช่ดึงแค่ activitiesAPI.getAll() ที่คืนกิจกรรมย่อยแยกเป็นรายตัว
+    Promise.all([eventsAPI.getAllPublic(), activitiesAPI.getAll().catch(() => [] as Activity[])])
+      .then(([events, standalone]) => {
+        const all = buildFeaturedCards(
+          Array.isArray(events) ? events : [],
+          Array.isArray(standalone) ? standalone : [],
+          { event: (id) => `/student/events/${id}`, activity: (id) => `/student/activities/${id}` }
+        )
+        setRecommended([...all].sort((a, b) => a.sortDate - b.sortDate).slice(0, 3))
+      })
       .catch((err) => console.error(err))
       .finally(() => setLoadingActivities(false))
   }, [])
@@ -115,9 +126,6 @@ export default function StudentDashboardPage() {
           </div>
         </Container>
       </div>
-
-      {/* ── ข่าวสารและประกาศ ─────────────────────────────────────────────── */}
-      <NewsCarousel />
 
       {/* ── สถิติของฉัน ───────────────────────────────────────────────────── */}
       <section className="border-b border-border">
@@ -281,19 +289,28 @@ export default function StudentDashboardPage() {
 
           <div className="mt-6">
             {loadingActivities ? (
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="flex flex-wrap gap-5">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <ActivityCardSkeleton key={i} />
+                  <div key={i} className="w-full sm:w-72">
+                    <ActivityCardSkeleton />
+                  </div>
                 ))}
               </div>
             ) : recommended.length > 0 ? (
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {recommended.map((ev) => (
-                  <ActivityCard
-                    key={ev.id}
-                    activity={ev}
-                    href={`/student/activities/${ev.id}`}
-                  />
+              <div className="flex flex-wrap gap-5">
+                {recommended.map((item) => (
+                  <Link key={item.key} href={item.href} className="block w-full sm:w-72">
+                    <EventCard
+                      activity={{ name: item.name, imageUrl: item.imageUrl }}
+                      description={item.description}
+                      badgeLeft={item.categories.length > 0 && <EventCardBadge variant="light">{categoriesBadgeLabel(item.categories)}</EventCardBadge>}
+                      badgeRight={
+                        <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
+                          {item.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}
+                        </EventCardBadge>
+                      }
+                    />
+                  </Link>
                 ))}
               </div>
             ) : (
@@ -302,6 +319,9 @@ export default function StudentDashboardPage() {
           </div>
         </Container>
       </section>
+
+      {/* ── ข่าวสารและประกาศ ─────────────────────────────────────────────── */}
+      <NewsCarousel />
     </>
   )
 }

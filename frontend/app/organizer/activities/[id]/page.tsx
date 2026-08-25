@@ -170,7 +170,7 @@ export default function OrganizerActivityDetailsPage() {
                             className="size-full object-cover"
                         />
                         <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-                            {event.category && <Badge variant="default">{categoryLabel(event.category)}</Badge>}
+                            {event.categories.map((c) => <Badge key={c} variant="default">{categoryLabel(c)}</Badge>)}
                             <Badge variant={event.status === 'open' ? "success" : "neutral"}>
                                 {event.status === 'open' ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
                             </Badge>

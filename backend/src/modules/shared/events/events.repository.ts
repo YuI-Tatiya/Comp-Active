@@ -13,7 +13,7 @@ export interface PreparedQuestionData {
 export interface PreparedActivityData {
   name: string;
   description: string;
-  category: string;
+  categories: string[];
   imageUrl?: string | null;
   attachmentUrl?: string | null;
   startAt: Date;

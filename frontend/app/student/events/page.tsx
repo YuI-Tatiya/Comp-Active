@@ -49,7 +49,7 @@ function hasVolunteerCert(ev: EventSummary): boolean {
 
 /** หมวดหมู่ทั้งหมดที่กิจกรรมย่อยของงานนี้ระบุไว้ — ใช้ให้การ์ดงานโผล่ในทุกหมวดที่เกี่ยวข้อง ไม่ใช่แค่หมวดเดียว */
 function eventCategories(ev: EventSummary): string[] {
-    return Array.from(new Set(ev.activities.map((a) => a.category).filter((c): c is string => !!c)))
+    return Array.from(new Set(ev.activities.flatMap((a) => a.categories)))
 }
 
 /** วันจัดกิจกรรมย่อยที่เร็วที่สุดของงาน — ใช้เรียงลำดับ "ใกล้ถึงก่อน" */
@@ -107,7 +107,6 @@ export default function StudentEventsPage() {
                 name: ev.name,
                 imageUrl: ev.imageUrl ?? fa?.imageUrl,
                 description: ev.description,
-                category: fa?.category,
                 categories: eventCategories(ev),
                 status: isOpen(ev) ? "open" : "closed",
                 href: `/student/events/${ev.id}`,

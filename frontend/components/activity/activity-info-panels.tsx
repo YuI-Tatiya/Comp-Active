@@ -139,7 +139,7 @@ export function ActivityAboutPanel({ activity, showActivityImage = false }: Abou
 
             <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-fg-muted">
                 <span>
-                    <strong className="text-fg">หมวดหมู่:</strong> {categoryLabel(activity.category)}
+                    <strong className="text-fg">หมวดหมู่:</strong> {activity.categories.map((c) => categoryLabel(c)).join(", ")}
                 </span>
                 {activity.organizer?.name && (
                     <span className="flex items-center gap-1.5">

@@ -170,7 +170,11 @@ export function SectionPublish({ event, activities, onChangeEvent }: Props) {
                         <div key={a.key} className="rounded-lg border border-border p-4">
                             <div className="flex items-center justify-between gap-2">
                                 <div className="font-bold text-fg">{`${i + 1}. ${a.name || "-"}`}</div>
-                                {a.category && <Badge variant="outline">{categoryLabel(a.category)}</Badge>}
+                                <div className="flex flex-wrap justify-end gap-1.5">
+                                    {a.categories.map((c) => (
+                                        <Badge key={c} variant="outline">{categoryLabel(c)}</Badge>
+                                    ))}
+                                </div>
                             </div>
                             <div className="mt-2 space-y-1 text-sm text-fg-muted">
                                 <div className="flex items-center gap-2">

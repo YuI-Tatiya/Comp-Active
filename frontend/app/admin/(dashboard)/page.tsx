@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Users, Calendar, ClipboardList, GraduationCap, Megaphone, Activity as ActivityIcon } from "lucide-react"
 import { adminAPI, activitiesAPI, Activity as ActivityType } from "@/lib/api"
-import { categoryLabel } from "@/lib/categories"
+import { categoriesBadgeLabel } from "@/lib/categories"
 
 interface DashboardStats {
     totalUsers: number
@@ -161,7 +161,7 @@ export default function AdminDashboardPage() {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="font-medium text-sm truncate" style={{ color: "#0f172a" }}>{act.name}</div>
-                                    <div className="text-xs mt-0.5" style={{ color: "#64748b" }}>{categoryLabel(act.category)} · {act.date}</div>
+                                    <div className="text-xs mt-0.5" style={{ color: "#64748b" }}>{categoriesBadgeLabel(act.categories)} · {act.date}</div>
                                 </div>
                                 <span className="shrink-0 text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: "rgba(63,160,172,0.1)", color: "#3fa0ac" }}>
                                     เผยแพร่แล้ว

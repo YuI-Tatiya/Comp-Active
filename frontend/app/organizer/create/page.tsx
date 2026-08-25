@@ -171,7 +171,7 @@ export default function CreateEventPage() {
                 activityBodies.push({
                     name: a.name,
                     description: a.description,
-                    category: a.category,
+                    categories: a.categories,
                     imageUrl,
                     attachmentUrl,
                     startAt: new Date(a.startAt).toISOString(),
@@ -238,13 +238,13 @@ export default function CreateEventPage() {
                     <SectionSuccess event={event} activities={activities} onCreateAnother={handleCreateAnother} />
                 ) : (
                     <>
-                        <div className="mb-8 flex items-center">
-                            <Button variant="ghost" onClick={handleBack} className="mr-4">
+                        <div className="mb-8">
+                            <Button variant="ghost" onClick={handleBack} className="mb-4">
                                 <ArrowLeft className="size-4" />
                                 กลับ
                             </Button>
-                            <div>
-                                <h1 className="flex items-center gap-2 text-2xl font-black text-fg">
+                            <div className="text-center">
+                                <h1 className="flex items-center justify-center gap-2 text-2xl font-black text-fg">
                                     <div className="rounded-lg bg-brand-100 p-2 text-brand-600">
                                         <Plus className="size-5" />
                                     </div>

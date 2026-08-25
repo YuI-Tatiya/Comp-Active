@@ -183,7 +183,7 @@ export default function OrganizerDashboard() {
                 (values.approval === "cancelled"
                     ? isCancelledByOrganizer(a.approvalStatus)
                     : a.approvalStatus === values.approval)
-            const matchesCategory = !values.category || a.category === values.category
+            const matchesCategory = !values.category || a.categories.includes(values.category)
             const matchesRange = withinDashboardRange(new Date(a.date).getTime(), values.range)
 
             const matchesAction =
@@ -307,12 +307,6 @@ export default function OrganizerDashboard() {
                 <div className="overflow-hidden rounded-2xl border border-border bg-bg shadow-xs">
                     <div className="flex items-center justify-between border-b border-border px-6 py-4">
                         <h2 className="text-lg font-semibold text-fg">กิจกรรมของคุณ</h2>
-                        <Link
-                            href="/organizer/manage"
-                            className="text-sm font-medium text-brand-600 hover:underline"
-                        >
-                            ดูทั้งหมด →
-                        </Link>
                     </div>
 
                     {loading ? (
@@ -370,11 +364,11 @@ export default function OrganizerDashboard() {
                                                 <td className="px-6 py-5">
                                                     <div className="font-semibold text-fg">{activity.name}</div>
                                                     <div className="mt-1 flex items-center text-[11px] font-medium text-fg-subtle">
-                                                        {activity.category && (
-                                                            <Badge variant="outline" className="mr-2 px-1.5 py-0 text-[9px] font-bold uppercase">
-                                                                {categoryLabel(activity.category)}
+                                                        {activity.categories.map((c) => (
+                                                            <Badge key={c} variant="outline" className="mr-2 px-1.5 py-0 text-[9px] font-bold uppercase">
+                                                                {categoryLabel(c)}
                                                             </Badge>
-                                                        )}
+                                                        ))}
                                                         <MapPin className="mr-1 size-3 shrink-0" aria-hidden="true" />
                                                         {activity.location}
                                                     </div>
@@ -403,9 +397,8 @@ export default function OrganizerDashboard() {
                                                 </td>
                                                 <td className="px-6 py-5 text-right">
                                                     <Button size="sm" variant="ghost" className="rounded-xl font-semibold text-brand-600" asChild>
-                                                        {/* กิจกรรมย่อยของงานมีเครื่องมือจัดการที่ครบกว่าในหน้างานแม่ (คิวอาร์โค้ด/ผลสำรวจ) จึงพาไปที่นั่นแทน */}
-                                                        <Link href={activity.eventId ? `/organizer/events/${activity.eventId}` : `/organizer/activities/${activity.id}`}>
-                                                            จัดการรายคน →
+                                                        <Link href={`/organizer/activities/${activity.id}/dashboard`}>
+                                                            ดู dashboard →
                                                         </Link>
                                                     </Button>
                                                 </td>

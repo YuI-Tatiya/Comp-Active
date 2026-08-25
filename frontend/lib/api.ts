@@ -54,7 +54,8 @@ export interface Activity<T = unknown> {
   id: number;
   eventId?: number | null;
   name: string;
-  category: string;
+  /** เลือกได้มากกว่า 1 หมวดหมู่ */
+  categories: string[];
   description: string;
   imageUrl?: string | null;
   attachmentUrl?: string | null;
@@ -301,7 +302,7 @@ export interface SurveyQuestionBody {
 export interface CreateEventActivityBody {
   name: string;
   description: string;
-  category: string;
+  categories: string[];
   imageUrl?: string;
   attachmentUrl?: string;
   // ISO datetime string (เช่นจาก <input type="datetime-local"> + new Date(...).toISOString())

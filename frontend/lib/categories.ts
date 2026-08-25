@@ -1,5 +1,5 @@
 /**
- * หมวดหมู่กิจกรรม — ค่า value ตรงกับที่ backend เก็บใน Activity.category
+ * หมวดหมู่กิจกรรม — ค่า value ตรงกับที่ backend เก็บใน Activity.categories
  * สีใช้เฉพาะจุดเล็ก (จุดนำหน้า, badge, ขอบซ้าย) ไม่ใช้เป็นพื้นการ์ดทั้งใบ
  */
 export interface CategoryMeta {
@@ -60,4 +60,11 @@ export function getCategory(value?: string | null): CategoryMeta | undefined {
 
 export function categoryLabel(value?: string | null): string {
     return getCategory(value)?.label ?? value ?? ""
+}
+
+/** ป้ายหมวดหมู่แบบย่อสำหรับที่ที่มีพื้นที่จำกัด (เช่น มุมการ์ด) — โชว์หมวดแรก + จำนวนที่เหลือ เช่น "เทคโนโลยี +2" */
+export function categoriesBadgeLabel(values?: string[] | null): string {
+    if (!values || values.length === 0) return ""
+    const first = categoryLabel(values[0])
+    return values.length > 1 ? `${first} +${values.length - 1}` : first
 }

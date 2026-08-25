@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
-import { ActivityCard } from "@/components/ui/activity-card"
+import { EventCard, EventCardBadge } from "@/components/ui/event-card"
 import { ActivityCardSkeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
-import { activitiesAPI, Activity } from "@/lib/api"
-import { CATEGORIES } from "@/lib/categories"
+import { activitiesAPI, eventsAPI, Activity } from "@/lib/api"
+import { CATEGORIES, categoriesBadgeLabel } from "@/lib/categories"
+import { buildFeaturedCards, type FeaturedCardItem } from "@/lib/events-filter"
 import { SOFT_SKILLS } from "@/lib/soft-skills"
 import {
   ArrowRight,
@@ -24,27 +25,41 @@ import { NewsCarousel } from "@/components/ui/news-carousel"
 
 
 export default function RootPage() {
-  const [activities, setActivities] = useState<Activity[]>([])
+  const [items, setItems] = useState<FeaturedCardItem[]>([])
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState<string>("")
   const skillsScrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    loadActivities(category)
-  }, [category])
+    loadActivities()
+  }, [])
 
-  async function loadActivities(cat: string) {
+  async function loadActivities() {
     try {
       setLoading(true)
-      const data = await activitiesAPI.getAll(cat ? { category: cat } : undefined)
-      // Show only up to 3 for the recommended section
-      setActivities(Array.isArray(data) ? data.slice(0, 3) : [])
+      // งานหนึ่งงาน (มีกิจกรรมย่อยกี่ตัวก็ตาม) ต้องแสดงเป็นการ์ดเดียว จึงต้องดึงทั้ง Event และ
+      // กิจกรรมเดี่ยวมารวมกัน ไม่ใช่ดึงแค่ activitiesAPI.getAll() ที่คืนกิจกรรมย่อยแยกเป็นรายตัว
+      const [events, standalone] = await Promise.all([
+        eventsAPI.getAllPublic(),
+        activitiesAPI.getAll().catch(() => [] as Activity[]),
+      ])
+      const all = buildFeaturedCards(
+        Array.isArray(events) ? events : [],
+        Array.isArray(standalone) ? standalone : [],
+        { event: (id) => `/events/${id}`, activity: (id) => `/events/activities/${id}` }
+      )
+      setItems(all)
     } catch (err) {
       console.error(err)
     } finally {
       setLoading(false)
     }
   }
+
+  const filteredItems = (category ? items.filter((i) => i.categories.includes(category)) : items)
+    .slice()
+    .sort((a, b) => a.sortDate - b.sortDate)
+    .slice(0, 3)
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -147,9 +162,6 @@ export default function RootPage() {
         </Container>
       </section>
 
-      {/* ── 01 กระดานข่าว ───────────────────────────────────────────────── */}
-      <NewsCarousel />
-
       {/* ── 02 กิจกรรมแนะนำ ─────────────────────────────────────────────── */}
       <section>
         <Container className="py-16">
@@ -202,15 +214,28 @@ export default function RootPage() {
 
           <div className="mt-8">
             {loading ? (
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="flex flex-wrap gap-5">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <ActivityCardSkeleton key={i} />
+                  <div key={i} className="w-full sm:w-72">
+                    <ActivityCardSkeleton />
+                  </div>
                 ))}
               </div>
-            ) : activities.length > 0 ? (
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {activities.map((ev) => (
-                  <ActivityCard key={ev.id} activity={ev} />
+            ) : filteredItems.length > 0 ? (
+              <div className="flex flex-wrap gap-5">
+                {filteredItems.map((item) => (
+                  <Link key={item.key} href={item.href} className="block w-full sm:w-72">
+                    <EventCard
+                      activity={{ name: item.name, imageUrl: item.imageUrl }}
+                      description={item.description}
+                      badgeLeft={item.categories.length > 0 && <EventCardBadge variant="light">{categoriesBadgeLabel(item.categories)}</EventCardBadge>}
+                      badgeRight={
+                        <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
+                          {item.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}
+                        </EventCardBadge>
+                      }
+                    />
+                  </Link>
                 ))}
               </div>
             ) : (
@@ -228,6 +253,9 @@ export default function RootPage() {
           </div>
         </Container>
       </section>
+
+      {/* ── 01 กระดานข่าว ───────────────────────────────────────────────── */}
+      <NewsCarousel />
 
       {/* ── 03 ทักษะ 12 ด้าน ────────────────────────────────────────────── */}
       <section className="border-y border-border bg-surface">

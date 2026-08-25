@@ -10,6 +10,7 @@ import { ImageCropUpload } from "@/components/ui/image-crop-upload"
 import { DynamicQuestionBuilder } from "@/components/ui/dynamic-question-builder"
 import { CATEGORIES } from "@/lib/categories"
 import { SOFT_SKILLS } from "@/lib/soft-skills"
+import { toggleInArray } from "@/lib/utils"
 import { Paperclip, X } from "lucide-react"
 import type { ActivityFormState, ActivityFormErrors } from "./types"
 
@@ -60,29 +61,44 @@ export function ActivityTabForm({ activity, errors, onChange, onFieldBlur }: Pro
 
     return (
         <div className="space-y-8">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <FormField name="name" label="ชื่อกิจกรรม" required error={errors.name}>
-                    <Input
-                        value={activity.name}
-                        onChange={(e) => onChange({ name: e.target.value })}
-                        onBlur={() => onFieldBlur("name")}
-                        className={fieldInputClass(errors.name)}
-                    />
-                </FormField>
-                <FormField name="category" label="หมวดหมู่" required error={errors.category}>
-                    <select
-                        className={`h-10 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-brand-500 ${fieldInputClass(errors.category)}`}
-                        value={activity.category}
-                        onChange={(e) => onChange({ category: e.target.value })}
-                        onBlur={() => onFieldBlur("category")}
-                    >
-                        <option value="">เลือกหมวดหมู่</option>
-                        {CATEGORIES.map((c) => (
-                            <option key={c.value} value={c.value}>{c.label}</option>
-                        ))}
-                    </select>
-                </FormField>
-            </div>
+            <FormField name="name" label="ชื่อกิจกรรม" required error={errors.name}>
+                <Input
+                    value={activity.name}
+                    onChange={(e) => onChange({ name: e.target.value })}
+                    onBlur={() => onFieldBlur("name")}
+                    className={fieldInputClass(errors.name)}
+                />
+            </FormField>
+
+            <FormField name="categories" label="หมวดหมู่ (เลือกได้มากกว่า 1)" required error={errors.categories}>
+                <div className="flex flex-wrap gap-2">
+                    {CATEGORIES.map((c) => {
+                        const selected = activity.categories.includes(c.value)
+                        return (
+                            <label
+                                key={c.value}
+                                className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                                    selected
+                                        ? "border-brand-500 bg-brand-50 text-brand-700"
+                                        : "border-border bg-bg text-fg hover:bg-surface"
+                                }`}
+                            >
+                                <input
+                                    type="checkbox"
+                                    className="size-4 rounded border-border text-brand-600 focus:ring-brand-500"
+                                    checked={selected}
+                                    onChange={() => {
+                                        onChange({ categories: toggleInArray(activity.categories, c.value) })
+                                        onFieldBlur("categories")
+                                    }}
+                                />
+                                <span className={`size-2 rounded-full ${c.dot}`} aria-hidden="true" />
+                                {c.label}
+                            </label>
+                        )
+                    })}
+                </div>
+            </FormField>
 
             <FormField name="description" label="รายละเอียดกิจกรรม" required error={errors.description}>
                 <Textarea

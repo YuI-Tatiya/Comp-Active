@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Calendar, MapPin, Users, Activity } from "lucide-react"
 import { activitiesAPI, isUnlimitedCapacity, type Activity as ActivityItem } from "@/lib/api"
-import { categoryLabel } from "@/lib/categories"
+import { categoriesBadgeLabel } from "@/lib/categories"
 
 const approvalStyle: Record<string, { label: string; bg: string; color: string }> = {
     approved: { label: "อนุมัติแล้ว", bg: "rgba(63,160,172,0.12)", color: "#3fa0ac" },
@@ -81,7 +81,7 @@ export default function AdminAllActivitiesPage() {
                                                     </div>
                                                     <div>
                                                         <div className="font-medium text-sm" style={{ color: "#0f172a" }}>{activity.name}</div>
-                                                        <div className="text-xs mt-0.5" style={{ color: "#64748b" }}>{categoryLabel(activity.category)}</div>
+                                                        <div className="text-xs mt-0.5" style={{ color: "#64748b" }}>{categoriesBadgeLabel(activity.categories)}</div>
                                                     </div>
                                                 </div>
                                             </td>
