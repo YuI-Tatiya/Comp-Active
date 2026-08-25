@@ -239,6 +239,8 @@ export const activitiesAPI = {
     return fetchAPI<Activity[]>(`/api/activities${query ? `?${query}` : ''}`);
   },
   getById: (id: number) => fetchAPI<Activity>(`/api/activities/${id}`),
+  /** เจ้าของกิจกรรม/admin เท่านั้น — ต่างจาก getById (public) ตรงที่มีรายชื่อผู้ลงทะเบียนพร้อมคำตอบตอนลงทะเบียนแนบมาด้วย */
+  getByIdForOrganizer: (id: number) => fetchAPI<Activity>(`/api/activities/my/${id}`),
   create: (body: unknown) => fetchAPI<Activity>('/api/activities', { method: 'POST', body: JSON.stringify(body) }),
   update: (id: number, body: unknown) =>
     fetchAPI<Activity>(`/api/activities/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),

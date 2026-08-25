@@ -403,7 +403,8 @@ export default function OrganizerDashboard() {
                                                 </td>
                                                 <td className="px-6 py-5 text-right">
                                                     <Button size="sm" variant="ghost" className="rounded-xl font-semibold text-brand-600" asChild>
-                                                        <Link href={`/organizer/activities/${activity.id}`}>
+                                                        {/* กิจกรรมย่อยของงานมีเครื่องมือจัดการที่ครบกว่าในหน้างานแม่ (คิวอาร์โค้ด/ผลสำรวจ) จึงพาไปที่นั่นแทน */}
+                                                        <Link href={activity.eventId ? `/organizer/events/${activity.eventId}` : `/organizer/activities/${activity.id}`}>
                                                             จัดการรายคน →
                                                         </Link>
                                                     </Button>

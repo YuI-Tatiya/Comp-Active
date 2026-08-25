@@ -86,35 +86,35 @@ export default function StudentDashboardPage() {
   return (
     <>
       {/* ── แถบทักทาย ────────────────────────────────────────────────────── */}
-      <section className="border-b border-border bg-surface">
-        <Container className="py-12 sm:py-16">
+      <div className="relative overflow-hidden border-b border-border bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -left-16 -top-24 size-72 animate-pulse rounded-full bg-cat-volunteer/30 blur-3xl [animation-duration:4s]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-24 right-10 size-64 animate-pulse rounded-full bg-cat-art/30 blur-3xl [animation-duration:6s]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute right-1/3 top-0 size-40 animate-pulse rounded-full bg-cat-tech/25 blur-3xl [animation-duration:5s]"
+        />
+        <Container className="relative z-10 py-8">
           <div className="max-w-2xl">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg px-3 py-1 text-xs font-medium text-fg-muted">
-              <Sparkles className="size-3.5 text-brand-600" aria-hidden="true" />
+            <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-sm">
+              <Sparkles className="size-3.5 animate-pulse" aria-hidden="true" />
               {loadingMine ? "กำลังโหลดข้อมูล..." : `ระดับ ${level}`}
             </span>
 
-            <h1 className="mt-5 text-3xl font-bold tracking-tight text-fg sm:text-4xl">
+            <h1 className="mb-1 text-3xl font-black tracking-tight text-white sm:text-4xl">
               สวัสดี {user?.name || "นักศึกษา"}
             </h1>
-            <p className="mt-3 text-base leading-relaxed text-fg-muted">
+            <p className="text-white/85">
               เลือกกิจกรรมที่สนใจ สะสมคะแนน Soft Skills และติดตามการเติบโตของคุณ
             </p>
-
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Button size="lg" asChild>
-                <Link href="/student/events">
-                  ค้นหากิจกรรม
-                  <ArrowRight />
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" asChild>
-                <Link href="/student/profile">ทักษะของฉัน</Link>
-              </Button>
-            </div>
           </div>
         </Container>
-      </section>
+      </div>
 
       {/* ── ข่าวสารและประกาศ ─────────────────────────────────────────────── */}
       <NewsCarousel />

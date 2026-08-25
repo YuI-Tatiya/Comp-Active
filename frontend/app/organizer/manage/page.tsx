@@ -343,7 +343,7 @@ export default function OrganizerManagePage() {
                 ) : totalCount > 0 ? (
                     <div className="space-y-12">
                         {filteredEvents.length > 0 && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                                 {filteredEvents.map((ev) => {
                                     const fa = firstActivity(ev)
                                     return (
@@ -381,7 +381,7 @@ export default function OrganizerManagePage() {
                         {filteredStandalone.length > 0 && (
                             <div>
                                 <h2 className="mb-4 text-lg font-bold text-fg">กิจกรรมเดี่ยว (ไม่ผูกกับงาน)</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                                     {filteredStandalone.map((a) => {
                                         const ap = APPROVAL_META[a.approvalStatus] ?? APPROVAL_META.pending_approval
                                         return (

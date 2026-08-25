@@ -60,10 +60,33 @@ export class ActivitiesRepository {
     });
   }
 
+  /** ใช้กับผู้ชมทั่วไป (public/student) — ไม่ส่งรายชื่อ/ข้อมูลติดต่อผู้ลงทะเบียนออกไป มีแค่จำนวนรวม */
   findById(id: number) {
     return this.prisma.activity.findUnique({
       where: { id },
-      include: { ...activityInclude, registrations: { include: { student: true, evaluation: true } } },
+      include: { ...activityInclude, _count: { select: { registrations: true } } },
+    });
+  }
+
+  /** ใช้กับ organizer เจ้าของกิจกรรม/admin เท่านั้น — ส่งรายชื่อผู้ลงทะเบียนพร้อมคำตอบตอนลงทะเบียนมาด้วย */
+  findByIdForOrganizer(id: number) {
+    return this.prisma.activity.findUnique({
+      where: { id },
+      include: {
+        ...activityInclude,
+        registrations: {
+          include: {
+            student: true,
+            evaluation: true,
+            answers: {
+              include: {
+                question: { select: { id: true, label: true } },
+                options: { include: { option: { select: { id: true, label: true } } } },
+              },
+            },
+          },
+        },
+      },
     });
   }
 

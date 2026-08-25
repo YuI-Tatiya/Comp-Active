@@ -76,6 +76,20 @@ export class ActivitiesService {
       throw new NotFoundException(`ไม่พบกิจกรรม ID: ${id}`);
     }
 
+    // endpoint นี้เป็น public (ดูได้ทุกคนรวมไม่ login) — ส่งแค่จำนวนผู้ลงทะเบียน ไม่ส่งรายชื่อ/อีเมล/เบอร์
+    const { _count, ...rest } = activity as any;
+    return { ...rest, registeredCount: _count.registrations };
+  }
+
+  /** รายละเอียดเต็ม (รวมรายชื่อผู้ลงทะเบียน+คำตอบตอนลงทะเบียน) — เฉพาะ organizer เจ้าของกิจกรรม/admin */
+  async findByIdForOrganizer(id: number, callerId: number, callerRole: UserRole) {
+    const activity = await this.activitiesRepository.findByIdForOrganizer(id);
+
+    if (!activity) throw new NotFoundException(`ไม่พบกิจกรรม ID: ${id}`);
+    if (callerRole !== UserRole.ADMIN && (activity as any).organizerId !== callerId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์ดูข้อมูลกิจกรรมนี้');
+    }
+
     return activity;
   }
 
@@ -136,7 +150,7 @@ export class ActivitiesService {
     if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
       throw new ForbiddenException('คุณไม่มีสิทธิ์ลบกิจกรรมนี้');
     }
-    if (((activity as any).registrations?.length ?? 0) > 0) {
+    if (((activity as any).registeredCount ?? 0) > 0) {
       throw new BadRequestException('ไม่สามารถลบกิจกรรมนี้ได้ เนื่องจากมีผู้ลงทะเบียนแล้ว');
     }
 

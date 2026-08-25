@@ -49,6 +49,20 @@ export class ActivitiesOrganizerController {
   }
 
   /**
+   * GET /api/activities/my/:id - ดูรายละเอียดกิจกรรมเดี่ยวแบบเต็ม รวมรายชื่อผู้ลงทะเบียน (เจ้าของ / Admin)
+   * แยกจาก GET /api/activities/:id (public) ที่ไม่ส่งรายชื่อ/ข้อมูลติดต่อผู้ลงทะเบียนออกไป
+   */
+  @Get('my/:id')
+  @ApiOperation({ summary: 'ดูรายละเอียดกิจกรรมเดี่ยวแบบเต็ม รวมรายชื่อผู้ลงทะเบียน (เจ้าของ / Admin)' })
+  async findMyActivityById(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+    @CurrentUser('role') userRole: UserRole,
+  ) {
+    return this.activitiesService.findByIdForOrganizer(id, userId, userRole);
+  }
+
+  /**
    * GET /api/activities/:id/survey-results - ดูผลสรุปแบบสำรวจของกิจกรรมเดี่ยว (เจ้าของ / Admin)
    */
   @Get(':id/survey-results')
