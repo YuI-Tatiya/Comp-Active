@@ -39,7 +39,7 @@ export interface ActivityFormState {
     certEnabled: boolean
     volunteerRole: string
     softSkillsEnabled: boolean
-    /** skillType -> rate (1-10) — มีเฉพาะทักษะที่ติ๊กเลือก */
+    /** skillType -> rate (0-5) — มีเฉพาะทักษะที่ติ๊กเลือก */
     softSkillRates: Record<string, number>
     questionsEnabled: boolean
     questions: BuilderQuestion[]

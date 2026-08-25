@@ -200,7 +200,7 @@ export function SectionPublish({ event, activities, onChangeEvent }: Props) {
                                 <div className="mt-3 flex flex-wrap gap-1.5">
                                     {Object.entries(a.softSkillRates).map(([skillType, rate]) => (
                                         <Badge key={skillType} variant="outline" className="text-xs">
-                                            {softSkillLabel(skillType)} · {rate}
+                                            {softSkillLabel(skillType)} · {rate}/5
                                         </Badge>
                                     ))}
                                 </div>

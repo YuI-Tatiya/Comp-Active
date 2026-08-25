@@ -481,7 +481,7 @@ export const registrationsAPI = {
 
 // ==================== EVALUATIONS ====================
 // คะแนน Soft Skills มาจากระบบอัตโนมัติตอนเช็คอินเท่านั้น (จาก ActivitySoftSkill.rate ของกิจกรรม)
-// ไม่มี endpoint สร้างคะแนนแบบ manual ฝั่ง organizer แล้ว — สเกล 0-10 ต่อทักษะ
+// ไม่มี endpoint สร้างคะแนนแบบ manual ฝั่ง organizer แล้ว — สเกล 0-5 ต่อทักษะ
 
 export interface SkillScores {
   communication: number;
@@ -500,8 +500,13 @@ export interface SkillScores {
 
 export interface SkillsData {
   count: number;
+  // ผลรวมคะแนน Soft Skills ดิบ (ไม่ผ่านการคูณ scale สำหรับระบบเลเวล) — ใช้แสดง "คะแนนสะสม"
+  totalScore: number;
   points: number;
   level: number;
+  // อันดับเทียบกับนักศึกษาทั้งระบบ เรียงจากคะแนน Soft Skills รวมสูงสุด — คะแนนสูงสุด = อันดับ 1
+  rank: number;
+  totalStudents: number;
   average: SkillScores;
   badges: { name: string; icon: string; description: string }[];
   history: {
@@ -519,10 +524,19 @@ export const evaluationsAPI = {
 
 // ==================== CERTIFICATES ====================
 
+export interface Certificate {
+  id: number;
+  issueDate: string;
+  certificateUrl: string;
+  verificationCode?: string | null;
+  volunteerHours?: string | null;
+  volunteerRole?: string | null;
+}
+
 export const certificatesAPI = {
   issue: (registrationId: number) =>
     fetchAPI(`/api/certificates/issue/${registrationId}`, { method: 'POST' }),
-  getMy: () => fetchAPI('/api/certificates/my'),
+  getMy: () => fetchAPI<Certificate[]>('/api/certificates/my'),
   getById: (id: number) => fetchAPI(`/api/certificates/${id}`),
 };
 

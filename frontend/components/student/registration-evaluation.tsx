@@ -5,7 +5,7 @@ import { SOFT_SKILLS } from "@/lib/soft-skills"
 import type { SkillScores } from "@/lib/api"
 
 /** คะแนนเต็มต่อทักษะ — ตรงกับสเกลที่ผู้จัดตั้งไว้ใน ActivitySoftSkill.rate */
-const MAX_SCORE = 10
+const MAX_SCORE = 5
 
 interface RegistrationEvaluationProps {
     scores: SkillScores

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { UserRole } from '../../../common/enums/role.enum';
 
 @Injectable()
 export class EvaluationsRepository {
@@ -42,6 +43,31 @@ export class EvaluationsRepository {
       where: { registration: { activityId } },
       include: { registration: { include: { student: true } } },
     });
+  }
+
+  /** ทุกแถวคะแนน พร้อม studentId เจ้าของ — ใช้คำนวณอันดับเทียบกับนักศึกษาทั้งระบบ */
+  findAllScoresWithStudent() {
+    return this.prisma.evaluation.findMany({
+      select: {
+        communication: true,
+        timeManagement: true,
+        flexibilityAdaptability: true,
+        teamworkCollaboration: true,
+        analyticCriticalThinking: true,
+        decisionMaking: true,
+        creativity: true,
+        complexProblemSolving: true,
+        curiosityLifelongLearning: true,
+        negotiationPersuasion: true,
+        leadership: true,
+        positiveAttitude: true,
+        registration: { select: { studentId: true } },
+      },
+    });
+  }
+
+  countStudents() {
+    return this.prisma.user.count({ where: { role: UserRole.STUDENT } });
   }
 
   aggregateSkills() {

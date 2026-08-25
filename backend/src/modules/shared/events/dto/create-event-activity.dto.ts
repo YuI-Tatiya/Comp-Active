@@ -23,10 +23,10 @@ class SoftSkillRateDto {
   @IsIn(Object.values(SoftSkillType))
   skillType: SoftSkillType;
 
-  @ApiProperty({ example: 5, minimum: 1, maximum: 10, description: 'น้ำหนักคะแนนของทักษะนี้สำหรับกิจกรรมนี้' })
+  @ApiProperty({ example: 3, minimum: 0, maximum: 5, description: 'น้ำหนักคะแนนของทักษะนี้สำหรับกิจกรรมนี้ (0-5)' })
   @IsInt()
-  @Min(1)
-  @Max(10)
+  @Min(0)
+  @Max(5)
   rate: number;
 }
 
@@ -120,7 +120,7 @@ export class CreateEventActivityDto {
   @IsString()
   volunteerRole?: string | null;
 
-  @ApiPropertyOptional({ type: [SoftSkillRateDto], description: 'Soft Skills ที่กิจกรรมนี้ให้คะแนน พร้อมน้ำหนัก 1-10' })
+  @ApiPropertyOptional({ type: [SoftSkillRateDto], description: 'Soft Skills ที่กิจกรรมนี้ให้คะแนน พร้อมน้ำหนัก 0-5' })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })

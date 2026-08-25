@@ -202,7 +202,7 @@ export function ActivityRewardsPanel({ activity }: { activity: Activity }) {
                                     <span>
                                         {softSkillLabel(skill.skillType)}
                                         {skill.rate !== undefined && (
-                                            <span className="ml-1.5 text-brand-600/80">· น้ำหนัก {skill.rate}</span>
+                                            <span className="ml-1.5 text-brand-600/80">· น้ำหนัก {skill.rate}/5</span>
                                         )}
                                     </span>
                                 </div>

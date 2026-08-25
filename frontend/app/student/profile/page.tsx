@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { X, Award, TrendingUp, CalendarCheck, Search } from "lucide-react"
+import { X, Trophy, TrendingUp, CalendarCheck, Search } from "lucide-react"
 import { Toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -246,13 +246,14 @@ export default function StudentProfilePage() {
 
                                 <div className="mb-10 grid grid-cols-1 gap-6 md:grid-cols-3">
                                     <StatTile
-                                        label="ระดับปัจจุบัน"
-                                        value={loading ? "—" : `LV ${skillsData?.level ?? 1}`}
-                                        icon={Award}
+                                        label="อันดับในระบบ"
+                                        value={loading || !skillsData ? "—" : `#${skillsData.rank}`}
+                                        caption={loading || !skillsData ? undefined : `จากนักศึกษาทั้งหมด ${skillsData.totalStudents} คน`}
+                                        icon={Trophy}
                                     />
                                     <StatTile
                                         label="แต้มสะสมทั้งหมด"
-                                        value={loading ? "—" : (skillsData?.points ?? 0).toLocaleString("th-TH")}
+                                        value={loading ? "—" : (skillsData?.totalScore ?? 0).toLocaleString("th-TH")}
                                         icon={TrendingUp}
                                     />
                                     {/* เดิมนับ r.status === 'attended' ซึ่งเป็นไปไม่ได้ (attended อยู่ในฟิลด์ attendance) */}
@@ -272,7 +273,7 @@ export default function StudentProfilePage() {
                                                 dataKey="subject"
                                                 tick={{ fill: "var(--color-fg-muted)", fontSize: 12, fontWeight: 600 }}
                                             />
-                                            <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
+                                            <PolarRadiusAxis angle={30} domain={[0, 5]} tick={false} axisLine={false} />
                                             <Radar
                                                 name="ทักษะของนักศึกษา"
                                                 dataKey="A"

@@ -24,7 +24,7 @@ import {
 } from "@/lib/api"
 import { buildFeaturedCards, type FeaturedCardItem } from "@/lib/events-filter"
 import { useAuth } from "@/lib/auth-context"
-import { ArrowRight, CalendarCheck, CalendarX, Award, Sparkles, TrendingUp } from "lucide-react"
+import { ArrowRight, CalendarCheck, CalendarX, Clock, Sparkles, Trophy, TrendingUp } from "lucide-react"
 
 interface MyRegistration {
   id: number
@@ -39,7 +39,7 @@ export default function StudentDashboardPage() {
   const [recommended, setRecommended] = useState<FeaturedCardItem[]>([])
   const [registrations, setRegistrations] = useState<MyRegistration[]>([])
   const [skills, setSkills] = useState<SkillsData | null>(null)
-  const [certCount, setCertCount] = useState<number | null>(null)
+  const [totalVolunteerHours, setTotalVolunteerHours] = useState<number | null>(null)
   const [loadingActivities, setLoadingActivities] = useState(true)
   const [loadingMine, setLoadingMine] = useState(true)
 
@@ -71,7 +71,8 @@ export default function StudentDashboardPage() {
         }
         if (skillRes.status === "fulfilled") setSkills(skillRes.value)
         if (certRes.status === "fulfilled" && Array.isArray(certRes.value)) {
-          setCertCount(certRes.value.length)
+          const hours = certRes.value.reduce((sum, c) => sum + (Number(c.volunteerHours) || 0), 0)
+          setTotalVolunteerHours(hours)
         }
       })
       .finally(() => setLoadingMine(false))
@@ -139,18 +140,23 @@ export default function StudentDashboardPage() {
             />
             <StatTile
               label="คะแนนสะสม"
-              value={loadingMine ? "—" : points.toLocaleString("th-TH")}
+              value={loadingMine ? "—" : (skills?.totalScore ?? 0).toLocaleString("th-TH")}
               icon={TrendingUp}
             />
             <StatTile
-              label="ระดับปัจจุบัน"
-              value={loadingMine ? "—" : `LV ${level}`}
-              icon={Sparkles}
+              label="อันดับในระบบ"
+              value={loadingMine || !skills ? "—" : `#${skills.rank}`}
+              caption={loadingMine || !skills ? undefined : `จากนักศึกษาทั้งหมด ${skills.totalStudents} คน`}
+              icon={Trophy}
             />
             <StatTile
-              label="เกียรติบัตร"
-              value={certCount === null ? "—" : certCount}
-              icon={Award}
+              label="ชั่วโมงจิตอาสา"
+              value={
+                totalVolunteerHours === null
+                  ? "—"
+                  : `${totalVolunteerHours.toLocaleString("th-TH", { maximumFractionDigits: 2 })} ชม.`
+              }
+              icon={Clock}
             />
           </div>
         </Container>

@@ -15,6 +15,7 @@ import { formatEventDate } from "@/components/ui/event-card"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { Toast } from "@/components/ui/toast"
 import { RegistrationEvaluation } from "@/components/student/registration-evaluation"
+import { QrCheckInButton } from "@/components/student/qr-checkin-button"
 import { registrationsAPI, API_BASE_URL, isCancelledByOrganizer, isActiveRegistration, EventSurveyQuestion, SurveyAnswerBody, SkillScores } from "@/lib/api"
 import { getCategory, categoriesBadgeLabel } from "@/lib/categories"
 import { SOFT_SKILLS } from "@/lib/soft-skills"
@@ -561,6 +562,10 @@ export default function MyRegistrationsPage() {
                         <Button size="sm" className="rounded-xl font-bold shadow-sm" asChild>
                           <Link href={`/student/activities/${reg.activity.id}`}>ดูรายละเอียดกิจกรรม</Link>
                         </Button>
+
+                        {reg.status === "confirmed" && reg.attendance !== "attended" && (
+                          <QrCheckInButton activityId={reg.activity.id} activityName={reg.activity.name} />
+                        )}
 
                         {reg.attendance === "attended" && (
                           <Button
