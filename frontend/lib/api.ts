@@ -411,6 +411,14 @@ export interface CertRequestBody {
   wantsCertScholarship?: boolean;
 }
 
+export interface CheckInSelfResult {
+  id: number;
+  status: string;
+  attendance: string;
+  checkInTime: string | null;
+  alreadyCheckedIn: boolean;
+}
+
 export const registrationsAPI = {
   create: (activityId: number, answers?: RegistrationAnswerBody[], certRequest?: CertRequestBody) =>
     fetchAPI('/api/registrations', {
@@ -422,6 +430,12 @@ export const registrationsAPI = {
   getByActivity: (activityId: number) => fetchAPI(`/api/registrations/activity/${activityId}`),
   confirm: (id: number) => fetchAPI(`/api/registrations/${id}/confirm`, { method: 'PATCH' }),
   checkIn: (id: number) => fetchAPI(`/api/registrations/${id}/check-in`, { method: 'PATCH' }),
+  /** เช็คอินด้วยตัวเอง — นักศึกษาสแกน QR code ที่ organizer แสดงหน้างาน (ต้อง login เป็น student อยู่แล้ว) */
+  checkInSelf: (activityId: number) =>
+    fetchAPI<CheckInSelfResult>('/api/registrations/check-in-self', {
+      method: 'PATCH',
+      body: JSON.stringify({ activityId }),
+    }),
   getSurveyQuestions: (id: number) => fetchAPI<EventSurveyQuestion[]>(`/api/registrations/${id}/survey-questions`),
   submitSurvey: (id: number, answers: SurveyAnswerBody[]) =>
     fetchAPI<{ message: string }>(`/api/registrations/${id}/survey`, {

@@ -43,16 +43,11 @@ export class ActivitiesRepository {
     return this.prisma.activity.findMany({
       where: {
         approvalStatus: ApprovalStatus.APPROVED as any,
-        ...(filterDto?.search && {
-          name: { contains: filterDto.search, mode: 'insensitive' },
-        }),
+        ...(filterDto?.search && { name: { contains: filterDto.search, mode: 'insensitive' } }),
         ...(filterDto?.category && { category: filterDto.category }),
         ...(filterDto?.status && { status: filterDto.status as any }),
       },
-      include: {
-        ...activityInclude,
-        _count: { select: { registrations: true } },
-      },
+      include: { ...activityInclude, _count: { select: { registrations: true } } },
       orderBy: { date: 'asc' },
     });
   }
@@ -60,15 +55,7 @@ export class ActivitiesRepository {
   findById(id: number) {
     return this.prisma.activity.findUnique({
       where: { id },
-      include: {
-        ...activityInclude,
-        registrations: {
-          include: {
-            student: true,
-            evaluation: true,
-          },
-        },
-      },
+      include: { ...activityInclude, registrations: { include: { student: true, evaluation: true } } },
     });
   }
 
@@ -93,9 +80,7 @@ export class ActivitiesRepository {
       if (relations.tags !== undefined) {
         await tx.activityTag.deleteMany({ where: { activityId } });
         if (relations.tags.length) {
-          await tx.activityTag.createMany({
-            data: relations.tags.map((tagName) => ({ activityId, tagName })),
-          });
+          await tx.activityTag.createMany({ data: relations.tags.map((tagName) => ({ activityId, tagName })) });
         }
       }
 
@@ -205,11 +190,7 @@ export class ActivitiesRepository {
 
   findByIdForNewsfeed(id: number) {
     return this.prisma.activity.findFirst({
-      where: {
-        id,
-        approvalStatus: ApprovalStatus.APPROVED as any,
-        ...ActivitiesRepository.EXCLUDE_RESTRICTED,
-      },
+      where: { id, approvalStatus: ApprovalStatus.APPROVED as any, ...ActivitiesRepository.EXCLUDE_RESTRICTED },
       select: ActivitiesRepository.NEWSFEED_SELECT,
     });
   }

@@ -1,13 +1,4 @@
-import {
-  Controller,
-  Post,
-  Get,
-  Body,
-  Param,
-  UseGuards,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -102,10 +93,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'ตรวจสอบรหัส OTP ที่ได้รับทางอีเมล' })
-  async verifyOtp(
-    @CurrentUser('id') userId: number,
-    @Body('otp') otp: string,
-  ) {
+  async verifyOtp(@CurrentUser('id') userId: number, @Body('otp') otp: string) {
     return this.authService.verifyOtp(userId, otp);
   }
 }

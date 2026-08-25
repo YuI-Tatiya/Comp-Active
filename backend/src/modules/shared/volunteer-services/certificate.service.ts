@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { CertificatesRepository } from './certificate.repository';
 import { AttendanceStatus } from '../../../common/enums/status.enum';
 import { generateSecureToken } from '../../../common/utils';
@@ -20,9 +15,7 @@ export class CertificatesService {
     if (!registration) throw new NotFoundException('ไม่พบรายการลงทะเบียน');
 
     if (registration.attendance !== AttendanceStatus.ATTENDED) {
-      throw new BadRequestException(
-        'นักศึกษาต้องเช็คอินเข้าร่วมกิจกรรมก่อนจึงจะออกเกียรติบัตรได้',
-      );
+      throw new BadRequestException('นักศึกษาต้องเช็คอินเข้าร่วมกิจกรรมก่อนจึงจะออกเกียรติบัตรได้');
     }
 
     const existing = await this.certificatesRepository.findByRegistrationId(registrationId);

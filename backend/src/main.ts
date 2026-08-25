@@ -36,9 +36,7 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
+      transformOptions: { enableImplicitConversion: true },
     }),
   );
 
@@ -51,9 +49,7 @@ async function bootstrap() {
   // Swagger API Documentation
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Comp Active API')
-    .setDescription(
-      'API สำหรับระบบจัดการกิจกรรม (Event Management System) - วิทยาลัยการคอมพิวเตอร์',
-    )
+    .setDescription('API สำหรับระบบจัดการกิจกรรม (Event Management System) - วิทยาลัยการคอมพิวเตอร์')
     .setVersion('1.0')
     .addBearerAuth()
     .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'x-api-key')
@@ -69,11 +65,7 @@ async function bootstrap() {
   // Swagger docs describe internal/admin surfaces too — keep them out of production.
   if (configService.get<string>('NODE_ENV') !== 'production') {
     const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup('api', app, document, {
-      swaggerOptions: {
-        persistAuthorization: true,
-      },
-    });
+    SwaggerModule.setup('api', app, document, { swaggerOptions: { persistAuthorization: true } });
   }
 
   await app.listen(port);

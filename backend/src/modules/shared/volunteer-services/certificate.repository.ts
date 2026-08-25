@@ -24,13 +24,7 @@ export class CertificatesRepository {
     volunteerRole?: string | null,
   ) {
     return this.prisma.certificate.create({
-      data: {
-        registrationId,
-        certificateUrl,
-        verificationCode,
-        volunteerHours,
-        volunteerRole,
-      } as any,
+      data: { registrationId, certificateUrl, verificationCode, volunteerHours, volunteerRole } as any,
     });
   }
 

@@ -64,8 +64,7 @@ export function currentYearLevel(studentId: string | null | undefined, now: Date
   if (admissionYear === null) return null;
 
   const currentBEYear = now.getFullYear() + 543;
-  const currentAcademicYear =
-    now.getMonth() + 1 >= ACADEMIC_YEAR_ROLLOVER_MONTH ? currentBEYear : currentBEYear - 1;
+  const currentAcademicYear = now.getMonth() + 1 >= ACADEMIC_YEAR_ROLLOVER_MONTH ? currentBEYear : currentBEYear - 1;
 
   const level = currentAcademicYear - admissionYear + 1;
   return level >= 1 ? level : null;

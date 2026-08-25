@@ -69,7 +69,11 @@ export class UpdateEventDto {
   @IsDateString()
   registrationCloseAt?: string;
 
-  @ApiPropertyOptional({ type: [UpdateEventActivityDto], description: 'กิจกรรมย่อยทั้งหมดของงานนี้หลังแก้ไข — ที่ไม่ส่ง id จะถูกสร้างใหม่, ของเดิมที่ไม่อยู่ในรายการนี้จะถูกลบ (ถ้าไม่มีผู้ลงทะเบียน)' })
+  @ApiPropertyOptional({
+    type: [UpdateEventActivityDto],
+    description:
+      'กิจกรรมย่อยทั้งหมดของงานนี้หลังแก้ไข — ที่ไม่ส่ง id จะถูกสร้างใหม่, ของเดิมที่ไม่อยู่ในรายการนี้จะถูกลบ (ถ้าไม่มีผู้ลงทะเบียน)',
+  })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

@@ -1,12 +1,4 @@
-import {
-  IsNotEmpty,
-  IsString,
-  IsNumber,
-  IsOptional,
-  IsArray,
-  IsIn,
-  Min,
-} from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, IsOptional, IsArray, IsIn, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SoftSkillType } from '../../../../common/enums/soft-skill.enum';
 
@@ -52,10 +44,7 @@ export class CreateActivityDto {
   @Min(1)
   capacity?: number | null;
 
-  @ApiPropertyOptional({
-    example: ['React', 'Frontend'],
-    description: 'แท็ก',
-  })
+  @ApiPropertyOptional({ example: ['React', 'Frontend'], description: 'แท็ก' })
   @IsArray()
   @IsOptional()
   tags?: string[];
@@ -71,26 +60,17 @@ export class CreateActivityDto {
   @IsIn(Object.values(SoftSkillType), { each: true })
   softSkills?: SoftSkillType[];
 
-  @ApiPropertyOptional({
-    example: ['นักศึกษาชั้นปีที่ 2 ขึ้นไป'],
-    description: 'เงื่อนไขการเข้าร่วม',
-  })
+  @ApiPropertyOptional({ example: ['นักศึกษาชั้นปีที่ 2 ขึ้นไป'], description: 'เงื่อนไขการเข้าร่วม' })
   @IsArray()
   @IsOptional()
   conditions?: string[];
 
-  @ApiPropertyOptional({
-    example: ['ได้รับเกียรติบัตร', 'ชั่วโมงอาสาสมัคร 8 ชั่วโมง'],
-    description: 'สิทธิประโยชน์',
-  })
+  @ApiPropertyOptional({ example: ['ได้รับเกียรติบัตร', 'ชั่วโมงอาสาสมัคร 8 ชั่วโมง'], description: 'สิทธิประโยชน์' })
   @IsArray()
   @IsOptional()
   benefits?: string[];
 
-  @ApiPropertyOptional({
-    example: 'https://example.com/image.jpg',
-    description: 'URL รูปภาพโปสเตอร์กิจกรรม',
-  })
+  @ApiPropertyOptional({ example: 'https://example.com/image.jpg', description: 'URL รูปภาพโปสเตอร์กิจกรรม' })
   @IsString()
   @IsOptional()
   imageUrl?: string;

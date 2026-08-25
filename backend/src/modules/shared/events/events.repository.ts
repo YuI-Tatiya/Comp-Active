@@ -70,9 +70,7 @@ export interface PreparedEventUpdateData {
 
 /** ใช้กับเส้นทางสาธารณะ/ยังไม่ยืนยันตัวตน — ห้ามมี registrations แบบละเอียด (ไม่มี student/evaluation) */
 export const eventInclude = {
-  activities: {
-    include: { ...activityInclude, registrations: true, _count: { select: { registrations: true } } },
-  },
+  activities: { include: { ...activityInclude, registrations: true, _count: { select: { registrations: true } } } },
   surveyQuestions: true,
   visibilityProgram: true,
   visibilityYears: true,
@@ -128,12 +126,8 @@ export class EventsRepository {
           },
           visibility: data.visibility as any,
           visibilityStudentIdFilter: data.visibilityStudentIdFilter,
-          visibilityProgram: {
-            create: data.visibilityPrograms.map((programCode) => ({ programCode })),
-          },
-          visibilityYears: {
-            create: data.visibilityYears.map((year) => ({ year })),
-          },
+          visibilityProgram: { create: data.visibilityPrograms.map((programCode) => ({ programCode })) },
+          visibilityYears: { create: data.visibilityYears.map((year) => ({ year })) },
         } as any,
       });
 
@@ -205,9 +199,7 @@ export class EventsRepository {
       }
       await tx.eventVisibilityYear.deleteMany({ where: { eventId } });
       if (data.visibilityYears.length) {
-        await tx.eventVisibilityYear.createMany({
-          data: data.visibilityYears.map((year) => ({ eventId, year })),
-        });
+        await tx.eventVisibilityYear.createMany({ data: data.visibilityYears.map((year) => ({ eventId, year })) });
       }
 
       // กิจกรรมย่อยที่ถูกเอาออก — cascade ลบ tags/conditions/benefits/softSkills/questions ให้เองผ่าน schema
@@ -224,7 +216,11 @@ export class EventsRepository {
           await tx.activitySoftSkill.deleteMany({ where: { activityId: id } });
           if (softSkillRates.length) {
             await tx.activitySoftSkill.createMany({
-              data: softSkillRates.map(({ skillType, rate }) => ({ activityId: id, skillType: skillType as any, rate })),
+              data: softSkillRates.map(({ skillType, rate }) => ({
+                activityId: id,
+                skillType: skillType as any,
+                rate,
+              })),
             });
           }
 
@@ -247,7 +243,8 @@ export class EventsRepository {
           await tx.activity.create({
             data: {
               ...activityData,
-              organizerId: (await tx.event.findUniqueOrThrow({ where: { id: eventId }, select: { organizerId: true } })).organizerId,
+              organizerId: (await tx.event.findUniqueOrThrow({ where: { id: eventId }, select: { organizerId: true } }))
+                .organizerId,
               eventId,
               approvalStatus: 'approved' as any,
               softSkills: {

@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
 import { RegistrationsRepository } from './registrations.repository';
 import { EvaluationsService } from './evaluation.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -18,6 +12,7 @@ import {
 } from '../../../common/enums/status.enum';
 import { isViewerEligibleForEvent, type Viewer } from '../events/event-visibility.util';
 import { MailService } from '../mail/mail.service';
+import { UserRole } from '../../../common/enums/role.enum';
 
 interface AnswerInput {
   questionId: number;
@@ -97,13 +92,7 @@ export class RegistrationsService {
 
   /** ตรวจว่าตอบครบคำถามบังคับ + ตัวเลือกที่ส่งมาเป็นของคำถามนั้นจริง (กันปลอมแปลง optionId ข้ามคำถาม/กิจกรรม) */
   private validateAndPrepareAnswers(
-    questions: {
-      id: number;
-      label: string;
-      type: string;
-      required: boolean;
-      options: { id: number }[];
-    }[],
+    questions: { id: number; label: string; type: string; required: boolean; options: { id: number }[] }[],
     answers: AnswerInput[],
   ) {
     const answerByQuestionId = new Map(answers.map((a) => [a.questionId, a]));
@@ -157,14 +146,27 @@ export class RegistrationsService {
     return this.registrationsRepository.findByStudent(studentId);
   }
 
-  async findByActivity(activityId: number) {
+  async findByActivity(callerId: number, callerRole: UserRole, activityId: number) {
+    const organizerId = await this.registrationsRepository.findActivityOrganizerId(activityId);
+
+    if (organizerId === null) throw new NotFoundException('ไม่พบกิจกรรม');
+    this.assertOwnsActivity(callerId, callerRole, organizerId, 'ดูผู้เข้าร่วม');
+
     return this.registrationsRepository.findByActivity(activityId);
   }
 
-  async confirm(registrationId: number) {
-    const registration = await this.registrationsRepository.findById(registrationId);
+  /** organizer/admin เท่านั้นที่แก้ไขข้อมูลผู้เข้าร่วมของกิจกรรมได้ — และต้องเป็นเจ้าของกิจกรรมนั้นจริง (ไม่ใช่แค่มี role ที่ถูกต้อง) */
+  private assertOwnsActivity(callerId: number, callerRole: UserRole, organizerId: number, action: string) {
+    if (callerRole !== UserRole.ADMIN && organizerId !== callerId) {
+      throw new BadRequestException(`คุณไม่มีสิทธิ์${action}ของกิจกรรมนี้`);
+    }
+  }
+
+  async confirm(callerId: number, callerRole: UserRole, registrationId: number) {
+    const registration = await this.registrationsRepository.findByIdWithActivity(registrationId);
 
     if (!registration) throw new NotFoundException('ไม่พบรายการลงทะเบียน');
+    this.assertOwnsActivity(callerId, callerRole, registration.activity.organizerId, 'ยืนยันผู้เข้าร่วม');
 
     const saved = await this.registrationsRepository.update(registrationId, {
       status: RegistrationStatus.CONFIRMED as any,
@@ -196,25 +198,63 @@ export class RegistrationsService {
     }
   }
 
-  async checkIn(registrationId: number) {
+  async checkIn(callerId: number, callerRole: UserRole, registrationId: number) {
     const registration = await this.registrationsRepository.findByIdWithActivitySoftSkills(registrationId);
 
     if (!registration) throw new NotFoundException('ไม่พบรายการลงทะเบียน');
+    this.assertOwnsActivity(callerId, callerRole, registration.activity.organizerId, 'เช็คอินผู้เข้าร่วม');
 
-    if (registration.status !== RegistrationStatus.CONFIRMED) {
-      throw new BadRequestException('ต้องยืนยันการลงทะเบียนก่อนเช็คอิน');
+    return this.performCheckIn(registration);
+  }
+
+  /**
+   * เช็คอินด้วยตัวเอง — นักศึกษาสแกน QR code ที่ organizer แสดงหน้างาน แล้วเช็คอินเข้ากิจกรรมของตัวเองทันที
+   * ไม่ต้องมี organizer คอยกดให้ ต่างจาก checkIn() ที่เป็นฝั่ง organizer กดแทน
+   */
+  async checkInSelf(studentId: number, activityId: number) {
+    const registration = await this.registrationsRepository.findActiveByStudentAndActivityWithSoftSkills(
+      studentId,
+      activityId,
+    );
+
+    if (!registration) {
+      throw new NotFoundException('ไม่พบการลงทะเบียนของคุณสำหรับกิจกรรมนี้ หรือถูกยกเลิกไปแล้ว');
     }
 
-    // เช็คอิน + สร้างคะแนน Soft Skills อัตโนมัติ ต้องสำเร็จหรือล้มเหลวพร้อมกันเสมอ
+    // สแกนซ้ำ (เช่น เน็ตหลุดตอนกดครั้งแรก) ต้องไม่ error — ถือว่าเช็คอินสำเร็จอยู่แล้ว
+    if (registration.attendance === AttendanceStatus.ATTENDED) {
+      return { ...registration, alreadyCheckedIn: true as const };
+    }
+
+    const saved = await this.performCheckIn(registration);
+    return { ...saved, alreadyCheckedIn: false as const };
+  }
+
+  /** แกนกลางของการเช็คอิน — ใช้ร่วมกันทั้ง organizer กดเช็คอินให้ และนักศึกษาเช็คอินด้วยตัวเองผ่าน QR */
+  private async performCheckIn(registration: {
+    id: number;
+    status: string;
+    activity: { organizerId: number; softSkills: { skillType: string; rate: number }[] };
+  }) {
+    // การยืนยันลงทะเบียน (organizer อนุมัติล่วงหน้า) กับการเช็คอิน (มาเข้าร่วมจริงหน้างาน) เป็นคนละเรื่องกัน —
+    // ไม่ยืนยันไว้ก่อนไม่ได้แปลว่าจะไม่มาจริง จึงให้เช็คอินได้เลยแม้สถานะยังรอการยืนยัน (ยกเว้นถูกยกเลิกไปแล้ว)
+    // และถือว่ายืนยันอัตโนมัติไปพร้อมกัน เพราะมาจริงหน้างานคือหลักฐานที่หนักแน่นกว่าการอนุมัติล่วงหน้า
+    // (ไม่ส่งอีเมลยืนยันซ้ำในเคสนี้ — notifyRegistrationConfirmed ผูกกับ confirm() เท่านั้น เพราะเช็คอินเกิดขึ้นตอนงานแล้ว)
+    if (registration.status === RegistrationStatus.CANCELLED) {
+      throw new BadRequestException('ไม่สามารถเช็คอินได้ เนื่องจากรายการลงทะเบียนนี้ถูกยกเลิกแล้ว');
+    }
+
+    // เช็คอิน + ยืนยันอัตโนมัติ + สร้างคะแนน Soft Skills ต้องสำเร็จหรือล้มเหลวพร้อมกันเสมอ
     const saved = await this.prisma.$transaction(async (tx) => {
-      const updated = await this.registrationsRepository.updateTx(tx, registrationId, {
+      const updated = await this.registrationsRepository.updateTx(tx, registration.id, {
+        status: RegistrationStatus.CONFIRMED as any,
         attendance: AttendanceStatus.ATTENDED as any,
         checkInTime: new Date(),
       });
 
       await this.evaluationsService.autoCreateForCheckIn(
         tx,
-        registrationId,
+        registration.id,
         registration.activity.organizerId,
         registration.activity.softSkills,
       );
@@ -222,7 +262,7 @@ export class RegistrationsService {
       return updated;
     });
 
-    this.logger.log(`Check-in: registration ID ${registrationId}`);
+    this.logger.log(`Check-in: registration ID ${registration.id}`);
     return saved;
   }
 

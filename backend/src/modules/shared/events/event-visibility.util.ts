@@ -35,7 +35,12 @@ export function isViewerEligibleForEvent(
   }
 
   if (event.visibilityYears.length > 0) {
-    if (!matchesYearFilter(viewer?.studentId, event.visibilityYears.map((y) => y.year))) {
+    if (
+      !matchesYearFilter(
+        viewer?.studentId,
+        event.visibilityYears.map((y) => y.year),
+      )
+    ) {
       return false;
     }
   }

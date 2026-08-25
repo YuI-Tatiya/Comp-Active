@@ -80,9 +80,7 @@ describe('EventsRepository.update', () => {
       [],
     );
 
-    expect(tx.activity.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 10 } }),
-    );
+    expect(tx.activity.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 10 } }));
     expect(tx.activity.create).not.toHaveBeenCalled();
   });
 
@@ -145,9 +143,7 @@ describe('EventsRepository include shape', () => {
   let prisma: any;
 
   beforeEach(async () => {
-    prisma = {
-      event: { findUnique: jest.fn(), findMany: jest.fn() },
-    };
+    prisma = { event: { findUnique: jest.fn(), findMany: jest.fn() } };
 
     const module = await Test.createTestingModule({
       providers: [EventsRepository, { provide: PrismaService, useValue: prisma }],
@@ -157,7 +153,7 @@ describe('EventsRepository include shape', () => {
   });
 
   it('eventInclude does not expose student/evaluation on registrations (public-safe)', () => {
-    expect((eventInclude.activities.include.registrations as any)).toBe(true);
+    expect(eventInclude.activities.include.registrations as any).toBe(true);
   });
 
   it('eventOrganizerInclude exposes student/evaluation on registrations', () => {
@@ -186,16 +182,12 @@ describe('EventsRepository include shape', () => {
   it('findByOrganizer uses eventOrganizerInclude', async () => {
     prisma.event.findMany.mockResolvedValue([]);
     await repo.findByOrganizer(7);
-    expect(prisma.event.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ include: eventOrganizerInclude }),
-    );
+    expect(prisma.event.findMany).toHaveBeenCalledWith(expect.objectContaining({ include: eventOrganizerInclude }));
   });
 
   it('findAllApproved uses eventInclude', async () => {
     prisma.event.findMany.mockResolvedValue([]);
     await repo.findAllApproved();
-    expect(prisma.event.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ include: eventInclude }),
-    );
+    expect(prisma.event.findMany).toHaveBeenCalledWith(expect.objectContaining({ include: eventInclude }));
   });
 });

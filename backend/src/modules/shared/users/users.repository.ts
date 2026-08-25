@@ -31,10 +31,7 @@ export class UsersRepository {
   }
 
   findByEmail(email: string) {
-    return this.prisma.user.findUnique({
-      where: { email },
-      select: { id: true, name: true, email: true, role: true },
-    });
+    return this.prisma.user.findUnique({ where: { email }, select: { id: true, name: true, email: true, role: true } });
   }
 
   findByIdBasic(id: number) {

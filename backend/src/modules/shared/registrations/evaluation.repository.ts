@@ -6,10 +6,7 @@ export class EvaluationsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   findRegistrationWithActivity(registrationId: number) {
-    return this.prisma.registration.findUnique({
-      where: { id: registrationId },
-      include: { activity: true },
-    });
+    return this.prisma.registration.findUnique({ where: { id: registrationId }, include: { activity: true } });
   }
 
   findByRegistrationId(registrationId: number) {

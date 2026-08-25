@@ -10,9 +10,7 @@ export class AdminInvitesRepository {
   }
 
   findPendingInviteByEmail(email: string) {
-    return this.prisma.adminInvite.findFirst({
-      where: { email, status: 'pending', expiresAt: { gt: new Date() } },
-    });
+    return this.prisma.adminInvite.findFirst({ where: { email, status: 'pending', expiresAt: { gt: new Date() } } });
   }
 
   create(email: string, tokenHash: string, invitedById: number, expiresAt: Date) {

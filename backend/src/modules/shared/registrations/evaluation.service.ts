@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { EvaluationsRepository } from './evaluation.repository';
 import { UpdateEvaluationDto } from './dto/update-evaluation.dto';
 import { UserRole } from '../../../common/enums/role.enum';
@@ -159,10 +154,18 @@ export class EvaluationsService {
     };
 
     const totalScore =
-      total.communication + total.timeManagement + total.flexibilityAdaptability +
-      total.teamworkCollaboration + total.analyticCriticalThinking + total.decisionMaking +
-      total.creativity + total.complexProblemSolving + total.curiosityLifelongLearning +
-      total.negotiationPersuasion + total.leadership + total.positiveAttitude;
+      total.communication +
+      total.timeManagement +
+      total.flexibilityAdaptability +
+      total.teamworkCollaboration +
+      total.analyticCriticalThinking +
+      total.decisionMaking +
+      total.creativity +
+      total.complexProblemSolving +
+      total.curiosityLifelongLearning +
+      total.negotiationPersuasion +
+      total.leadership +
+      total.positiveAttitude;
     const points = totalScore * 10;
     // สเกลคะแนนต่อทักษะเปลี่ยนจาก 0-1 เป็น 0-10 (x10) — หาร level ด้วย 5000 (เดิม 500) เพื่อคงจังหวะเลเวลอัพเท่าเดิม
     const level = Math.floor(points / 5000) + 1;
@@ -170,8 +173,10 @@ export class EvaluationsService {
     const badges: { name: string; icon: string; description: string }[] = [];
     if (count >= 1) badges.push({ name: 'First Step', icon: '🌱', description: 'เข้าร่วมกิจกรรมครั้งแรก' });
     if (count >= 5) badges.push({ name: 'Active Student', icon: '🔥', description: 'เข้าร่วมกิจกรรมมากกว่า 5 ครั้ง' });
-    if (average.leadership >= 8) badges.push({ name: 'Born Leader', icon: '👑', description: 'มีทักษะความเป็นผู้นำโดดเด่น' });
-    if (average.teamworkCollaboration >= 8) badges.push({ name: 'Team Player', icon: '🤝', description: 'ทำงานร่วมกับผู้อื่นได้ดีเยี่ยม' });
+    if (average.leadership >= 8)
+      badges.push({ name: 'Born Leader', icon: '👑', description: 'มีทักษะความเป็นผู้นำโดดเด่น' });
+    if (average.teamworkCollaboration >= 8)
+      badges.push({ name: 'Team Player', icon: '🤝', description: 'ทำงานร่วมกับผู้อื่นได้ดีเยี่ยม' });
 
     return {
       count,

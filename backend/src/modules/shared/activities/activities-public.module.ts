@@ -11,8 +11,5 @@ import { ActivitiesPublicApiController } from './activities-public-api.controlle
 // `:id="pending"` first. Keeping this module import-only-by-AppModule, and listing
 // AdminModule/OrganizerModule earlier in AppModule's `imports` array, guarantees this
 // controller's `:id` route registers last.
-@Module({
-  imports: [ActivitiesModule],
-  controllers: [ActivitiesPublicController, ActivitiesPublicApiController],
-})
+@Module({ imports: [ActivitiesModule], controllers: [ActivitiesPublicController, ActivitiesPublicApiController] })
 export class ActivitiesPublicModule {}

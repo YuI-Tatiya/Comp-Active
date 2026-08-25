@@ -70,7 +70,9 @@ export class CreateEventActivityDto {
   @IsNotEmpty()
   category: string;
 
-  @ApiPropertyOptional({ description: 'URL รูปภาพกิจกรรม (จาก /api/activities/upload-image) — ส่ง null เพื่อลบรูปเดิม' })
+  @ApiPropertyOptional({
+    description: 'URL รูปภาพกิจกรรม (จาก /api/activities/upload-image) — ส่ง null เพื่อลบรูปเดิม',
+  })
   @IsOptional()
   @ValidateIf((o) => o.imageUrl !== null)
   @IsString()
@@ -95,7 +97,10 @@ export class CreateEventActivityDto {
   @IsNotEmpty()
   location: string;
 
-  @ApiPropertyOptional({ example: 50, description: 'จำนวนที่รับสูงสุด — ไม่ระบุ = ไม่จำกัดจำนวน, ส่ง null เพื่อล้างจำนวนจำกัดเดิม' })
+  @ApiPropertyOptional({
+    example: 50,
+    description: 'จำนวนที่รับสูงสุด — ไม่ระบุ = ไม่จำกัดจำนวน, ส่ง null เพื่อล้างจำนวนจำกัดเดิม',
+  })
   @IsOptional()
   @ValidateIf((o) => o.capacity !== null)
   @IsInt()

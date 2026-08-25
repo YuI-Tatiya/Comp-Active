@@ -29,11 +29,7 @@ import { VolunteerServicesPublicModule } from './modules/shared/volunteer-servic
 @Module({
   imports: [
     // Global Config (.env)
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '.env',
-      load: [jwtConfig, databaseConfig, gatewayConfig],
-    }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env', load: [jwtConfig, databaseConfig, gatewayConfig] }),
 
     // Database (PostgreSQL via Prisma)
     PrismaModule,
@@ -42,10 +38,7 @@ import { VolunteerServicesPublicModule } from './modules/shared/volunteer-servic
     // rootPath ต้องชี้ไปที่ <backend>/public เสมอ ห้ามอิง __dirname เพราะ prisma.config.ts
     // อยู่นอก src/ ทำให้ tsc ดัน output ลงเป็น dist/src/ แทน dist/ — __dirname/../public
     // จึงกลายเป็น dist/public ที่ไม่มีอยู่จริง ทำให้รูปที่อัปโหลดทั้งหมด 404
-    ServeStaticModule.forRoot({
-      rootPath: join(process.cwd(), 'public'),
-      serveRoot: '/',
-    }),
+    ServeStaticModule.forRoot({ rootPath: join(process.cwd(), 'public'), serveRoot: '/' }),
 
     // Rate limiting bucket for the external developer API (see ApiKeyThrottlerGuard)
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 300 }]),

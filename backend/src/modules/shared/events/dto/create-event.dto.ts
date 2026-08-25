@@ -27,7 +27,12 @@ class CreateSurveyQuestionDto {
   @IsIn(Object.values(SurveyQuestionType))
   type: SurveyQuestionType;
 
-  @ApiPropertyOptional({ default: 5, minimum: 2, maximum: 10, description: 'คะแนนเต็ม — ใช้เมื่อ type เป็น rating เท่านั้น' })
+  @ApiPropertyOptional({
+    default: 5,
+    minimum: 2,
+    maximum: 10,
+    description: 'คะแนนเต็ม — ใช้เมื่อ type เป็น rating เท่านั้น',
+  })
   @IsOptional()
   @IsInt()
   @Min(2)
@@ -103,7 +108,8 @@ export class CreateEventDto {
   visibilityYears?: number[];
 
   @ApiPropertyOptional({
-    description: 'ตัวกรองรหัสนักศึกษาเพิ่มเติม (ใช้เมื่อ visibility เป็น restricted) — ดูรูปแบบใน student-id-range.util.ts',
+    description:
+      'ตัวกรองรหัสนักศึกษาเพิ่มเติม (ใช้เมื่อ visibility เป็น restricted) — ดูรูปแบบใน student-id-range.util.ts',
   })
   @IsOptional()
   @IsString()

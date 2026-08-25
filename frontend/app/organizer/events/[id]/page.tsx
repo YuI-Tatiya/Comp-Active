@@ -17,6 +17,7 @@ import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
 import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Edit, CheckSquare, Download, Loader2, Search } from "lucide-react"
 import Link from "next/link"
+import { QRCodeSVG } from "qrcode.react"
 import { eventsAPI, registrationsAPI, activitiesAPI, isUnlimitedCapacity, isCancelledByOrganizer, EventSummary } from "@/lib/api"
 import { resolveEventImageUrl } from "@/lib/event-image"
 import {
@@ -40,6 +41,7 @@ interface RegistrationRow {
     student: { name: string; studentId: string; email: string; phone?: string | null }
     status: string
     attendance: string
+    checkInTime?: string | null
     evaluation?: unknown
     wantsCertLoanFund?: boolean
     wantsCertScholarship?: boolean
@@ -106,13 +108,17 @@ export default function OrganizerEventDetailsPage() {
     const [participantSearch, setParticipantSearch] = useState("")
     const [participantFilters, setParticipantFilters] = useState<ParticipantFilters>(INITIAL_PARTICIPANT_FILTERS)
 
+    const [checkinSearch, setCheckinSearch] = useState("")
+
     useEffect(() => {
         if (id) fetchEventDetails(id)
     }, [id])
 
-    const fetchEventDetails = async (eventId: number) => {
+    // silent=true ใช้ตอน refetch หลังทำ action (ยืนยัน/เช็คอิน/ยกเลิก ฯลฯ) — ไม่ toggle loading เพื่อไม่ให้ทั้งหน้าถูก unmount
+    // จนเสีย state ของแท็บที่เลือกอยู่ (สำคัญมากสำหรับหน้าเช็คอิน ที่ organizer จะกดเช็คชื่อรัวๆ ต่อเนื่องหน้างาน)
+    const fetchEventDetails = async (eventId: number, silent = false) => {
         try {
-            setLoading(true)
+            if (!silent) setLoading(true)
             const data = await eventsAPI.getById(eventId)
             setEvent(data)
             setActiveActivityId((prev) => prev ?? data.activities[0]?.id ?? null)
@@ -120,6 +126,7 @@ export default function OrganizerEventDetailsPage() {
             const e = err as Error
             setError(e.message || "โหลดข้อมูลงานไม่สำเร็จ")
         } finally {
+            if (silent) return
             setLoading(false)
         }
     }
@@ -229,7 +236,7 @@ export default function OrganizerEventDetailsPage() {
         try {
             await registrationsAPI.confirm(regId)
             alert("ยืนยันผู้เข้าร่วมสำเร็จ")
-            fetchEventDetails(id)
+            fetchEventDetails(id, true)
         } catch (err: unknown) {
             const e = err as Error
             alert(e.message || "ยืนยันไม่สำเร็จ")
@@ -240,7 +247,7 @@ export default function OrganizerEventDetailsPage() {
         try {
             await registrationsAPI.checkIn(regId)
             alert("เช็คอินสำเร็จ")
-            fetchEventDetails(id)
+            fetchEventDetails(id, true)
         } catch (err: unknown) {
             const e = err as Error
             alert(e.message || "เช็คอินไม่สำเร็จ")
@@ -259,7 +266,7 @@ export default function OrganizerEventDetailsPage() {
             } else {
                 alert(`ยืนยันผู้เข้าร่วมสำเร็จทั้งหมด ${confirmAllIds.length} คน`)
             }
-            fetchEventDetails(id)
+            fetchEventDetails(id, true)
         } finally {
             setConfirmingAll(false)
         }
@@ -502,7 +509,7 @@ export default function OrganizerEventDetailsPage() {
                                                                                 {reg.status === "pending" && (
                                                                                     <Button size="sm" variant="outline" className="text-brand-600" onClick={() => handleConfirm(reg.id)}>ยืนยัน</Button>
                                                                                 )}
-                                                                                {reg.status === "confirmed" && reg.attendance !== "attended" && (
+                                                                                {reg.status !== "cancelled" && reg.attendance !== "attended" && (
                                                                                     <Button size="sm" variant="outline" className="text-success" onClick={() => handleCheckIn(reg.id)}>เช็คอิน</Button>
                                                                                 )}
                                                                                 {reg.attendance === "attended" && (
@@ -543,8 +550,112 @@ export default function OrganizerEventDetailsPage() {
                                             })()}
                                         </TabsContent>
 
-                                        <TabsContent value="registration">
-                                            <ActivityRegistrationPanel activity={a} registrationCloseAt={event.registrationCloseAt} />
+                                        <TabsContent value="registration" className="space-y-6">
+                                            {(() => {
+                                                const allRegs = (a.registrations as RegistrationRow[] | undefined) ?? []
+                                                const checkedIn = allRegs
+                                                    .filter((r) => r.attendance === "attended")
+                                                    .slice()
+                                                    .sort((x, y) => new Date(y.checkInTime ?? 0).getTime() - new Date(x.checkInTime ?? 0).getTime())
+                                                const checkinResults = checkinSearch.trim()
+                                                    ? filterRegistrations(allRegs, checkinSearch, INITIAL_PARTICIPANT_FILTERS)
+                                                    : []
+                                                const checkInUrl = typeof window !== "undefined" ? `${window.location.origin}/student/checkin/${a.id}` : ""
+
+                                                return (
+                                                    <>
+                                                        <div className="grid gap-6 sm:grid-cols-2">
+                                                            <Card className="border-border shadow-xs">
+                                                                <div className="flex flex-col items-center gap-4 p-6 text-center">
+                                                                    <h3 className="font-semibold text-fg">QR Code สำหรับเช็คอิน</h3>
+                                                                    {checkInUrl && (
+                                                                        <div className="rounded-xl border border-border bg-white p-4">
+                                                                            <QRCodeSVG value={checkInUrl} size={168} />
+                                                                        </div>
+                                                                    )}
+                                                                    <p className="text-xs text-fg-subtle">
+                                                                        ให้ผู้เข้าร่วมสแกนด้วยมือถือของตัวเอง (ต้องเข้าสู่ระบบนักศึกษาไว้ก่อน) เพื่อเช็คอินได้ทันที
+                                                                    </p>
+                                                                </div>
+                                                            </Card>
+                                                            <div className="grid grid-cols-2 gap-4 content-start">
+                                                                <Card className="border-border p-5 shadow-xs">
+                                                                    <p className="text-xs text-fg-muted">ลงทะเบียนทั้งหมด</p>
+                                                                    <p className="mt-1 text-3xl font-bold tabular-nums text-fg">{allRegs.length}</p>
+                                                                </Card>
+                                                                <Card className="border-border p-5 shadow-xs">
+                                                                    <p className="text-xs text-fg-muted">เช็คอินแล้ว</p>
+                                                                    <p className="mt-1 text-3xl font-bold tabular-nums text-success">{checkedIn.length}</p>
+                                                                </Card>
+                                                            </div>
+                                                        </div>
+
+                                                        <Card className="border-border shadow-xs">
+                                                            <div className="space-y-4 p-6">
+                                                                <h3 className="font-semibold text-fg">เช็คอินด้วยตนเอง (ค้นหารหัสนักศึกษา)</h3>
+                                                                <div className="relative">
+                                                                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
+                                                                    <Input
+                                                                        value={checkinSearch}
+                                                                        onChange={(e) => setCheckinSearch(e.target.value)}
+                                                                        placeholder="ค้นหารหัสนักศึกษาหรือชื่อ..."
+                                                                        className="pl-9"
+                                                                    />
+                                                                </div>
+                                                                {checkinSearch.trim() && (
+                                                                    checkinResults.length > 0 ? (
+                                                                        <div className="divide-y divide-border rounded-lg border border-border">
+                                                                            {checkinResults.map((reg) => (
+                                                                                <div key={reg.id} className="flex items-center justify-between gap-3 p-3">
+                                                                                    <div className="min-w-0">
+                                                                                        <p className="truncate font-medium text-fg">{reg.student.name}</p>
+                                                                                        <p className="text-xs text-fg-muted">{reg.student.studentId}</p>
+                                                                                    </div>
+                                                                                    {reg.attendance === "attended" ? (
+                                                                                        <Badge variant="success" className="shrink-0">เช็คอินแล้ว</Badge>
+                                                                                    ) : reg.status === "cancelled" ? (
+                                                                                        <Badge variant="neutral" className="shrink-0">ยกเลิกการลงทะเบียนแล้ว</Badge>
+                                                                                    ) : (
+                                                                                        <Button size="sm" className="shrink-0" onClick={() => handleCheckIn(reg.id)}>เช็คชื่อ</Button>
+                                                                                    )}
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <p className="py-4 text-center text-sm text-fg-subtle">ไม่พบผู้ลงทะเบียนตรงกับคำค้นหา</p>
+                                                                    )
+                                                                )}
+                                                            </div>
+                                                        </Card>
+
+                                                        <Card className="border-border shadow-xs overflow-hidden">
+                                                            <div className="border-b border-border px-6 py-4">
+                                                                <h3 className="font-semibold text-fg">รายชื่อผู้เช็คอินแล้ว ({checkedIn.length})</h3>
+                                                            </div>
+                                                            {checkedIn.length > 0 ? (
+                                                                <div className="max-h-[420px] divide-y divide-border overflow-y-auto">
+                                                                    {checkedIn.map((reg) => (
+                                                                        <div key={reg.id} className="flex items-center justify-between gap-3 px-6 py-3">
+                                                                            <div className="min-w-0">
+                                                                                <p className="truncate font-medium text-fg">{reg.student.name}</p>
+                                                                                <p className="text-xs text-fg-muted">{reg.student.studentId}</p>
+                                                                            </div>
+                                                                            <p className="shrink-0 text-xs text-fg-subtle">
+                                                                                {reg.checkInTime &&
+                                                                                    new Date(reg.checkInTime).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+                                                                            </p>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <p className="px-6 py-10 text-center text-fg-subtle">ยังไม่มีผู้เช็คอิน</p>
+                                                            )}
+                                                        </Card>
+
+                                                        <ActivityRegistrationPanel activity={a} registrationCloseAt={event.registrationCloseAt} />
+                                                    </>
+                                                )
+                                            })()}
                                         </TabsContent>
                                     </Tabs>
                                 </div>

@@ -38,13 +38,7 @@ export class MailService {
 
   // Intentionally does NOT catch-and-swallow — email is the only channel that delivers
   // the generated username/password, so the caller needs to know if delivery failed.
-  async sendOrganizerApproved(
-    email: string,
-    name: string,
-    username: string,
-    password: string,
-    validUntil: Date,
-  ) {
+  async sendOrganizerApproved(email: string, name: string, username: string, password: string, validUntil: Date) {
     const formattedExpiry = validUntil.toLocaleDateString('th-TH', { dateStyle: 'long' });
 
     await this.mailerService.sendMail({

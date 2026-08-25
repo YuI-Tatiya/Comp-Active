@@ -24,11 +24,7 @@ export class SiteContentAdminController {
 
   @Put(':key')
   @ApiOperation({ summary: 'แก้ไข/สร้างเนื้อหา Landing Page ตาม key (Admin)' })
-  upsert(
-    @Param('key') key: string,
-    @Body() dto: UpsertSiteContentDto,
-    @CurrentUser('id') adminId: number,
-  ) {
+  upsert(@Param('key') key: string, @Body() dto: UpsertSiteContentDto, @CurrentUser('id') adminId: number) {
     return this.siteContentService.upsert(key, dto, adminId);
   }
 

@@ -125,17 +125,7 @@ export class EventsOrganizerController {
   @Post('upload-attachment')
   @ApiOperation({ summary: 'อัปโหลดไฟล์แนบของกิจกรรม (Organizer / Admin)' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
-  })
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -161,9 +151,6 @@ export class EventsOrganizerController {
     if (!file) {
       throw new Error('No file uploaded or invalid file format');
     }
-    return {
-      message: 'อัปโหลดไฟล์แนบสำเร็จ',
-      attachmentUrl: `/uploads/attachments/${file.filename}`,
-    };
+    return { message: 'อัปโหลดไฟล์แนบสำเร็จ', attachmentUrl: `/uploads/attachments/${file.filename}` };
   }
 }

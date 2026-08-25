@@ -51,9 +51,7 @@ export class RegistrationsRepository {
           create: answers.map((a) => ({
             questionId: a.questionId,
             textValue: a.textValue,
-            options: a.optionIds.length
-              ? { create: a.optionIds.map((optionId) => ({ optionId })) }
-              : undefined,
+            options: a.optionIds.length ? { create: a.optionIds.map((optionId) => ({ optionId })) } : undefined,
           })),
         },
       } as any,
@@ -74,8 +72,8 @@ export class RegistrationsRepository {
     return tx.registration.update({ where: { id }, data });
   }
 
-  findById(id: number) {
-    return this.prisma.registration.findUnique({ where: { id } });
+  findByIdWithActivity(id: number) {
+    return this.prisma.registration.findUnique({ where: { id }, include: { activity: true } });
   }
 
   findByIdWithActivitySoftSkills(id: number) {
@@ -85,12 +83,31 @@ export class RegistrationsRepository {
     });
   }
 
+  /** ใช้เช็คว่า studentId คนนี้มีการลงทะเบียนที่ยังไม่ถูกยกเลิกของกิจกรรมนี้อยู่หรือไม่ — สำหรับ self check-in ผ่าน QR */
+  findActiveByStudentAndActivityWithSoftSkills(studentId: number, activityId: number) {
+    return this.prisma.registration.findFirst({
+      where: {
+        studentId,
+        activityId,
+        status: { in: [RegistrationStatus.PENDING as any, RegistrationStatus.CONFIRMED as any] },
+      },
+      include: { activity: { include: { softSkills: true } } },
+      orderBy: { registerDate: 'desc' },
+    });
+  }
+
+  /** ใช้ตรวจสิทธิ์ความเป็นเจ้าของกิจกรรมก่อนให้ organizer ดู/แก้ไขผู้เข้าร่วม */
+  async findActivityOrganizerId(activityId: number): Promise<number | null> {
+    const activity = await this.prisma.activity.findUnique({
+      where: { id: activityId },
+      select: { organizerId: true },
+    });
+    return activity?.organizerId ?? null;
+  }
+
   /** ใช้สำหรับส่งอีเมลยืนยันการลงทะเบียน — ต้องการอีเมล/ชื่อนักศึกษาและรายละเอียดกิจกรรม */
   findByIdWithStudentAndActivity(id: number) {
-    return this.prisma.registration.findUnique({
-      where: { id },
-      include: { student: true, activity: true },
-    });
+    return this.prisma.registration.findUnique({ where: { id }, include: { student: true, activity: true } });
   }
 
   findByStudent(studentId: number) {
@@ -116,10 +133,7 @@ export class RegistrationsRepository {
   /** จำนวนคำขอลงทะเบียนที่รอผู้จัดยืนยัน — นับรวมทุกกิจกรรมของผู้จัดคนนี้ */
   countPendingByOrganizer(organizerId: number) {
     return this.prisma.registration.count({
-      where: {
-        status: RegistrationStatus.PENDING as any,
-        activity: { organizerId },
-      },
+      where: { status: RegistrationStatus.PENDING as any, activity: { organizerId } },
     });
   }
 
@@ -127,9 +141,7 @@ export class RegistrationsRepository {
     return this.prisma.registration.findUnique({
       where: { id },
       include: {
-        activity: {
-          include: { event: { include: { surveyQuestions: { orderBy: { sortOrder: 'asc' } } } } },
-        },
+        activity: { include: { event: { include: { surveyQuestions: { orderBy: { sortOrder: 'asc' } } } } } },
       },
     });
   }
@@ -142,8 +154,6 @@ export class RegistrationsRepository {
     registrationId: number,
     answers: { questionId: number; ratingValue?: number; textValue?: string }[],
   ) {
-    return this.prisma.registrationSurveyAnswer.createMany({
-      data: answers.map((a) => ({ registrationId, ...a })),
-    });
+    return this.prisma.registrationSurveyAnswer.createMany({ data: answers.map((a) => ({ registrationId, ...a })) });
   }
 }

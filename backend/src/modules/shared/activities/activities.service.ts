@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { ActivitiesRepository } from './activities.repository';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
@@ -47,10 +41,7 @@ export class ActivitiesService {
     const activities = await this.activitiesRepository.findAllApproved(filterDto);
     const visible = filterVisibleActivities(activities as any, viewer ?? null);
 
-    return visible.map(({ _count, ...a }: any) => ({
-      ...a,
-      registeredCount: _count.registrations,
-    }));
+    return visible.map(({ _count, ...a }: any) => ({ ...a, registeredCount: _count.registrations }));
   }
 
   async findById(id: number, viewer?: Viewer | null) {
@@ -81,18 +72,10 @@ export class ActivitiesService {
   async findByOrganizer(organizerId: number) {
     const activities = await this.activitiesRepository.findByOrganizer(organizerId);
 
-    return activities.map(({ _count, ...a }: any) => ({
-      ...a,
-      registeredCount: _count.registrations,
-    }));
+    return activities.map(({ _count, ...a }: any) => ({ ...a, registeredCount: _count.registrations }));
   }
 
-  async update(
-    activityId: number,
-    userId: number,
-    userRole: UserRole,
-    updateDto: UpdateActivityDto,
-  ) {
+  async update(activityId: number, userId: number, userRole: UserRole, updateDto: UpdateActivityDto) {
     const activity = await this.findById(activityId);
 
     if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
@@ -213,13 +196,8 @@ export class ActivitiesService {
     ]);
 
     const totalActivities = activities.length;
-    const activeActivities = activities.filter(
-      (a) => a.approvalStatus === ApprovalStatus.APPROVED,
-    ).length;
-    const totalRegistrations = activities.reduce(
-      (sum, a) => sum + a._count.registrations,
-      0,
-    );
+    const activeActivities = activities.filter((a) => a.approvalStatus === ApprovalStatus.APPROVED).length;
+    const totalRegistrations = activities.reduce((sum, a) => sum + a._count.registrations, 0);
 
     return { totalActivities, activeActivities, totalRegistrations, totalStudents, pendingRegistrations };
   }
@@ -228,9 +206,6 @@ export class ActivitiesService {
     const totalActivities = await this.activitiesRepository.countApproved();
     const distinctStudents = await this.activitiesRepository.countDistinctRegisteredStudents();
 
-    return {
-      totalActivities,
-      totalParticipants: distinctStudents.length,
-    };
+    return { totalActivities, totalParticipants: distinctStudents.length };
   }
 }

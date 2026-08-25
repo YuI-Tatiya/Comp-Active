@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Delete, Body, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { RegistrationsService } from '../shared/registrations/registrations.service';
 import { CreateRegistrationDto } from '../shared/registrations/dto/create-registration.dto';
 import { SubmitSurveyDto } from '../shared/registrations/dto/submit-survey.dto';
+import { CheckInSelfDto } from '../shared/registrations/dto/check-in-self.dto';
 import type { Viewer } from '../shared/events/event-visibility.util';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -51,6 +52,15 @@ export class RegistrationsStudentController {
   @ApiOperation({ summary: 'ดูประวัติการลงทะเบียน (Student)' })
   async findMy(@CurrentUser('id') studentId: number) {
     return this.registrationsService.findByStudent(studentId);
+  }
+
+  /**
+   * PATCH /api/registrations/check-in-self - เช็คอินด้วยตัวเอง ผ่านการสแกน QR code ที่ผู้จัดแสดงหน้างาน (Student)
+   */
+  @Patch('check-in-self')
+  @ApiOperation({ summary: 'เช็คอินเข้าร่วมกิจกรรมด้วยตัวเองผ่าน QR code (Student)' })
+  async checkInSelf(@CurrentUser('id') studentId: number, @Body() dto: CheckInSelfDto) {
+    return this.registrationsService.checkInSelf(studentId, dto.activityId);
   }
 
   /**

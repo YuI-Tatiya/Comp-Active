@@ -19,20 +19,14 @@ export class AdminStatsService {
    * ดึงสถิติ Dashboard สำหรับ Admin
    */
   async getDashboardStats() {
-    const [totalUsers, totalActivities, totalRegistrations, usersByRole] =
-      await Promise.all([
-        this.usersService.countAll(),
-        this.activitiesService.countAll(),
-        this.registrationsService.countAll(),
-        this.usersService.countByRole(),
-      ]);
+    const [totalUsers, totalActivities, totalRegistrations, usersByRole] = await Promise.all([
+      this.usersService.countAll(),
+      this.activitiesService.countAll(),
+      this.registrationsService.countAll(),
+      this.usersService.countByRole(),
+    ]);
 
-    return {
-      totalUsers,
-      totalActivities,
-      totalRegistrations,
-      usersByRole,
-    };
+    return { totalUsers, totalActivities, totalRegistrations, usersByRole };
   }
 
   /**

@@ -77,17 +77,7 @@ export class ActivitiesOrganizerController {
   @Post('upload-image')
   @ApiOperation({ summary: 'อัปโหลดรูปภาพกิจกรรม (Organizer / Admin)' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
-  })
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -113,10 +103,7 @@ export class ActivitiesOrganizerController {
     if (!file) {
       throw new Error('No file uploaded or invalid file format');
     }
-    return {
-      message: 'อัปโหลดรูปภาพสำเร็จ',
-      imageUrl: `/uploads/activities/${file.filename}`,
-    };
+    return { message: 'อัปโหลดรูปภาพสำเร็จ', imageUrl: `/uploads/activities/${file.filename}` };
   }
 
   /**

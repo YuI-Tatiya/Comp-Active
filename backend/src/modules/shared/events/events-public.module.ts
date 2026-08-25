@@ -10,8 +10,5 @@ import { EventsPublicController } from './events-public.controller';
 // Activities case — there is no route-order collision risk with
 // EventsOrganizerController's `/api/events/my` and `/api/events/:id`. Still grouped
 // here for consistency with the established shared-public-module pattern.
-@Module({
-  imports: [EventsModule],
-  controllers: [EventsPublicController],
-})
+@Module({ imports: [EventsModule], controllers: [EventsPublicController] })
 export class EventsPublicModule {}

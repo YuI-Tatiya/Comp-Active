@@ -78,34 +78,44 @@ describe('EventsService.update', () => {
     repo.findById.mockResolvedValue(makeEvent());
     // ส่งเฉพาะ activity id 10 กลับมา -> id 11 (มีคนลงทะเบียนแล้ว) ถูกเอาออก
     await expect(
-      service.update(7, UserRole.ORGANIZER, 1, makeDto([
-        {
-          id: 10,
-          name: 'Day 1',
-          description: 'd',
-          category: 'Technology',
-          startAt: '2027-01-01T09:00:00.000Z',
-          endAt: '2027-01-01T12:00:00.000Z',
-          location: 'Room 1',
-        },
-      ])),
+      service.update(
+        7,
+        UserRole.ORGANIZER,
+        1,
+        makeDto([
+          {
+            id: 10,
+            name: 'Day 1',
+            description: 'd',
+            category: 'Technology',
+            startAt: '2027-01-01T09:00:00.000Z',
+            endAt: '2027-01-01T12:00:00.000Z',
+            location: 'Room 1',
+          },
+        ]),
+      ),
     ).rejects.toThrow(BadRequestException);
     expect(repo.update).not.toHaveBeenCalled();
   });
 
   it('allows removing an activity with no registrations', async () => {
     repo.findById.mockResolvedValue(makeEvent());
-    await service.update(7, UserRole.ORGANIZER, 1, makeDto([
-      {
-        id: 11,
-        name: 'Day 2',
-        description: 'd',
-        category: 'Technology',
-        startAt: '2027-01-02T09:00:00.000Z',
-        endAt: '2027-01-02T12:00:00.000Z',
-        location: 'Room 1',
-      },
-    ]));
+    await service.update(
+      7,
+      UserRole.ORGANIZER,
+      1,
+      makeDto([
+        {
+          id: 11,
+          name: 'Day 2',
+          description: 'd',
+          category: 'Technology',
+          startAt: '2027-01-02T09:00:00.000Z',
+          endAt: '2027-01-02T12:00:00.000Z',
+          location: 'Room 1',
+        },
+      ]),
+    );
     expect(repo.update).toHaveBeenCalledWith(1, expect.anything(), [10]);
   });
 });
@@ -215,7 +225,13 @@ describe('EventsService.findAllPublic', () => {
         visibilityProgram: [],
         visibilityYears: [],
         activities: [
-          { id: 10, approvalStatus: 'approved', registrations: [], organizer: { id: 3, name: 'Org', email: 'x@y.com' }, _count: { registrations: 2 } },
+          {
+            id: 10,
+            approvalStatus: 'approved',
+            registrations: [],
+            organizer: { id: 3, name: 'Org', email: 'x@y.com' },
+            _count: { registrations: 2 },
+          },
           { id: 11, approvalStatus: 'pending_approval', registrations: [], _count: { registrations: 0 } },
         ],
       },
