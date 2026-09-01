@@ -13,15 +13,10 @@ import { MailService } from './mail.service';
           host: configService.get<string>('SMTP_HOST'),
           port: parseInt(configService.get<string>('SMTP_PORT') ?? '587', 10),
           secure: configService.get<string>('SMTP_SECURE') === 'true',
-          auth: {
-            user: configService.get<string>('SMTP_USER'),
-            pass: configService.get<string>('SMTP_PASS'),
-          },
+          auth: { user: configService.get<string>('SMTP_USER'), pass: configService.get<string>('SMTP_PASS') },
           tls: { rejectUnauthorized: false },
         },
-        defaults: {
-          from: `"Comp Active" <${configService.get<string>('SMTP_FROM') || 'no-reply@compactive.com'}>`,
-        },
+        defaults: { from: `"Comp Active" <${configService.get<string>('SMTP_FROM') || 'no-reply@compactive.com'}>` },
       }),
     }),
   ],

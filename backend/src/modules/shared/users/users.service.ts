@@ -1,18 +1,9 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-  BadRequestException,
-  Logger,
-} from "@nestjs/common";
-import * as bcrypt from "bcryptjs";
-import { UsersRepository } from "./users.repository";
-import { UpdateUserDto } from "./dto/update-user.dto";
-import { UserRole } from "../../../common/enums/role.enum";
-import {
-  generateSecurePassword,
-  validateAcademicInfo,
-} from "../../../common/utils";
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
+import { UsersRepository } from './users.repository';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UserRole } from '../../../common/enums/role.enum';
+import { generateSecurePassword, validateAcademicInfo } from '../../../common/utils';
 
 @Injectable()
 export class UsersService {
@@ -42,31 +33,22 @@ export class UsersService {
     }
 
     if (!updateDto.currentPassword) {
-      throw new ForbiddenException(
-        "กรุณาระบุรหัสผ่านปัจจุบันเพื่อยืนยันการแก้ไขข้อมูล",
-      );
+      throw new ForbiddenException('กรุณาระบุรหัสผ่านปัจจุบันเพื่อยืนยันการแก้ไขข้อมูล');
     }
 
-    const isPasswordValid = await bcrypt.compare(
-      updateDto.currentPassword,
-      user.password,
-    );
+    const isPasswordValid = await bcrypt.compare(updateDto.currentPassword, user.password);
     if (!isPasswordValid) {
-      throw new ForbiddenException("รหัสผ่านปัจจุบันไม่ถูกต้อง");
+      throw new ForbiddenException('รหัสผ่านปัจจุบันไม่ถูกต้อง');
     }
 
     // ถ้าแตะข้อมูลการศึกษา ต้องส่งมาครบชุดและสอดคล้องกัน
-    validateAcademicInfo({
-      educationLevel: updateDto.educationLevel,
-      program: updateDto.program,
-    });
+    validateAcademicInfo({ educationLevel: updateDto.educationLevel, program: updateDto.program });
 
     const data: Record<string, any> = {};
     if (updateDto.name !== undefined) data.name = updateDto.name;
     if (updateDto.studentId !== undefined) data.studentId = updateDto.studentId;
     if (updateDto.phone !== undefined) data.phone = updateDto.phone;
-    if (updateDto.educationLevel !== undefined)
-      data.educationLevel = updateDto.educationLevel;
+    if (updateDto.educationLevel !== undefined) data.educationLevel = updateDto.educationLevel;
     if (updateDto.program !== undefined) data.program = updateDto.program;
     if (updateDto.newPassword) {
       data.password = await bcrypt.hash(updateDto.newPassword, 12);
@@ -80,16 +62,14 @@ export class UsersService {
 
   async changeRole(userId: number, newRole: UserRole) {
     const user = await this.findById(userId);
-    const updated = await this.usersRepository.update(user.id, {
-      role: newRole as any,
-    });
+    const updated = await this.usersRepository.update(user.id, { role: newRole as any });
     this.logger.log(`User role changed: ${updated.email} → ${newRole}`);
     return updated;
   }
 
   async deleteUser(userId: number, adminId: number) {
     if (userId === adminId) {
-      throw new ForbiddenException("ไม่สามารถลบบัญชีตัวเองได้");
+      throw new ForbiddenException('ไม่สามารถลบบัญชีตัวเองได้');
     }
 
     const user = await this.findById(userId);
@@ -99,18 +79,14 @@ export class UsersService {
 
   async blockUser(userId: number) {
     await this.findById(userId);
-    const updated = await this.usersRepository.updateModerationFields(userId, {
-      isBlocked: true,
-    });
+    const updated = await this.usersRepository.updateModerationFields(userId, { isBlocked: true });
     this.logger.log(`User blocked: ${updated.email}`);
     return updated;
   }
 
   async unblockUser(userId: number) {
     await this.findById(userId);
-    const updated = await this.usersRepository.updateModerationFields(userId, {
-      isBlocked: false,
-    });
+    const updated = await this.usersRepository.updateModerationFields(userId, { isBlocked: false });
     this.logger.log(`User unblocked: ${updated.email}`);
     return updated;
   }
@@ -118,8 +94,7 @@ export class UsersService {
   async generatePassword(email: string) {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await this.usersRepository.findByEmail(normalizedEmail);
-    if (!user)
-      throw new NotFoundException(`ไม่พบผู้ใช้งานอีเมล: ${normalizedEmail}`);
+    if (!user) throw new NotFoundException(`ไม่พบผู้ใช้งานอีเมล: ${normalizedEmail}`);
 
     const plain = generateSecurePassword();
     const hashed = await bcrypt.hash(plain, 12);
@@ -133,22 +108,17 @@ export class UsersService {
   async extendValidity(userId: number, validDays: number) {
     const user = await this.usersRepository.findByIdBasic(userId);
     if (!user) throw new NotFoundException(`ไม่พบผู้ใช้งาน ID: ${userId}`);
-    if (user.role !== "organizer") {
-      throw new BadRequestException("ต่ออายุได้เฉพาะบัญชี Organizer เท่านั้น");
+    if (user.role !== 'organizer') {
+      throw new BadRequestException('ต่ออายุได้เฉพาะบัญชี Organizer เท่านั้น');
     }
 
     const now = new Date();
-    const base =
-      user.validUntil && user.validUntil > now ? user.validUntil : now;
-    const validUntil = new Date(
-      base.getTime() + validDays * 24 * 60 * 60 * 1000,
-    );
+    const base = user.validUntil && user.validUntil > now ? user.validUntil : now;
+    const validUntil = new Date(base.getTime() + validDays * 24 * 60 * 60 * 1000);
 
     const updated = await this.usersRepository.update(userId, { validUntil });
 
-    this.logger.log(
-      `Validity extended for ${updated.email}: now valid until ${validUntil.toISOString()}`,
-    );
+    this.logger.log(`Validity extended for ${updated.email}: now valid until ${validUntil.toISOString()}`);
     return updated;
   }
 

@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Clock, MapPin } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { getCategory } from "@/lib/categories"
+import { categoriesBadgeLabel, getCategory } from "@/lib/categories"
 import { cn } from "@/lib/utils"
 
 export interface UpcomingActivity {
@@ -12,7 +12,7 @@ export interface UpcomingActivity {
     date: string
     startTime: string
     location: string
-    category?: string
+    categories?: string[]
 }
 
 const STATUS_META: Record<
@@ -33,7 +33,7 @@ interface UpcomingItemProps {
 
 /** แถวกิจกรรมที่กำลังจะถึง — บล็อกวันที่ซ้าย + รายละเอียดขวา */
 export function UpcomingItem({ activity, status, href }: UpcomingItemProps) {
-    const cat = getCategory(activity.category)
+    const cat = getCategory(activity.categories?.[0])
     const d = new Date(activity.date)
     const valid = !Number.isNaN(d.getTime())
     const day = valid ? new Intl.DateTimeFormat("th-TH", { day: "numeric" }).format(d) : "—"
@@ -60,7 +60,7 @@ export function UpcomingItem({ activity, status, href }: UpcomingItemProps) {
                     {cat && (
                         <span className="inline-flex items-center gap-1.5">
                             <span className={cn("size-1.5 rounded-full", cat.dot)} aria-hidden="true" />
-                            {cat.label}
+                            {categoriesBadgeLabel(activity.categories)}
                         </span>
                     )}
                     <span className="inline-flex items-center gap-1">

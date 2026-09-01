@@ -10,6 +10,7 @@ import { ImageCropUpload } from "@/components/ui/image-crop-upload"
 import { DynamicQuestionBuilder } from "@/components/ui/dynamic-question-builder"
 import { CATEGORIES } from "@/lib/categories"
 import { SOFT_SKILLS } from "@/lib/soft-skills"
+import { toggleInArray } from "@/lib/utils"
 import { Paperclip, X } from "lucide-react"
 import type { ActivityFormState, ActivityFormErrors } from "./types"
 
@@ -47,7 +48,7 @@ export function ActivityTabForm({ activity, errors, onChange, onFieldBlur }: Pro
     function toggleSoftSkill(skillType: string, checked: boolean) {
         const next = { ...activity.softSkillRates }
         if (checked) {
-            next[skillType] = next[skillType] ?? 5
+            next[skillType] = next[skillType] ?? 3
         } else {
             delete next[skillType]
         }
@@ -55,34 +56,50 @@ export function ActivityTabForm({ activity, errors, onChange, onFieldBlur }: Pro
     }
 
     function setSoftSkillRate(skillType: string, rate: number) {
-        onChange({ softSkillRates: { ...activity.softSkillRates, [skillType]: rate } })
+        const clamped = Math.min(5, Math.max(0, Number.isNaN(rate) ? 0 : rate))
+        onChange({ softSkillRates: { ...activity.softSkillRates, [skillType]: clamped } })
     }
 
     return (
         <div className="space-y-8">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <FormField name="name" label="ชื่อกิจกรรม" required error={errors.name}>
-                    <Input
-                        value={activity.name}
-                        onChange={(e) => onChange({ name: e.target.value })}
-                        onBlur={() => onFieldBlur("name")}
-                        className={fieldInputClass(errors.name)}
-                    />
-                </FormField>
-                <FormField name="category" label="หมวดหมู่" required error={errors.category}>
-                    <select
-                        className={`h-10 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-brand-500 ${fieldInputClass(errors.category)}`}
-                        value={activity.category}
-                        onChange={(e) => onChange({ category: e.target.value })}
-                        onBlur={() => onFieldBlur("category")}
-                    >
-                        <option value="">เลือกหมวดหมู่</option>
-                        {CATEGORIES.map((c) => (
-                            <option key={c.value} value={c.value}>{c.label}</option>
-                        ))}
-                    </select>
-                </FormField>
-            </div>
+            <FormField name="name" label="ชื่อกิจกรรม" required error={errors.name}>
+                <Input
+                    value={activity.name}
+                    onChange={(e) => onChange({ name: e.target.value })}
+                    onBlur={() => onFieldBlur("name")}
+                    className={fieldInputClass(errors.name)}
+                />
+            </FormField>
+
+            <FormField name="categories" label="หมวดหมู่ (เลือกได้มากกว่า 1)" required error={errors.categories}>
+                <div className="flex flex-wrap gap-2">
+                    {CATEGORIES.map((c) => {
+                        const selected = activity.categories.includes(c.value)
+                        return (
+                            <label
+                                key={c.value}
+                                className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                                    selected
+                                        ? "border-brand-500 bg-brand-50 text-brand-700"
+                                        : "border-border bg-bg text-fg hover:bg-surface"
+                                }`}
+                            >
+                                <input
+                                    type="checkbox"
+                                    className="size-4 rounded border-border text-brand-600 focus:ring-brand-500"
+                                    checked={selected}
+                                    onChange={() => {
+                                        onChange({ categories: toggleInArray(activity.categories, c.value) })
+                                        onFieldBlur("categories")
+                                    }}
+                                />
+                                <span className={`size-2 rounded-full ${c.dot}`} aria-hidden="true" />
+                                {c.label}
+                            </label>
+                        )
+                    })}
+                </div>
+            </FormField>
 
             <FormField name="description" label="รายละเอียดกิจกรรม" required error={errors.description}>
                 <Textarea
@@ -93,6 +110,7 @@ export function ActivityTabForm({ activity, errors, onChange, onFieldBlur }: Pro
                 />
             </FormField>
 
+            <p className="text-sm text-fg-muted">ระบุวันเวลาเริ่มกิจกรรมและสิ้นสุดกิจกรรม</p>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <FormField name="startAt" label="วันเวลาเริ่ม" required error={errors.startAt}>
                     <Input
@@ -219,7 +237,7 @@ export function ActivityTabForm({ activity, errors, onChange, onFieldBlur }: Pro
                     <div>
                         <Label>ให้คะแนน Soft Skills</Label>
                         <p className="mt-0.5 text-xs text-fg-muted">
-                            เลือกทักษะที่กิจกรรมนี้ฝึกฝน พร้อมกำหนดน้ำหนักคะแนน 1-10
+                            เลือกทักษะที่กิจกรรมนี้ฝึกฝน พร้อมกำหนดน้ำหนักคะแนน 0-5
                         </p>
                     </div>
                     <Toggle
@@ -228,37 +246,50 @@ export function ActivityTabForm({ activity, errors, onChange, onFieldBlur }: Pro
                     />
                 </div>
                 {activity.softSkillsEnabled && (
-                    <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
-                        {SOFT_SKILLS.map((skill) => {
-                            const checked = skill.value in activity.softSkillRates
-                            return (
-                                <div key={skill.value} className="flex items-center gap-3">
-                                    <input
-                                        type="checkbox"
-                                        id={`${activity.key}-skill-${skill.value}`}
-                                        checked={checked}
-                                        onChange={(e) => toggleSoftSkill(skill.value, e.target.checked)}
-                                        className="size-4 cursor-pointer rounded border-border bg-bg text-brand-600 focus:ring-brand-500"
-                                    />
-                                    <Label
-                                        htmlFor={`${activity.key}-skill-${skill.value}`}
-                                        className="flex-1 cursor-pointer text-sm font-normal"
-                                    >
-                                        {skill.label}
-                                    </Label>
-                                    {checked && (
-                                        <Input
-                                            type="number"
-                                            min={1}
-                                            max={10}
-                                            value={activity.softSkillRates[skill.value]}
-                                            onChange={(e) => setSoftSkillRate(skill.value, Number(e.target.value))}
-                                            className="h-8 w-16 text-center"
+                    <div className="space-y-4 rounded-lg border border-border bg-surface p-4">
+                        <div className="space-y-1 text-xs text-fg-muted">
+                            <p className="font-medium text-fg">เกณฑ์การให้คะแนน Soft Skills (0-5)</p>
+                            <ul className="space-y-0.5">
+                                <li>1 — Awareness (รับรู้): ผ่านการฟัง/รับรู้ข้อมูลพื้นฐาน</li>
+                                <li>2 — Understanding (เข้าใจ): ความเข้าใจและตอบโต้ได้</li>
+                                <li>3 — Application (ประยุกต์ใช้): ได้ลงมือปฏิบัติจริง</li>
+                                <li>4 — Competency (เชี่ยวชาญ): สร้างผลงาน/แก้ปัญหา</li>
+                                <li>5 — Mastery / Leadership (ผู้นำ): นำไปใช้จริงหรือนำผู้อื่น</li>
+                            </ul>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {SOFT_SKILLS.map((skill) => {
+                                const checked = skill.value in activity.softSkillRates
+                                return (
+                                    <div key={skill.value} className="flex items-center gap-3">
+                                        <input
+                                            type="checkbox"
+                                            id={`${activity.key}-skill-${skill.value}`}
+                                            checked={checked}
+                                            onChange={(e) => toggleSoftSkill(skill.value, e.target.checked)}
+                                            className="size-4 cursor-pointer rounded border-border bg-bg text-brand-600 focus:ring-brand-500"
                                         />
-                                    )}
-                                </div>
-                            )
-                        })}
+                                        <Label
+                                            htmlFor={`${activity.key}-skill-${skill.value}`}
+                                            className="flex-1 cursor-pointer text-sm font-normal"
+                                        >
+                                            {skill.label}
+                                        </Label>
+                                        {checked && (
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                max={5}
+                                                value={activity.softSkillRates[skill.value]}
+                                                onChange={(e) => setSoftSkillRate(skill.value, Number(e.target.value))}
+                                                onBlur={(e) => setSoftSkillRate(skill.value, Number(e.target.value))}
+                                                className="h-8 w-16 text-center"
+                                            />
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
                     </div>
                 )}
 

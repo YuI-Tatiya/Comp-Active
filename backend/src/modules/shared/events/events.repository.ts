@@ -13,7 +13,7 @@ export interface PreparedQuestionData {
 export interface PreparedActivityData {
   name: string;
   description: string;
-  category: string;
+  categories: string[];
   imageUrl?: string | null;
   attachmentUrl?: string | null;
   startAt: Date;
@@ -71,9 +71,7 @@ export interface PreparedEventUpdateData {
 
 /** ใช้กับเส้นทางสาธารณะ/ยังไม่ยืนยันตัวตน — ห้ามมี registrations แบบละเอียด (ไม่มี student/evaluation) */
 export const eventInclude = {
-  activities: {
-    include: { ...activityInclude, registrations: true, _count: { select: { registrations: true } } },
-  },
+  activities: { include: { ...activityInclude, registrations: true, _count: { select: { registrations: true } } } },
   surveyQuestions: true,
   visibilityProgram: true,
   visibilityYears: true,
@@ -86,8 +84,15 @@ export const eventOrganizerInclude = {
       ...activityInclude,
       registrations: {
         include: {
-          student: { select: { id: true, name: true, studentId: true, email: true } },
+          student: { select: { id: true, name: true, studentId: true, email: true, phone: true } },
           evaluation: true,
+          // คำตอบคำถามลงทะเบียน — organizer เห็นได้เต็ม เพื่อกรอง/ export ตามคำตอบ
+          answers: {
+            include: {
+              question: { select: { id: true, label: true } },
+              options: { include: { option: { select: { id: true, label: true } } } },
+            },
+          },
         },
       },
       _count: { select: { registrations: true } },
@@ -122,12 +127,8 @@ export class EventsRepository {
           },
           visibility: data.visibility as any,
           visibilityStudentIdFilter: data.visibilityStudentIdFilter,
-          visibilityProgram: {
-            create: data.visibilityPrograms.map((programCode) => ({ programCode })),
-          },
-          visibilityYears: {
-            create: data.visibilityYears.map((year) => ({ year })),
-          },
+          visibilityProgram: { create: data.visibilityPrograms.map((programCode) => ({ programCode })) },
+          visibilityYears: { create: data.visibilityYears.map((year) => ({ year })) },
         } as any,
       });
 
@@ -223,9 +224,7 @@ export class EventsRepository {
       }
       await tx.eventVisibilityYear.deleteMany({ where: { eventId } });
       if (data.visibilityYears.length) {
-        await tx.eventVisibilityYear.createMany({
-          data: data.visibilityYears.map((year) => ({ eventId, year })),
-        });
+        await tx.eventVisibilityYear.createMany({ data: data.visibilityYears.map((year) => ({ eventId, year })) });
       }
 
       // กิจกรรมย่อยที่ถูกเอาออก — cascade ลบ tags/conditions/benefits/softSkills/questions ให้เองผ่าน schema
@@ -242,7 +241,11 @@ export class EventsRepository {
           await tx.activitySoftSkill.deleteMany({ where: { activityId: id } });
           if (softSkillRates.length) {
             await tx.activitySoftSkill.createMany({
-              data: softSkillRates.map(({ skillType, rate }) => ({ activityId: id, skillType: skillType as any, rate })),
+              data: softSkillRates.map(({ skillType, rate }) => ({
+                activityId: id,
+                skillType: skillType as any,
+                rate,
+              })),
             });
           }
 
@@ -317,7 +320,8 @@ export class EventsRepository {
           await tx.activity.create({
             data: {
               ...activityData,
-              organizerId: (await tx.event.findUniqueOrThrow({ where: { id: eventId }, select: { organizerId: true } })).organizerId,
+              organizerId: (await tx.event.findUniqueOrThrow({ where: { id: eventId }, select: { organizerId: true } }))
+                .organizerId,
               eventId,
               approvalStatus: 'approved' as any,
               softSkills: {
@@ -359,6 +363,22 @@ export class EventsRepository {
       include: eventOrganizerInclude,
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  updatePublic(eventId: number, isPublic: boolean) {
+    return this.prisma.event.update({ where: { id: eventId }, data: { isPublic } });
+  }
+
+  /**
+   * ลบงานทั้งงานพร้อมกิจกรรมย่อยทั้งหมด — ต้องลบ Activity ก่อนเพราะความสัมพันธ์
+   * Activity.event เป็น onDelete: SetNull (ลบ Event เฉยๆ จะทำให้กิจกรรมย่อยกลายเป็น
+   * กิจกรรมเดี่ยวลอยๆ แทนที่จะถูกลบไปด้วย) — ผู้เรียกต้องเช็คว่าไม่มีผู้ลงทะเบียนก่อนแล้ว
+   */
+  deleteWithActivities(eventId: number) {
+    return this.prisma.$transaction([
+      this.prisma.activity.deleteMany({ where: { eventId } }),
+      this.prisma.event.delete({ where: { id: eventId } }),
+    ]);
   }
 
   /** งานที่มีอย่างน้อย 1 กิจกรรมย่อยที่ approved แล้ว — ใช้สำหรับรายการสาธารณะ */

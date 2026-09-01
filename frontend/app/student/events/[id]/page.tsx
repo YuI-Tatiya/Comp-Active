@@ -91,6 +91,7 @@ export default function StudentEventDetailsPage() {
     const [formError, setFormError] = useState("")
     const [submitting, setSubmitting] = useState(false)
     const [answers, setAnswers] = useState<Record<number, { textValue?: string; optionIds?: number[] }>>({})
+    const [certRequest, setCertRequest] = useState({ wantsCertLoanFund: false, wantsCertScholarship: false })
     const [toast, setToast] = useState<{ open: boolean; message: string; description?: string }>({
         open: false,
         message: "",
@@ -176,6 +177,7 @@ export default function StudentEventDetailsPage() {
         })
         setFormError("")
         setAnswers({})
+        setCertRequest({ wantsCertLoanFund: false, wantsCertScholarship: false })
         setIsRegisterOpen(true)
     }, [user])
 
@@ -222,7 +224,7 @@ export default function StudentEventDetailsPage() {
                 textValue: a.textValue,
                 optionIds: a.optionIds,
             }))
-            await registrationsAPI.create(activeActivity.id, answerPayload)
+            await registrationsAPI.create(activeActivity.id, answerPayload, activeActivity.volunteerRole ? certRequest : undefined)
             setIsRegisterOpen(false)
             showToast("ลงทะเบียนสำเร็จ!", "ติดตามสถานะได้ที่หน้ากิจกรรมของฉัน")
             fetchEventDetails(event!.id)
@@ -473,6 +475,29 @@ export default function StudentEventDetailsPage() {
                             <Label htmlFor="reg-email">อีเมล <span className="text-danger">*</span></Label>
                             <Input id="reg-email" type="email" value={registerForm.email} onChange={(e) => setRegisterForm((prev) => ({ ...prev, email: e.target.value }))} placeholder="กรอกอีเมล" required />
                         </div>
+
+                        {activeActivity?.volunteerRole && (
+                            <div className="space-y-2 border-t border-border pt-4">
+                                <Label>ขอใบรับรองจิตอาสาเพื่อ</Label>
+                                <p className="text-xs text-fg-subtle">เลือกได้มากกว่า 1 ข้อ หรือไม่เลือกเลยหากไม่ต้องการใบจิตอาสา</p>
+                                <label className="flex items-center gap-2 text-sm text-fg-muted">
+                                    <input
+                                        type="checkbox"
+                                        checked={certRequest.wantsCertLoanFund}
+                                        onChange={(e) => setCertRequest((prev) => ({ ...prev, wantsCertLoanFund: e.target.checked }))}
+                                    />
+                                    กยศ. (กองทุนเงินให้กู้ยืมเพื่อการศึกษา)
+                                </label>
+                                <label className="flex items-center gap-2 text-sm text-fg-muted">
+                                    <input
+                                        type="checkbox"
+                                        checked={certRequest.wantsCertScholarship}
+                                        onChange={(e) => setCertRequest((prev) => ({ ...prev, wantsCertScholarship: e.target.checked }))}
+                                    />
+                                    ทุนการศึกษา
+                                </label>
+                            </div>
+                        )}
 
                         {activeActivity?.questions && activeActivity.questions.length > 0 && (
                             <div className="space-y-4 border-t border-border pt-4">

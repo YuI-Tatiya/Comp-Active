@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { EvaluationsRepository } from './evaluation.repository';
 import { UpdateEvaluationDto } from './dto/update-evaluation.dto';
 import { UserRole } from '../../../common/enums/role.enum';
@@ -84,8 +79,42 @@ export class EvaluationsService {
     return this.evaluationsRepository.update(registrationId, dto as Record<string, any>);
   }
 
+  /**
+   * อันดับของนักศึกษาเทียบกับนักศึกษาทั้งระบบ — เรียงจากคะแนน Soft Skills รวมสูงสุดไปต่ำสุด
+   * คนคะแนนสูงสุด = อันดับ 1, คะแนนเท่ากัน = อันดับเดียวกัน (standard competition ranking)
+   */
+  private async getRank(studentId: number) {
+    const rows = await this.evaluationsRepository.findAllScoresWithStudent();
+
+    const totalsByStudent = new Map<number, number>();
+    for (const row of rows) {
+      const sum =
+        row.communication +
+        row.timeManagement +
+        row.flexibilityAdaptability +
+        row.teamworkCollaboration +
+        row.analyticCriticalThinking +
+        row.decisionMaking +
+        row.creativity +
+        row.complexProblemSolving +
+        row.curiosityLifelongLearning +
+        row.negotiationPersuasion +
+        row.leadership +
+        row.positiveAttitude;
+      const studentTotal = row.registration.studentId;
+      totalsByStudent.set(studentTotal, (totalsByStudent.get(studentTotal) ?? 0) + sum);
+    }
+
+    const myTotal = totalsByStudent.get(studentId) ?? 0;
+    const higherCount = [...totalsByStudent.values()].filter((total) => total > myTotal).length;
+    const totalStudents = await this.evaluationsRepository.countStudents();
+
+    return { rank: higherCount + 1, totalStudents };
+  }
+
   async getMySkills(studentId: number) {
     const evaluations = await this.evaluationsRepository.findByStudentWithActivity(studentId);
+    const { rank, totalStudents } = await this.getRank(studentId);
 
     if (evaluations.length === 0) {
       return {
@@ -104,8 +133,11 @@ export class EvaluationsService {
           leadership: 0,
           positiveAttitude: 0,
         },
+        totalScore: 0,
         points: 0,
         level: 1,
+        rank,
+        totalStudents,
         badges: [],
       };
     }
@@ -159,25 +191,38 @@ export class EvaluationsService {
     };
 
     const totalScore =
-      total.communication + total.timeManagement + total.flexibilityAdaptability +
-      total.teamworkCollaboration + total.analyticCriticalThinking + total.decisionMaking +
-      total.creativity + total.complexProblemSolving + total.curiosityLifelongLearning +
-      total.negotiationPersuasion + total.leadership + total.positiveAttitude;
-    const points = totalScore * 10;
-    // สเกลคะแนนต่อทักษะเปลี่ยนจาก 0-1 เป็น 0-10 (x10) — หาร level ด้วย 5000 (เดิม 500) เพื่อคงจังหวะเลเวลอัพเท่าเดิม
+      total.communication +
+      total.timeManagement +
+      total.flexibilityAdaptability +
+      total.teamworkCollaboration +
+      total.analyticCriticalThinking +
+      total.decisionMaking +
+      total.creativity +
+      total.complexProblemSolving +
+      total.curiosityLifelongLearning +
+      total.negotiationPersuasion +
+      total.leadership +
+      total.positiveAttitude;
+    // สเกลคะแนนต่อทักษะเปลี่ยนจาก 0-10 เป็น 0-5 (x20 แทน x10) เพื่อคงจังหวะเลเวลอัพเท่าเดิม
+    const points = totalScore * 20;
     const level = Math.floor(points / 5000) + 1;
 
     const badges: { name: string; icon: string; description: string }[] = [];
     if (count >= 1) badges.push({ name: 'First Step', icon: '🌱', description: 'เข้าร่วมกิจกรรมครั้งแรก' });
     if (count >= 5) badges.push({ name: 'Active Student', icon: '🔥', description: 'เข้าร่วมกิจกรรมมากกว่า 5 ครั้ง' });
-    if (average.leadership >= 8) badges.push({ name: 'Born Leader', icon: '👑', description: 'มีทักษะความเป็นผู้นำโดดเด่น' });
-    if (average.teamworkCollaboration >= 8) badges.push({ name: 'Team Player', icon: '🤝', description: 'ทำงานร่วมกับผู้อื่นได้ดีเยี่ยม' });
+    if (average.leadership >= 4)
+      badges.push({ name: 'Born Leader', icon: '👑', description: 'มีทักษะความเป็นผู้นำโดดเด่น' });
+    if (average.teamworkCollaboration >= 4)
+      badges.push({ name: 'Team Player', icon: '🤝', description: 'ทำงานร่วมกับผู้อื่นได้ดีเยี่ยม' });
 
     return {
       count,
       average,
+      totalScore,
       points,
       level,
+      rank,
+      totalStudents,
       badges,
       history: evaluations.map((ev) => ({
         id: ev.id,

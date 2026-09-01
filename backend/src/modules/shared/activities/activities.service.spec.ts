@@ -5,6 +5,7 @@ import { ActivitiesRepository } from './activities.repository';
 import { EventsRepository } from '../events/events.repository';
 import { RegistrationsRepository } from '../registrations/registrations.repository';
 import { MailService } from '../mail/mail.service';
+import { UsersRepository } from '../users/users.repository';
 import { UserRole } from '../../../common/enums/role.enum';
 import { ActivityStatus, ApprovalStatus } from '../../../common/enums/status.enum';
 
@@ -24,6 +25,8 @@ function makeActivity(overrides: Partial<any> = {}) {
     endTime: '12:00',
     // findById กรองด้วย isViewerEligibleForEvent — กิจกรรมเดี่ยวไม่มี event จึงผ่านเสมอ
     event: null,
+    // service.findById() แกะ _count ออกมาเป็น registeredCount เสมอ — ต้องมีให้ destructure ได้
+    _count: { registrations: 0 },
     ...overrides,
   } as any;
 }
@@ -49,6 +52,7 @@ describe('ActivitiesService.markCompleted', () => {
         // so module compilation succeeds and no real network call is attempted.
         { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn().mockResolvedValue([]) } },
         { provide: MailService, useValue: { sendActivityCompleted: jest.fn(), sendActivityCancelled: jest.fn() } },
+        { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -148,6 +152,7 @@ describe('ActivitiesService student-notification side effects', () => {
         { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
         { provide: RegistrationsRepository, useValue: registrationsRepo },
         { provide: MailService, useValue: mail },
+        { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -191,5 +196,87 @@ describe('ActivitiesService student-notification side effects', () => {
       status: ActivityStatus.COMPLETED,
     });
     await flush();
+  });
+});
+
+describe('ActivitiesService.delete', () => {
+  let service: ActivitiesService;
+  let activitiesRepo: { findById: jest.Mock; delete: jest.Mock };
+
+  beforeEach(async () => {
+    activitiesRepo = {
+      findById: jest.fn().mockResolvedValue(makeActivity()),
+      delete: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: activitiesRepo },
+        { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
+        { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
+        { provide: MailService, useValue: {} },
+        { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+  });
+
+  it('deletes an activity with no registrations', async () => {
+    await service.delete(5, 7, UserRole.ORGANIZER);
+    expect(activitiesRepo.delete).toHaveBeenCalledWith(5);
+  });
+
+  it('refuses to delete an activity that already has registrations', async () => {
+    activitiesRepo.findById.mockResolvedValue(makeActivity({ _count: { registrations: 3 } }));
+
+    await expect(service.delete(5, 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
+    expect(activitiesRepo.delete).not.toHaveBeenCalled();
+  });
+
+  it('throws ForbiddenException when another organizer tries to delete it', async () => {
+    await expect(service.delete(5, 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
+    expect(activitiesRepo.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe('ActivitiesService.findByIdForOrganizer', () => {
+  let service: ActivitiesService;
+  let activitiesRepo: { findByIdForOrganizer: jest.Mock };
+
+  beforeEach(async () => {
+    activitiesRepo = {
+      findByIdForOrganizer: jest.fn().mockResolvedValue(makeActivity({ registrations: [{ id: 1 }] })),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: activitiesRepo },
+        { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
+        { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
+        { provide: MailService, useValue: {} },
+        { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+  });
+
+  it('returns the full activity (with registrations) for its owner', async () => {
+    const result = await service.findByIdForOrganizer(5, 7, UserRole.ORGANIZER);
+    expect(result.registrations).toEqual([{ id: 1 }]);
+  });
+
+  it('allows an admin to view an activity they do not own', async () => {
+    await expect(service.findByIdForOrganizer(5, 999, UserRole.ADMIN)).resolves.toBeDefined();
+  });
+
+  it('throws ForbiddenException when a non-owning organizer requests it', async () => {
+    await expect(service.findByIdForOrganizer(5, 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('throws NotFoundException when the activity does not exist', async () => {
+    activitiesRepo.findByIdForOrganizer.mockResolvedValue(null);
+    await expect(service.findByIdForOrganizer(5, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
   });
 });

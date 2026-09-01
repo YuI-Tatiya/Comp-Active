@@ -2,20 +2,17 @@
 
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { FilterBar, type FilterSpec } from "@/components/ui/filter-bar"
-import {
-    EventCard,
-    EventCardBadge,
-    EventCardProgress,
-    EventCardRow,
-    formatEventDate,
-} from "@/components/ui/event-card"
+import { EventCard, EventCardBadge } from "@/components/ui/event-card"
+import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { eventsAPI, activitiesAPI, isCancelledByOrganizer, EventSummary, Activity } from "@/lib/api"
 import { CATEGORIES } from "@/lib/categories"
 import { RANGE_OPTIONS, withinRange } from "@/lib/events-filter"
-import { Calendar, MapPin, Clock, Loader2, Search, Plus, CalendarPlus, Layers } from "lucide-react"
+import { Loader2, Search, Plus, CalendarPlus, Layers, Pencil, Eye, EyeOff, Trash2 } from "lucide-react"
 
 /** สถานะการอนุมัติของกิจกรรมย่อย — ตรงกับ ApprovalStatus ใน backend/prisma/schema.prisma */
 const APPROVAL_META: Record<string, { label: string; className: string }> = {
@@ -26,18 +23,17 @@ const APPROVAL_META: Record<string, { label: string; className: string }> = {
     rejected: { label: "ยกเลิกแล้ว", className: "bg-danger/90" },
 }
 
-function eventRegisteredCount(ev: EventSummary): number {
-    return ev.activities.reduce((sum, a) => sum + (a.registeredCount ?? 0), 0)
-}
-
-function eventCapacity(ev: EventSummary): number | null {
-    if (ev.activities.some((a) => a.capacity == null)) return null
-    return ev.activities.reduce((sum, a) => sum + (a.capacity ?? 0), 0)
+function eventHasRegistrations(ev: EventSummary): boolean {
+    return ev.activities.some((a) => (a.registeredCount ?? 0) > 0)
 }
 
 /** เรียงตามวันจัดกิจกรรมย่อยแรกที่ใกล้ที่สุด — ใช้แสดงในการ์ดของ Event */
 function firstActivity(ev: EventSummary): Activity | undefined {
     return [...ev.activities].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
+}
+
+function eventRegisteredCount(ev: EventSummary): number {
+    return ev.activities.reduce((sum, a) => sum + (a.registeredCount ?? 0), 0)
 }
 
 /** วันจัดกิจกรรมย่อยที่เร็วที่สุด — ใช้เรียงลำดับ "ใกล้จัดงาน" และกรองช่วงเวลา */
@@ -143,13 +139,18 @@ const INITIAL_VALUES: Record<string, string> = {
     sort: "newest",
 }
 
+type DeleteTarget = { kind: "event"; id: number; name: string } | { kind: "activity"; id: number; name: string }
+
 /** หน้าจัดการกิจกรรมของผู้จัด — แสดงเป็น "งาน" (Event) พร้อมกิจกรรมย่อย, และกิจกรรมเดี่ยวรุ่นเก่าแยกไว้ด้านล่าง */
 export default function OrganizerManagePage() {
+    const router = useRouter()
     const [events, setEvents] = useState<EventSummary[]>([])
     const [standaloneActivities, setStandaloneActivities] = useState<Activity[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
     const [values, setValues] = useState<Record<string, string>>(INITIAL_VALUES)
+    const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
+    const [deleting, setDeleting] = useState(false)
 
     useEffect(() => {
         loadData()
@@ -194,7 +195,7 @@ export default function OrganizerManagePage() {
             const matchesStatus = !values.status || eventStatus(ev) === values.status
             const matchesVisibility =
                 !values.visibility || (values.visibility === "public" ? ev.isPublic : !ev.isPublic)
-            const matchesCategory = !values.category || ev.activities.some((a) => a.category === values.category)
+            const matchesCategory = !values.category || ev.activities.some((a) => a.categories.includes(values.category))
             const matchesCert = !values.cert || (values.cert === "yes" ? eventHasCert(ev) : !eventHasCert(ev))
             const matchesRange = withinRange(earliestDate(ev), values.range)
             return matchesSearch && matchesStatus && matchesVisibility && matchesCategory && matchesCert && matchesRange
@@ -215,7 +216,7 @@ export default function OrganizerManagePage() {
             const matchesSearch = !q || a.name.toLowerCase().includes(q)
             const status = isCancelledByOrganizer(a.approvalStatus) ? "cancelled" : a.status === "open" ? "open" : "closed"
             const matchesStatus = !values.status || status === values.status
-            const matchesCategory = !values.category || a.category === values.category
+            const matchesCategory = !values.category || a.categories.includes(values.category)
             const matchesCert = !values.cert || (values.cert === "yes" ? !!a.volunteerRole : !a.volunteerRole)
             const matchesRange = withinRange(new Date(a.date).getTime(), values.range)
             // กิจกรรมเดี่ยวไม่มีแนวคิดการเผยแพร่ระดับงาน จึงซ่อนเมื่อผู้ใช้กรองด้วยเงื่อนไขนี้
@@ -233,6 +234,72 @@ export default function OrganizerManagePage() {
     }, [standaloneActivities, searchQuery, values])
 
     const totalCount = filteredEvents.length + filteredStandalone.length
+
+    async function toggleEventPublic(ev: EventSummary) {
+        try {
+            await eventsAPI.setPublic(ev.id, !ev.isPublic)
+            loadData()
+        } catch (err: unknown) {
+            alert((err as Error).message || "เปลี่ยนสถานะเผยแพร่ไม่สำเร็จ")
+        }
+    }
+
+    async function confirmDelete() {
+        if (!deleteTarget) return
+        setDeleting(true)
+        try {
+            if (deleteTarget.kind === "event") {
+                await eventsAPI.delete(deleteTarget.id)
+            } else {
+                await activitiesAPI.delete(deleteTarget.id)
+            }
+            setDeleteTarget(null)
+            loadData()
+        } catch (err: unknown) {
+            alert((err as Error).message || "ลบไม่สำเร็จ")
+        } finally {
+            setDeleting(false)
+        }
+    }
+
+    function eventMenuItems(ev: EventSummary): ActionMenuItem[] {
+        return [
+            {
+                label: "แก้ไขกิจกรรม",
+                icon: Pencil,
+                onClick: () => router.push(`/organizer/manage/${ev.id}/edit`),
+            },
+            {
+                label: "แก้สถานะกิจกรรม",
+                icon: ev.isPublic ? EyeOff : Eye,
+                onClick: () => toggleEventPublic(ev),
+            },
+            {
+                label: "ลบกิจกรรม",
+                icon: Trash2,
+                tone: "danger",
+                disabled: eventHasRegistrations(ev),
+                onClick: () => setDeleteTarget({ kind: "event", id: ev.id, name: ev.name }),
+            },
+        ]
+    }
+
+    function activityMenuItems(a: Activity): ActionMenuItem[] {
+        return [
+            {
+                label: "แก้ไขกิจกรรม",
+                icon: Pencil,
+                onClick: () => router.push(`/organizer/activities/${a.id}/edit`),
+            },
+            {
+                label: "ลบกิจกรรม",
+                icon: Trash2,
+                tone: "danger",
+                disabled: (a.registeredCount ?? 0) > 0,
+                onClick: () => setDeleteTarget({ kind: "activity", id: a.id, name: a.name }),
+            },
+        ]
+    }
 
     return (
         // ไม่ใส่ min-h-screen — app/organizer/layout.tsx จัดการให้แล้ว
@@ -276,14 +343,14 @@ export default function OrganizerManagePage() {
                 ) : totalCount > 0 ? (
                     <div className="space-y-12">
                         {filteredEvents.length > 0 && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                                 {filteredEvents.map((ev) => {
                                     const fa = firstActivity(ev)
-                                    const capacity = eventCapacity(ev)
                                     return (
                                         <EventCard
                                             key={`event-${ev.id}`}
                                             activity={{ name: ev.name, imageUrl: ev.imageUrl ?? fa?.imageUrl }}
+                                            description={ev.description}
                                             badgeLeft={
                                                 ev.activities.length > 1 ? (
                                                     <EventCardBadge variant="light">
@@ -299,27 +366,13 @@ export default function OrganizerManagePage() {
                                             }
                                             actions={
                                                 <>
-                                                    <Link href={`/organizer/manage/${ev.id}/edit`} className="flex-1">
-                                                        <Button variant="outline" className="w-full font-bold rounded-xl h-11">แก้ไข</Button>
-                                                    </Link>
                                                     <Link href={`/organizer/events/${ev.id}`} className="flex-1">
                                                         <Button className="w-full shadow-md shadow-brand-500/20 font-bold rounded-xl h-11">ดูรายละเอียด</Button>
                                                     </Link>
+                                                    <ActionMenu items={eventMenuItems(ev)} label={`ตัวเลือกของ ${ev.name}`} />
                                                 </>
                                             }
-                                        >
-                                            {fa && (
-                                                <EventCardRow icon={Calendar} tone="brand">
-                                                    {formatEventDate(fa.date)}
-                                                </EventCardRow>
-                                            )}
-                                            {fa && (
-                                                <EventCardRow icon={Clock} tone="info">
-                                                    {fa.startTime} - {fa.endTime}
-                                                </EventCardRow>
-                                            )}
-                                            <EventCardProgress registered={eventRegisteredCount(ev)} capacity={capacity} />
-                                        </EventCard>
+                                        />
                                     )
                                 })}
                             </div>
@@ -328,28 +381,24 @@ export default function OrganizerManagePage() {
                         {filteredStandalone.length > 0 && (
                             <div>
                                 <h2 className="mb-4 text-lg font-bold text-fg">กิจกรรมเดี่ยว (ไม่ผูกกับงาน)</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                    {filteredStandalone.map((ev) => {
-                                        const ap = APPROVAL_META[ev.approvalStatus] ?? APPROVAL_META.pending_approval
+                                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                                    {filteredStandalone.map((a) => {
+                                        const ap = APPROVAL_META[a.approvalStatus] ?? APPROVAL_META.pending_approval
                                         return (
                                             <EventCard
-                                                key={`activity-${ev.id}`}
-                                                activity={ev}
+                                                key={`activity-${a.id}`}
+                                                activity={a}
+                                                description={a.description}
                                                 badgeRight={<EventCardBadge className={ap.className}>{ap.label}</EventCardBadge>}
                                                 actions={
-                                                    <Link href={`/organizer/activities/${ev.id}`} className="flex-1">
-                                                        <Button className="w-full shadow-md shadow-brand-500/20 font-bold rounded-xl h-11">ดูรายละเอียด</Button>
-                                                    </Link>
+                                                    <>
+                                                        <Link href={`/organizer/activities/${a.id}`} className="flex-1">
+                                                            <Button className="w-full shadow-md shadow-brand-500/20 font-bold rounded-xl h-11">ดูรายละเอียด</Button>
+                                                        </Link>
+                                                        <ActionMenu items={activityMenuItems(a)} label={`ตัวเลือกของ ${a.name}`} />
+                                                    </>
                                                 }
-                                            >
-                                                <EventCardRow icon={Calendar} tone="brand">
-                                                    {formatEventDate(ev.date)}
-                                                </EventCardRow>
-                                                <EventCardRow icon={MapPin} tone="danger">
-                                                    <span className="truncate">{ev.location}</span>
-                                                </EventCardRow>
-                                                <EventCardProgress registered={ev.registeredCount ?? 0} capacity={ev.capacity} />
-                                            </EventCard>
+                                            />
                                         )
                                     })}
                                 </div>
@@ -390,6 +439,17 @@ export default function OrganizerManagePage() {
                     </div>
                 )}
             </Container>
+
+            <ConfirmDialog
+                open={!!deleteTarget}
+                onOpenChange={(open) => !open && setDeleteTarget(null)}
+                title={`ลบ "${deleteTarget?.name ?? ""}"?`}
+                description="การลบไม่สามารถย้อนกลับได้ ข้อมูลกิจกรรมนี้จะหายไปทั้งหมด"
+                confirmLabel="ลบกิจกรรม"
+                tone="danger"
+                loading={deleting}
+                onConfirm={confirmDelete}
+            />
         </div>
     )
 }

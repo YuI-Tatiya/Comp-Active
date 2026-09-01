@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   IsArray,
+  ArrayMinSize,
   IsIn,
   Min,
   ValidateNested,
@@ -24,10 +25,11 @@ export class CreateActivityDto {
   @IsNotEmpty()
   description: string;
 
-  @ApiProperty({ example: 'workshop', description: 'หมวดหมู่' })
-  @IsString()
-  @IsNotEmpty()
-  category: string;
+  @ApiProperty({ example: ['workshop', 'technology'], description: 'หมวดหมู่ — เลือกได้มากกว่า 1' })
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  categories: string[];
 
   @ApiProperty({ example: '2026-03-15', description: 'วันที่จัดกิจกรรม' })
   @IsString()
@@ -55,10 +57,7 @@ export class CreateActivityDto {
   @Min(1)
   capacity?: number | null;
 
-  @ApiPropertyOptional({
-    example: ['React', 'Frontend'],
-    description: 'แท็ก',
-  })
+  @ApiPropertyOptional({ example: ['React', 'Frontend'], description: 'แท็ก' })
   @IsArray()
   @IsOptional()
   tags?: string[];
@@ -74,26 +73,17 @@ export class CreateActivityDto {
   @IsIn(Object.values(SoftSkillType), { each: true })
   softSkills?: SoftSkillType[];
 
-  @ApiPropertyOptional({
-    example: ['นักศึกษาชั้นปีที่ 2 ขึ้นไป'],
-    description: 'เงื่อนไขการเข้าร่วม',
-  })
+  @ApiPropertyOptional({ example: ['นักศึกษาชั้นปีที่ 2 ขึ้นไป'], description: 'เงื่อนไขการเข้าร่วม' })
   @IsArray()
   @IsOptional()
   conditions?: string[];
 
-  @ApiPropertyOptional({
-    example: ['ได้รับเกียรติบัตร', 'ชั่วโมงอาสาสมัคร 8 ชั่วโมง'],
-    description: 'สิทธิประโยชน์',
-  })
+  @ApiPropertyOptional({ example: ['ได้รับเกียรติบัตร', 'ชั่วโมงอาสาสมัคร 8 ชั่วโมง'], description: 'สิทธิประโยชน์' })
   @IsArray()
   @IsOptional()
   benefits?: string[];
 
-  @ApiPropertyOptional({
-    example: 'https://example.com/image.jpg',
-    description: 'URL รูปภาพโปสเตอร์กิจกรรม',
-  })
+  @ApiPropertyOptional({ example: 'https://example.com/image.jpg', description: 'URL รูปภาพโปสเตอร์กิจกรรม' })
   @IsString()
   @IsOptional()
   imageUrl?: string;

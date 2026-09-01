@@ -49,6 +49,20 @@ export class ActivitiesOrganizerController {
   }
 
   /**
+   * GET /api/activities/my/:id - ดูรายละเอียดกิจกรรมเดี่ยวแบบเต็ม รวมรายชื่อผู้ลงทะเบียน (เจ้าของ / Admin)
+   * แยกจาก GET /api/activities/:id (public) ที่ไม่ส่งรายชื่อ/ข้อมูลติดต่อผู้ลงทะเบียนออกไป
+   */
+  @Get('my/:id')
+  @ApiOperation({ summary: 'ดูรายละเอียดกิจกรรมเดี่ยวแบบเต็ม รวมรายชื่อผู้ลงทะเบียน (เจ้าของ / Admin)' })
+  async findMyActivityById(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+    @CurrentUser('role') userRole: UserRole,
+  ) {
+    return this.activitiesService.findByIdForOrganizer(id, userId, userRole);
+  }
+
+  /**
    * GET /api/activities/:id/survey-results - ดูผลสรุปแบบสำรวจของกิจกรรมเดี่ยว (เจ้าของ / Admin)
    */
   @Get(':id/survey-results')
@@ -90,17 +104,7 @@ export class ActivitiesOrganizerController {
   @Post('upload-image')
   @ApiOperation({ summary: 'อัปโหลดรูปภาพกิจกรรม (Organizer / Admin)' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
-  })
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -126,10 +130,7 @@ export class ActivitiesOrganizerController {
     if (!file) {
       throw new Error('No file uploaded or invalid file format');
     }
-    return {
-      message: 'อัปโหลดรูปภาพสำเร็จ',
-      imageUrl: `/uploads/activities/${file.filename}`,
-    };
+    return { message: 'อัปโหลดรูปภาพสำเร็จ', imageUrl: `/uploads/activities/${file.filename}` };
   }
 
   /**

@@ -1,4 +1,4 @@
-import type { Activity } from "@/lib/api"
+import type { Activity, EventSummary } from "@/lib/api"
 import { CATEGORIES } from "@/lib/categories"
 
 /**
@@ -76,14 +76,11 @@ const RANGE_DAYS: Record<string, number> = {
  */
 export interface FilterableItem {
     name: string
-    /** หมวดหมู่เดียว — ใช้แสดงป้ายบนการ์ด (กิจกรรมเดี่ยวมีหมวดเดียวเสมอ) */
-    category?: string
     /**
-     * หมวดหมู่ทั้งหมดที่การ์ดนี้ควรไปปรากฏ — ใช้กรอง/จัดกลุ่มแทน `category` เมื่อมีค่า
-     * งาน (Event) ที่มีกิจกรรมย่อยคนละหมวด ต้องโผล่ในทุกหมวดที่กิจกรรมย่อยระบุไว้
-     * ไม่ใช่แค่หมวดของกิจกรรมย่อยตัวแรก — ไม่ระบุ = fallback ไปใช้ `category` ตัวเดียว
+     * หมวดหมู่ทั้งหมดของการ์ดนี้ — กิจกรรมเดียวเลือกได้มากกว่า 1 หมวด และงาน (Event) ที่มี
+     * กิจกรรมย่อยหลายตัวคนละหมวดก็ต้องโผล่ในทุกหมวดที่เกี่ยวข้อง ไม่ใช่แค่หมวดเดียว
      */
-    categories?: string[]
+    categories: string[]
     status: "open" | "closed"
     searchText: string
     /** วันจัดกิจกรรม (epoch ms) — ใช้กรองช่วงเวลาและเรียง "ใกล้ถึงก่อน" */
@@ -93,12 +90,6 @@ export interface FilterableItem {
     /** ที่นั่งคงเหลือ — null = ไม่จำกัดจำนวน */
     seats: number | null
     hasCert: boolean
-}
-
-/** หมวดหมู่ทั้งหมดของการ์ด — ใช้ `categories` ถ้ามี ไม่งั้น fallback ไปหมวดเดียวจาก `category` */
-function itemCategories(item: FilterableItem): string[] {
-    if (item.categories && item.categories.length > 0) return item.categories
-    return item.category ? [item.category] : []
 }
 
 /**
@@ -134,15 +125,72 @@ export function withinRange(sortDate: number, range: string): boolean {
 export function activityFilterFields(a: Activity): FilterableItem {
     return {
         name: a.name,
-        category: a.category,
-        categories: a.category ? [a.category] : [],
+        categories: a.categories,
         status: a.status === "open" ? "open" : "closed",
-        searchText: [a.name, a.category].filter(Boolean).join(" ").toLowerCase(),
+        searchText: [a.name, ...a.categories].filter(Boolean).join(" ").toLowerCase(),
         sortDate: new Date(a.date).getTime(),
         createdAt: new Date(a.createdAt ?? a.date).getTime(),
         seats: a.capacity == null ? null : Math.max(a.capacity - (a.registeredCount ?? 0), 0),
         hasCert: !!a.volunteerRole,
     }
+}
+
+/** การ์ดรวม — งาน (Event, หลายกิจกรรมย่อย) และกิจกรรมเดี่ยว normalize มาเป็นรูปแบบเดียวกัน */
+export interface FeaturedCardItem extends FilterableItem {
+    key: string
+    imageUrl?: string | null
+    description?: string | null
+    href: string
+}
+
+function nearestUpcomingActivity(ev: EventSummary) {
+    return [...ev.activities].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
+}
+
+function earliestEventDate(ev: EventSummary): number {
+    const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
+    return times.length ? Math.min(...times) : Number.POSITIVE_INFINITY
+}
+
+/**
+ * รวม Event และกิจกรรมเดี่ยวเป็นการ์ดเดียวกัน — งานหนึ่งงาน (ไม่ว่าจะมีกี่กิจกรรมย่อย) = การ์ดเดียวเสมอ
+ * ใช้กับส่วน "แนะนำ"/"กำลังเปิดรับสมัคร" แบบย่อในหน้าแรก (public และ student) — หน้ารายการเต็ม
+ * (/events, /student/events) มีตรรกะจัดกลุ่มตามหมวดหมู่ของตัวเองที่ละเอียดกว่านี้ ไม่ได้ใช้ตัวนี้
+ */
+export function buildFeaturedCards(
+    events: EventSummary[],
+    standalone: Activity[],
+    hrefFor: { event: (id: number) => string; activity: (id: number) => string }
+): FeaturedCardItem[] {
+    const fromEvents = events.map((ev): FeaturedCardItem => {
+        const fa = nearestUpcomingActivity(ev)
+        return {
+            key: `event-${ev.id}`,
+            name: ev.name,
+            imageUrl: ev.imageUrl ?? fa?.imageUrl,
+            description: ev.description,
+            categories: Array.from(new Set(ev.activities.flatMap((a) => a.categories))),
+            status: ev.activities.some((a) => a.status === "open") ? "open" : "closed",
+            searchText: [ev.name, ...ev.activities.map((a) => a.name)].join(" ").toLowerCase(),
+            sortDate: earliestEventDate(ev),
+            createdAt: new Date(ev.createdAt).getTime(),
+            seats: null,
+            hasCert: ev.activities.some((a) => !!a.volunteerRole),
+            href: hrefFor.event(ev.id),
+        }
+    })
+
+    const fromStandalone = standalone
+        .filter((a) => !a.eventId)
+        .map((a): FeaturedCardItem => ({
+            ...activityFilterFields(a),
+            key: `activity-${a.id}`,
+            imageUrl: a.imageUrl,
+            description: a.description,
+            href: hrefFor.activity(a.id),
+        }))
+
+    return [...fromEvents, ...fromStandalone]
 }
 
 /** กรองตามเงื่อนไขทั้งหมด แล้วเรียงตามตัวเลือกที่เลือกไว้ */
@@ -155,7 +203,7 @@ export function filterAndSortItems<T extends FilterableItem>(
     const list = items.filter((item) => {
         const matchesSearch = !q || item.searchText.includes(q)
         const matchesCategory =
-            filters.categories.length === 0 || itemCategories(item).some((c) => filters.categories.includes(c))
+            filters.categories.length === 0 || item.categories.some((c) => filters.categories.includes(c))
         const matchesStatus = filters.statuses.length === 0 || filters.statuses.includes(item.status)
         const matchesCert = !filters.certOnly || item.hasCert
         const matchesRange = withinRange(item.sortDate, filters.range)
@@ -183,6 +231,6 @@ export function filterAndSortItems<T extends FilterableItem>(
 export function groupByCategory<T extends FilterableItem>(items: T[]) {
     return CATEGORIES.map((category) => ({
         category,
-        items: items.filter((item) => itemCategories(item).includes(category.value)),
+        items: items.filter((item) => item.categories.includes(category.value)),
     })).filter((group) => group.items.length > 0)
 }

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -18,6 +19,7 @@ import * as crypto from 'crypto';
 import { EventsService } from '../shared/events/events.service';
 import { CreateEventDto } from '../shared/events/dto/create-event.dto';
 import { UpdateEventDto } from '../shared/events/dto/update-event.dto';
+import { SetEventPublicDto } from '../shared/events/dto/set-event-public.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -82,6 +84,33 @@ export class EventsOrganizerController {
   }
 
   /**
+   * PATCH /api/events/:id/publish - สลับสถานะเผยแพร่ของงาน (เจ้าของ / Admin)
+   */
+  @Patch(':id/publish')
+  @ApiOperation({ summary: 'สลับสถานะเผยแพร่ของงาน (เจ้าของ / Admin)' })
+  async setPublic(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+    @CurrentUser('role') userRole: UserRole,
+    @Body() dto: SetEventPublicDto,
+  ) {
+    return this.eventsService.setPublic(userId, userRole, id, dto.isPublic);
+  }
+
+  /**
+   * DELETE /api/events/:id - ลบงานทั้งงานพร้อมกิจกรรมย่อย (เจ้าของ / Admin)
+   */
+  @Delete(':id')
+  @ApiOperation({ summary: 'ลบงานทั้งงานพร้อมกิจกรรมย่อย (เจ้าของ / Admin)' })
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number,
+    @CurrentUser('role') userRole: UserRole,
+  ) {
+    await this.eventsService.delete(userId, userRole, id);
+  }
+
+  /**
    * POST /api/events - สร้างงานใหม่พร้อมกิจกรรมย่อย (Organizer / Admin)
    */
   @Post()
@@ -96,17 +125,7 @@ export class EventsOrganizerController {
   @Post('upload-attachment')
   @ApiOperation({ summary: 'อัปโหลดไฟล์แนบของกิจกรรม (Organizer / Admin)' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
-  })
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -132,9 +151,6 @@ export class EventsOrganizerController {
     if (!file) {
       throw new Error('No file uploaded or invalid file format');
     }
-    return {
-      message: 'อัปโหลดไฟล์แนบสำเร็จ',
-      attachmentUrl: `/uploads/attachments/${file.filename}`,
-    };
+    return { message: 'อัปโหลดไฟล์แนบสำเร็จ', attachmentUrl: `/uploads/attachments/${file.filename}` };
   }
 }

@@ -31,7 +31,7 @@ type SkillRate = { skillType: string; rate: number };
 interface ActivitySpec {
   name: string;
   description: string;
-  category: string;
+  categories: string[];
   dayOffset: number;
   startTime: string;
   endTime: string;
@@ -54,7 +54,7 @@ const ACTIVITIES: ActivitySpec[] = [
   {
     name: 'ค่ายอาสาพัฒนาโรงเรียนบ้านหนองบัว',
     description: 'ร่วมกันซ่อมแซมอาคารเรียนและจัดกิจกรรมนันทนาการให้น้องๆ ในพื้นที่ห่างไกล',
-    category: 'Volunteer',
+    categories: ['Volunteer'],
     dayOffset: -45,
     startTime: '08:00',
     endTime: '17:00',
@@ -64,10 +64,10 @@ const ACTIVITIES: ActivitySpec[] = [
     volunteerHours: 9,
     volunteerRole: 'อาสาสมัครพัฒนาชุมชน',
     softSkills: [
-      { skillType: 'teamwork_collaboration', rate: 9 },
-      { skillType: 'leadership', rate: 7 },
-      { skillType: 'positive_attitude', rate: 8 },
-      { skillType: 'flexibility_adaptability', rate: 6 },
+      { skillType: 'teamwork_collaboration', rate: 5 },
+      { skillType: 'leadership', rate: 4 },
+      { skillType: 'positive_attitude', rate: 4 },
+      { skillType: 'flexibility_adaptability', rate: 3 },
     ],
     registration: 'attended',
     evaluationComment: 'ทำงานร่วมกับทีมได้ดีมาก อาสาช่วยงานหนักโดยไม่ต้องร้องขอ และดูแลน้องๆ ได้อบอุ่น',
@@ -75,7 +75,7 @@ const ACTIVITIES: ActivitySpec[] = [
   {
     name: 'Workshop: สร้างเว็บแอปด้วย React และ Next.js',
     description: 'เวิร์กช็อปเชิงปฏิบัติการ เรียนรู้ตั้งแต่พื้นฐาน component จนถึงการ deploy จริง',
-    category: 'Technology',
+    categories: ['Technology'],
     dayOffset: -30,
     startTime: '09:00',
     endTime: '16:00',
@@ -83,9 +83,9 @@ const ACTIVITIES: ActivitySpec[] = [
     capacity: 30,
     postedDaysAgo: 50,
     softSkills: [
-      { skillType: 'complex_problem_solving', rate: 8 },
-      { skillType: 'curiosity_lifelong_learning', rate: 9 },
-      { skillType: 'analytic_critical_thinking', rate: 7 },
+      { skillType: 'complex_problem_solving', rate: 4 },
+      { skillType: 'curiosity_lifelong_learning', rate: 5 },
+      { skillType: 'analytic_critical_thinking', rate: 4 },
     ],
     registration: 'attended',
     evaluationComment: 'เก็บรายละเอียดดี ถามคำถามที่ลึกและช่วยเพื่อนในกลุ่มแก้บั๊กได้',
@@ -93,7 +93,7 @@ const ACTIVITIES: ActivitySpec[] = [
   {
     name: 'จิตอาสาปลูกป่าชายเลนเพื่อโลกสีเขียว',
     description: 'กิจกรรมอนุรักษ์สิ่งแวดล้อม ปลูกต้นโกงกางและเก็บขยะชายฝั่ง',
-    category: 'Volunteer',
+    categories: ['Volunteer'],
     dayOffset: -14,
     startTime: '07:30',
     endTime: '12:30',
@@ -103,9 +103,9 @@ const ACTIVITIES: ActivitySpec[] = [
     volunteerHours: 5,
     volunteerRole: 'อาสาสมัครอนุรักษ์สิ่งแวดล้อม',
     softSkills: [
-      { skillType: 'teamwork_collaboration', rate: 7 },
-      { skillType: 'time_management', rate: 6 },
-      { skillType: 'positive_attitude', rate: 9 },
+      { skillType: 'teamwork_collaboration', rate: 4 },
+      { skillType: 'time_management', rate: 3 },
+      { skillType: 'positive_attitude', rate: 5 },
     ],
     registration: 'attended',
   },
@@ -114,7 +114,7 @@ const ACTIVITIES: ActivitySpec[] = [
   {
     name: 'สัมมนาวิชาการ: ปัญญาประดิษฐ์กับอนาคตการทำงาน',
     description: 'ฟังบรรยายจากผู้เชี่ยวชาญด้าน AI ทั้งภาควิชาการและอุตสาหกรรม',
-    category: 'Academic',
+    categories: ['Academic'],
     dayOffset: 5,
     startTime: '13:00',
     endTime: '16:30',
@@ -126,7 +126,7 @@ const ACTIVITIES: ActivitySpec[] = [
   {
     name: 'การแข่งขันเขียนโปรแกรมระดับมหาวิทยาลัย',
     description: 'แข่งขันแก้โจทย์อัลกอริทึมแบบทีม ทีมละ 3 คน ชิงทุนการศึกษา',
-    category: 'Competition',
+    categories: ['Competition'],
     dayOffset: 20,
     startTime: '08:30',
     endTime: '17:00',
@@ -140,7 +140,7 @@ const ACTIVITIES: ActivitySpec[] = [
   {
     name: 'อบรมเชิงปฏิบัติการ: ความปลอดภัยไซเบอร์เบื้องต้น',
     description: 'เรียนรู้การป้องกันภัยคุกคามทางไซเบอร์และการทำ penetration testing เบื้องต้น',
-    category: 'Technology',
+    categories: ['Technology'],
     dayOffset: 10,
     startTime: '09:00',
     endTime: '15:00',
@@ -152,7 +152,7 @@ const ACTIVITIES: ActivitySpec[] = [
   {
     name: 'กีฬาสีวิทยาลัยการคอมพิวเตอร์',
     description: 'การแข่งขันกีฬาเชื่อมความสัมพันธ์ระหว่างสาขา พร้อมกองเชียร์และขบวนพาเหรด',
-    category: 'Sports',
+    categories: ['Sports'],
     dayOffset: 3,
     startTime: '07:00',
     endTime: '18:00',
@@ -166,7 +166,7 @@ const ACTIVITIES: ActivitySpec[] = [
   {
     name: 'นิทรรศการศิลปะดิจิทัลและสื่อผสม',
     description: 'จัดแสดงผลงานศิลปะดิจิทัลจากนักศึกษาและศิลปินรับเชิญ',
-    category: 'Art & Culture',
+    categories: ['Art & Culture'],
     dayOffset: 15,
     startTime: '10:00',
     endTime: '19:00',
@@ -178,7 +178,7 @@ const ACTIVITIES: ActivitySpec[] = [
   {
     name: 'ค่ายเตรียมความพร้อมสหกิจศึกษา',
     description: 'เตรียมตัวก่อนออกฝึกงาน ทั้งการเขียนเรซูเม่และการสัมภาษณ์งาน',
-    category: 'Academic',
+    categories: ['Academic'],
     dayOffset: 8,
     startTime: '09:00',
     endTime: '16:00',
@@ -193,7 +193,7 @@ const ACTIVITIES: ActivitySpec[] = [
   {
     name: 'Hackathon 48 ชั่วโมง: นวัตกรรมเพื่อชุมชน',
     description: 'ระดมสมองและพัฒนาต้นแบบซอฟต์แวร์แก้ปัญหาชุมชนภายใน 48 ชั่วโมง',
-    category: 'Competition',
+    categories: ['Competition'],
     dayOffset: 25,
     startTime: '09:00',
     endTime: '21:00',
@@ -204,7 +204,7 @@ const ACTIVITIES: ActivitySpec[] = [
   {
     name: 'อาสาสมัครสอนน้องเขียนโปรแกรม',
     description: 'สอนพื้นฐานการเขียนโปรแกรม Scratch และ Python ให้นักเรียนมัธยมต้น',
-    category: 'Volunteer',
+    categories: ['Volunteer'],
     dayOffset: 12,
     startTime: '13:00',
     endTime: '16:00',
@@ -217,7 +217,7 @@ const ACTIVITIES: ActivitySpec[] = [
   {
     name: 'ชมรมดนตรีเปิดบ้าน: Open Mic Night',
     description: 'เวทีเปิดสำหรับนักศึกษาที่อยากแสดงความสามารถทางดนตรี',
-    category: 'Art & Culture',
+    categories: ['Art & Culture'],
     dayOffset: 1,
     startTime: '18:00',
     endTime: '21:00',
@@ -228,7 +228,7 @@ const ACTIVITIES: ActivitySpec[] = [
   {
     name: 'วิ่งการกุศล Comp Run 2026',
     description: 'งานวิ่งการกุศลระยะ 5 กม. รายได้สมทบทุนการศึกษาให้นักศึกษาขาดแคลน',
-    category: 'Sports',
+    categories: ['Sports'],
     dayOffset: 40,
     startTime: '05:30',
     endTime: '09:00',
@@ -299,7 +299,7 @@ async function main() {
         organizerId: organizer.id,
         name: spec.name,
         description: spec.description,
-        category: spec.category,
+        categories: spec.categories,
         date,
         startTime: spec.startTime,
         endTime: spec.endTime,

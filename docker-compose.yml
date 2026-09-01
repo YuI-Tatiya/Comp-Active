@@ -28,6 +28,8 @@ services:
       NODE_ENV: production
       FRONTEND_URL: http://app.localhost
       ADMIN_FRONTEND_URL: http://admin.localhost
+    volumes:
+      - backend_uploads:/app/public/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,3 +57,4 @@ services:
 
 volumes:
   postgres_data:
+  backend_uploads:

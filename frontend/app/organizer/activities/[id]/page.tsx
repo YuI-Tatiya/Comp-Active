@@ -9,47 +9,24 @@ import { Progress } from "@/components/ui/progress"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
-import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Edit, CheckSquare, Download, Loader2 } from "lucide-react"
+import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Edit, CheckSquare, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { activitiesAPI, registrationsAPI, isUnlimitedCapacity, isCancelledByOrganizer, Activity, API_BASE_URL, SkillScores } from "@/lib/api"
-import {
-    ActivityAboutPanel,
-    ActivityRegistrationPanel,
-    ActivityRewardsPanel,
-} from "@/components/activity/activity-info-panels"
+import { activitiesAPI, isUnlimitedCapacity, isCancelledByOrganizer, Activity, API_BASE_URL } from "@/lib/api"
+import { ActivityParticipantManager, type RegistrationRow } from "@/components/activity/activity-participant-manager"
 import { EventSurveyResults } from "@/components/activity/event-survey-results"
 import { categoryLabel } from "@/lib/categories"
 
-interface Participant {
-    id: number;
-    studentId: number;
-    registerDate: string;
-    attendance: string;
-    status: string;
-    student: {
-        id: number;
-        name: string;
-        email: string;
-        studentId: string;
-    };
-    evaluation?: SkillScores & { comment?: string };
-}
-
-// Local types removed, using Activity from @/lib/api
-
-export default function OrganizerEventDetailsPage() {
+export default function OrganizerActivityDetailsPage() {
     const params = useParams()
     const id = Number(params?.id)
-    const [event, setEvent] = useState<Activity<Participant> | null>(null)
+    const [event, setEvent] = useState<Activity<RegistrationRow> | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
 
     const [submitting, setSubmitting] = useState(false)
 
-    // Cancellation state
     const [isCancelOpen, setIsCancelOpen] = useState(false)
     const [cancelReason, setCancelReason] = useState("")
 
@@ -60,56 +37,22 @@ export default function OrganizerEventDetailsPage() {
         alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")
     }
 
-    const exportCSV = () => {
-        if (!event?.registrations || event.registrations.length === 0) return
-
-        const headers = ['ลำดับ', 'ชื่อ-นามสกุล', 'รหัสนักศึกษา', 'อีเมล', 'สถานะการลงทะเบียน', 'เช็คอิน']
-        const rows = event.registrations.map((reg, idx) => [
-            idx + 1,
-            reg.student?.name || '-',
-            reg.student?.studentId || '-',
-            reg.student?.email || '-',
-            reg.status === 'confirmed' ? 'ยืนยันแล้ว' : 'รอดำเนินการ',
-            reg.attendance === 'attended' ? 'เข้าร่วมแล้ว' : 'ยังไม่เช็คอิน'
-        ])
-
-        const csvContent = [
-            `ชื่อกิจกรรม: ${event.name}`,
-            `วันที่จัด: ${formatEventDate(event.date)}  เวลา: ${event.startTime} - ${event.endTime}`,
-            `สถานที่: ${event.location}`,
-            `จำนวนผู้ลงทะเบียนทั้งหมด: ${event.registrations.length} คน`,
-            '',
-            headers.join(','),
-            ...rows.map(r => r.map(cell => `"${cell}"`).join(','))
-        ].join('\n')
-
-        const BOM = '\uFEFF'
-        const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        // ตัดเอาเฉพาะ YYYY-MM-DD — ISO เต็มมี ":" ซึ่ง Windows ห้ามใช้ในชื่อไฟล์
-        const dateSlug = String(event.date).slice(0, 10)
-        link.download = `ผู้เข้าร่วม_${event.name.replace(/\s+/g, '_')}_${dateSlug}.csv`
-        link.click()
-        URL.revokeObjectURL(url)
-    }
-
     useEffect(() => {
-        if (id) {
-            fetchEventDetails(id)
-        }
+        if (id) fetchEventDetails(id)
     }, [id])
 
-    const fetchEventDetails = async (id: number) => {
+    // silent=true ใช้ตอน refetch หลังทำ action (ยืนยัน/เช็คอิน ฯลฯ) — ไม่ toggle loading เพื่อไม่ให้ทั้งหน้าถูก unmount
+    // จนเสีย state ของแท็บ/ตัวกรองที่เลือกอยู่ (สำคัญมากสำหรับหน้าเช็คอิน ที่ organizer จะกดเช็คชื่อรัวๆ ต่อเนื่องหน้างาน)
+    const fetchEventDetails = async (activityId: number, silent = false) => {
         try {
-            setLoading(true)
-            const data = await activitiesAPI.getById(id)
-            setEvent(data as Activity<Participant>)
+            if (!silent) setLoading(true)
+            const data = await activitiesAPI.getByIdForOrganizer(activityId)
+            setEvent(data as Activity<RegistrationRow>)
         } catch (err: unknown) {
-            const e = err as Error;
+            const e = err as Error
             setError(e.message || "โหลดข้อมูลกิจกรรมไม่สำเร็จ")
         } finally {
+            if (silent) return
             setLoading(false)
         }
     }
@@ -127,7 +70,7 @@ export default function OrganizerEventDetailsPage() {
             setIsCancelOpen(false)
             fetchEventDetails(id)
         } catch (err: unknown) {
-            const e = err as Error;
+            const e = err as Error
             alert(e.message || "ดำเนินการไม่สำเร็จ")
         } finally {
             setSubmitting(false)
@@ -147,28 +90,6 @@ export default function OrganizerEventDetailsPage() {
             alert(e.message || "จบกิจกรรมไม่สำเร็จ")
         } finally {
             setSubmitting(false)
-        }
-    }
-
-    const handleConfirm = async (regId: number) => {
-        try {
-            await registrationsAPI.confirm(regId)
-            alert("ยืนยันผู้เข้าร่วมสำเร็จ")
-            fetchEventDetails(id)
-        } catch (err: unknown) {
-            const e = err as Error;
-            alert(e.message || "ยืนยันไม่สำเร็จ")
-        }
-    }
-
-    const handleCheckIn = async (regId: number) => {
-        try {
-            await registrationsAPI.checkIn(regId)
-            alert("เช็คอินสำเร็จ")
-            fetchEventDetails(id)
-        } catch (err: unknown) {
-            const e = err as Error;
-            alert(e.message || "เช็คอินไม่สำเร็จ")
         }
     }
 
@@ -241,7 +162,7 @@ export default function OrganizerEventDetailsPage() {
                 </div>
 
                 <div className="mb-6">
-                    <div className="aspect-video w-full bg-surface-2 rounded-2xl overflow-hidden relative border border-border shadow-sm">
+                    <div className="aspect-video max-h-[280px] w-full bg-surface-2 rounded-2xl overflow-hidden relative border border-border shadow-sm">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                             src={event.imageUrl ? `${API_BASE_URL}${event.imageUrl}` : "/activity-placeholder.svg"}
@@ -249,7 +170,7 @@ export default function OrganizerEventDetailsPage() {
                             className="size-full object-cover"
                         />
                         <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-                            {event.category && <Badge variant="default">{categoryLabel(event.category)}</Badge>}
+                            {event.categories.map((c) => <Badge key={c} variant="default">{categoryLabel(c)}</Badge>)}
                             <Badge variant={event.status === 'open' ? "success" : "neutral"}>
                                 {event.status === 'open' ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
                             </Badge>
@@ -271,121 +192,11 @@ export default function OrganizerEventDetailsPage() {
 
                 <div className="grid lg:grid-cols-3 gap-8">
                     {/* Left Content */}
-                    <div className="lg:col-span-2 space-y-8">
-                        <div>
-                            <Tabs defaultValue="participants" className="w-full">
-                                <TabsList className="w-full justify-start bg-surface-2 p-1 rounded-lg mb-6">
-                                    <TabsTrigger value="participants" className="flex-1">ผู้เข้าร่วม ({event.registrations?.length || 0})</TabsTrigger>
-                                    <TabsTrigger value="details" className="flex-1">รายละเอียด</TabsTrigger>
-                                    <TabsTrigger value="rewards" className="flex-1">สิ่งที่จะได้รับ</TabsTrigger>
-                                    <TabsTrigger value="registration" className="flex-1">การลงทะเบียน</TabsTrigger>
-                                </TabsList>
-
-                                <TabsContent value="participants" className="bg-bg rounded-xl border border-border shadow-xs overflow-hidden">
-                                    <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-border">
-                                        <p className="text-sm text-fg-muted">ผู้ลงทะเบียนทั้งหมด <span className="font-semibold text-fg">{registered}</span> คน</p>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="gap-2"
-                                            onClick={exportCSV}
-                                            disabled={registered === 0}
-                                        >
-                                            <Download className="w-4 h-4" />
-                                            Export CSV
-                                        </Button>
-                                    </div>
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-left">
-                                            <thead>
-                                                <tr className="bg-surface text-fg-muted text-sm">
-                                                    <th className="px-6 py-4 font-semibold">รายชื่อผู้เข้าร่วม</th>
-                                                    <th className="px-6 py-4 font-semibold">สถานะ</th>
-                                                    <th className="px-6 py-4 font-semibold">เช็คอิน</th>
-                                                    <th className="px-6 py-4 font-semibold text-right">การจัดการ</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-border">
-                                                {event.registrations && event.registrations.length > 0 ? (
-                                                    event.registrations.map((reg) => (
-                                                        <tr key={reg.id} className="hover:bg-surface transition-colors">
-                                                            <td className="px-6 py-4">
-                                                                <div className="font-medium text-fg">{reg.student.name}</div>
-                                                                <div className="text-xs text-fg-muted">{reg.student.studentId} | {reg.student.email}</div>
-                                                            </td>
-                                                            <td className="px-6 py-4">
-                                                                <Badge variant={reg.status === 'confirmed' ? "default" : "neutral"}>
-                                                                    {reg.status === 'confirmed' ? 'ยืนยันแล้ว' : 'รอการยืนยัน'}
-                                                                </Badge>
-                                                            </td>
-                                                            <td className="px-6 py-4">
-                                                                {reg.attendance === 'attended' ? (
-                                                                    <Badge variant="success">เข้าร่วมแล้ว</Badge>
-                                                                ) : (
-                                                                    <span className="text-sm text-fg-subtle">ยังไม่เช็คอิน</span>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-6 py-4 text-right">
-                                                                <div className="flex justify-end gap-2">
-                                                                    {reg.status === 'pending' && (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="outline"
-                                                                            className="text-brand-600"
-                                                                            onClick={() => handleConfirm(reg.id)}
-                                                                        >
-                                                                            ยืนยัน
-                                                                        </Button>
-                                                                    )}
-
-                                                                    {reg.status === 'confirmed' && reg.attendance !== 'attended' && (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="outline"
-                                                                            className="text-success"
-                                                                            onClick={() => handleCheckIn(reg.id)}
-                                                                        >
-                                                                            เช็คอิน
-                                                                        </Button>
-                                                                    )}
-
-                                                                    {reg.attendance === 'attended' && (
-                                                                        reg.evaluation ? (
-                                                                            <Badge variant="success" className="gap-1">
-                                                                                <CheckSquare className="size-3" aria-hidden="true" />
-                                                                                ประเมินอัตโนมัติแล้ว
-                                                                            </Badge>
-                                                                        ) : (
-                                                                            <Badge variant="neutral">ยังไม่มีคะแนน</Badge>
-                                                                        )
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    ))
-                                                ) : (
-                                                    <tr>
-                                                        <td colSpan={4} className="px-6 py-8 text-center text-fg-subtle">ยังไม่มีผู้ลงทะเบียน</td>
-                                                    </tr>
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </TabsContent>
-
-                                <TabsContent value="details">
-                                    <ActivityAboutPanel activity={event} />
-                                </TabsContent>
-
-                                <TabsContent value="rewards">
-                                    <ActivityRewardsPanel activity={event} />
-                                </TabsContent>
-
-                                <TabsContent value="registration">
-                                    <ActivityRegistrationPanel activity={event} />
-                                </TabsContent>
-                            </Tabs>
-                        </div>
+                    <div className="lg:col-span-2 space-y-6">
+                        <ActivityParticipantManager
+                            activity={event}
+                            onRefetch={() => fetchEventDetails(id, true)}
+                        />
                     </div>
 
                     {/* Right Content */}

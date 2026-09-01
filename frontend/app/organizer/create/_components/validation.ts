@@ -22,8 +22,8 @@ export function validateActivityField(a: ActivityFormState, field: keyof Activit
     switch (field) {
         case "name":
             return a.name.trim() ? undefined : "กรุณากรอกชื่อกิจกรรม"
-        case "category":
-            return a.category ? undefined : "กรุณาเลือกหมวดหมู่"
+        case "categories":
+            return a.categories.length > 0 ? undefined : "กรุณาเลือกหมวดหมู่อย่างน้อย 1 หมวด"
         case "description":
             return a.description.trim() ? undefined : "กรุณากรอกรายละเอียด"
         case "startAt":
@@ -44,7 +44,7 @@ export function validateActivityField(a: ActivityFormState, field: keyof Activit
 }
 
 export const ACTIVITY_FIELDS: (keyof ActivityFormErrors)[] = [
-    "name", "category", "description", "startAt", "endAt", "location", "capacity", "volunteerRole",
+    "name", "categories", "description", "startAt", "endAt", "location", "capacity", "volunteerRole",
 ]
 
 export function validateActivityFields(a: ActivityFormState): ActivityFormErrors {

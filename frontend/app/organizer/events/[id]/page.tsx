@@ -13,28 +13,15 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
-import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Edit, CheckSquare, Download, Loader2 } from "lucide-react"
+import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Edit, CheckSquare, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { eventsAPI, registrationsAPI, activitiesAPI, isUnlimitedCapacity, isCancelledByOrganizer, EventSummary } from "@/lib/api"
+import { eventsAPI, activitiesAPI, isUnlimitedCapacity, isCancelledByOrganizer, EventSummary } from "@/lib/api"
 import { resolveEventImageUrl } from "@/lib/event-image"
-import {
-    ActivityAboutPanel,
-    ActivityRegistrationPanel,
-    ActivityRewardsPanel,
-} from "@/components/activity/activity-info-panels"
+import { ActivityParticipantManager } from "@/components/activity/activity-participant-manager"
 import { EventSurveyResults } from "@/components/activity/event-survey-results"
 import { programLabel } from "@/lib/programs"
 
 type EventActivity = EventSummary["activities"][number]
-
-/** รูปร่างของ registration ที่ backend คืนมาใน EventSummary.activities[].registrations — Activity<T> เป็น unknown[] โดย default */
-interface RegistrationRow {
-    id: number
-    student: { name: string; studentId: string; email: string }
-    status: string
-    attendance: string
-    evaluation?: unknown
-}
 
 export default function OrganizerEventDetailsPage() {
     const params = useParams()
@@ -52,9 +39,11 @@ export default function OrganizerEventDetailsPage() {
         if (id) fetchEventDetails(id)
     }, [id])
 
-    const fetchEventDetails = async (eventId: number) => {
+    // silent=true ใช้ตอน refetch หลังทำ action (ยืนยัน/เช็คอิน/ยกเลิก ฯลฯ) — ไม่ toggle loading เพื่อไม่ให้ทั้งหน้าถูก unmount
+    // จนเสีย state ของแท็บที่เลือกอยู่ (สำคัญมากสำหรับหน้าเช็คอิน ที่ organizer จะกดเช็คชื่อรัวๆ ต่อเนื่องหน้างาน)
+    const fetchEventDetails = async (eventId: number, silent = false) => {
         try {
-            setLoading(true)
+            if (!silent) setLoading(true)
             const data = await eventsAPI.getById(eventId)
             setEvent(data)
             setActiveActivityId((prev) => prev ?? data.activities[0]?.id ?? null)
@@ -62,6 +51,7 @@ export default function OrganizerEventDetailsPage() {
             const e = err as Error
             setError(e.message || "โหลดข้อมูลงานไม่สำเร็จ")
         } finally {
+            if (silent) return
             setLoading(false)
         }
     }
@@ -73,39 +63,6 @@ export default function OrganizerEventDetailsPage() {
         const publicUrl = `${window.location.origin}/events/${event.id}`
         navigator.clipboard.writeText(publicUrl)
         alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")
-    }
-
-    const exportCSV = () => {
-        if (!activeActivity?.registrations || activeActivity.registrations.length === 0) return
-        const headers = ["ลำดับ", "ชื่อ-นามสกุล", "รหัสนักศึกษา", "อีเมล", "สถานะการลงทะเบียน", "เช็คอิน"]
-        const rows = (activeActivity.registrations as RegistrationRow[]).map((reg, idx) => [
-            idx + 1,
-            reg.student?.name || "-",
-            reg.student?.studentId || "-",
-            reg.student?.email || "-",
-            reg.status === "confirmed" ? "ยืนยันแล้ว" : "รอดำเนินการ",
-            reg.attendance === "attended" ? "เข้าร่วมแล้ว" : "ยังไม่เช็คอิน",
-        ])
-        const csvContent = [
-            `งาน: ${event?.name}`,
-            `กิจกรรมย่อย: ${activeActivity.name}`,
-            `วันที่จัด: ${formatEventDate(activeActivity.date)}  เวลา: ${activeActivity.startTime} - ${activeActivity.endTime}`,
-            `สถานที่: ${activeActivity.location}`,
-            `จำนวนผู้ลงทะเบียนทั้งหมด: ${activeActivity.registrations.length} คน`,
-            "",
-            headers.join(","),
-            ...rows.map((r) => r.map((cell) => `"${cell}"`).join(",")),
-        ].join("\n")
-
-        const BOM = "﻿"
-        const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" })
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement("a")
-        link.href = url
-        const dateSlug = String(activeActivity.date).slice(0, 10)
-        link.download = `ผู้เข้าร่วม_${activeActivity.name.replace(/\s+/g, "_")}_${dateSlug}.csv`
-        link.click()
-        URL.revokeObjectURL(url)
     }
 
     const handleRequestCancel = async () => {
@@ -141,28 +98,6 @@ export default function OrganizerEventDetailsPage() {
             alert(e.message || "จบกิจกรรมไม่สำเร็จ")
         } finally {
             setSubmitting(false)
-        }
-    }
-
-    const handleConfirm = async (regId: number) => {
-        try {
-            await registrationsAPI.confirm(regId)
-            alert("ยืนยันผู้เข้าร่วมสำเร็จ")
-            fetchEventDetails(id)
-        } catch (err: unknown) {
-            const e = err as Error
-            alert(e.message || "ยืนยันไม่สำเร็จ")
-        }
-    }
-
-    const handleCheckIn = async (regId: number) => {
-        try {
-            await registrationsAPI.checkIn(regId)
-            alert("เช็คอินสำเร็จ")
-            fetchEventDetails(id)
-        } catch (err: unknown) {
-            const e = err as Error
-            alert(e.message || "เช็คอินไม่สำเร็จ")
         }
     }
 
@@ -215,7 +150,7 @@ export default function OrganizerEventDetailsPage() {
                 </div>
 
                 <div className="mb-6">
-                    <div className="aspect-video w-full bg-surface-2 rounded-2xl overflow-hidden relative border border-border shadow-sm">
+                    <div className="aspect-video max-h-[280px] w-full bg-surface-2 rounded-2xl overflow-hidden relative border border-border shadow-sm">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={resolveEventImageUrl(event, activeActivity)} alt={event.name} className="size-full object-cover" />
                         <div className="absolute top-4 left-4 flex flex-wrap gap-2">
@@ -277,90 +212,12 @@ export default function OrganizerEventDetailsPage() {
                         <TabsContent key={a.id} value={String(a.id)}>
                             <div className="grid lg:grid-cols-3 gap-8">
                                 <div className="lg:col-span-2 space-y-6">
-                                    <Tabs defaultValue="participants" className="w-full">
-                                        <TabsList className="w-full justify-start bg-surface-2 p-1 rounded-lg mb-6">
-                                            <TabsTrigger value="participants" className="flex-1">ผู้เข้าร่วม ({a.registrations?.length || 0})</TabsTrigger>
-                                            <TabsTrigger value="details" className="flex-1">รายละเอียด</TabsTrigger>
-                                            <TabsTrigger value="rewards" className="flex-1">สิ่งที่จะได้รับ</TabsTrigger>
-                                            <TabsTrigger value="registration" className="flex-1">การลงทะเบียน</TabsTrigger>
-                                        </TabsList>
-
-                                        <TabsContent value="participants" className="bg-bg rounded-xl border border-border shadow-xs overflow-hidden">
-                                            <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-border">
-                                                <p className="text-sm text-fg-muted">ผู้ลงทะเบียนทั้งหมด <span className="font-semibold text-fg">{a.registrations?.length || 0}</span> คน</p>
-                                                <Button size="sm" variant="outline" className="gap-2" onClick={exportCSV} disabled={!a.registrations?.length}>
-                                                    <Download className="w-4 h-4" /> Export CSV
-                                                </Button>
-                                            </div>
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-left">
-                                                    <thead>
-                                                        <tr className="bg-surface text-fg-muted text-sm">
-                                                            <th className="px-6 py-4 font-semibold">รายชื่อผู้เข้าร่วม</th>
-                                                            <th className="px-6 py-4 font-semibold">สถานะ</th>
-                                                            <th className="px-6 py-4 font-semibold">เช็คอิน</th>
-                                                            <th className="px-6 py-4 font-semibold text-right">การจัดการ</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-border">
-                                                        {a.registrations && a.registrations.length > 0 ? (
-                                                            (a.registrations as RegistrationRow[]).map((reg) => (
-                                                                <tr key={reg.id} className="hover:bg-surface transition-colors">
-                                                                    <td className="px-6 py-4">
-                                                                        <div className="font-medium text-fg">{reg.student.name}</div>
-                                                                        <div className="text-xs text-fg-muted">{reg.student.studentId} | {reg.student.email}</div>
-                                                                    </td>
-                                                                    <td className="px-6 py-4">
-                                                                        <Badge variant={reg.status === "confirmed" ? "default" : "neutral"}>
-                                                                            {reg.status === "confirmed" ? "ยืนยันแล้ว" : "รอการยืนยัน"}
-                                                                        </Badge>
-                                                                    </td>
-                                                                    <td className="px-6 py-4">
-                                                                        {reg.attendance === "attended" ? (
-                                                                            <Badge variant="success">เข้าร่วมแล้ว</Badge>
-                                                                        ) : (
-                                                                            <span className="text-sm text-fg-subtle">ยังไม่เช็คอิน</span>
-                                                                        )}
-                                                                    </td>
-                                                                    <td className="px-6 py-4 text-right">
-                                                                        <div className="flex justify-end gap-2">
-                                                                            {reg.status === "pending" && (
-                                                                                <Button size="sm" variant="outline" className="text-brand-600" onClick={() => handleConfirm(reg.id)}>ยืนยัน</Button>
-                                                                            )}
-                                                                            {reg.status === "confirmed" && reg.attendance !== "attended" && (
-                                                                                <Button size="sm" variant="outline" className="text-success" onClick={() => handleCheckIn(reg.id)}>เช็คอิน</Button>
-                                                                            )}
-                                                                            {reg.attendance === "attended" && (
-                                                                                reg.evaluation ? (
-                                                                                    <Badge variant="success" className="gap-1"><CheckSquare className="size-3" aria-hidden="true" />ประเมินอัตโนมัติแล้ว</Badge>
-                                                                                ) : (
-                                                                                    <Badge variant="neutral">ยังไม่มีคะแนน</Badge>
-                                                                                )
-                                                                            )}
-                                                                        </div>
-                                                                    </td>
-                                                                </tr>
-                                                            ))
-                                                        ) : (
-                                                            <tr><td colSpan={4} className="px-6 py-8 text-center text-fg-subtle">ยังไม่มีผู้ลงทะเบียน</td></tr>
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </TabsContent>
-
-                                        <TabsContent value="details">
-                                            <ActivityAboutPanel activity={a} showActivityImage />
-                                        </TabsContent>
-
-                                        <TabsContent value="rewards">
-                                            <ActivityRewardsPanel activity={a} />
-                                        </TabsContent>
-
-                                        <TabsContent value="registration">
-                                            <ActivityRegistrationPanel activity={a} registrationCloseAt={event.registrationCloseAt} />
-                                        </TabsContent>
-                                    </Tabs>
+                                    <ActivityParticipantManager
+                                        activity={a}
+                                        registrationCloseAt={event.registrationCloseAt}
+                                        eventName={event.name}
+                                        onRefetch={() => fetchEventDetails(id, true)}
+                                    />
                                 </div>
 
                                 <div className="space-y-6">

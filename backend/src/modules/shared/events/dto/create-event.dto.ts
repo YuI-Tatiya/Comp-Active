@@ -86,7 +86,8 @@ export class CreateEventDto {
   visibilityYears?: number[];
 
   @ApiPropertyOptional({
-    description: 'ตัวกรองรหัสนักศึกษาเพิ่มเติม (ใช้เมื่อ visibility เป็น restricted) — ดูรูปแบบใน student-id-range.util.ts',
+    description:
+      'ตัวกรองรหัสนักศึกษาเพิ่มเติม (ใช้เมื่อ visibility เป็น restricted) — ดูรูปแบบใน student-id-range.util.ts',
   })
   @IsOptional()
   @IsString()

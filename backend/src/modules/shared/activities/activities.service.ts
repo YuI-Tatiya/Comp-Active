@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { ActivitiesRepository } from './activities.repository';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
@@ -17,6 +11,7 @@ import { buildSurveyResults } from '../events/survey-results.util';
 import { EventsRepository } from '../events/events.repository';
 import { RegistrationsRepository } from '../registrations/registrations.repository';
 import { MailService } from '../mail/mail.service';
+import { UsersRepository } from '../users/users.repository';
 
 @Injectable()
 export class ActivitiesService {
@@ -28,6 +23,7 @@ export class ActivitiesService {
     private readonly eventsRepository: EventsRepository,
     private readonly registrationsRepository: RegistrationsRepository,
     private readonly mailService: MailService,
+    private readonly usersRepository: UsersRepository,
   ) {}
 
   /** เกณฑ์เดียวกับ EventsService — คะแนนเต็มของคำถามแบบ rating ต้องมีอย่างน้อย 2 */
@@ -69,10 +65,7 @@ export class ActivitiesService {
     const activities = await this.activitiesRepository.findAllApproved(filterDto);
     const visible = filterVisibleActivities(activities as any, viewer ?? null);
 
-    return visible.map(({ _count, ...a }: any) => ({
-      ...a,
-      registeredCount: _count.registrations,
-    }));
+    return visible.map(({ _count, ...a }: any) => ({ ...a, registeredCount: _count.registrations }));
   }
 
   async findById(id: number, viewer?: Viewer | null) {
@@ -81,6 +74,20 @@ export class ActivitiesService {
     // ให้ error เดียวกับ "ไม่พบ" เสมอ ไม่ว่าจะไม่มีจริงๆ หรือมีแต่ไม่มีสิทธิ์เห็น — กันการเดาว่ากิจกรรม restricted มีอยู่จริง
     if (!activity || !isViewerEligibleForEvent(viewer, (activity as any).event)) {
       throw new NotFoundException(`ไม่พบกิจกรรม ID: ${id}`);
+    }
+
+    // endpoint นี้เป็น public (ดูได้ทุกคนรวมไม่ login) — ส่งแค่จำนวนผู้ลงทะเบียน ไม่ส่งรายชื่อ/อีเมล/เบอร์
+    const { _count, ...rest } = activity as any;
+    return { ...rest, registeredCount: _count.registrations };
+  }
+
+  /** รายละเอียดเต็ม (รวมรายชื่อผู้ลงทะเบียน+คำตอบตอนลงทะเบียน) — เฉพาะ organizer เจ้าของกิจกรรม/admin */
+  async findByIdForOrganizer(id: number, callerId: number, callerRole: UserRole) {
+    const activity = await this.activitiesRepository.findByIdForOrganizer(id);
+
+    if (!activity) throw new NotFoundException(`ไม่พบกิจกรรม ID: ${id}`);
+    if (callerRole !== UserRole.ADMIN && (activity as any).organizerId !== callerId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์ดูข้อมูลกิจกรรมนี้');
     }
 
     return activity;
@@ -103,18 +110,10 @@ export class ActivitiesService {
   async findByOrganizer(organizerId: number) {
     const activities = await this.activitiesRepository.findByOrganizer(organizerId);
 
-    return activities.map(({ _count, ...a }: any) => ({
-      ...a,
-      registeredCount: _count.registrations,
-    }));
+    return activities.map(({ _count, ...a }: any) => ({ ...a, registeredCount: _count.registrations }));
   }
 
-  async update(
-    activityId: number,
-    userId: number,
-    userRole: UserRole,
-    updateDto: UpdateActivityDto,
-  ) {
+  async update(activityId: number, userId: number, userRole: UserRole, updateDto: UpdateActivityDto) {
     const activity = await this.findById(activityId);
 
     if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
@@ -150,6 +149,9 @@ export class ActivitiesService {
 
     if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
       throw new ForbiddenException('คุณไม่มีสิทธิ์ลบกิจกรรมนี้');
+    }
+    if (((activity as any).registeredCount ?? 0) > 0) {
+      throw new BadRequestException('ไม่สามารถลบกิจกรรมนี้ได้ เนื่องจากมีผู้ลงทะเบียนแล้ว');
     }
 
     await this.activitiesRepository.delete(activityId);
@@ -237,28 +239,24 @@ export class ActivitiesService {
   }
 
   async getOrganizerStats(organizerId: number) {
-    const activities = await this.activitiesRepository.findManyByOrganizerWithCount(organizerId);
+    const [activities, totalStudents, pendingRegistrations] = await Promise.all([
+      this.activitiesRepository.findManyByOrganizerWithCount(organizerId),
+      this.usersRepository.countActiveStudents(),
+      this.registrationsRepository.countPendingByOrganizer(organizerId),
+    ]);
 
     const totalActivities = activities.length;
-    const activeActivities = activities.filter(
-      (a) => a.approvalStatus === ApprovalStatus.APPROVED,
-    ).length;
-    const totalRegistrations = activities.reduce(
-      (sum, a) => sum + a._count.registrations,
-      0,
-    );
+    const activeActivities = activities.filter((a) => a.approvalStatus === ApprovalStatus.APPROVED).length;
+    const totalRegistrations = activities.reduce((sum, a) => sum + a._count.registrations, 0);
 
-    return { totalActivities, activeActivities, totalRegistrations };
+    return { totalActivities, activeActivities, totalRegistrations, totalStudents, pendingRegistrations };
   }
 
   async getPlatformStats() {
     const totalActivities = await this.activitiesRepository.countApproved();
     const distinctStudents = await this.activitiesRepository.countDistinctRegisteredStudents();
 
-    return {
-      totalActivities,
-      totalParticipants: distinctStudents.length,
-    };
+    return { totalActivities, totalParticipants: distinctStudents.length };
   }
 
   /**

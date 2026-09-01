@@ -49,7 +49,7 @@ function hasVolunteerCert(ev: EventSummary): boolean {
 
 /** หมวดหมู่ทั้งหมดที่กิจกรรมย่อยของงานนี้ระบุไว้ — ใช้ให้การ์ดงานโผล่ในทุกหมวดที่เกี่ยวข้อง ไม่ใช่แค่หมวดเดียว */
 function eventCategories(ev: EventSummary): string[] {
-    return Array.from(new Set(ev.activities.map((a) => a.category).filter((c): c is string => !!c)))
+    return Array.from(new Set(ev.activities.flatMap((a) => a.categories)))
 }
 
 /** วันจัดกิจกรรมย่อยที่เร็วที่สุดของงาน — ใช้เรียงลำดับ "ใกล้ถึงก่อน" */
@@ -107,7 +107,6 @@ export default function StudentEventsPage() {
                 name: ev.name,
                 imageUrl: ev.imageUrl ?? fa?.imageUrl,
                 description: ev.description,
-                category: fa?.category,
                 categories: eventCategories(ev),
                 status: isOpen(ev) ? "open" : "closed",
                 href: `/student/events/${ev.id}`,
@@ -139,30 +138,32 @@ export default function StudentEventsPage() {
     return (
         // ไม่ใส่ min-h-screen / SiteHeader / SiteFooter — app/student/layout.tsx จัดการให้แล้ว
         <div className="bg-surface font-sans">
-            <Container className="py-12">
-                <div className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500 px-6 py-10 shadow-lg sm:px-10">
-                    <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-cat-volunteer/40 blur-3xl"
-                    />
-                    <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute -bottom-20 -left-10 size-56 rounded-full bg-cat-tech/40 blur-3xl"
-                    />
-                    <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute right-1/3 bottom-0 size-40 rounded-full bg-cat-art/30 blur-3xl"
-                    />
-                    <div className="relative z-10 max-w-2xl">
+            <div className="relative overflow-hidden border-b border-border bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500">
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -right-16 -top-16 size-56 animate-pulse rounded-full bg-cat-volunteer/40 blur-3xl [animation-duration:4s]"
+                />
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -bottom-20 -left-10 size-56 animate-pulse rounded-full bg-cat-tech/40 blur-3xl [animation-duration:6s]"
+                />
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute right-1/3 bottom-0 size-40 animate-pulse rounded-full bg-cat-art/30 blur-3xl [animation-duration:5s]"
+                />
+                <Container className="relative z-10 py-8">
+                    <div className="max-w-2xl">
                         <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-sm">
-                            <Sparkles className="size-3.5" aria-hidden="true" />
+                            <Sparkles className="size-3.5 animate-pulse" aria-hidden="true" />
                             พัฒนา Soft Skills ไปกับทุกกิจกรรม
                         </span>
-                        <h1 className="mb-2 text-3xl font-black text-white sm:text-4xl">กิจกรรมทั้งหมด</h1>
-                        <p className="text-white/90">เลือกงานที่สนใจ กดเข้าไปดูรายละเอียดเพื่อลงทะเบียนเข้าร่วม</p>
+                        <h1 className="mb-1 text-3xl font-black tracking-tight text-white sm:text-4xl">กิจกรรมทั้งหมด</h1>
+                        <p className="text-white/85">เลือกงานที่สนใจ กดเข้าไปดูรายละเอียดเพื่อลงทะเบียนเข้าร่วม</p>
                     </div>
-                </div>
+                </Container>
+            </div>
 
+            <Container className="py-12">
                 <Button
                     variant="outline"
                     className="mb-6 gap-2 rounded-full lg:hidden"

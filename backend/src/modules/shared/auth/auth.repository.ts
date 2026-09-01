@@ -1,5 +1,5 @@
-import { Injectable } from "@nestjs/common";
-import { PrismaService } from "../../../prisma/prisma.service";
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../../prisma/prisma.service';
 
 @Injectable()
 export class AuthRepository {
@@ -32,16 +32,11 @@ export class AuthRepository {
   acceptAdminInvite(inviteId: number, email: string, hashedPassword: string) {
     return this.prisma.$transaction(async (tx) => {
       await (tx as any).user.create({
-        data: {
-          name: email.split("@")[0],
-          email,
-          password: hashedPassword,
-          role: "admin",
-        },
+        data: { name: email.split('@')[0], email, password: hashedPassword, role: 'admin' },
       });
       await (tx as any).adminInvite.update({
         where: { id: inviteId },
-        data: { status: "accepted", acceptedAt: new Date() },
+        data: { status: 'accepted', acceptedAt: new Date() },
       });
     });
   }

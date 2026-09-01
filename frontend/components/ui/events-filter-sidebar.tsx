@@ -13,7 +13,7 @@ import {
     RANGE_HELP,
     type EventsFilterValues,
 } from "@/lib/events-filter"
-import { cn } from "@/lib/utils"
+import { cn, toggleInArray } from "@/lib/utils"
 
 export type { EventsFilterValues }
 
@@ -23,10 +23,6 @@ interface EventsFilterSidebarProps {
     onReset: () => void
     resultCount?: number
     className?: string
-}
-
-function toggleInArray(list: string[], value: string): string[] {
-    return list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
 }
 
 /** แผงตัวกรองแนวตั้ง — ใช้ทั้งเป็น sidebar บนจอกว้าง และเนื้อหาใน Dialog บนมือถือ */

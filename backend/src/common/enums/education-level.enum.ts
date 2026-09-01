@@ -1,8 +1,3 @@
-export const EducationLevel = {
-  BACHELOR: "bachelor",
-  MASTER: "master",
-  DOCTORATE: "doctorate",
-} as const;
+export const EducationLevel = { BACHELOR: 'bachelor', MASTER: 'master', DOCTORATE: 'doctorate' } as const;
 
-export type EducationLevel =
-  (typeof EducationLevel)[keyof typeof EducationLevel];
+export type EducationLevel = (typeof EducationLevel)[keyof typeof EducationLevel];

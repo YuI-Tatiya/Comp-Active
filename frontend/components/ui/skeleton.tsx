@@ -11,7 +11,7 @@ function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>)
     )
 }
 
-/** โครงการ์ดกิจกรรมระหว่างโหลด — สัดส่วนตรงกับ ActivityCard */
+/** โครงการ์ดกิจกรรมระหว่างโหลด */
 function ActivityCardSkeleton() {
     return (
         <div className="overflow-hidden rounded-xl border border-border bg-bg">

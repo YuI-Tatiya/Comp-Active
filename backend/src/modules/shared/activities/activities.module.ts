@@ -4,6 +4,7 @@ import { ActivitiesRepository } from './activities.repository';
 import { EventsModule } from '../events/events.module';
 import { RegistrationsModule } from '../registrations/registrations.module';
 import { MailModule } from '../mail/mail.module';
+import { UsersModule } from '../users/users.module';
 
 // Logic-only module (no controllers) — safe to import from admin/organizer/student
 // for DI without dragging in route registration order concerns. The public-facing
@@ -12,11 +13,12 @@ import { MailModule } from '../mail/mail.module';
 //
 // Imports RegistrationsModule + MailModule so markCompleted/requestCancellation can
 // notify affected students by email — RegistrationsModule never imports this module
-// back, so no circular dependency.
+// back, so no circular dependency. UsersModule is imported for getOrganizerStats'
+// active-student count — UsersModule has no imports of its own, so no cycle there either.
 // EventsModule ไม่ import โมดูลใดเลย จึงดึงเข้ามาได้โดยไม่เกิด circular dependency
 // (ต้องใช้ EventsRepository อ่านแบบสำรวจของงานแม่ ให้หน้ากิจกรรมย่อยแสดงผลสำรวจได้)
 @Module({
-  imports: [EventsModule, RegistrationsModule, MailModule],
+  imports: [EventsModule, RegistrationsModule, MailModule, UsersModule],
   providers: [ActivitiesService, ActivitiesRepository],
   exports: [ActivitiesService, ActivitiesRepository],
 })

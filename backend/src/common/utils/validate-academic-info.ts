@@ -1,9 +1,5 @@
-import { BadRequestException } from "@nestjs/common";
-import {
-  ACADEMIC_ERRORS,
-  EducationLevelCode,
-  isProgramInLevel,
-} from "../constants";
+import { BadRequestException } from '@nestjs/common';
+import { ACADEMIC_ERRORS, EducationLevelCode, isProgramInLevel } from '../constants';
 
 export interface AcademicInfoInput {
   educationLevel?: EducationLevelCode | null;

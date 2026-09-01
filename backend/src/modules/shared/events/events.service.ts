@@ -3,7 +3,12 @@ import { EventsRepository, PreparedActivityData } from './events.repository';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { diffHours, formatHHmm } from '../../../common/utils/time.util';
-import { ActivityQuestionType, SurveyQuestionType, EventVisibility, ApprovalStatus } from '../../../common/enums/status.enum';
+import {
+  ActivityQuestionType,
+  SurveyQuestionType,
+  EventVisibility,
+  ApprovalStatus,
+} from '../../../common/enums/status.enum';
 import { UserRole } from '../../../common/enums/role.enum';
 import { isViewerEligibleForEvent, Viewer } from './event-visibility.util';
 import { buildSurveyResults } from './survey-results.util';
@@ -40,18 +45,13 @@ export class EventsService {
           );
         }
 
-        return {
-          label: q.label,
-          type: q.type,
-          required: q.required ?? false,
-          options: needsOptions ? options : [],
-        };
+        return { label: q.label, type: q.type, required: q.required ?? false, options: needsOptions ? options : [] };
       });
 
       return {
         name: a.name,
         description: a.description,
-        category: a.category,
+        categories: a.categories,
         imageUrl: a.imageUrl,
         attachmentUrl: a.attachmentUrl,
         startAt,
@@ -74,11 +74,7 @@ export class EventsService {
       if (q.type === SurveyQuestionType.RATING && q.scaleMax !== undefined && q.scaleMax < 2) {
         throw new BadRequestException(`คำถามแบบสำรวจข้อที่ ${index + 1}: คะแนนเต็มต้องมีอย่างน้อย 2`);
       }
-      return {
-        label: q.label,
-        type: q.type,
-        scaleMax: q.scaleMax ?? 5,
-      };
+      return { label: q.label, type: q.type, scaleMax: q.scaleMax ?? 5 };
     });
 
     const visibility = dto.visibility ?? EventVisibility.EVERYONE;
@@ -94,8 +90,7 @@ export class EventsService {
       visibility,
       visibilityPrograms: visibility === EventVisibility.RESTRICTED ? (dto.visibilityPrograms ?? []) : [],
       visibilityYears: visibility === EventVisibility.RESTRICTED ? (dto.visibilityYears ?? []) : [],
-      visibilityStudentIdFilter:
-        visibility === EventVisibility.RESTRICTED ? dto.visibilityStudentIdFilter : undefined,
+      visibilityStudentIdFilter: visibility === EventVisibility.RESTRICTED ? dto.visibilityStudentIdFilter : undefined,
     });
 
     this.logger.log(`Event created: "${event.name}" (ID: ${event.id}) with ${activities.length} activities`);
@@ -113,9 +108,7 @@ export class EventsService {
     const removedActivities = event.activities.filter((a: any) => !submittedIds.has(a.id));
     for (const removed of removedActivities) {
       if ((removed.registrations?.length ?? 0) > 0) {
-        throw new BadRequestException(
-          `ไม่สามารถลบกิจกรรม "${removed.name}" ได้ เนื่องจากมีผู้ลงทะเบียนแล้ว`,
-        );
+        throw new BadRequestException(`ไม่สามารถลบกิจกรรม "${removed.name}" ได้ เนื่องจากมีผู้ลงทะเบียนแล้ว`);
       }
     }
 
@@ -151,7 +144,7 @@ export class EventsService {
         id: a.id,
         name: a.name,
         description: a.description,
-        category: a.category,
+        categories: a.categories,
         imageUrl: a.imageUrl,
         attachmentUrl: a.attachmentUrl,
         startAt,
@@ -202,6 +195,36 @@ export class EventsService {
     return this.mapRegisteredCount(updated);
   }
 
+  /** สลับสถานะเผยแพร่ของงาน — แยกจาก update() เพราะ update() ต้องส่ง activities ทั้งชุดมาด้วยเสมอ */
+  async setPublic(organizerId: number, callerRole: UserRole, eventId: number, isPublic: boolean) {
+    const event = await this.eventsRepository.findById(eventId);
+    if (!event) throw new NotFoundException('ไม่พบงาน');
+    if (callerRole !== UserRole.ADMIN && (event as any).organizerId !== organizerId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์แก้ไขงานนี้');
+    }
+
+    const updated = await this.eventsRepository.updatePublic(eventId, isPublic);
+    this.logger.log(`Event ${isPublic ? 'published' : 'unpublished'}: "${event.name}" (ID: ${eventId})`);
+    return updated;
+  }
+
+  /** ลบงานทั้งงานพร้อมกิจกรรมย่อย — บล็อกถ้ามีกิจกรรมย่อยตัวใดตัวหนึ่งมีผู้ลงทะเบียนแล้ว */
+  async delete(organizerId: number, callerRole: UserRole, eventId: number) {
+    const event = await this.eventsRepository.findById(eventId);
+    if (!event) throw new NotFoundException('ไม่พบงาน');
+    if (callerRole !== UserRole.ADMIN && (event as any).organizerId !== organizerId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์ลบงานนี้');
+    }
+
+    const hasRegistrations = ((event as any).activities ?? []).some((a: any) => (a.registrations?.length ?? 0) > 0);
+    if (hasRegistrations) {
+      throw new BadRequestException('ไม่สามารถลบงานนี้ได้ เนื่องจากมีกิจกรรมย่อยที่มีผู้ลงทะเบียนแล้ว');
+    }
+
+    await this.eventsRepository.deleteWithActivities(eventId);
+    this.logger.log(`Event deleted: "${event.name}" (ID: ${eventId})`);
+  }
+
   /** ใช้ภายใน service เท่านั้น (เช่น update() ตรวจสอบสิทธิ์/รายการกิจกรรมย่อย) — ไม่ได้ผูก registeredCount */
   findById(id: number) {
     return this.eventsRepository.findById(id);
@@ -225,9 +248,7 @@ export class EventsService {
 
   async findAllPublic(viewer: Viewer | null) {
     const events = await this.eventsRepository.findAllApproved();
-    return events
-      .filter((e: any) => isViewerEligibleForEvent(viewer, e as any))
-      .map((e: any) => this.toPublicEvent(e));
+    return events.filter((e: any) => isViewerEligibleForEvent(viewer, e as any)).map((e: any) => this.toPublicEvent(e));
   }
 
   async findByIdPublic(id: number, viewer: Viewer | null) {

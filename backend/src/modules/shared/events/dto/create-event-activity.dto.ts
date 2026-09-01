@@ -8,6 +8,7 @@ import {
   IsBoolean,
   IsDateString,
   IsArray,
+  ArrayMinSize,
   IsIn,
   ValidateNested,
   ValidateIf,
@@ -22,10 +23,10 @@ class SoftSkillRateDto {
   @IsIn(Object.values(SoftSkillType))
   skillType: SoftSkillType;
 
-  @ApiProperty({ example: 5, minimum: 1, maximum: 10, description: 'น้ำหนักคะแนนของทักษะนี้สำหรับกิจกรรมนี้' })
+  @ApiProperty({ example: 3, minimum: 0, maximum: 5, description: 'น้ำหนักคะแนนของทักษะนี้สำหรับกิจกรรมนี้ (0-5)' })
   @IsInt()
-  @Min(1)
-  @Max(10)
+  @Min(0)
+  @Max(5)
   rate: number;
 }
 
@@ -65,12 +66,15 @@ export class CreateEventActivityDto {
   @IsNotEmpty()
   description: string;
 
-  @ApiProperty({ example: 'Volunteer', description: 'หมวดหมู่' })
-  @IsString()
-  @IsNotEmpty()
-  category: string;
+  @ApiProperty({ example: ['Volunteer', 'Technology'], description: 'หมวดหมู่ — เลือกได้มากกว่า 1' })
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  categories: string[];
 
-  @ApiPropertyOptional({ description: 'URL รูปภาพกิจกรรม (จาก /api/activities/upload-image) — ส่ง null เพื่อลบรูปเดิม' })
+  @ApiPropertyOptional({
+    description: 'URL รูปภาพกิจกรรม (จาก /api/activities/upload-image) — ส่ง null เพื่อลบรูปเดิม',
+  })
   @IsOptional()
   @ValidateIf((o) => o.imageUrl !== null)
   @IsString()
@@ -95,7 +99,10 @@ export class CreateEventActivityDto {
   @IsNotEmpty()
   location: string;
 
-  @ApiPropertyOptional({ example: 50, description: 'จำนวนที่รับสูงสุด — ไม่ระบุ = ไม่จำกัดจำนวน, ส่ง null เพื่อล้างจำนวนจำกัดเดิม' })
+  @ApiPropertyOptional({
+    example: 50,
+    description: 'จำนวนที่รับสูงสุด — ไม่ระบุ = ไม่จำกัดจำนวน, ส่ง null เพื่อล้างจำนวนจำกัดเดิม',
+  })
   @IsOptional()
   @ValidateIf((o) => o.capacity !== null)
   @IsInt()
@@ -113,7 +120,7 @@ export class CreateEventActivityDto {
   @IsString()
   volunteerRole?: string | null;
 
-  @ApiPropertyOptional({ type: [SoftSkillRateDto], description: 'Soft Skills ที่กิจกรรมนี้ให้คะแนน พร้อมน้ำหนัก 1-10' })
+  @ApiPropertyOptional({ type: [SoftSkillRateDto], description: 'Soft Skills ที่กิจกรรมนี้ให้คะแนน พร้อมน้ำหนัก 0-5' })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })

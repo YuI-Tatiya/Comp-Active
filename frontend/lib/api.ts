@@ -54,7 +54,8 @@ export interface Activity<T = unknown> {
   id: number;
   eventId?: number | null;
   name: string;
-  category: string;
+  /** เลือกได้มากกว่า 1 หมวดหมู่ */
+  categories: string[];
   description: string;
   imageUrl?: string | null;
   attachmentUrl?: string | null;
@@ -135,6 +136,10 @@ export interface OrganizerStats {
   totalActivities: number;
   activeActivities: number;
   totalRegistrations: number;
+  // นักศึกษาที่มีบัญชีในระบบทั้งหมด ไม่รวมบัญชีที่ถูกระงับ (ไม่ได้ผูกกับผู้จัดคนใดคนหนึ่ง)
+  totalStudents: number;
+  // คำขอลงทะเบียนของนักศึกษาที่รอผู้จัดยืนยัน (ไม่ใช่สถานะอนุมัติกิจกรรมโดยแอดมิน)
+  pendingRegistrations: number;
   pendingApprovals?: number;
 }
 
@@ -235,6 +240,8 @@ export const activitiesAPI = {
     return fetchAPI<Activity[]>(`/api/activities${query ? `?${query}` : ''}`);
   },
   getById: (id: number) => fetchAPI<Activity>(`/api/activities/${id}`),
+  /** เจ้าของกิจกรรม/admin เท่านั้น — ต่างจาก getById (public) ตรงที่มีรายชื่อผู้ลงทะเบียนพร้อมคำตอบตอนลงทะเบียนแนบมาด้วย */
+  getByIdForOrganizer: (id: number) => fetchAPI<Activity>(`/api/activities/my/${id}`),
   create: (body: unknown) => fetchAPI<Activity>('/api/activities', { method: 'POST', body: JSON.stringify(body) }),
   update: (id: number, body: unknown) =>
     fetchAPI<Activity>(`/api/activities/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
@@ -295,7 +302,7 @@ export interface SurveyQuestionBody {
 export interface CreateEventActivityBody {
   name: string;
   description: string;
-  category: string;
+  categories: string[];
   imageUrl?: string;
   attachmentUrl?: string;
   // ISO datetime string (เช่นจาก <input type="datetime-local"> + new Date(...).toISOString())
@@ -392,6 +399,12 @@ export const eventsAPI = {
   getById: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}`),
   update: (id: number, body: Partial<CreateEventBody> & { activities: (CreateEventActivityBody & { id?: number })[] }) =>
     fetchAPI<EventSummary>(`/api/events/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  setPublic: (id: number, isPublic: boolean) =>
+    fetchAPI<{ id: number; isPublic: boolean }>(`/api/events/${id}/publish`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isPublic }),
+    }),
+  delete: (id: number) => fetchAPI<void>(`/api/events/${id}`, { method: 'DELETE' }),
   getAllPublic: () => fetchAPI<EventSummary[]>('/api/events'),
   getPublicById: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}/public`),
   getSurveyResults: (id: number) => fetchAPI<EventSurveyResultsResponse>(`/api/events/${id}/survey-results`),
@@ -428,14 +441,36 @@ export interface SurveyAnswerBody {
   textValue?: string;
 }
 
+export interface CertRequestBody {
+  wantsCertLoanFund?: boolean;
+  wantsCertScholarship?: boolean;
+}
+
+export interface CheckInSelfResult {
+  id: number;
+  status: string;
+  attendance: string;
+  checkInTime: string | null;
+  alreadyCheckedIn: boolean;
+}
+
 export const registrationsAPI = {
-  create: (activityId: number, answers?: RegistrationAnswerBody[]) =>
-    fetchAPI('/api/registrations', { method: 'POST', body: JSON.stringify({ activityId, answers }) }),
+  create: (activityId: number, answers?: RegistrationAnswerBody[], certRequest?: CertRequestBody) =>
+    fetchAPI('/api/registrations', {
+      method: 'POST',
+      body: JSON.stringify({ activityId, answers, ...certRequest }),
+    }),
   cancel: (id: number) => fetchAPI(`/api/registrations/${id}`, { method: 'DELETE' }),
   getMy: () => fetchAPI('/api/registrations/my'),
   getByActivity: (activityId: number) => fetchAPI(`/api/registrations/activity/${activityId}`),
   confirm: (id: number) => fetchAPI(`/api/registrations/${id}/confirm`, { method: 'PATCH' }),
   checkIn: (id: number) => fetchAPI(`/api/registrations/${id}/check-in`, { method: 'PATCH' }),
+  /** เช็คอินด้วยตัวเอง — นักศึกษาสแกน QR code ที่ organizer แสดงหน้างาน (ต้อง login เป็น student อยู่แล้ว) */
+  checkInSelf: (activityId: number) =>
+    fetchAPI<CheckInSelfResult>('/api/registrations/check-in-self', {
+      method: 'PATCH',
+      body: JSON.stringify({ activityId }),
+    }),
   getSurveyQuestions: (id: number) => fetchAPI<EventSurveyQuestion[]>(`/api/registrations/${id}/survey-questions`),
   submitSurvey: (id: number, answers: SurveyAnswerBody[]) =>
     fetchAPI<{ message: string }>(`/api/registrations/${id}/survey`, {
@@ -446,7 +481,7 @@ export const registrationsAPI = {
 
 // ==================== EVALUATIONS ====================
 // คะแนน Soft Skills มาจากระบบอัตโนมัติตอนเช็คอินเท่านั้น (จาก ActivitySoftSkill.rate ของกิจกรรม)
-// ไม่มี endpoint สร้างคะแนนแบบ manual ฝั่ง organizer แล้ว — สเกล 0-10 ต่อทักษะ
+// ไม่มี endpoint สร้างคะแนนแบบ manual ฝั่ง organizer แล้ว — สเกล 0-5 ต่อทักษะ
 
 export interface SkillScores {
   communication: number;
@@ -465,8 +500,13 @@ export interface SkillScores {
 
 export interface SkillsData {
   count: number;
+  // ผลรวมคะแนน Soft Skills ดิบ (ไม่ผ่านการคูณ scale สำหรับระบบเลเวล) — ใช้แสดง "คะแนนสะสม"
+  totalScore: number;
   points: number;
   level: number;
+  // อันดับเทียบกับนักศึกษาทั้งระบบ เรียงจากคะแนน Soft Skills รวมสูงสุด — คะแนนสูงสุด = อันดับ 1
+  rank: number;
+  totalStudents: number;
   average: SkillScores;
   badges: { name: string; icon: string; description: string }[];
   history: {
@@ -484,10 +524,19 @@ export const evaluationsAPI = {
 
 // ==================== CERTIFICATES ====================
 
+export interface Certificate {
+  id: number;
+  issueDate: string;
+  certificateUrl: string;
+  verificationCode?: string | null;
+  volunteerHours?: string | null;
+  volunteerRole?: string | null;
+}
+
 export const certificatesAPI = {
   issue: (registrationId: number) =>
     fetchAPI(`/api/certificates/issue/${registrationId}`, { method: 'POST' }),
-  getMy: () => fetchAPI('/api/certificates/my'),
+  getMy: () => fetchAPI<Certificate[]>('/api/certificates/my'),
   getById: (id: number) => fetchAPI(`/api/certificates/${id}`),
 };
 

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
-import { ArrowLeft, Loader2, Plus } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import { activitiesAPI, eventsAPI, type CreateEventActivityBody, type QuestionBody, type SurveyQuestionBody } from "@/lib/api"
 import { scrollToFirstError } from "@/components/ui/form-field"
 import { StepperSidebar, type StepMeta } from "./_components/stepper-sidebar"
@@ -171,7 +171,7 @@ export default function CreateEventPage() {
                 activityBodies.push({
                     name: a.name,
                     description: a.description,
-                    category: a.category,
+                    categories: a.categories,
                     imageUrl,
                     attachmentUrl,
                     startAt: new Date(a.startAt).toISOString(),
@@ -238,21 +238,19 @@ export default function CreateEventPage() {
                     <SectionSuccess event={event} activities={activities} onCreateAnother={handleCreateAnother} />
                 ) : (
                     <>
-                        <div className="mb-8 flex items-center">
-                            <Button variant="ghost" onClick={handleBack} className="mr-4">
+                        <div className="mb-8">
+                            <Button variant="outline" onClick={handleBack} className="mb-4">
                                 <ArrowLeft className="size-4" />
                                 กลับ
                             </Button>
-                            <div>
-                                <h1 className="flex items-center gap-2 text-2xl font-black text-fg">
-                                    <div className="rounded-lg bg-brand-100 p-2 text-brand-600">
-                                        <Plus className="size-5" />
-                                    </div>
-                                    สร้างงานใหม่
-                                </h1>
-                                <p className="mt-1 text-fg-muted">
-                                    งานหนึ่งมีได้หลายกิจกรรมย่อย พร้อมตั้งค่าใบจิตอาสาและการให้คะแนน Soft Skills
-                                </p>
+                            <div className="grid grid-cols-1 md:grid-cols-[220px_1fr]">
+                                <div className="hidden md:block" />
+                                <div className="text-center">
+                                    <h1 className="text-2xl font-black text-fg">สร้างงานใหม่</h1>
+                                    <p className="mt-1 text-fg-muted">
+                                        งานหนึ่งมีได้หลายกิจกรรมย่อย พร้อมตั้งค่าใบจิตอาสาและการให้คะแนน Soft Skills
+                                    </p>
+                                </div>
                             </div>
                         </div>
 

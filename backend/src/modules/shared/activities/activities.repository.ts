@@ -51,21 +51,25 @@ export class ActivitiesRepository {
     return this.prisma.activity.findMany({
       where: {
         approvalStatus: ApprovalStatus.APPROVED as any,
-        ...(filterDto?.search && {
-          name: { contains: filterDto.search, mode: 'insensitive' },
-        }),
-        ...(filterDto?.category && { category: filterDto.category }),
+        ...(filterDto?.search && { name: { contains: filterDto.search, mode: 'insensitive' } }),
+        ...(filterDto?.category && { categories: { has: filterDto.category } }),
         ...(filterDto?.status && { status: filterDto.status as any }),
       },
-      include: {
-        ...activityInclude,
-        _count: { select: { registrations: true } },
-      },
+      include: { ...activityInclude, _count: { select: { registrations: true } } },
       orderBy: { date: 'asc' },
     });
   }
 
+  /** ใช้กับผู้ชมทั่วไป (public/student) — ไม่ส่งรายชื่อ/ข้อมูลติดต่อผู้ลงทะเบียนออกไป มีแค่จำนวนรวม */
   findById(id: number) {
+    return this.prisma.activity.findUnique({
+      where: { id },
+      include: { ...activityInclude, _count: { select: { registrations: true } } },
+    });
+  }
+
+  /** ใช้กับ organizer เจ้าของกิจกรรม/admin เท่านั้น — ส่งรายชื่อผู้ลงทะเบียนพร้อมคำตอบตอนลงทะเบียนมาด้วย */
+  findByIdForOrganizer(id: number) {
     return this.prisma.activity.findUnique({
       where: { id },
       include: {
@@ -74,6 +78,12 @@ export class ActivitiesRepository {
           include: {
             student: true,
             evaluation: true,
+            answers: {
+              include: {
+                question: { select: { id: true, label: true } },
+                options: { include: { option: { select: { id: true, label: true } } } },
+              },
+            },
           },
         },
       },
@@ -112,9 +122,7 @@ export class ActivitiesRepository {
       if (relations.tags !== undefined) {
         await tx.activityTag.deleteMany({ where: { activityId } });
         if (relations.tags.length) {
-          await tx.activityTag.createMany({
-            data: relations.tags.map((tagName) => ({ activityId, tagName })),
-          });
+          await tx.activityTag.createMany({ data: relations.tags.map((tagName) => ({ activityId, tagName })) });
         }
       }
 
@@ -260,7 +268,7 @@ export class ActivitiesRepository {
   private static readonly NEWSFEED_SELECT = {
     id: true,
     name: true,
-    category: true,
+    categories: true,
     date: true,
     startTime: true,
     endTime: true,
@@ -282,11 +290,7 @@ export class ActivitiesRepository {
 
   findByIdForNewsfeed(id: number) {
     return this.prisma.activity.findFirst({
-      where: {
-        id,
-        approvalStatus: ApprovalStatus.APPROVED as any,
-        ...ActivitiesRepository.EXCLUDE_RESTRICTED,
-      },
+      where: { id, approvalStatus: ApprovalStatus.APPROVED as any, ...ActivitiesRepository.EXCLUDE_RESTRICTED },
       select: ActivitiesRepository.NEWSFEED_SELECT,
     });
   }

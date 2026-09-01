@@ -25,7 +25,7 @@ export interface ActivityFormState {
     key: string
     name: string
     description: string
-    category: string
+    categories: string[]
     imageFile: File | null
     imagePreview: string | null
     attachmentFile: File | null
@@ -39,7 +39,7 @@ export interface ActivityFormState {
     certEnabled: boolean
     volunteerRole: string
     softSkillsEnabled: boolean
-    /** skillType -> rate (1-10) — มีเฉพาะทักษะที่ติ๊กเลือก */
+    /** skillType -> rate (0-5) — มีเฉพาะทักษะที่ติ๊กเลือก */
     softSkillRates: Record<string, number>
     questionsEnabled: boolean
     questions: BuilderQuestion[]
@@ -74,7 +74,7 @@ export function createEmptyActivity(): ActivityFormState {
         key: `activity-${Date.now()}-${activityKeySeq}`,
         name: "",
         description: "",
-        category: "",
+        categories: [],
         imageFile: null,
         imagePreview: null,
         attachmentFile: null,
@@ -96,6 +96,6 @@ export function createEmptyActivity(): ActivityFormState {
 export type EventFormErrors = Partial<Record<"name" | "description", string>>
 
 export type ActivityFormErrors = Partial<Record<
-    "name" | "category" | "description" | "startAt" | "endAt" | "location" | "capacity" | "volunteerRole",
+    "name" | "categories" | "description" | "startAt" | "endAt" | "location" | "capacity" | "volunteerRole",
     string
 >>
