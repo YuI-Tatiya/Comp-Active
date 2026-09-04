@@ -9,17 +9,41 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      # ผูกกับ loopback เท่านั้น — เดิมเป็น "5433:5432" ซึ่ง Docker เปิดที่ 0.0.0.0
+      # ทำให้ทุกคนใน Wi-Fi เดียวกัน (มหาลัย/หอ/ร้านกาแฟ) ต่อฐานข้อมูลได้โดยตรง
+      # ด้วยรหัส postgres/postgres ที่ตั้งไว้ด้านบน — เครื่องมือ DB ในเครื่องยังใช้ได้ปกติ
+      - "127.0.0.1:5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 10 
 
+  # ปรับ schema ฐานข้อมูลแล้วจบการทำงาน — ไม่ใช่ service ที่รันค้าง
+  # แยกออกจาก backend เพราะขั้นนี้ต้องใช้ prisma CLI ซึ่งลาก driver ของทุกฐานข้อมูล
+  # (mysql2, postgres, better-sqlite3) มาด้วย ทั้งที่โปรเจกต์ใช้แค่ PostgreSQL
+  # อิมเมจ production จึงไม่ต้องแบกไฟล์พวกนั้นไว้
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: migrator
+    container_name: compactive_migrate
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/compactive_db
+      # ตั้งเป็น true ชั่วคราวเมื่อจงใจเปลี่ยน schema แบบที่ข้อมูลเดิมจะหาย
+      PRISMA_ACCEPT_DATA_LOSS: "false"
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: runner
     container_name: compactive_backend
     env_file: ./backend/.env
     environment:
@@ -33,6 +57,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      # ต้องรอให้ schema ตรงกับโค้ดก่อน ไม่งั้น query แรกจะพังเพราะคอลัมน์ยังไม่มี
+      migrate:
+        condition: service_completed_successfully
 
   frontend:
     build:
@@ -41,6 +68,9 @@ services:
       args:
         NEXT_PUBLIC_API_URL: http://api.localhost
     container_name: compactive_frontend
+    environment:
+      # โฮสต์ที่ proxy.ts ยอมให้เข้าโซนแอดมิน (allowlist เทียบตรงตัว)
+      ADMIN_HOSTS: admin.localhost
     depends_on:
       - backend
 

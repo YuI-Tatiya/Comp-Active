@@ -133,6 +133,8 @@ model User {
   isBlocked                Boolean   @default(false) @map("is_blocked")
   verificationOtp          String?   @map("verification_otp") @db.VarChar(10)
   verificationOtpExpiresAt DateTime? @map("verification_otp_expires_at")
+  // นับครั้งที่กรอก OTP ผิด — เกินเพดานแล้วเผา OTP ทิ้ง กันการไล่เดารหัส 6 หลัก
+  verificationOtpAttempts  Int       @default(0) @map("verification_otp_attempts")
 
   events                    Event[]
   activities                Activity[]
