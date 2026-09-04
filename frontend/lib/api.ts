@@ -147,17 +147,17 @@ export interface OrganizerStats {
  * Helper function สำหรับเรียก API
  */
 async function fetchAPI<T = unknown>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   };
 
   const res = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
+    // token อยู่ใน httpOnly cookie ที่ backend ออกให้ตอน login — JavaScript อ่านไม่ได้
+    // (นั่นคือจุดประสงค์: XSS ขโมยไปใช้ต่อไม่ได้) เบราว์เซอร์แนบให้เองเมื่อระบุ include
+    credentials: 'include',
   });
 
   const data = await res.json();
@@ -199,6 +199,9 @@ export const authAPI = {
     }),
 
   getProfile: () => fetchAPI<User>('/api/auth/profile'),
+
+  // ต้องเรียกฝั่งเซิร์ฟเวอร์ เพราะ httpOnly cookie ลบจาก JavaScript ไม่ได้
+  logout: () => fetchAPI<{ message: string }>('/api/auth/logout', { method: 'POST' }),
 };
 
 // ==================== USERS ====================
@@ -260,12 +263,9 @@ export const activitiesAPI = {
     const formData = new FormData();
     formData.append('file', file);
     
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     const res = await fetch(`${API_BASE_URL}/api/activities/upload-image`, {
       method: 'POST',
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      credentials: 'include',
       body: formData,
     });
     
@@ -412,12 +412,9 @@ export const eventsAPI = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     const res = await fetch(`${API_BASE_URL}/api/events/upload-attachment`, {
       method: 'POST',
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      credentials: 'include',
       body: formData,
     });
 

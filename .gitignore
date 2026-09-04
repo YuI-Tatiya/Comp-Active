@@ -14,6 +14,7 @@ node_modules/
 .env.development
 .env.production
 .env.test
+.env.staging
 .env.development.local
 .env.test.local
 .env.production.local
@@ -64,6 +65,25 @@ pnpm-debug.log*
 *.pem
 *.key
 *.crt
+*.pfx
+*.p12
+
+# === Database Dumps (มีข้อมูลนักศึกษาจริงและ hash รหัสผ่าน — ห้ามขึ้น repo เด็ดขาด) ===
+*.sql
+*.dump
+*.sqlite
+*.sqlite3
+!backend/prisma/migrations/**/*.sql
+
+# === Merge / Backup Artifacts (เกิดตอนแก้ conflict หรือสำรองไฟล์ก่อนแก้) ===
+*.bak
+*.orig
+*.rej
+*.tmp
+
+# === Claude Code (ค่า config ส่วนตัวของแต่ละคน — .claude/settings.json ที่แชร์กันยัง push ได้) ===
+.claude/settings.local.json
+.claude/*.local.json
 
 # === Vercel ===
 .vercel
