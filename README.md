@@ -75,14 +75,18 @@ Organizers evaluate students across 5 dimensions after each activity:
 docker compose up --build
 ```
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:3000 |
-| Backend API | http://localhost:3001 |
-| Swagger Docs | http://localhost:3001/api |
-| PostgreSQL | localhost:**5433** (host access) |
+Everything is reached through the Nginx gateway on port **80** — the frontend and backend containers are not published directly.
 
-> The backend waits for PostgreSQL to be healthy, then runs `prisma db push` automatically before starting.
+| What | URL |
+|------|-----|
+| Student & Organizer portal | http://app.localhost |
+| Admin portal | http://admin.localhost |
+| Backend API | http://api.localhost |
+| PostgreSQL | `127.0.0.1:5433` (local tools only, not exposed to the network) |
+
+> **Swagger is off in Docker.** The compose file runs the backend with `NODE_ENV=production`, which disables the docs. Use Option B below if you need Swagger.
+
+> If `app.localhost` does not resolve on your machine, add `127.0.0.1 app.localhost admin.localhost api.localhost` to your hosts file (`C:\Windows\System32\drivers\etc\hosts` on Windows, `/etc/hosts` on macOS/Linux).
 
 **Useful Docker commands:**
 ```bash
@@ -91,7 +95,59 @@ docker compose up                  # Start without rebuilding
 docker compose down                # Stop all containers
 docker compose down -v             # Stop and delete database volume
 docker compose logs -f backend     # Stream backend logs
+docker compose logs migrate        # See what the schema update did
 ```
+
+---
+
+### The `migrate` container — please read this once
+
+`docker compose up` starts a container called **`compactive_migrate`** that does one job and then stops: it updates the database tables so they match `prisma/schema.prisma`.
+
+Think of it as the crew that sets up the stage before the show. They come in first, arrange everything to plan, and leave before the audience arrives. Only once the stage is ready does the cast (the backend) come on.
+
+```
+postgres  →  migrate  →  backend  →  nginx
+             runs and    starts only after
+             exits       migrate succeeds
+```
+
+**Why this matters to you day to day:** if a teammate adds a field to `schema.prisma` and pushes it, your local database does not know about that column yet. Open the profile page and it breaks. The `migrate` container applies those changes for everyone automatically, so nobody has to remember to run anything by hand.
+
+#### Three things that will look alarming but are not
+
+**1. The container shows as stopped. That is correct.**
+
+```
+compactive_migrate   Exited (0)      ← finished its job and left. This is success.
+compactive_backend   Up 2 minutes
+```
+
+`Exited (0)` means "done, no errors". Only worry if the number is something other than 0.
+
+**2. You no longer run `prisma db push` yourself for Docker.** Just `docker compose up`.
+
+**3. Sometimes `migrate` will refuse to run — on purpose.**
+
+If a schema change would **destroy existing data** (dropping a column, changing a column's type), `migrate` stops and the backend never starts. You will see the failure instead of losing rows.
+
+This is deliberate. The old setup passed `--accept-data-loss` on every single startup, which meant a careless schema edit could quietly wipe real data — the kind of thing you discover the day before a demo.
+
+If the data loss is genuinely intended, set this in `docker-compose.yml`, run once, then **change it straight back**:
+
+```yaml
+PRISMA_ACCEPT_DATA_LOSS: "true"
+```
+
+Never commit `"true"`. If you are not sure why `migrate` is refusing, ask in the team chat before overriding it.
+
+#### Why it is a separate container
+
+The tool that edits database tables (the Prisma CLI) ships with drivers for MySQL and SQLite as well as PostgreSQL — including `mysql2`, which currently has a high-severity advisory. We only use PostgreSQL, so none of that is needed once the app is running.
+
+When the backend did the schema update itself, all of those files had to live inside the server that faces the internet. Splitting the job out means the production image carries only what it needs to serve requests: **306 packages down to 172**.
+
+Same idea as the stage crew: the screwdrivers and hammers used to build the set do not stay on stage during the performance.
 
 ---
 
@@ -114,9 +170,17 @@ Create `backend/.env`:
 PORT=3001
 NODE_ENV=development
 DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/compactive_db"
-JWT_SECRET=your-super-secret-jwt-key
+
+# Must be at least 32 characters and not a placeholder — the app refuses to
+# start otherwise, rather than signing tokens with a key anyone could guess.
+# Generate one with:
+#   node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+JWT_SECRET=paste-a-generated-value-here-at-least-32-chars
 JWT_EXPIRES_IN=7d
+
 FRONTEND_URL=http://localhost:3000
+ADMIN_FRONTEND_URL=http://admin.localhost:3000
+
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -124,6 +188,10 @@ SMTP_USER=your.email@gmail.com
 SMTP_PASS=your-app-password
 SMTP_FROM=no-reply@cpc.kku.ac.th
 ```
+
+> **If login succeeds but immediately bounces back to the login page**, the session cookie is being dropped. Add `AUTH_COOKIE_SAMESITE=none` to `backend/.env`. This happens because `app.localhost` and `api.localhost` can be treated as different sites by the browser; real domains do not have this problem.
+
+> See `backend/.env.example` for the full list of optional settings and what each one does.
 
 #### 3. Set Up Database
 

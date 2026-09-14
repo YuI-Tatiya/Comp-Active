@@ -8,7 +8,7 @@ import { authAPI, User } from "./api"
 
 interface AuthContextType {
     user: User | null
-    token: string | null
+    // ไม่มี token ให้ที่นี่แล้ว — session อยู่ใน httpOnly cookie ที่ JavaScript อ่านไม่ได้
     isLoading: boolean
     login: (identifier: string, password: string) => Promise<void>
     adminLogin: (email: string, password: string) => Promise<void>
@@ -44,34 +44,24 @@ export function useAuth() {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
-    const [token, setToken] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const router = useRouter()
 
-    // โหลด user จาก token ที่เก็บไว้ใน localStorage
+    // token อยู่ใน httpOnly cookie ที่ JavaScript อ่านไม่ได้ (กัน XSS ขโมย session)
+    // จึงเช็คสถานะล็อกอินด้วยการถาม backend ตรง ๆ — ถ้า cookie ยังใช้ได้จะได้ profile กลับมา
     useEffect(() => {
-        async function loadUser(tkn: string) {
+        async function loadUser() {
             try {
-                localStorage.setItem("token", tkn)
-                const profile = await authAPI.getProfile()
-                setUser(profile)
+                setUser(await authAPI.getProfile())
             } catch {
-                // Token expired or invalid
-                localStorage.removeItem("token")
-                setToken(null)
+                // ไม่มี cookie หรือหมดอายุแล้ว — ถือว่ายังไม่ได้ล็อกอิน
                 setUser(null)
             } finally {
                 setIsLoading(false)
             }
         }
 
-        const savedToken = localStorage.getItem("token")
-        if (savedToken) {
-            setToken(savedToken)
-            loadUser(savedToken)
-        } else {
-            setIsLoading(false)
-        }
+        loadUser()
     }, [])
 
     function redirectByRole(role: string) {
@@ -89,9 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function login(identifier: string, password: string) {
         const res = await authAPI.login({ identifier, password })
-        const accessToken = res.accessToken
-        setToken(accessToken)
-        localStorage.setItem("token", accessToken)
+        // ไม่เก็บ accessToken ไว้ฝั่ง client — backend ออก httpOnly cookie ให้แล้ว
         // Profile may be in the response or we fetch it
         if (res.user) {
             setUser(res.user)
@@ -107,9 +95,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // admin subdomain, and always land at its root ("/", rewritten to /admin by middleware).
     async function adminLogin(email: string, password: string) {
         const res = await authAPI.adminLogin({ email, password })
-        const accessToken = res.accessToken
-        setToken(accessToken)
-        localStorage.setItem("token", accessToken)
         if (res.user) {
             setUser(res.user)
         } else {
@@ -120,9 +105,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function register(data: RegisterData) {
         const res = await authAPI.register(data)
-        const accessToken = res.accessToken
-        setToken(accessToken)
-        localStorage.setItem("token", accessToken)
         if (res.user) {
             setUser(res.user)
             redirectByRole(res.user.role)
@@ -142,15 +124,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     async function logout() {
+        try {
+            // httpOnly cookie ลบเองจากฝั่งเบราว์เซอร์ไม่ได้ ต้องให้เซิร์ฟเวอร์สั่งลบ
+            await authAPI.logout()
+        } catch {
+            // ต่อให้เรียกไม่สำเร็จ ก็ต้องเคลียร์สถานะฝั่ง UI ให้ผู้ใช้ออกจากระบบได้เสมอ
+        }
         setUser(null)
-        setToken(null)
-        localStorage.removeItem("token")
         await new Promise((r) => setTimeout(r, 400))
         router.replace("/")
     }
 
     return (
-        <AuthContext.Provider value={{ user, token, isLoading, login, adminLogin, register, logout, refreshUser }}>
+        <AuthContext.Provider value={{ user, isLoading, login, adminLogin, register, logout, refreshUser }}>
             {children}
         </AuthContext.Provider>
     )
