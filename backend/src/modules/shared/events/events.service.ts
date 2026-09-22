@@ -3,6 +3,7 @@ import { EventsRepository, PreparedActivityData } from './events.repository';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { diffHours, formatHHmm } from '../../../common/utils/time.util';
+import { prepareRegistrationTypeFields } from '../../../common/utils/registration-type.util';
 import {
   ActivityQuestionType,
   SurveyQuestionType,
@@ -48,6 +49,8 @@ export class EventsService {
         return { label: q.label, type: q.type, required: q.required ?? false, options: needsOptions ? options : [] };
       });
 
+      const registrationTypeFields = prepareRegistrationTypeFields(a, `กิจกรรมลำดับที่ ${index + 1}: `);
+
       return {
         name: a.name,
         description: a.description,
@@ -65,6 +68,7 @@ export class EventsService {
         // คำนวณชั่วโมงฝั่งเซิร์ฟเวอร์เท่านั้น — ไม่เชื่อค่าจาก client
         volunteerHours: a.issueVolunteerCertificate ? diffHours(startAt, endAt) : null,
         volunteerRole: a.issueVolunteerCertificate ? a.volunteerRole : null,
+        ...registrationTypeFields,
         softSkillRates: (a.softSkillRates ?? []).map((s) => ({ skillType: s.skillType, rate: s.rate })),
         questions,
       };
@@ -140,6 +144,8 @@ export class EventsService {
         return { label: q.label, type: q.type, required: q.required ?? false, options: needsOptions ? options : [] };
       });
 
+      const registrationTypeFields = prepareRegistrationTypeFields(a, `กิจกรรมลำดับที่ ${index + 1}: `);
+
       return {
         id: a.id,
         name: a.name,
@@ -156,6 +162,7 @@ export class EventsService {
         capacity: a.capacity,
         volunteerHours: a.issueVolunteerCertificate ? diffHours(startAt, endAt) : null,
         volunteerRole: a.issueVolunteerCertificate ? a.volunteerRole : null,
+        ...registrationTypeFields,
         softSkillRates: (a.softSkillRates ?? []).map((s) => ({ skillType: s.skillType, rate: s.rate })),
         questions,
       };

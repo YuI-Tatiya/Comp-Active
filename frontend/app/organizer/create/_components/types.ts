@@ -18,6 +18,8 @@ export interface EventFormState {
     /** ชั้นปีที่มีสิทธิ์เห็น (1-8) — ใช้เมื่อ visibility เป็น restricted, ว่าง = ทุกชั้นปี */
     visibilityYears: number[]
     visibilityStudentIdFilter: string
+    /** client-only — ไม่ส่งไป backend, ใช้ขับ UI ของ step 2 เท่านั้น (backend สร้าง Event+Activities เสมอไม่ว่าค่านี้จะเป็นอะไร) */
+    type: "single" | "project"
 }
 
 export interface ActivityFormState {
@@ -43,6 +45,15 @@ export interface ActivityFormState {
     softSkillRates: Record<string, number>
     questionsEnabled: boolean
     questions: BuilderQuestion[]
+    registrationType: "participant" | "staff_volunteer" | "contestant"
+    /** บรรทัดละ 1 ตัวเลือก — ใช้เมื่อ registrationType เป็น staff_volunteer */
+    dutyRoleOptions: string[]
+    dutyShiftOptions: string[]
+    /** เก็บเป็น string เหมือน capacity — parseInt ตอน submit */
+    teamSizeMin: string
+    teamSizeMax: string
+    /** บรรทัดละ 1 ตัวเลือก — ใช้เมื่อ registrationType เป็น contestant */
+    competitionCategoryOptions: string[]
 }
 
 export function createEmptyEvent(): EventFormState {
@@ -63,6 +74,7 @@ export function createEmptyEvent(): EventFormState {
         visibilityPrograms: [],
         visibilityYears: [],
         visibilityStudentIdFilter: "",
+        type: "project",
     }
 }
 
@@ -90,12 +102,19 @@ export function createEmptyActivity(): ActivityFormState {
         softSkillRates: {},
         questionsEnabled: false,
         questions: [],
+        registrationType: "participant",
+        dutyRoleOptions: [],
+        dutyShiftOptions: [],
+        teamSizeMin: "",
+        teamSizeMax: "",
+        competitionCategoryOptions: [],
     }
 }
 
 export type EventFormErrors = Partial<Record<"name" | "description", string>>
 
 export type ActivityFormErrors = Partial<Record<
-    "name" | "categories" | "description" | "startAt" | "endAt" | "location" | "capacity" | "volunteerRole",
+    "name" | "categories" | "description" | "startAt" | "endAt" | "location" | "capacity" | "volunteerRole"
+    | "dutyRoleOptions" | "teamSizeMax",
     string
 >>

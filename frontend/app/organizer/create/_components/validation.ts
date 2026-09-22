@@ -40,11 +40,23 @@ export function validateActivityField(a: ActivityFormState, field: keyof Activit
         case "volunteerRole":
             if (!a.certEnabled) return undefined
             return a.volunteerRole.trim() ? undefined : "กรุณาระบุชื่อบทบาทสำหรับใบจิตอาสา"
+        case "dutyRoleOptions":
+            if (a.registrationType !== "staff_volunteer") return undefined
+            return a.dutyRoleOptions.some((s) => s.trim())
+                ? undefined
+                : "กรุณาระบุตัวเลือกบทบาท/หน้าที่อย่างน้อย 1 รายการ"
+        case "teamSizeMax":
+            if (a.registrationType !== "contestant") return undefined
+            if (!a.teamSizeMin || !a.teamSizeMax) return undefined
+            return parseInt(a.teamSizeMin) > parseInt(a.teamSizeMax)
+                ? "จำนวนสมาชิกทีมขั้นต่ำต้องไม่มากกว่าขั้นสูงสุด"
+                : undefined
     }
 }
 
 export const ACTIVITY_FIELDS: (keyof ActivityFormErrors)[] = [
     "name", "categories", "description", "startAt", "endAt", "location", "capacity", "volunteerRole",
+    "dutyRoleOptions", "teamSizeMax",
 ]
 
 export function validateActivityFields(a: ActivityFormState): ActivityFormErrors {

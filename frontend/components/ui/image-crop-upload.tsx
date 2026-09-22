@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, type ChangeEvent, type SyntheticEvent } from "react"
+import { useState, type SyntheticEvent } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./dialog"
 import { Button } from "./button"
-import { Input } from "./input"
+import { Dropzone } from "./dropzone"
 import { X } from "lucide-react"
 
 export const IMAGE_CROP_ASPECT = 16 / 9
@@ -64,10 +64,7 @@ export function ImageCropUpload({
     const [posY, setPosY] = useState(50)
     const [error, setError] = useState("")
 
-    function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0]
-        e.target.value = ""
-        if (!file) return
+    function processFile(file: File) {
         if (file.size > MAX_SIZE_MB * 1024 * 1024) {
             setError(`ไฟล์ต้องมีขนาดไม่เกิน ${MAX_SIZE_MB}MB`)
             return
@@ -112,7 +109,7 @@ export function ImageCropUpload({
 
     return (
         <div className="space-y-2">
-            <Input type="file" accept="image/jpeg,image/png,image/gif" onChange={handleFileChange} />
+            <Dropzone accept="image/jpeg,image/png,image/gif" onFileSelected={processFile} />
             <p className="text-xs text-fg-subtle">{helperText}</p>
             {error && <p className="text-xs text-danger">{error}</p>}
 

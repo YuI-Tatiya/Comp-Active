@@ -57,6 +57,8 @@ function eventToFormState(event: EventSummary): EventFormState {
         visibilityPrograms: (event.visibilityProgram ?? []).map((p) => p.programCode),
         visibilityYears: (event.visibilityYears ?? []).map((y) => y.year),
         visibilityStudentIdFilter: event.visibilityStudentIdFilter ?? "",
+        // client-only, ไม่มีค่าจาก backend — ตั้งเป็น "project" เสมอเพื่อไม่ให้ UI ของงานหลายกิจกรรมย่อยที่มีอยู่แล้วถูกซ่อนไปโดยไม่ตั้งใจ
+        type: "project",
     }
 }
 
@@ -91,6 +93,12 @@ function activityToFormState(a: EventSummary["activities"][number]): ActivityFor
             required: q.required,
             options: q.options?.map((o) => o.label) ?? [],
         })),
+        registrationType: a.registrationType ?? "participant",
+        dutyRoleOptions: a.dutyRoleOptions ?? [],
+        dutyShiftOptions: a.dutyShiftOptions ?? [],
+        teamSizeMin: a.teamSizeMin != null ? String(a.teamSizeMin) : "",
+        teamSizeMax: a.teamSizeMax != null ? String(a.teamSizeMax) : "",
+        competitionCategoryOptions: a.competitionCategoryOptions ?? [],
     }
 }
 
@@ -130,6 +138,10 @@ export default function EditEventPage() {
 
     function patchEvent(patch: Partial<EventFormState>) {
         setEvent((prev) => (prev ? { ...prev, ...patch } : prev))
+        // สลับมาเป็น "กิจกรรมเดี่ยว" ขณะมีหลายกิจกรรมย่อยอยู่แล้ว — เหลือไว้แค่รายการแรก
+        if (patch.type === "single") {
+            setActivities((prev) => (prev.length > 1 ? [prev[0]] : prev))
+        }
     }
 
     function patchActivity(key: string, patch: Partial<ActivityFormState>) {
@@ -171,6 +183,12 @@ export default function EditEventPage() {
             softSkillRates: {},
             questionsEnabled: false,
             questions: [],
+            registrationType: "participant",
+            dutyRoleOptions: [],
+            dutyShiftOptions: [],
+            teamSizeMin: "",
+            teamSizeMax: "",
+            competitionCategoryOptions: [],
         }
         setActivities((prev) => [...prev, next])
         setActiveActivityKey(next.key)
@@ -281,6 +299,13 @@ export default function EditEventPage() {
                         ? Object.entries(a.softSkillRates).map(([skillType, rate]) => ({ skillType, rate }))
                         : undefined,
                     questions,
+                    registrationType: a.registrationType,
+                    dutyRoleOptions: a.registrationType === "staff_volunteer" ? a.dutyRoleOptions.filter(Boolean) : [],
+                    dutyShiftOptions: a.registrationType === "staff_volunteer" ? a.dutyShiftOptions.filter(Boolean) : [],
+                    teamSizeMin: a.registrationType === "contestant" && a.teamSizeMin ? parseInt(a.teamSizeMin) : null,
+                    teamSizeMax: a.registrationType === "contestant" && a.teamSizeMax ? parseInt(a.teamSizeMax) : null,
+                    competitionCategoryOptions:
+                        a.registrationType === "contestant" ? a.competitionCategoryOptions.filter(Boolean) : [],
                 })
             }
 
@@ -375,6 +400,7 @@ export default function EditEventPage() {
                                     activities={activities}
                                     activeKey={activeActivityKey}
                                     errorsByKey={activityErrors}
+                                    isSingleMode={event.type === "single"}
                                     onActiveKeyChange={setActiveActivityKey}
                                     onChangeActivity={patchActivity}
                                     onFieldBlur={handleActivityFieldBlur}

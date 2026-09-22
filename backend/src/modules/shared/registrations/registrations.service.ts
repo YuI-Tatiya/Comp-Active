@@ -9,6 +9,7 @@ import {
   ApprovalStatus,
   ActivityQuestionType,
   SurveyQuestionType,
+  RegistrationType,
 } from '../../../common/enums/status.enum';
 import { isViewerEligibleForEvent, type Viewer } from '../events/event-visibility.util';
 import { MailService } from '../mail/mail.service';
@@ -23,6 +24,15 @@ interface AnswerInput {
 interface CertRequestInput {
   wantsCertLoanFund?: boolean;
   wantsCertScholarship?: boolean;
+}
+
+interface RegistrationTypeFieldsInput {
+  dutyRole?: string;
+  dutyShift?: string;
+  teamName?: string;
+  teamSize?: number;
+  competitionCategory?: string;
+  submissionLink?: string;
 }
 
 interface SurveyAnswerInput {
@@ -48,6 +58,7 @@ export class RegistrationsService {
     viewer: Viewer,
     answers: AnswerInput[] = [],
     certRequest: CertRequestInput = {},
+    registrationTypeFields: RegistrationTypeFieldsInput = {},
   ) {
     const activity = await this.registrationsRepository.findActivityWithActiveCount(activityId);
 
@@ -81,10 +92,18 @@ export class RegistrationsService {
     const wantsCertLoanFund = offersVolunteerCert && !!certRequest.wantsCertLoanFund;
     const wantsCertScholarship = offersVolunteerCert && !!certRequest.wantsCertScholarship;
 
-    const registration = await this.registrationsRepository.create(studentId, activityId, preparedAnswers, {
-      wantsCertLoanFund,
-      wantsCertScholarship,
-    });
+    const preparedRegistrationTypeFields = this.validateAndPrepareRegistrationTypeFields(
+      activity as any,
+      registrationTypeFields,
+    );
+
+    const registration = await this.registrationsRepository.create(
+      studentId,
+      activityId,
+      preparedAnswers,
+      { wantsCertLoanFund, wantsCertScholarship },
+      preparedRegistrationTypeFields,
+    );
 
     this.logger.log(`Registration created: student ${studentId} → activity ${activityId}`);
     return registration;
@@ -120,6 +139,78 @@ export class RegistrationsService {
     }
 
     return prepared;
+  }
+
+  /** ตรวจ+เตรียมฟิลด์เฉพาะประเภทการรับสมัคร — บังคับกรอกเมื่อกิจกรรมเป็นประเภทที่ต้องใช้ฟิลด์นั้น
+   *  และค่าที่เลือก (บทบาท/กะเวลา/ประเภทการแข่งขัน) ต้องอยู่ในตัวเลือกที่ผู้จัดกำหนดไว้จริง (กันค่าหลุดจากฟอร์ม) */
+  private validateAndPrepareRegistrationTypeFields(
+    activity: {
+      registrationType: string;
+      dutyRoleOptions: string[];
+      dutyShiftOptions: string[];
+      teamSizeMin: number | null;
+      teamSizeMax: number | null;
+      competitionCategoryOptions: string[];
+    },
+    input: RegistrationTypeFieldsInput,
+  ) {
+    if (activity.registrationType === RegistrationType.STAFF_VOLUNTEER) {
+      const dutyRole = input.dutyRole?.trim();
+      if (!dutyRole || !activity.dutyRoleOptions.includes(dutyRole)) {
+        throw new BadRequestException('กรุณาเลือกบทบาท/หน้าที่จากตัวเลือกที่กำหนด');
+      }
+      const needsShift = activity.dutyShiftOptions.length > 0;
+      const dutyShift = input.dutyShift?.trim();
+      if (needsShift && (!dutyShift || !activity.dutyShiftOptions.includes(dutyShift))) {
+        throw new BadRequestException('กรุณาเลือกรอบ/กะเวลาจากตัวเลือกที่กำหนด');
+      }
+      return {
+        dutyRole,
+        dutyShift: needsShift ? dutyShift : null,
+        teamName: null,
+        teamSize: null,
+        competitionCategory: null,
+        submissionLink: null,
+      };
+    }
+
+    if (activity.registrationType === RegistrationType.CONTESTANT) {
+      const teamName = input.teamName?.trim();
+      if (!teamName) throw new BadRequestException('กรุณาระบุชื่อทีม');
+
+      const teamSize = input.teamSize;
+      if (activity.teamSizeMin != null && (teamSize == null || teamSize < activity.teamSizeMin)) {
+        throw new BadRequestException(`จำนวนสมาชิกทีมต้องไม่น้อยกว่า ${activity.teamSizeMin} คน`);
+      }
+      if (activity.teamSizeMax != null && (teamSize == null || teamSize > activity.teamSizeMax)) {
+        throw new BadRequestException(`จำนวนสมาชิกทีมต้องไม่เกิน ${activity.teamSizeMax} คน`);
+      }
+
+      const needsCategory = activity.competitionCategoryOptions.length > 0;
+      const competitionCategory = input.competitionCategory?.trim();
+      if (needsCategory && (!competitionCategory || !activity.competitionCategoryOptions.includes(competitionCategory))) {
+        throw new BadRequestException('กรุณาเลือกประเภท/รุ่นการแข่งขันจากตัวเลือกที่กำหนด');
+      }
+
+      return {
+        dutyRole: null,
+        dutyShift: null,
+        teamName,
+        teamSize: teamSize ?? null,
+        competitionCategory: needsCategory ? competitionCategory : competitionCategory || null,
+        submissionLink: input.submissionLink?.trim() || null,
+      };
+    }
+
+    // participant — กันค่าหลุดมาจากกิจกรรมที่ไม่รองรับ (เหมือน offersVolunteerCert gate ด้านบน)
+    return {
+      dutyRole: null,
+      dutyShift: null,
+      teamName: null,
+      teamSize: null,
+      competitionCategory: null,
+      submissionLink: null,
+    };
   }
 
   async cancel(registrationId: number, studentId: number) {

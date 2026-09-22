@@ -12,6 +12,7 @@ import { Toast } from "@/components/ui/toast"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select } from "@/components/ui/select"
 import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
 import { cn } from "@/lib/utils"
@@ -92,6 +93,14 @@ export default function StudentEventDetailsPage() {
     const [submitting, setSubmitting] = useState(false)
     const [answers, setAnswers] = useState<Record<number, { textValue?: string; optionIds?: number[] }>>({})
     const [certRequest, setCertRequest] = useState({ wantsCertLoanFund: false, wantsCertScholarship: false })
+    const [registrationTypeFields, setRegistrationTypeFields] = useState({
+        dutyRole: "",
+        dutyShift: "",
+        teamName: "",
+        teamSize: "",
+        competitionCategory: "",
+        submissionLink: "",
+    })
     const [toast, setToast] = useState<{ open: boolean; message: string; description?: string }>({
         open: false,
         message: "",
@@ -178,6 +187,14 @@ export default function StudentEventDetailsPage() {
         setFormError("")
         setAnswers({})
         setCertRequest({ wantsCertLoanFund: false, wantsCertScholarship: false })
+        setRegistrationTypeFields({
+            dutyRole: "",
+            dutyShift: "",
+            teamName: "",
+            teamSize: "",
+            competitionCategory: "",
+            submissionLink: "",
+        })
         setIsRegisterOpen(true)
     }, [user])
 
@@ -217,6 +234,36 @@ export default function StudentEventDetailsPage() {
             }
         }
 
+        if (activeActivity.registrationType === "staff_volunteer") {
+            if (!registrationTypeFields.dutyRole) {
+                setFormError("กรุณาเลือกบทบาท/หน้าที่")
+                return
+            }
+            if ((activeActivity.dutyShiftOptions?.length ?? 0) > 0 && !registrationTypeFields.dutyShift) {
+                setFormError("กรุณาเลือกรอบ/กะเวลา")
+                return
+            }
+        }
+        if (activeActivity.registrationType === "contestant") {
+            if (!registrationTypeFields.teamName.trim()) {
+                setFormError("กรุณาระบุชื่อทีม")
+                return
+            }
+            const size = parseInt(registrationTypeFields.teamSize)
+            if (activeActivity.teamSizeMin != null && (Number.isNaN(size) || size < activeActivity.teamSizeMin)) {
+                setFormError(`จำนวนสมาชิกทีมต้องไม่น้อยกว่า ${activeActivity.teamSizeMin} คน`)
+                return
+            }
+            if (activeActivity.teamSizeMax != null && (Number.isNaN(size) || size > activeActivity.teamSizeMax)) {
+                setFormError(`จำนวนสมาชิกทีมต้องไม่เกิน ${activeActivity.teamSizeMax} คน`)
+                return
+            }
+            if ((activeActivity.competitionCategoryOptions?.length ?? 0) > 0 && !registrationTypeFields.competitionCategory) {
+                setFormError("กรุณาเลือกประเภท/รุ่นการแข่งขัน")
+                return
+            }
+        }
+
         try {
             setSubmitting(true)
             const answerPayload: RegistrationAnswerBody[] = Object.entries(answers).map(([questionId, a]) => ({
@@ -224,7 +271,23 @@ export default function StudentEventDetailsPage() {
                 textValue: a.textValue,
                 optionIds: a.optionIds,
             }))
-            await registrationsAPI.create(activeActivity.id, answerPayload, activeActivity.volunteerRole ? certRequest : undefined)
+            const registrationTypeFieldsPayload =
+                activeActivity.registrationType === "staff_volunteer"
+                    ? { dutyRole: registrationTypeFields.dutyRole, dutyShift: registrationTypeFields.dutyShift || undefined }
+                    : activeActivity.registrationType === "contestant"
+                        ? {
+                            teamName: registrationTypeFields.teamName,
+                            teamSize: registrationTypeFields.teamSize ? parseInt(registrationTypeFields.teamSize) : undefined,
+                            competitionCategory: registrationTypeFields.competitionCategory || undefined,
+                            submissionLink: registrationTypeFields.submissionLink || undefined,
+                        }
+                        : undefined
+            await registrationsAPI.create(
+                activeActivity.id,
+                answerPayload,
+                activeActivity.volunteerRole ? certRequest : undefined,
+                registrationTypeFieldsPayload,
+            )
             setIsRegisterOpen(false)
             showToast("ลงทะเบียนสำเร็จ!", "ติดตามสถานะได้ที่หน้ากิจกรรมของฉัน")
             fetchEventDetails(event!.id)
@@ -496,6 +559,109 @@ export default function StudentEventDetailsPage() {
                                     />
                                     ทุนการศึกษา
                                 </label>
+                            </div>
+                        )}
+
+                        {activeActivity?.registrationType === "staff_volunteer" && (
+                            <div className="space-y-3 border-t border-border pt-4">
+                                <Label>ลงทะเบียนในฐานะสตาฟฟ์ / จิตอาสา</Label>
+                                <div className="space-y-2">
+                                    <Label htmlFor="reg-duty-role" className="text-xs font-normal text-fg-muted">
+                                        บทบาท/หน้าที่ <span className="text-danger">*</span>
+                                    </Label>
+                                    <Select
+                                        id="reg-duty-role"
+                                        value={registrationTypeFields.dutyRole}
+                                        onChange={(e) => setRegistrationTypeFields((prev) => ({ ...prev, dutyRole: e.target.value }))}
+                                    >
+                                        <option value="">เลือกบทบาท/หน้าที่</option>
+                                        {(activeActivity.dutyRoleOptions ?? []).map((opt) => (
+                                            <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                    </Select>
+                                </div>
+                                {(activeActivity.dutyShiftOptions?.length ?? 0) > 0 && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="reg-duty-shift" className="text-xs font-normal text-fg-muted">
+                                            รอบ/กะเวลา <span className="text-danger">*</span>
+                                        </Label>
+                                        <Select
+                                            id="reg-duty-shift"
+                                            value={registrationTypeFields.dutyShift}
+                                            onChange={(e) => setRegistrationTypeFields((prev) => ({ ...prev, dutyShift: e.target.value }))}
+                                        >
+                                            <option value="">เลือกรอบ/กะเวลา</option>
+                                            {activeActivity.dutyShiftOptions!.map((opt) => (
+                                                <option key={opt} value={opt}>{opt}</option>
+                                            ))}
+                                        </Select>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeActivity?.registrationType === "contestant" && (
+                            <div className="space-y-3 border-t border-border pt-4">
+                                <Label>ลงทะเบียนในฐานะผู้สมัครแข่งขัน</Label>
+                                <div className="space-y-2">
+                                    <Label htmlFor="reg-team-name" className="text-xs font-normal text-fg-muted">
+                                        ชื่อทีม <span className="text-danger">*</span>
+                                    </Label>
+                                    <Input
+                                        id="reg-team-name"
+                                        value={registrationTypeFields.teamName}
+                                        onChange={(e) => setRegistrationTypeFields((prev) => ({ ...prev, teamName: e.target.value }))}
+                                    />
+                                </div>
+                                {(activeActivity.teamSizeMin != null || activeActivity.teamSizeMax != null) && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="reg-team-size" className="text-xs font-normal text-fg-muted">
+                                            จำนวนสมาชิกทีม
+                                            {activeActivity.teamSizeMin != null && activeActivity.teamSizeMax != null
+                                                ? ` (${activeActivity.teamSizeMin}-${activeActivity.teamSizeMax} คน)`
+                                                : ""}{" "}
+                                            <span className="text-danger">*</span>
+                                        </Label>
+                                        <Input
+                                            id="reg-team-size"
+                                            type="number"
+                                            min={activeActivity.teamSizeMin ?? 1}
+                                            max={activeActivity.teamSizeMax ?? undefined}
+                                            value={registrationTypeFields.teamSize}
+                                            onChange={(e) => setRegistrationTypeFields((prev) => ({ ...prev, teamSize: e.target.value }))}
+                                            className="max-w-[140px]"
+                                        />
+                                    </div>
+                                )}
+                                {(activeActivity.competitionCategoryOptions?.length ?? 0) > 0 && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="reg-competition-category" className="text-xs font-normal text-fg-muted">
+                                            ประเภท/รุ่นการแข่งขัน <span className="text-danger">*</span>
+                                        </Label>
+                                        <Select
+                                            id="reg-competition-category"
+                                            value={registrationTypeFields.competitionCategory}
+                                            onChange={(e) => setRegistrationTypeFields((prev) => ({ ...prev, competitionCategory: e.target.value }))}
+                                        >
+                                            <option value="">เลือกประเภท/รุ่นการแข่งขัน</option>
+                                            {activeActivity.competitionCategoryOptions!.map((opt) => (
+                                                <option key={opt} value={opt}>{opt}</option>
+                                            ))}
+                                        </Select>
+                                    </div>
+                                )}
+                                <div className="space-y-2">
+                                    <Label htmlFor="reg-submission-link" className="text-xs font-normal text-fg-muted">
+                                        ลิงก์ผลงาน/ไฟล์ส่ง (ถ้ามี)
+                                    </Label>
+                                    <Input
+                                        id="reg-submission-link"
+                                        type="url"
+                                        placeholder="https://..."
+                                        value={registrationTypeFields.submissionLink}
+                                        onChange={(e) => setRegistrationTypeFields((prev) => ({ ...prev, submissionLink: e.target.value }))}
+                                    />
+                                </div>
                             </div>
                         )}
 

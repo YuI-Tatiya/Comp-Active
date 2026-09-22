@@ -2,16 +2,19 @@ import {
   IsNotEmpty,
   IsString,
   IsNumber,
+  IsInt,
   IsOptional,
   IsArray,
   ArrayMinSize,
   IsIn,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SoftSkillType } from '../../../../common/enums/soft-skill.enum';
+import { RegistrationType } from '../../../../common/enums/status.enum';
 import { CreateSurveyQuestionDto } from '../../events/dto/create-survey-question.dto';
 
 export class CreateActivityDto {
@@ -97,4 +100,54 @@ export class CreateActivityDto {
   @ValidateNested({ each: true })
   @Type(() => CreateSurveyQuestionDto)
   surveyQuestions?: CreateSurveyQuestionDto[];
+
+  @ApiPropertyOptional({
+    enum: Object.values(RegistrationType),
+    default: RegistrationType.PARTICIPANT,
+    description: 'ประเภทการรับสมัคร',
+  })
+  @IsOptional()
+  @IsIn(Object.values(RegistrationType))
+  registrationType?: RegistrationType;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'ตัวเลือกบทบาท/หน้าที่ — ใช้เมื่อ registrationType เป็น staff_volunteer',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  dutyRoleOptions?: string[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'ตัวเลือกรอบ/กะเวลา — ใช้เมื่อ registrationType เป็น staff_volunteer',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  dutyShiftOptions?: string[];
+
+  @ApiPropertyOptional({ description: 'จำนวนสมาชิกทีมขั้นต่ำ — ใช้เมื่อ registrationType เป็น contestant' })
+  @IsOptional()
+  @ValidateIf((o) => o.teamSizeMin !== null)
+  @IsInt()
+  @Min(1)
+  teamSizeMin?: number | null;
+
+  @ApiPropertyOptional({ description: 'จำนวนสมาชิกทีมสูงสุด — ใช้เมื่อ registrationType เป็น contestant' })
+  @IsOptional()
+  @ValidateIf((o) => o.teamSizeMax !== null)
+  @IsInt()
+  @Min(1)
+  teamSizeMax?: number | null;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'ตัวเลือกประเภท/รุ่นการแข่งขัน — ใช้เมื่อ registrationType เป็น contestant',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  competitionCategoryOptions?: string[];
 }

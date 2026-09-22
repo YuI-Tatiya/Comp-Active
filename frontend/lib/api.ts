@@ -78,6 +78,13 @@ export interface Activity<T = unknown> {
   // Prisma Decimal ส่งมาเป็น string เสมอ ไม่ใช่ number
   volunteerHours?: string | null;
   volunteerRole?: string | null;
+  // ประเภทการรับสมัคร — ฟิลด์ config ด้านล่างมีความหมายเฉพาะเมื่อ registrationType ตรงกับประเภทนั้น
+  registrationType?: "participant" | "staff_volunteer" | "contestant";
+  dutyRoleOptions?: string[];
+  dutyShiftOptions?: string[];
+  teamSizeMin?: number | null;
+  teamSizeMax?: number | null;
+  competitionCategoryOptions?: string[];
   approvalStatus: string;
   status: string;
   /** เหตุผลที่ผู้จัดยกเลิกกิจกรรม — แสดงให้นักศึกษาเห็นเมื่อกิจกรรมถูกยกเลิก */
@@ -315,6 +322,12 @@ export interface CreateEventActivityBody {
   volunteerRole?: string;
   softSkillRates?: SoftSkillRateBody[];
   questions?: QuestionBody[];
+  registrationType?: "participant" | "staff_volunteer" | "contestant";
+  dutyRoleOptions?: string[];
+  dutyShiftOptions?: string[];
+  teamSizeMin?: number | null;
+  teamSizeMax?: number | null;
+  competitionCategoryOptions?: string[];
 }
 
 export interface CreateEventBody {
@@ -443,6 +456,15 @@ export interface CertRequestBody {
   wantsCertScholarship?: boolean;
 }
 
+export interface RegistrationTypeFieldsBody {
+  dutyRole?: string;
+  dutyShift?: string;
+  teamName?: string;
+  teamSize?: number;
+  competitionCategory?: string;
+  submissionLink?: string;
+}
+
 export interface CheckInSelfResult {
   id: number;
   status: string;
@@ -452,10 +474,15 @@ export interface CheckInSelfResult {
 }
 
 export const registrationsAPI = {
-  create: (activityId: number, answers?: RegistrationAnswerBody[], certRequest?: CertRequestBody) =>
+  create: (
+    activityId: number,
+    answers?: RegistrationAnswerBody[],
+    certRequest?: CertRequestBody,
+    registrationTypeFields?: RegistrationTypeFieldsBody,
+  ) =>
     fetchAPI('/api/registrations', {
       method: 'POST',
-      body: JSON.stringify({ activityId, answers, ...certRequest }),
+      body: JSON.stringify({ activityId, answers, ...certRequest, ...registrationTypeFields }),
     }),
   cancel: (id: number) => fetchAPI(`/api/registrations/${id}`, { method: 'DELETE' }),
   getMy: () => fetchAPI('/api/registrations/my'),

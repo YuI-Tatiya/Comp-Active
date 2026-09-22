@@ -30,6 +30,12 @@ export interface RegistrationRow {
     evaluation?: unknown
     wantsCertLoanFund?: boolean
     wantsCertScholarship?: boolean
+    dutyRole?: string | null
+    dutyShift?: string | null
+    teamName?: string | null
+    teamSize?: number | null
+    competitionCategory?: string | null
+    submissionLink?: string | null
     answers?: RegistrationAnswerRow[]
 }
 
@@ -151,12 +157,20 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
 
         // คอลัมน์คำถามลงทะเบียนแตกต่างกันไปตามกิจกรรม — สร้างหัวตารางจากคำถามจริงของกิจกรรมนี้
         const questions = activity.questions ?? []
+        const registrationType = activity.registrationType ?? "participant"
+        const typeHeaders =
+            registrationType === "staff_volunteer"
+                ? ["บทบาท/หน้าที่", "รอบ/กะเวลา"]
+                : registrationType === "contestant"
+                    ? ["ชื่อทีม", "จำนวนสมาชิกทีม", "ประเภท/รุ่นการแข่งขัน", "ลิงก์ผลงาน"]
+                    : []
         const headers = [
             "ลำดับ",
             "ชื่อ-นามสกุล",
             "รหัสนักศึกษา",
             "อีเมล",
             "เบอร์โทร",
+            ...typeHeaders,
             ...questions.map((q) => q.label),
             "ขอจิตอาสา กยศ.",
             "ขอจิตอาสาทุนการศึกษา",
@@ -169,6 +183,11 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
             reg.student?.studentId || "-",
             reg.student?.email || "-",
             reg.student?.phone || "-",
+            ...(registrationType === "staff_volunteer"
+                ? [reg.dutyRole || "-", reg.dutyShift || "-"]
+                : registrationType === "contestant"
+                    ? [reg.teamName || "-", reg.teamSize ?? "-", reg.competitionCategory || "-", reg.submissionLink || "-"]
+                    : []),
             ...questions.map((q) => {
                 const a = reg.answers?.find((ans) => ans.question.id === q.id)
                 return a ? answerText(a) : "-"
@@ -334,11 +353,33 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
                                                 {reg.attendance === "attended" && <Badge variant="success">เข้าร่วมแล้ว</Badge>}
                                                 {reg.wantsCertLoanFund && <Badge variant="default">กยศ.</Badge>}
                                                 {reg.wantsCertScholarship && <Badge variant="default">ทุน</Badge>}
+                                                {reg.dutyRole && <Badge variant="default">บทบาท: {reg.dutyRole}</Badge>}
+                                                {reg.dutyShift && <Badge variant="default">รอบ: {reg.dutyShift}</Badge>}
+                                                {reg.teamName && <Badge variant="default">ทีม: {reg.teamName}</Badge>}
+                                                {reg.competitionCategory && <Badge variant="default">{reg.competitionCategory}</Badge>}
                                             </div>
                                             <div className="mt-1 text-xs text-fg-muted">
                                                 {reg.student.studentId} · {reg.student.email}
                                                 {reg.student.phone && <> · {reg.student.phone}</>}
                                             </div>
+                                            {(reg.teamSize != null || reg.submissionLink) && (
+                                                <div className="mt-1 text-xs text-fg-muted">
+                                                    {reg.teamSize != null && <>สมาชิก {reg.teamSize} คน</>}
+                                                    {reg.submissionLink && (
+                                                        <>
+                                                            {reg.teamSize != null && " · "}
+                                                            <a
+                                                                href={reg.submissionLink}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="text-brand-600 underline"
+                                                            >
+                                                                ลิงก์ผลงาน
+                                                            </a>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="flex shrink-0 gap-2">

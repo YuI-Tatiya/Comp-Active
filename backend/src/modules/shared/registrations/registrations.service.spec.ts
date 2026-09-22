@@ -1,11 +1,11 @@
 import { Test } from '@nestjs/testing';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { RegistrationsService } from './registrations.service';
 import { RegistrationsRepository } from './registrations.repository';
 import { EvaluationsService } from './evaluation.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
-import { RegistrationStatus } from '../../../common/enums/status.enum';
+import { RegistrationStatus, RegistrationType } from '../../../common/enums/status.enum';
 import { UserRole } from '../../../common/enums/role.enum';
 
 /** ปล่อยให้ microtask ของ `void this.notifyRegistrationConfirmed(...)` (fire-and-forget) รันจนจบก่อน assert */
@@ -191,5 +191,164 @@ describe('RegistrationsService.checkIn', () => {
     await service.checkIn(OWNER_ID, UserRole.ORGANIZER, 1);
 
     expect(evaluations.autoCreateForCheckIn).toHaveBeenCalledWith({}, 1, OWNER_ID, ACTIVITY.softSkills);
+  });
+});
+
+describe('RegistrationsService.create — registration type validation', () => {
+  let service: RegistrationsService;
+  let repo: {
+    findActivityWithActiveCount: jest.Mock;
+    findActiveByStudentAndActivity: jest.Mock;
+    create: jest.Mock;
+  };
+
+  const STUDENT_ID = 5;
+  const ACTIVITY_ID = 1;
+
+  function baseActivity(overrides: Record<string, unknown> = {}) {
+    return {
+      id: ACTIVITY_ID,
+      event: null,
+      approvalStatus: 'approved',
+      status: 'open',
+      capacity: null,
+      volunteerRole: null,
+      questions: [],
+      _count: { registrations: 0 },
+      registrationType: RegistrationType.PARTICIPANT,
+      dutyRoleOptions: [] as string[],
+      dutyShiftOptions: [] as string[],
+      teamSizeMin: null as number | null,
+      teamSizeMax: null as number | null,
+      competitionCategoryOptions: [] as string[],
+      ...overrides,
+    };
+  }
+
+  beforeEach(async () => {
+    repo = {
+      findActivityWithActiveCount: jest.fn(),
+      findActiveByStudentAndActivity: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 99 }),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        RegistrationsService,
+        { provide: RegistrationsRepository, useValue: repo },
+        { provide: EvaluationsService, useValue: {} },
+        { provide: PrismaService, useValue: {} },
+        { provide: MailService, useValue: {} },
+      ],
+    }).compile();
+    service = module.get(RegistrationsService);
+  });
+
+  it('registers a plain participant without any registration-type fields', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(baseActivity());
+
+    await service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, {});
+
+    expect(repo.create).toHaveBeenCalledWith(
+      STUDENT_ID,
+      ACTIVITY_ID,
+      [],
+      { wantsCertLoanFund: false, wantsCertScholarship: false },
+      {
+        dutyRole: null,
+        dutyShift: null,
+        teamName: null,
+        teamSize: null,
+        competitionCategory: null,
+        submissionLink: null,
+      },
+    );
+  });
+
+  it('rejects a staff_volunteer registration missing dutyRole', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(
+      baseActivity({ registrationType: RegistrationType.STAFF_VOLUNTEER, dutyRoleOptions: ['ลงทะเบียนหน้างาน'] }),
+    );
+
+    await expect(service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, {})).rejects.toThrow(BadRequestException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a dutyRole that is not one of the activity options', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(
+      baseActivity({ registrationType: RegistrationType.STAFF_VOLUNTEER, dutyRoleOptions: ['ลงทะเบียนหน้างาน'] }),
+    );
+
+    await expect(
+      service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, { dutyRole: 'ปลอมแปลง' }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('accepts a valid staff_volunteer registration and stores dutyRole/dutyShift', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(
+      baseActivity({
+        registrationType: RegistrationType.STAFF_VOLUNTEER,
+        dutyRoleOptions: ['ลงทะเบียนหน้างาน'],
+        dutyShiftOptions: ['กะเช้า'],
+      }),
+    );
+
+    await service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, {
+      dutyRole: 'ลงทะเบียนหน้างาน',
+      dutyShift: 'กะเช้า',
+    });
+
+    expect(repo.create).toHaveBeenCalledWith(
+      STUDENT_ID,
+      ACTIVITY_ID,
+      [],
+      { wantsCertLoanFund: false, wantsCertScholarship: false },
+      expect.objectContaining({ dutyRole: 'ลงทะเบียนหน้างาน', dutyShift: 'กะเช้า' }),
+    );
+  });
+
+  it('rejects a contestant registration missing teamName', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(baseActivity({ registrationType: RegistrationType.CONTESTANT }));
+
+    await expect(service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, {})).rejects.toThrow(BadRequestException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a contestant team size outside the activity bounds', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(
+      baseActivity({ registrationType: RegistrationType.CONTESTANT, teamSizeMin: 3, teamSizeMax: 5 }),
+    );
+
+    await expect(
+      service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, { teamName: 'ทีม A', teamSize: 2 }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('accepts a valid contestant registration and stores team details', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(
+      baseActivity({ registrationType: RegistrationType.CONTESTANT, teamSizeMin: 2, teamSizeMax: 5 }),
+    );
+
+    await service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, {
+      teamName: 'ทีม A',
+      teamSize: 3,
+      submissionLink: 'https://example.com/portfolio',
+    });
+
+    expect(repo.create).toHaveBeenCalledWith(
+      STUDENT_ID,
+      ACTIVITY_ID,
+      [],
+      { wantsCertLoanFund: false, wantsCertScholarship: false },
+      expect.objectContaining({ teamName: 'ทีม A', teamSize: 3, submissionLink: 'https://example.com/portfolio' }),
+    );
+  });
+
+  it('still rejects a duplicate active registration regardless of registration type', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(baseActivity());
+    repo.findActiveByStudentAndActivity.mockResolvedValue({ id: 1 });
+
+    await expect(service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, {})).rejects.toThrow(ConflictException);
+    expect(repo.create).not.toHaveBeenCalled();
   });
 });

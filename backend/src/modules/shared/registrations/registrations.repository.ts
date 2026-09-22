@@ -39,6 +39,14 @@ export class RegistrationsRepository {
     activityId: number,
     answers: { questionId: number; textValue?: string; optionIds: number[] }[] = [],
     certRequest: { wantsCertLoanFund?: boolean; wantsCertScholarship?: boolean } = {},
+    registrationTypeFields: {
+      dutyRole?: string | null;
+      dutyShift?: string | null;
+      teamName?: string | null;
+      teamSize?: number | null;
+      competitionCategory?: string | null;
+      submissionLink?: string | null;
+    } = {},
   ) {
     return this.prisma.registration.create({
       data: {
@@ -47,6 +55,12 @@ export class RegistrationsRepository {
         status: RegistrationStatus.PENDING as any,
         wantsCertLoanFund: !!certRequest.wantsCertLoanFund,
         wantsCertScholarship: !!certRequest.wantsCertScholarship,
+        dutyRole: registrationTypeFields.dutyRole ?? null,
+        dutyShift: registrationTypeFields.dutyShift ?? null,
+        teamName: registrationTypeFields.teamName ?? null,
+        teamSize: registrationTypeFields.teamSize ?? null,
+        competitionCategory: registrationTypeFields.competitionCategory ?? null,
+        submissionLink: registrationTypeFields.submissionLink ?? null,
         answers: {
           create: answers.map((a) => ({
             questionId: a.questionId,

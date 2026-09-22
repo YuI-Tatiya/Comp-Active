@@ -32,3 +32,10 @@ export type ActivityQuestionType = (typeof ActivityQuestionType)[keyof typeof Ac
 
 export const SurveyQuestionType = { RATING: 'rating', TEXT: 'text' } as const;
 export type SurveyQuestionType = (typeof SurveyQuestionType)[keyof typeof SurveyQuestionType];
+
+export const RegistrationType = {
+  PARTICIPANT: 'participant',
+  STAFF_VOLUNTEER: 'staff_volunteer',
+  CONTESTANT: 'contestant',
+} as const;
+export type RegistrationType = (typeof RegistrationType)[keyof typeof RegistrationType];

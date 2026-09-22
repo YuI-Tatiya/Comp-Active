@@ -91,6 +91,12 @@ enum SurveyQuestionType {
   text
 }
 
+enum RegistrationType {
+  participant
+  staff_volunteer
+  contestant
+}
+
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model OrganizerRequest {
@@ -205,37 +211,45 @@ model EventVisibilityYear {
 }
 
 model Activity {
-  id                 Int            @id @default(autoincrement())
-  organizerId        Int            @map("organizer_id")
-  eventId            Int?           @map("event_id")
-  name               String         @db.VarChar(255)
-  description        String
-  categories         String[]       @default([]) @db.VarChar(100)
-  date               DateTime       @db.Date
-  startTime          String         @map("start_time") @db.VarChar(10)
-  endTime            String         @map("end_time") @db.VarChar(10)
-  startAt            DateTime?      @map("start_at")
-  endAt              DateTime?      @map("end_at")
-  location           String         @db.VarChar(255)
-  capacity           Int?
-  status             ActivityStatus @default(open)
-  approvalStatus     ApprovalStatus @default(pending_approval) @map("approval_status")
-  rejectionReason    String?        @map("rejection_reason")
-  cancellationReason String?        @map("cancellation_reason")
-  imageUrl           String?        @map("image_url") @db.VarChar(500)
-  attachmentUrl      String?        @map("attachment_url") @db.VarChar(500)
-  volunteerHours     Decimal?       @map("volunteer_hours") @db.Decimal(5, 2)
-  volunteerRole      String?        @map("volunteer_role") @db.VarChar(255)
-  createdAt          DateTime       @default(now()) @map("created_at")
+  id                         Int              @id @default(autoincrement())
+  organizerId                Int              @map("organizer_id")
+  eventId                    Int?             @map("event_id")
+  name                       String           @db.VarChar(255)
+  description                String
+  categories                 String[]         @default([]) @db.VarChar(100)
+  date                       DateTime         @db.Date
+  startTime                  String           @map("start_time") @db.VarChar(10)
+  endTime                    String           @map("end_time") @db.VarChar(10)
+  startAt                    DateTime?        @map("start_at")
+  endAt                      DateTime?        @map("end_at")
+  location                   String           @db.VarChar(255)
+  capacity                   Int?
+  status                     ActivityStatus   @default(open)
+  approvalStatus             ApprovalStatus   @default(pending_approval) @map("approval_status")
+  rejectionReason            String?          @map("rejection_reason")
+  cancellationReason         String?          @map("cancellation_reason")
+  imageUrl                   String?          @map("image_url") @db.VarChar(500)
+  attachmentUrl              String?          @map("attachment_url") @db.VarChar(500)
+  volunteerHours             Decimal?         @map("volunteer_hours") @db.Decimal(5, 2)
+  volunteerRole              String?          @map("volunteer_role") @db.VarChar(255)
+  // ── ประเภทการรับสมัคร — กำหนดว่ากิจกรรมนี้เก็บข้อมูลผู้สมัครแบบไหน ──────────────────
+  // ฟิลด์ config ด้านล่างมีความหมายเฉพาะเมื่อ registrationType ตรงกับประเภทนั้น (คุมที่ชั้น service)
+  registrationType           RegistrationType @default(participant) @map("registration_type")
+  dutyRoleOptions            String[]         @default([]) @map("duty_role_options") @db.VarChar(255)
+  dutyShiftOptions           String[]         @default([]) @map("duty_shift_options") @db.VarChar(255)
+  teamSizeMin                Int?             @map("team_size_min")
+  teamSizeMax                Int?             @map("team_size_max")
+  competitionCategoryOptions String[]         @default([]) @map("competition_category_options") @db.VarChar(255)
+  createdAt                  DateTime         @default(now()) @map("created_at")
 
-  organizer     User                @relation(fields: [organizerId], references: [id], onDelete: Cascade)
-  event         Event?              @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  tags          ActivityTag[]
-  conditions    ActivityCondition[]
-  benefits      ActivityBenefit[]
-  softSkills    ActivitySoftSkill[]
-  questions     ActivityQuestion[]
-  registrations Registration[]
+  organizer       User                  @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  event           Event?                @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  tags            ActivityTag[]
+  conditions      ActivityCondition[]
+  benefits        ActivityBenefit[]
+  softSkills      ActivitySoftSkill[]
+  questions       ActivityQuestion[]
+  registrations   Registration[]
   // แบบสำรวจของกิจกรรมเดี่ยว (ไม่มี Event แม่) — งานที่มี Event จะใช้ Event.surveyQuestions แทน ไม่ใช่อันนี้
   surveyQuestions EventSurveyQuestion[]
 
@@ -284,17 +298,24 @@ model ActivitySoftSkill {
 }
 
 model Registration {
-  id           Int                @id @default(autoincrement())
-  activityId   Int                @map("activity_id")
-  studentId    Int                @map("student_id")
-  registerDate DateTime           @default(now()) @map("register_date")
-  status       RegistrationStatus @default(pending)
-  attendance   AttendanceStatus   @default(absent)
-  checkInTime  DateTime?          @map("check_in_time")
+  id                   Int                @id @default(autoincrement())
+  activityId           Int                @map("activity_id")
+  studentId            Int                @map("student_id")
+  registerDate         DateTime           @default(now()) @map("register_date")
+  status               RegistrationStatus @default(pending)
+  attendance           AttendanceStatus   @default(absent)
+  checkInTime          DateTime?          @map("check_in_time")
   // ขอใบจิตอาสาเพื่อ กยศ./ทุนการศึกษา — เลือกได้ทั้งสองอย่าง หรือไม่เลือกเลย (= ไม่ขอรับใบจิตอาสา)
   // มีความหมายเฉพาะกิจกรรมที่เปิดออกใบจิตอาสา (Activity.volunteerRole ไม่ว่าง)
-  wantsCertLoanFund    Boolean @default(false) @map("wants_cert_loan_fund")
-  wantsCertScholarship Boolean @default(false) @map("wants_cert_scholarship")
+  wantsCertLoanFund    Boolean            @default(false) @map("wants_cert_loan_fund")
+  wantsCertScholarship Boolean            @default(false) @map("wants_cert_scholarship")
+  // ── ข้อมูลเฉพาะประเภทการรับสมัคร — มีความหมายเฉพาะเมื่อ Activity.registrationType ตรงกัน ──
+  dutyRole             String?            @map("duty_role") @db.VarChar(255)
+  dutyShift            String?            @map("duty_shift") @db.VarChar(255)
+  teamName             String?            @map("team_name") @db.VarChar(255)
+  teamSize             Int?               @map("team_size")
+  competitionCategory  String?            @map("competition_category") @db.VarChar(255)
+  submissionLink       String?            @map("submission_link") @db.VarChar(500)
 
   activity      Activity                   @relation(fields: [activityId], references: [id], onDelete: Cascade)
   student       User                       @relation(fields: [studentId], references: [id], onDelete: Cascade)

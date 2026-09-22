@@ -25,6 +25,12 @@ export interface PreparedActivityData {
   capacity?: number | null;
   volunteerHours?: number | null;
   volunteerRole?: string | null;
+  registrationType: string;
+  dutyRoleOptions: string[];
+  dutyShiftOptions: string[];
+  teamSizeMin: number | null;
+  teamSizeMax: number | null;
+  competitionCategoryOptions: string[];
   softSkillRates: { skillType: string; rate: number }[];
   questions: PreparedQuestionData[];
 }

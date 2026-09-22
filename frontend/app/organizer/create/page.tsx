@@ -50,6 +50,10 @@ export default function CreateEventPage() {
 
     function patchEvent(patch: Partial<EventFormState>) {
         setEvent((prev) => ({ ...prev, ...patch }))
+        // สลับมาเป็น "กิจกรรมเดี่ยว" ขณะมีหลายกิจกรรมย่อยอยู่แล้ว — เหลือไว้แค่รายการแรก
+        if (patch.type === "single") {
+            setActivities((prev) => (prev.length > 1 ? [prev[0]] : prev))
+        }
     }
 
     function patchActivity(key: string, patch: Partial<ActivityFormState>) {
@@ -184,6 +188,13 @@ export default function CreateEventPage() {
                         ? Object.entries(a.softSkillRates).map(([skillType, rate]) => ({ skillType, rate }))
                         : undefined,
                     questions,
+                    registrationType: a.registrationType,
+                    dutyRoleOptions: a.registrationType === "staff_volunteer" ? a.dutyRoleOptions.filter(Boolean) : [],
+                    dutyShiftOptions: a.registrationType === "staff_volunteer" ? a.dutyShiftOptions.filter(Boolean) : [],
+                    teamSizeMin: a.registrationType === "contestant" && a.teamSizeMin ? parseInt(a.teamSizeMin) : null,
+                    teamSizeMax: a.registrationType === "contestant" && a.teamSizeMax ? parseInt(a.teamSizeMax) : null,
+                    competitionCategoryOptions:
+                        a.registrationType === "contestant" ? a.competitionCategoryOptions.filter(Boolean) : [],
                 })
             }
 
@@ -278,6 +289,7 @@ export default function CreateEventPage() {
                                             activities={activities}
                                             activeKey={activeActivityKey}
                                             errorsByKey={activityErrors}
+                                            isSingleMode={event.type === "single"}
                                             onActiveKeyChange={setActiveActivityKey}
                                             onChangeActivity={patchActivity}
                                             onFieldBlur={handleActivityFieldBlur}

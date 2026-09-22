@@ -29,10 +29,24 @@ export class RegistrationsStudentController {
     @CurrentUser() viewer: Viewer,
     @Body() createDto: CreateRegistrationDto,
   ) {
-    return this.registrationsService.create(studentId, createDto.activityId, viewer, createDto.answers, {
-      wantsCertLoanFund: createDto.wantsCertLoanFund,
-      wantsCertScholarship: createDto.wantsCertScholarship,
-    });
+    return this.registrationsService.create(
+      studentId,
+      createDto.activityId,
+      viewer,
+      createDto.answers,
+      {
+        wantsCertLoanFund: createDto.wantsCertLoanFund,
+        wantsCertScholarship: createDto.wantsCertScholarship,
+      },
+      {
+        dutyRole: createDto.dutyRole,
+        dutyShift: createDto.dutyShift,
+        teamName: createDto.teamName,
+        teamSize: createDto.teamSize,
+        competitionCategory: createDto.competitionCategory,
+        submissionLink: createDto.submissionLink,
+      },
+    );
   }
 
   /**
