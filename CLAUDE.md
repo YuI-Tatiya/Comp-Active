@@ -22,9 +22,9 @@ Isolated subdomain with dedicated Admin authentication.
 
 #### Student & Organizer Portal (`app.compactive.com`)
 
-Shared login path for both Students and Organizers (`/auth/login`).
+Shared login path for both Students and Organizers (`/auth`).
 
-- **Student Features:** Register for activities, request volunteer certificates, gain points across 5 soft skills (teamwork, leadership, communication, problem solving, adaptability), and evaluate activities.
+- **Student Features:** Register for activities, request volunteer certificates, gain points across 12 soft skills (communication, time management, flexibility/adaptability, teamwork/collaboration, analytic/critical thinking, decision making, creativity, complex problem solving, curiosity/lifelong learning, negotiation/persuasion, leadership, positive attitude), and evaluate activities.
 - **Organizer Features:** Create activities (with soft-skill point rules), download registration/attendance data, view activity feedback, and view activity dashboards.
 
 #### Public Developer Services (`api.compactive.com`)
