@@ -78,6 +78,7 @@ export class ActivitiesRepository {
           include: {
             student: true,
             evaluation: true,
+            certificate: true,
             answers: {
               include: {
                 question: { select: { id: true, label: true } },

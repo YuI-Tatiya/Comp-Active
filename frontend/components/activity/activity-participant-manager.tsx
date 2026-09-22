@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { CheckSquare, Download, Search } from "lucide-react"
 import { formatEventDate } from "@/components/ui/event-card"
-import { registrationsAPI, type Activity } from "@/lib/api"
+import { registrationsAPI, certificatesAPI, type Activity } from "@/lib/api"
 import { ActivityAboutPanel, ActivityRegistrationPanel, ActivityRewardsPanel } from "@/components/activity/activity-info-panels"
 
 interface RegistrationAnswerRow {
@@ -36,6 +38,7 @@ export interface RegistrationRow {
     teamSize?: number | null
     competitionCategory?: string | null
     submissionLink?: string | null
+    certificate?: { id: number; volunteerHours: string | null; issueDate: string } | null
     answers?: RegistrationAnswerRow[]
 }
 
@@ -108,6 +111,9 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
     const [participantSearch, setParticipantSearch] = useState("")
     const [participantFilters, setParticipantFilters] = useState<ParticipantFilters>(INITIAL_PARTICIPANT_FILTERS)
     const [checkinSearch, setCheckinSearch] = useState("")
+    const [issueCertReg, setIssueCertReg] = useState<RegistrationRow | null>(null)
+    const [issueHoursInput, setIssueHoursInput] = useState("")
+    const [issuingCert, setIssuingCert] = useState(false)
 
     const handleConfirm = async (regId: number) => {
         try {
@@ -128,6 +134,28 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
         } catch (err: unknown) {
             const e = err as Error
             alert(e.message || "เช็คอินไม่สำเร็จ")
+        }
+    }
+
+    const openIssueCertDialog = (reg: RegistrationRow) => {
+        setIssueCertReg(reg)
+        setIssueHoursInput(activity.volunteerHours ?? "")
+    }
+
+    const handleIssueCertificate = async () => {
+        if (!issueCertReg) return
+        setIssuingCert(true)
+        try {
+            const hours = issueHoursInput.trim() ? parseFloat(issueHoursInput) : undefined
+            await certificatesAPI.issue(issueCertReg.id, hours)
+            setIssueCertReg(null)
+            alert("ออกใบรับรองสำเร็จ")
+            onRefetch()
+        } catch (err: unknown) {
+            const e = err as Error
+            alert(e.message || "ออกใบรับรองไม่สำเร็จ")
+        } finally {
+            setIssuingCert(false)
         }
     }
 
@@ -396,6 +424,17 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
                                                     <Badge variant="neutral">ยังไม่มีคะแนน</Badge>
                                                 )
                                             )}
+                                            {activity.volunteerRole && reg.attendance === "attended" && (
+                                                reg.certificate ? (
+                                                    <Badge variant="success">
+                                                        ออกใบรับรองแล้ว{reg.certificate.volunteerHours ? ` (${reg.certificate.volunteerHours} ชม.)` : ""}
+                                                    </Badge>
+                                                ) : (
+                                                    <Button size="sm" variant="outline" className="text-brand-600" onClick={() => openIssueCertDialog(reg)}>
+                                                        ออกใบรับรอง
+                                                    </Button>
+                                                )
+                                            )}
                                         </div>
                                     </div>
 
@@ -526,6 +565,33 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
                 loading={confirmingAll}
                 onConfirm={handleConfirmAll}
             />
+
+            <Dialog open={!!issueCertReg} onOpenChange={(open) => !open && setIssueCertReg(null)}>
+                <DialogContent className="sm:max-w-[420px]">
+                    <DialogHeader>
+                        <DialogTitle>ออกใบรับรองจิตอาสา — {issueCertReg?.student.name}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-2 py-2">
+                        <Label htmlFor="issue-cert-hours">ชั่วโมงจิตอาสา</Label>
+                        <Input
+                            id="issue-cert-hours"
+                            type="number"
+                            min={0}
+                            max={999.99}
+                            step="0.5"
+                            value={issueHoursInput}
+                            onChange={(e) => setIssueHoursInput(e.target.value)}
+                        />
+                        <p className="text-xs text-fg-subtle">ค่าเริ่มต้นคำนวณจากวันเวลาของกิจกรรม ปรับได้ตามการทำงานจริงของคนนี้</p>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIssueCertReg(null)} disabled={issuingCert}>ยกเลิก</Button>
+                        <Button onClick={handleIssueCertificate} disabled={issuingCert}>
+                            {issuingCert ? "กำลังออกใบรับรอง..." : "ออกใบรับรอง"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     )
 }

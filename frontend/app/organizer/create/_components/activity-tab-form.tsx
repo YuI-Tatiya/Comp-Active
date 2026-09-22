@@ -329,7 +329,7 @@ export function ActivityTabForm({ activity, errors, onChange, onFieldBlur }: Pro
                         <div>
                             <Label>ออกใบรับรองจิตอาสา</Label>
                             <p className="mt-0.5 text-xs text-fg-muted">
-                                ระบบคำนวณชั่วโมงจิตอาสาให้อัตโนมัติจากวันเวลาเริ่ม-สิ้นสุดด้านบน
+                                ระบบตั้งชั่วโมงจิตอาสาเริ่มต้นให้อัตโนมัติจากวันเวลาข้างต้น — ปรับเป็นรายบุคคลได้ภายหลังตอนออกใบรับรองให้แต่ละคน
                             </p>
                         </div>
                         <Toggle
@@ -386,9 +386,9 @@ export function ActivityTabForm({ activity, errors, onChange, onFieldBlur }: Pro
             <TabsContent value="eval" className="mt-6 space-y-6">
                 <div className="flex items-start justify-between gap-4">
                     <div>
-                        <Label>ให้คะแนน Soft Skills</Label>
+                        <Label>ทักษะที่กิจกรรมนี้ช่วยพัฒนา</Label>
                         <p className="mt-0.5 text-xs text-fg-muted">
-                            เลือกทักษะที่กิจกรรมนี้ฝึกฝน พร้อมกำหนดน้ำหนักคะแนน 0-5
+                            เลือกทักษะที่เกี่ยวข้อง แล้วระบุระดับที่กิจกรรมนี้ช่วยพัฒนาได้ (0-5) — ผู้เข้าร่วมทุกคนที่เช็คอินจะได้รับคะแนนนี้เท่ากันโดยอัตโนมัติ
                         </p>
                     </div>
                     <Toggle

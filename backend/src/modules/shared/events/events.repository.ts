@@ -92,6 +92,7 @@ export const eventOrganizerInclude = {
         include: {
           student: { select: { id: true, name: true, studentId: true, email: true, phone: true } },
           evaluation: true,
+          certificate: true,
           // คำตอบคำถามลงทะเบียน — organizer เห็นได้เต็ม เพื่อกรอง/ export ตามคำตอบ
           answers: {
             include: {

@@ -19,7 +19,7 @@ export function SectionEventBasics({ data, errors, onChange, onFieldBlur }: Prop
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-lg font-bold text-fg">ข้อมูลพื้นฐานของงาน</h2>
+                <h2 className="text-lg font-bold text-fg">ข้อมูลภาพรวมของงาน</h2>
                 <p className="mt-1 text-sm text-fg-muted">
                     ตั้งชื่อและอธิบายภาพรวมของงาน — งานหนึ่งสามารถมีกิจกรรมย่อยได้หลายกิจกรรมในขั้นตอนถัดไป
                 </p>

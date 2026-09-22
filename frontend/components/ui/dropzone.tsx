@@ -20,7 +20,7 @@ export function Dropzone({
     onFileSelected,
     hasFile,
     children,
-    label = "ลากไฟล์มาวาง หรือคลิกเพื่อเลือกไฟล์",
+    label = "ลากไฟล์มาวางตรงนี้ หรือคลิกเพื่อเลือกไฟล์จากเครื่อง",
     hint,
     className,
 }: DropzoneProps) {
@@ -33,6 +33,7 @@ export function Dropzone({
         <div
             role="button"
             tabIndex={0}
+            aria-label={label}
             onClick={() => inputRef.current?.click()}
             onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -64,6 +65,8 @@ export function Dropzone({
                 ref={inputRef}
                 type="file"
                 accept={accept}
+                tabIndex={-1}
+                aria-hidden="true"
                 className="sr-only"
                 onChange={(e) => {
                     const file = e.target.files?.[0]

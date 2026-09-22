@@ -9,7 +9,7 @@ export class CertificatesService {
 
   constructor(private readonly certificatesRepository: CertificatesRepository) {}
 
-  async issue(registrationId: number) {
+  async issue(registrationId: number, volunteerHoursOverride?: number) {
     const registration = await this.certificatesRepository.findRegistrationWithActivityAndStudent(registrationId);
 
     if (!registration) throw new NotFoundException('ไม่พบรายการลงทะเบียน');
@@ -24,7 +24,12 @@ export class CertificatesService {
 
     const certificateUrl = `/certificates/${registrationId}-${Date.now()}.pdf`;
     // สแนปช็อตชั่วโมง/บทบาทจิตอาสาไว้ที่ใบเกียรติบัตร ณ เวลาออก — กันไม่ให้ค่าบนใบเปลี่ยนไปถ้ากิจกรรมถูกแก้ไขภายหลัง
-    const { volunteerHours, volunteerRole } = registration.activity;
+    // ผู้จัดปรับชั่วโมงเป็นรายคนได้ตอนออกใบรับรอง — ไม่ระบุ = ใช้ค่าเริ่มต้นที่คำนวณไว้ระดับกิจกรรม
+    const { volunteerRole } = registration.activity;
+    const volunteerHours =
+      volunteerHoursOverride != null
+        ? Math.round(volunteerHoursOverride * 100) / 100
+        : registration.activity.volunteerHours;
 
     let certificate;
     try {

@@ -117,7 +117,7 @@ export function DynamicQuestionBuilder({
 
                             {isScaleType && (
                                 <label className="flex items-center gap-2 text-sm text-fg-muted">
-                                    คะแนนเต็ม
+                                    จำนวนดาวเต็ม
                                     <Input
                                         type="number"
                                         min={2}

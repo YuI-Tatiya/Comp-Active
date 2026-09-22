@@ -558,8 +558,12 @@ export interface Certificate {
 }
 
 export const certificatesAPI = {
-  issue: (registrationId: number) =>
-    fetchAPI(`/api/certificates/issue/${registrationId}`, { method: 'POST' }),
+  // ไม่ระบุ volunteerHours = ใช้ค่าเริ่มต้นที่คำนวณจากกิจกรรม
+  issue: (registrationId: number, volunteerHours?: number) =>
+    fetchAPI(`/api/certificates/issue/${registrationId}`, {
+      method: 'POST',
+      body: JSON.stringify({ volunteerHours }),
+    }),
   getMy: () => fetchAPI<Certificate[]>('/api/certificates/my'),
   getById: (id: number) => fetchAPI(`/api/certificates/${id}`),
 };
