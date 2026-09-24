@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -10,7 +11,7 @@ import { ImageCropUpload } from "@/components/ui/image-crop-upload"
 import { Dropzone } from "@/components/ui/dropzone"
 import { DynamicQuestionBuilder } from "@/components/ui/dynamic-question-builder"
 import { CATEGORIES } from "@/lib/categories"
-import { SOFT_SKILLS } from "@/lib/soft-skills"
+import { SOFT_SKILLS, SOFT_SKILL_TIERS, MAX_SOFT_SKILLS_PER_ACTIVITY, maxSoftSkillLevel } from "@/lib/soft-skills"
 import { cn, toggleInArray } from "@/lib/utils"
 import { Paperclip, X } from "lucide-react"
 import type { ActivityFormState, ActivityFormErrors } from "./types"
@@ -34,6 +35,8 @@ function splitLines(text: string): string[] {
 interface Props {
     activity: ActivityFormState
     errors: ActivityFormErrors
+    /** กิจกรรมนี้เป็นส่วนหนึ่งของโครงการหลายกิจกรรมหรือไม่ — ใช้ปลดล็อกเพดาน Soft Skills ระดับสูงสุด (ดู maxSoftSkillLevel) */
+    isProject?: boolean
     onChange: (patch: Partial<ActivityFormState>) => void
     onFieldBlur: (field: keyof ActivityFormErrors) => void
 }
@@ -47,13 +50,30 @@ function computeHoursPreview(startAt: string, endAt: string): string | null {
     return ((end.getTime() - start.getTime()) / (1000 * 60 * 60)).toFixed(2)
 }
 
-export function ActivityTabForm({ activity, errors, onChange, onFieldBlur }: Props) {
+export function ActivityTabForm({ activity, errors, isProject, onChange, onFieldBlur }: Props) {
     const hoursPreview = computeHoursPreview(activity.startAt, activity.endAt)
+    const durationHours = hoursPreview ? parseFloat(hoursPreview) : null
+    const softSkillCap = maxSoftSkillLevel(durationHours ?? 0, activity.registrationType, !!isProject)
+    const selectedSkillCount = Object.keys(activity.softSkillRates).length
+    const atMaxSkills = selectedSkillCount >= MAX_SOFT_SKILLS_PER_ACTIVITY
+
+    // เพดานลดลง (เช่น แก้วันเวลาให้สั้นลงทีหลัง) ต้องลดค่าที่เลือกไว้แล้วลงมาด้วย ไม่ปล่อยให้ค้างเกินเพดาน
+    useEffect(() => {
+        const entries = Object.entries(activity.softSkillRates)
+        const clamped = entries.filter(([, rate]) => rate > softSkillCap)
+        if (clamped.length === 0) return
+        const next = { ...activity.softSkillRates }
+        for (const [skillType] of clamped) next[skillType] = softSkillCap
+        onChange({ softSkillRates: next })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [softSkillCap])
 
     function toggleSoftSkill(skillType: string, checked: boolean) {
         const next = { ...activity.softSkillRates }
         if (checked) {
-            next[skillType] = next[skillType] ?? 3
+            if (Object.keys(next).length >= MAX_SOFT_SKILLS_PER_ACTIVITY) return
+            // 2 คือระดับต่ำสุดที่ใช้ได้เสมอไม่ว่าเพดานของกิจกรรมนี้จะเท่าไร
+            next[skillType] = next[skillType] ?? 2
         } else {
             delete next[skillType]
         }
@@ -61,8 +81,7 @@ export function ActivityTabForm({ activity, errors, onChange, onFieldBlur }: Pro
     }
 
     function setSoftSkillRate(skillType: string, rate: number) {
-        const clamped = Math.min(5, Math.max(0, Number.isNaN(rate) ? 0 : rate))
-        onChange({ softSkillRates: { ...activity.softSkillRates, [skillType]: clamped } })
+        onChange({ softSkillRates: { ...activity.softSkillRates, [skillType]: rate } })
     }
 
     return (
@@ -388,7 +407,7 @@ export function ActivityTabForm({ activity, errors, onChange, onFieldBlur }: Pro
                     <div>
                         <Label>ทักษะที่กิจกรรมนี้ช่วยพัฒนา</Label>
                         <p className="mt-0.5 text-xs text-fg-muted">
-                            เลือกทักษะที่เกี่ยวข้อง แล้วระบุระดับที่กิจกรรมนี้ช่วยพัฒนาได้ (0-5) — ผู้เข้าร่วมทุกคนที่เช็คอินจะได้รับคะแนนนี้เท่ากันโดยอัตโนมัติ
+                            เลือกได้สูงสุด {MAX_SOFT_SKILLS_PER_ACTIVITY} ทักษะต่อกิจกรรม — ผู้เข้าร่วมทุกคนที่เช็คอินจะได้รับระดับนี้เท่ากันโดยอัตโนมัติ
                         </p>
                     </div>
                     <Toggle
@@ -399,43 +418,68 @@ export function ActivityTabForm({ activity, errors, onChange, onFieldBlur }: Pro
                 {activity.softSkillsEnabled && (
                     <div className="space-y-4 rounded-lg border border-border bg-surface p-4">
                         <div className="space-y-1 text-xs text-fg-muted">
-                            <p className="font-medium text-fg">เกณฑ์การให้คะแนน Soft Skills (0-5)</p>
-                            <ul className="space-y-0.5">
-                                <li>1 — Awareness (รับรู้): ผ่านการฟัง/รับรู้ข้อมูลพื้นฐาน</li>
-                                <li>2 — Understanding (เข้าใจ): ความเข้าใจและตอบโต้ได้</li>
-                                <li>3 — Application (ประยุกต์ใช้): ได้ลงมือปฏิบัติจริง</li>
-                                <li>4 — Competency (เชี่ยวชาญ): สร้างผลงาน/แก้ปัญหา</li>
-                                <li>5 — Mastery / Leadership (ผู้นำ): นำไปใช้จริงหรือนำผู้อื่น</li>
-                            </ul>
+                            <p className="font-medium text-fg">
+                                เลือกแล้ว {selectedSkillCount}/{MAX_SOFT_SKILLS_PER_ACTIVITY} ทักษะ — ระดับสูงสุดที่ให้ได้ขึ้นกับระยะเวลากิจกรรม
+                            </p>
+                            <p>
+                                {durationHours == null
+                                    ? "กรอกวันเวลาเริ่ม-สิ้นสุดในแท็บ \"วันเวลา/สถานที่\" ก่อน เพื่อคำนวณระดับสูงสุดที่ปลดล็อกได้"
+                                    : softSkillCap === 2
+                                        ? `กิจกรรมนี้ (${durationHours} ชม.) ให้ได้สูงสุดระดับ "ผ่าน" — กิจกรรมที่ยาวขึ้นจะปลดล็อกระดับสูงกว่านี้`
+                                        : softSkillCap === 3
+                                            ? `กิจกรรมนี้ (${durationHours} ชม.) ให้ได้สูงสุดระดับ "ดี"`
+                                            : `กิจกรรมนี้ (${durationHours} ชม., สตาฟฟ์/จิตอาสา) ให้ได้ถึงระดับ "ดีเยี่ยม"`}
+                            </p>
                         </div>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-3">
                             {SOFT_SKILLS.map((skill) => {
                                 const checked = skill.value in activity.softSkillRates
+                                const rate = activity.softSkillRates[skill.value]
                                 return (
-                                    <div key={skill.value} className="flex items-center gap-3">
+                                    <div key={skill.value} className="flex flex-wrap items-center gap-3">
                                         <input
                                             type="checkbox"
                                             id={`${activity.key}-skill-${skill.value}`}
                                             checked={checked}
+                                            disabled={!checked && atMaxSkills}
                                             onChange={(e) => toggleSoftSkill(skill.value, e.target.checked)}
-                                            className="size-4 cursor-pointer rounded border-border bg-bg text-brand-600 focus:ring-brand-500"
+                                            className="size-4 cursor-pointer rounded border-border bg-bg text-brand-600 focus:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40"
                                         />
                                         <Label
                                             htmlFor={`${activity.key}-skill-${skill.value}`}
-                                            className="flex-1 cursor-pointer text-sm font-normal"
+                                            className={cn(
+                                                "min-w-[220px] flex-1 text-sm font-normal",
+                                                !checked && atMaxSkills ? "cursor-not-allowed text-fg-subtle" : "cursor-pointer"
+                                            )}
                                         >
                                             {skill.label}
                                         </Label>
                                         {checked && (
-                                            <Input
-                                                type="number"
-                                                min={0}
-                                                max={5}
-                                                value={activity.softSkillRates[skill.value]}
-                                                onChange={(e) => setSoftSkillRate(skill.value, Number(e.target.value))}
-                                                onBlur={(e) => setSoftSkillRate(skill.value, Number(e.target.value))}
-                                                className="h-8 w-16 text-center"
-                                            />
+                                            <div className="flex gap-1.5">
+                                                {SOFT_SKILL_TIERS.map((tier) => {
+                                                    const locked = tier.value > softSkillCap
+                                                    return (
+                                                        <button
+                                                            key={tier.value}
+                                                            type="button"
+                                                            title={locked ? "กิจกรรมนี้ยังไม่ปลดล็อกระดับนี้" : tier.hint}
+                                                            disabled={locked}
+                                                            onClick={() => setSoftSkillRate(skill.value, tier.value)}
+                                                            aria-pressed={rate === tier.value}
+                                                            className={cn(
+                                                                "rounded-full border px-3 py-1 text-xs font-bold transition-colors",
+                                                                locked
+                                                                    ? "cursor-not-allowed border-border bg-surface text-fg-subtle opacity-50"
+                                                                    : rate === tier.value
+                                                                        ? "border-brand-600 bg-brand-600 text-white"
+                                                                        : "border-border bg-bg text-fg-muted hover:border-border-strong"
+                                                            )}
+                                                        >
+                                                            {tier.label}
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
                                         )}
                                     </div>
                                 )

@@ -29,6 +29,10 @@ export function SectionActivities({
     onAdd,
     onRemove,
 }: Props) {
+    // "ทำโครงการ" สำหรับปลดล็อกเพดาน Soft Skills ระดับสูง — ต้องตรงกับ isProject ฝั่ง backend
+    // (EventsService.create/update ใช้ dto.activities.length > 1 เป๊ะ)
+    const isProject = activities.length > 1
+
     if (isSingleMode) {
         const a = activities[0]
         if (!a) return null
@@ -43,6 +47,7 @@ export function SectionActivities({
                 <ActivityTabForm
                     activity={a}
                     errors={errorsByKey[a.key] ?? {}}
+                    isProject={isProject}
                     onChange={(patch) => onChangeActivity(a.key, patch)}
                     onFieldBlur={(field) => onFieldBlur(a.key, field)}
                 />
@@ -100,6 +105,7 @@ export function SectionActivities({
                         <ActivityTabForm
                             activity={a}
                             errors={errorsByKey[a.key] ?? {}}
+                            isProject={isProject}
                             onChange={(patch) => onChangeActivity(a.key, patch)}
                             onFieldBlur={(field) => onFieldBlur(a.key, field)}
                         />

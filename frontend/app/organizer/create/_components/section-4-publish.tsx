@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Toggle } from "@/components/ui/toggle"
 import { categoryLabel } from "@/lib/categories"
-import { softSkillLabel } from "@/lib/soft-skills"
+import { softSkillLabel, softSkillTierLabel } from "@/lib/soft-skills"
 import { PROGRAMS } from "@/lib/programs"
 import { cn } from "@/lib/utils"
 import { Calendar, MapPin, Users, Award } from "lucide-react"
@@ -202,7 +202,7 @@ export function SectionPublish({ event, activities, onChangeEvent }: Props) {
                                 <div className="mt-3 flex flex-wrap gap-1.5">
                                     {Object.entries(a.softSkillRates).map(([skillType, rate]) => (
                                         <Badge key={skillType} variant="outline" className="text-xs">
-                                            {softSkillLabel(skillType)} · {rate}/5
+                                            {softSkillLabel(skillType)} · {softSkillTierLabel(rate)}
                                         </Badge>
                                     ))}
                                 </div>

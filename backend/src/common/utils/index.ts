@@ -5,3 +5,4 @@ export * from "./html.util";
 export * from "./upload.util";
 export * from './auth-cookie.util';
 export * from './registration-type.util';
+export * from './soft-skill-cap.util';
