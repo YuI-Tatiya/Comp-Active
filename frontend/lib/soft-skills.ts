@@ -142,12 +142,8 @@ export const SOFT_SKILLS: SoftSkillMeta[] = [
     },
 ]
 
-/** ป้ายพฤติกรรมที่สังเกตได้ 3 ระดับ แทนตัวเลข 1-5 ดิบ — ค่า value คือระดับที่บันทึกจริงเบื้องหลัง */
-export const SOFT_SKILL_TIERS: { value: 2 | 3 | 5; label: string; hint: string }[] = [
-    { value: 2, label: "ผ่าน", hint: "ทำตามที่ได้รับมอบหมายสำเร็จ ไม่ต้องเตือนซ้ำ" },
-    { value: 3, label: "ดี", hint: "ริเริ่มเอง แก้ปัญหาระดับย่อยได้ด้วยตนเอง" },
-    { value: 5, label: "ดีเยี่ยม", hint: "รับผิดชอบผลลัพธ์ภาพรวม นำ/มอบหมายงานให้ผู้อื่นได้" },
-]
+// ระดับ 3 ระดับ (ผ่าน/ดี/ดีเยี่ยม) อยู่ใน soft-skill-tiers.ts (ไม่ผูก icon) — re-export ให้ import จากที่นี่ได้เหมือนเดิม
+export { SOFT_SKILL_TIERS, softSkillTierLabel } from "./soft-skill-tiers"
 
 export const MAX_SOFT_SKILLS_PER_ACTIVITY = 3
 
@@ -161,11 +157,6 @@ export function maxSoftSkillLevel(durationHours: number, registrationType: strin
     if (durationHours <= 4) return 2
     if (durationHours <= 48) return 3
     return 3
-}
-
-/** ป้ายพฤติกรรมของระดับที่บันทึกไว้ — ใช้แสดงผลใน summary/badge ต่างๆ แทนตัวเลขดิบ */
-export function softSkillTierLabel(rate: number): string {
-    return SOFT_SKILL_TIERS.find((t) => t.value === rate)?.label ?? `ระดับ ${rate}`
 }
 
 const BY_VALUE = new Map(SOFT_SKILLS.map((s) => [s.value, s]))

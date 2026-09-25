@@ -430,3 +430,80 @@ describe('RegistrationsService.create — registration type validation', () => {
     expect(repo.create).not.toHaveBeenCalled();
   });
 });
+
+describe('RegistrationsService.create — registration deadline (Event.registrationCloseAt)', () => {
+  let service: RegistrationsService;
+  let repo: { findActivityWithActiveCount: jest.Mock; findActiveByStudentAndActivity: jest.Mock; create: jest.Mock };
+
+  const DEADLINE = new Date('2027-01-20T10:00:00.000Z');
+
+  const activityWithDeadline = (registrationCloseAt: Date | null) => ({
+    id: 1,
+    event: { visibility: 'everyone', registrationCloseAt },
+    approvalStatus: 'approved',
+    status: 'open',
+    capacity: null,
+    volunteerRole: null,
+    questions: [],
+    _count: { registrations: 0 },
+    registrationType: RegistrationType.PARTICIPANT,
+    dutyRoleOptions: [] as string[],
+    dutyShiftOptions: [] as string[],
+    teamSizeMin: null,
+    teamSizeMax: null,
+    competitionCategoryOptions: [] as string[],
+  });
+
+  beforeEach(async () => {
+    jest.useFakeTimers().setSystemTime(DEADLINE);
+    repo = {
+      findActivityWithActiveCount: jest.fn(),
+      findActiveByStudentAndActivity: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 99 }),
+    };
+    const module = await Test.createTestingModule({
+      providers: [
+        RegistrationsService,
+        { provide: RegistrationsRepository, useValue: repo },
+        { provide: EvaluationsService, useValue: {} },
+        { provide: PrismaService, useValue: {} },
+        { provide: MailService, useValue: {} },
+      ],
+    }).compile();
+    service = module.get(RegistrationsService);
+  });
+
+  afterEach(() => jest.useRealTimers());
+
+  const register = () => service.create(5, 1, {} as any, [], {}, {});
+
+  it('rejects a registration after the deadline, without creating anything', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithDeadline(new Date(DEADLINE.getTime() - 1)));
+
+    await expect(register()).rejects.toThrow(BadRequestException);
+    await expect(register()).rejects.toThrow('หมดเขตรับสมัครแล้ว');
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects at the exact deadline instant (the deadline itself is already closed)', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithDeadline(DEADLINE));
+
+    await expect(register()).rejects.toThrow(BadRequestException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('still accepts a registration one millisecond before the deadline', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithDeadline(new Date(DEADLINE.getTime() + 1)));
+
+    await expect(register()).resolves.toEqual({ id: 99 });
+  });
+
+  it('accepts when the event has no deadline, and when the activity has no event at all', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithDeadline(null));
+    await expect(register()).resolves.toEqual({ id: 99 });
+
+    repo.findActivityWithActiveCount.mockResolvedValue({ ...activityWithDeadline(null), event: null });
+    await expect(register()).resolves.toEqual({ id: 99 });
+  });
+});
+

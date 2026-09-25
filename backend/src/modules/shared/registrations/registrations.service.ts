@@ -78,6 +78,13 @@ export class RegistrationsService {
       throw new BadRequestException('กิจกรรมนี้ปิดรับสมัครแล้ว');
     }
 
+    // วันปิดรับสมัครระดับงาน (Event.registrationCloseAt) — เดิมเก็บและแสดงอย่างเดียว ไม่เคยบังคับ ยิง API ตรงจึงสมัครหลังหมดเขตได้
+    // ถึงเวลาปิดพอดีถือว่าปิดแล้ว (<=) ให้ตรงกับหน้าจอที่ปิดปุ่มเมื่อ deadline <= ตอนนี้
+    const closeAt = (activity as { event?: { registrationCloseAt?: Date | null } | null }).event?.registrationCloseAt;
+    if (closeAt && closeAt.getTime() <= Date.now()) {
+      throw new BadRequestException('หมดเขตรับสมัครแล้ว');
+    }
+
     if (activity.capacity !== null && activity._count.registrations >= activity.capacity) {
       throw new BadRequestException('กิจกรรมนี้เต็มแล้ว');
     }

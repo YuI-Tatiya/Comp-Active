@@ -3,10 +3,9 @@
 import { Badge } from "@/components/ui/badge"
 import { API_BASE_URL, capacityLabel, isCancelledByOrganizer, type Activity } from "@/lib/api"
 import { categoryLabel } from "@/lib/categories"
-import { softSkillLabel } from "@/lib/soft-skills"
+import { BenefitsSection } from "@/components/activity/benefits-section"
 import {
     AlertTriangle,
-    Award,
     CalendarClock,
     CheckSquare,
     FileDown,
@@ -49,13 +48,6 @@ function PanelHeading({ icon: Icon, tone, children }: {
             <Icon className={`w-5 h-5 ${tone}`} aria-hidden={true} /> {children}
         </h3>
     )
-}
-
-/** แปลงชั่วโมงจิตอาสา — Prisma Decimal มาเป็น string เสมอ */
-function formatHours(hours: string | null | undefined): string {
-    if (hours == null) return "-"
-    const n = Number(hours)
-    return Number.isNaN(n) ? String(hours) : String(n)
 }
 
 function formatDateTime(iso: string | null | undefined): string {
@@ -111,10 +103,12 @@ interface AboutPanelProps {
      * จึงไม่เคยแสดงที่ไหนเลย — ปิดในหน้ากิจกรรมเดี่ยวเพราะรูปด้านบนเป็นรูปของกิจกรรมนั้นอยู่แล้ว
      */
     showActivityImage?: boolean
+    /** ซ่อนบรรทัดหมวดหมู่/ผู้จัด — หน้าลงทะเบียนของนักศึกษาแสดงสองอย่างนี้ใน Hero แล้ว ไม่ให้ซ้ำ */
+    hideMeta?: boolean
 }
 
 /** แผง "รายละเอียด" — รูปกิจกรรม, คำอธิบาย, หมวดหมู่, ผู้จัด, ไฟล์แนบ, tags */
-export function ActivityAboutPanel({ activity, showActivityImage = false }: AboutPanelProps) {
+export function ActivityAboutPanel({ activity, showActivityImage = false, hideMeta = false }: AboutPanelProps) {
     return (
         <div className={PANEL_CLASS}>
             <ActivityStatusNotice activity={activity} />
@@ -137,17 +131,19 @@ export function ActivityAboutPanel({ activity, showActivityImage = false }: Abou
                 </p>
             </div>
 
-            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-fg-muted">
-                <span>
-                    <strong className="text-fg">หมวดหมู่:</strong> {activity.categories.map((c) => categoryLabel(c)).join(", ")}
-                </span>
-                {activity.organizer?.name && (
-                    <span className="flex items-center gap-1.5">
-                        <UserCircle className="size-4 text-fg-subtle" aria-hidden="true" />
-                        <strong className="text-fg">ผู้จัด:</strong> {activity.organizer.name}
+            {!hideMeta && (
+                <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-fg-muted">
+                    <span>
+                        <strong className="text-fg">หมวดหมู่:</strong> {activity.categories.map((c) => categoryLabel(c)).join(", ")}
                     </span>
-                )}
-            </div>
+                    {activity.organizer?.name && (
+                        <span className="flex items-center gap-1.5">
+                            <UserCircle className="size-4 text-fg-subtle" aria-hidden="true" />
+                            <strong className="text-fg">ผู้จัด:</strong> {activity.organizer.name}
+                        </span>
+                    )}
+                </div>
+            )}
 
             {/* ไฟล์แนบ — organizer อัปโหลดได้ตอนสร้าง แต่เดิมไม่เคยแสดงที่ไหนเลย */}
             {activity.attachmentUrl && (
@@ -181,77 +177,55 @@ export function ActivityAboutPanel({ activity, showActivityImage = false }: Abou
     )
 }
 
-/** แผง "สิ่งที่จะได้รับ" — Soft Skills พร้อมน้ำหนัก และใบรับรองจิตอาสา */
+/**
+ * แผง "สิ่งที่จะได้รับ" — ทักษะ (เป็นระดับ ผ่าน/ดี/ดีเยี่ยม) และชั่วโมงจิตอาสา
+ * ใช้ BenefitsSection ตัวเดียวกับหน้าลงทะเบียนของนักศึกษา เพื่อให้ผู้จัดเห็นข้อความเดียวกับที่นักศึกษาเห็น
+ */
 export function ActivityRewardsPanel({ activity }: { activity: Activity }) {
-    const hasSkills = !!activity.softSkills?.length
-    const hasCert = !!activity.volunteerRole
-
-    return (
-        <div className={PANEL_CLASS}>
-            <div>
-                <PanelHeading icon={CheckSquare} tone="text-brand-600">Soft Skills ที่จะได้รับ</PanelHeading>
-                <div className="mt-4">
-                    {hasSkills ? (
-                        <div className="flex flex-wrap gap-3">
-                            {activity.softSkills!.map((skill, i) => (
-                                <div
-                                    key={i}
-                                    className="flex items-center gap-2 rounded-xl border border-border bg-brand-50 px-4 py-2.5 font-medium text-brand-700"
-                                >
-                                    <CheckSquare className="w-4 h-4" aria-hidden="true" />
-                                    <span>
-                                        {softSkillLabel(skill.skillType)}
-                                        {skill.rate !== undefined && (
-                                            <span className="ml-1.5 text-brand-600/80">· น้ำหนัก {skill.rate}/5</span>
-                                        )}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <EmptyNote>กิจกรรมนี้ไม่ได้ระบุ Soft Skills</EmptyNote>
-                    )}
-                </div>
-            </div>
-
-            {/* ใบรับรองจิตอาสา — เดิมฝั่ง student ไม่เห็นเลย ทั้งที่เป็นแรงจูงใจหลักในการสมัคร */}
-            <div className="pt-4 border-t border-border">
-                <PanelHeading icon={Award} tone="text-success">ใบรับรองจิตอาสา</PanelHeading>
-                <div className="mt-4">
-                    {hasCert ? (
-                        <div className="rounded-xl border border-border bg-success-bg/40 p-4">
-                            <div className="font-medium text-fg">{activity.volunteerRole}</div>
-                            <p className="mt-1 text-sm text-fg-muted">
-                                ได้รับ{" "}
-                                <span className="font-semibold text-success">
-                                    {formatHours(activity.volunteerHours)} ชั่วโมง
-                                </span>{" "}
-                                เมื่อเข้าร่วมกิจกรรมและเช็คอินเรียบร้อยแล้ว
-                            </p>
-                        </div>
-                    ) : (
-                        <EmptyNote>กิจกรรมนี้ไม่ออกใบรับรองจิตอาสา</EmptyNote>
-                    )}
-                </div>
-            </div>
-        </div>
-    )
+    return <BenefitsSection activity={activity} />
 }
 
 interface RegistrationPanelProps {
     activity: Activity
     /** วันปิดรับสมัครระดับงาน (Event) — กิจกรรมเดี่ยวรุ่นเก่าไม่มีค่านี้ */
     registrationCloseAt?: string | null
+    /**
+     * ซ่อนจำนวนที่รับ/วันปิดรับสมัคร — หน้าลงทะเบียนของนักศึกษาแสดงสองอย่างนี้ที่อื่นแล้ว
+     * (ที่นั่งในการ์ดรายละเอียด, วันปิดรับสมัครในการ์ดสมัคร) ไม่ให้ซ้ำ
+     */
+    hideLogistics?: boolean
+}
+
+/** ข้อมูลที่ต้องกรอกเพิ่มตอนสมัคร ตามประเภทการรับสมัคร (สตาฟฟ์/แข่งขัน) — ผู้เข้าร่วมทั่วไปไม่มี */
+function typeRequirements(activity: Activity): { label: string; value: string }[] {
+    if (activity.registrationType === "staff_volunteer") {
+        const items: { label: string; value: string }[] = []
+        if (activity.dutyRoleOptions?.length) items.push({ label: "เลือกฝ่ายที่ต้องการ", value: activity.dutyRoleOptions.join(" / ") })
+        if (activity.dutyShiftOptions?.length) items.push({ label: "เลือกกะ (ถ้ามี)", value: activity.dutyShiftOptions.join(" / ") })
+        return items
+    }
+    if (activity.registrationType === "contestant") {
+        const items = [{ label: "ชื่อทีม", value: "ระบุตอนลงทะเบียน" }]
+        const { teamSizeMin: min, teamSizeMax: max } = activity
+        if (min != null || max != null) {
+            items.push({ label: "จำนวนสมาชิกทีม", value: min != null && max != null ? `${min}–${max} คน` : min != null ? `อย่างน้อย ${min} คน` : `ไม่เกิน ${max} คน` })
+        }
+        if (activity.competitionCategoryOptions?.length) items.push({ label: "ประเภท/รุ่นการแข่งขัน", value: activity.competitionCategoryOptions.join(" / ") })
+        return items
+    }
+    return []
 }
 
 /** แผง "การลงทะเบียน" — จำนวนที่รับ, วันปิดรับสมัคร, คำถามที่ต้องตอบ */
-export function ActivityRegistrationPanel({ activity, registrationCloseAt }: RegistrationPanelProps) {
+export function ActivityRegistrationPanel({ activity, registrationCloseAt, hideLogistics = false }: RegistrationPanelProps) {
     const questions = activity.questions ?? []
+    const requirements = typeRequirements(activity)
 
     return (
         <div className={PANEL_CLASS}>
-            <PanelHeading icon={ListChecks} tone="text-brand-600">การลงทะเบียน</PanelHeading>
+            <PanelHeading icon={ListChecks} tone="text-brand-600">{hideLogistics ? "ต้องเตรียมอะไรบ้าง" : "การลงทะเบียน"}</PanelHeading>
 
+            {!hideLogistics && (
             <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex gap-3">
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
@@ -274,8 +248,23 @@ export function ActivityRegistrationPanel({ activity, registrationCloseAt }: Reg
                     </div>
                 </div>
             </div>
+            )}
 
-            <div className="pt-4 border-t border-border">
+            {requirements.length > 0 && (
+                <div className={hideLogistics ? "" : "pt-4 border-t border-border"}>
+                    <h4 className="text-sm font-semibold mb-3 text-fg">ข้อมูลที่ต้องกรอกเพิ่มตอนลงทะเบียน</h4>
+                    <dl className="space-y-2 text-sm">
+                        {requirements.map((r) => (
+                            <div key={r.label} className="flex flex-wrap gap-x-2">
+                                <dt className="text-fg-muted">{r.label}:</dt>
+                                <dd className="font-medium text-fg">{r.value}</dd>
+                            </div>
+                        ))}
+                    </dl>
+                </div>
+            )}
+
+            <div className={hideLogistics && requirements.length === 0 ? "" : "pt-4 border-t border-border"}>
                 <h4 className="text-sm font-semibold mb-3 text-fg">
                     คำถามที่ต้องตอบตอนลงทะเบียน
                 </h4>
