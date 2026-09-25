@@ -347,7 +347,7 @@ export class EventsService {
 
     if (!event) throw new NotFoundException('ไม่พบงาน');
     if (callerRole !== UserRole.ADMIN && event.organizerId !== callerId) {
-      throw new BadRequestException('คุณไม่มีสิทธิ์ดูผลสำรวจของงานนี้');
+      throw new ForbiddenException('คุณไม่มีสิทธิ์ดูผลสำรวจของงานนี้');
     }
 
     return buildSurveyResults(event.surveyQuestions);

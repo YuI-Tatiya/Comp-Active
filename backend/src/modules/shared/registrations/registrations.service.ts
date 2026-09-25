@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { RegistrationsRepository } from './registrations.repository';
 import { EvaluationsService } from './evaluation.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -13,6 +13,7 @@ import {
 } from '../../../common/enums/status.enum';
 import { isViewerEligibleForEvent, type Viewer } from '../events/event-visibility.util';
 import { MailService } from '../mail/mail.service';
+import { maskUnapprovedEvaluation } from './evaluation-visibility.util';
 import { UserRole } from '../../../common/enums/role.enum';
 
 interface AnswerInput {
@@ -234,7 +235,12 @@ export class RegistrationsService {
   }
 
   async findByStudent(studentId: number) {
-    return this.registrationsRepository.findByStudent(studentId);
+    const registrations = await this.registrationsRepository.findByStudent(studentId);
+    // คะแนนที่ยังรอผู้จัดอนุมัติ (โหมด 360°) ต้องไม่ถึงนักศึกษา — คงแถวไว้แต่ปิดคะแนน (ดูเหตุผลที่ maskUnapprovedEvaluation)
+    return registrations.map((registration) => ({
+      ...registration,
+      evaluation: maskUnapprovedEvaluation(registration.evaluation),
+    }));
   }
 
   async findByActivity(callerId: number, callerRole: UserRole, activityId: number) {
@@ -249,7 +255,7 @@ export class RegistrationsService {
   /** organizer/admin เท่านั้นที่แก้ไขข้อมูลผู้เข้าร่วมของกิจกรรมได้ — และต้องเป็นเจ้าของกิจกรรมนั้นจริง (ไม่ใช่แค่มี role ที่ถูกต้อง) */
   private assertOwnsActivity(callerId: number, callerRole: UserRole, organizerId: number, action: string) {
     if (callerRole !== UserRole.ADMIN && organizerId !== callerId) {
-      throw new BadRequestException(`คุณไม่มีสิทธิ์${action}ของกิจกรรมนี้`);
+      throw new ForbiddenException(`คุณไม่มีสิทธิ์${action}ของกิจกรรมนี้`);
     }
   }
 
@@ -325,7 +331,9 @@ export class RegistrationsService {
   private async performCheckIn(registration: {
     id: number;
     status: string;
-    activity: { organizerId: number; softSkills: { skillType: string; rate: number }[] };
+    activityId: number;
+    dutyRole?: string | null;
+    activity: { organizerId: number; peerAssessmentEnabled?: boolean; softSkills: { skillType: string; rate: number }[] };
   }) {
     // การยืนยันลงทะเบียน (organizer อนุมัติล่วงหน้า) กับการเช็คอิน (มาเข้าร่วมจริงหน้างาน) เป็นคนละเรื่องกัน —
     // ไม่ยืนยันไว้ก่อนไม่ได้แปลว่าจะไม่มาจริง จึงให้เช็คอินได้เลยแม้สถานะยังรอการยืนยัน (ยกเว้นถูกยกเลิกไปแล้ว)
@@ -348,6 +356,11 @@ export class RegistrationsService {
         registration.id,
         registration.activity.organizerId,
         registration.activity.softSkills,
+        {
+          activityId: registration.activityId,
+          dutyRole: registration.dutyRole,
+          pendingApproval: !!registration.activity.peerAssessmentEnabled,
+        },
       );
 
       return updated;

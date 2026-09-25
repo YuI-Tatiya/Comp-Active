@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { RegistrationsService } from './registrations.service';
 import { RegistrationsRepository } from './registrations.repository';
 import { EvaluationsService } from './evaluation.service';
@@ -64,8 +64,8 @@ describe('RegistrationsService.confirm', () => {
     expect(repo.update).not.toHaveBeenCalled();
   });
 
-  it('throws BadRequestException when the caller does not own the activity', async () => {
-    await expect(service.confirm(999, UserRole.ORGANIZER, 1)).rejects.toThrow(BadRequestException);
+  it('throws ForbiddenException when the caller does not own the activity', async () => {
+    await expect(service.confirm(999, UserRole.ORGANIZER, 1)).rejects.toThrow(ForbiddenException);
     expect(repo.update).not.toHaveBeenCalled();
   });
 
@@ -170,14 +170,14 @@ describe('RegistrationsService.checkIn', () => {
     await expect(service.checkIn(OWNER_ID, UserRole.ORGANIZER, 1)).rejects.toThrow(NotFoundException);
   });
 
-  it('throws BadRequestException when the caller does not own the activity', async () => {
+  it('throws ForbiddenException when the caller does not own the activity', async () => {
     repo.findByIdWithActivitySoftSkills.mockResolvedValue({
       id: 1,
       status: RegistrationStatus.PENDING,
       activity: ACTIVITY,
     });
 
-    await expect(service.checkIn(999, UserRole.ORGANIZER, 1)).rejects.toThrow(BadRequestException);
+    await expect(service.checkIn(999, UserRole.ORGANIZER, 1)).rejects.toThrow(ForbiddenException);
     expect(repo.updateTx).not.toHaveBeenCalled();
   });
 
@@ -185,12 +185,90 @@ describe('RegistrationsService.checkIn', () => {
     repo.findByIdWithActivitySoftSkills.mockResolvedValue({
       id: 1,
       status: RegistrationStatus.PENDING,
+      activityId: 3,
+      dutyRole: 'ฝ่ายลงทะเบียน',
       activity: ACTIVITY,
     });
 
     await service.checkIn(OWNER_ID, UserRole.ORGANIZER, 1);
 
-    expect(evaluations.autoCreateForCheckIn).toHaveBeenCalledWith({}, 1, OWNER_ID, ACTIVITY.softSkills);
+    // ส่งฝ่ายของผู้เช็คอินไปด้วย เพื่อให้คนที่มาทีหลังได้คะแนนฐานของฝ่ายตัวเอง
+    expect(evaluations.autoCreateForCheckIn).toHaveBeenCalledWith({}, 1, OWNER_ID, ACTIVITY.softSkills, {
+      activityId: 3,
+      dutyRole: 'ฝ่ายลงทะเบียน',
+      pendingApproval: false,
+    });
+  });
+
+  it('marks the new evaluation pending when the activity has the 360° assessment mode on', async () => {
+    repo.findByIdWithActivitySoftSkills.mockResolvedValue({
+      id: 1,
+      status: RegistrationStatus.PENDING,
+      activityId: 3,
+      dutyRole: 'ฝ่ายA',
+      activity: { ...ACTIVITY, peerAssessmentEnabled: true },
+    });
+
+    await service.checkIn(OWNER_ID, UserRole.ORGANIZER, 1);
+
+    expect(evaluations.autoCreateForCheckIn).toHaveBeenCalledWith(
+      {},
+      1,
+      OWNER_ID,
+      ACTIVITY.softSkills,
+      expect.objectContaining({ pendingApproval: true }),
+    );
+  });
+});
+
+describe('RegistrationsService.findByStudent — คะแนนที่รออนุมัติต้องไม่ถึงนักศึกษา', () => {
+  const scores = {
+    communication: 5, timeManagement: 5, flexibilityAdaptability: 5, teamworkCollaboration: 5,
+    analyticCriticalThinking: 5, decisionMaking: 5, creativity: 5, complexProblemSolving: 5,
+    curiosityLifelongLearning: 5, negotiationPersuasion: 5, leadership: 5, positiveAttitude: 5,
+  };
+  let service: RegistrationsService;
+  let repo: { findByStudent: jest.Mock };
+
+  beforeEach(async () => {
+    repo = { findByStudent: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [
+        RegistrationsService,
+        { provide: RegistrationsRepository, useValue: repo },
+        { provide: EvaluationsService, useValue: {} },
+        { provide: PrismaService, useValue: {} },
+        { provide: MailService, useValue: {} },
+      ],
+    }).compile();
+    service = module.get(RegistrationsService);
+  });
+
+  it('เก็บแถว evaluation ไว้ (ตรรกะหน้านักศึกษาพึ่งการมีอยู่ของมัน) แต่ปิดคะแนนของแถวที่ยังไม่อนุมัติ', async () => {
+    repo.findByStudent.mockResolvedValue([
+      { id: 1, activity: { id: 9 }, evaluation: { id: 5, status: 'pending_approval', comment: 'x', ...scores } },
+    ]);
+
+    const [row]: any[] = await service.findByStudent(50);
+
+    expect(row.evaluation).not.toBeNull();
+    expect(row.evaluation.status).toBe('pending_approval');
+    expect(row.evaluation.leadership).toBe(0);
+    expect(row.evaluation.communication).toBe(0);
+    expect(row.evaluation.comment).toBeNull();
+    expect(row.activity).toEqual({ id: 9 });
+  });
+
+  it('แถวที่อนุมัติแล้วและแถวที่ยังไม่เช็คอิน (ไม่มี evaluation) ไม่ถูกแตะ', async () => {
+    repo.findByStudent.mockResolvedValue([
+      { id: 1, evaluation: { id: 5, status: 'approved', comment: null, ...scores } },
+      { id: 2, evaluation: null },
+    ]);
+
+    const [approved, none]: any[] = await service.findByStudent(50);
+
+    expect(approved.evaluation.leadership).toBe(5);
+    expect(none.evaluation).toBeNull();
   });
 });
 

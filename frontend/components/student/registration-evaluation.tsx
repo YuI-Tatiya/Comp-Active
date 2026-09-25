@@ -10,6 +10,8 @@ const MAX_SCORE = 5
 interface RegistrationEvaluationProps {
     scores: SkillScores
     comment?: string | null
+    /** pending_approval = กิจกรรมประเมินรอบด้านที่ผู้จัดยังไม่อนุมัติ — server ปิดคะแนนเป็น 0 ไว้แล้ว ห้ามแสดงเป็น "ไม่ได้กำหนดคะแนน" */
+    status?: string
 }
 
 /**
@@ -18,7 +20,18 @@ interface RegistrationEvaluationProps {
  * แสดงเฉพาะทักษะที่ได้คะแนน > 0 ต่างจาก <SkillScoreList> ที่ไล่ครบ 12 ด้าน — เพราะกิจกรรมหนึ่ง
  * มักให้คะแนนแค่ไม่กี่ทักษะ ถ้าโชว์ครบจะมีแถว 0 รกเต็มการ์ด
  */
-export function RegistrationEvaluation({ scores, comment }: RegistrationEvaluationProps) {
+export function RegistrationEvaluation({ scores, comment, status }: RegistrationEvaluationProps) {
+    if (status === "pending_approval") {
+        return (
+            <div className="mt-4 rounded-xl border border-border bg-surface p-4">
+                <h4 className="mb-2 text-sm font-bold text-fg">ผลประเมิน Soft Skills ของกิจกรรมนี้</h4>
+                <p className="text-sm text-fg-muted">
+                    ผู้จัดกำลังรวมผลประเมินรอบด้าน (ผู้จัด ตนเอง และเพื่อน) — คะแนนจะแสดงที่นี่และเข้าโปรไฟล์ของคุณหลังผู้จัดอนุมัติ
+                </p>
+            </div>
+        )
+    }
+
     const awarded = SOFT_SKILLS.filter((skill) => (scores[skill.field] ?? 0) > 0)
 
     return (

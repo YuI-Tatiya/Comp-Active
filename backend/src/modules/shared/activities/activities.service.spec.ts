@@ -280,3 +280,45 @@ describe('ActivitiesService.findByIdForOrganizer', () => {
     await expect(service.findByIdForOrganizer(5, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
   });
 });
+
+describe('ActivitiesService.getSurveyResults — ownership', () => {
+  let service: ActivitiesService;
+  let activitiesRepo: { findByIdWithSurveyAnswers: jest.Mock };
+
+  beforeEach(async () => {
+    activitiesRepo = {
+      findByIdWithSurveyAnswers: jest
+        .fn()
+        .mockResolvedValue({ id: 5, organizerId: 7, eventId: null, surveyQuestions: [] }),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: activitiesRepo },
+        { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
+        { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
+        { provide: MailService, useValue: {} },
+        { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+  });
+
+  it('returns results to the owning organizer', async () => {
+    await expect(service.getSurveyResults(5, 7, UserRole.ORGANIZER)).resolves.toBeDefined();
+  });
+
+  it('allows an admin who does not own the activity', async () => {
+    await expect(service.getSurveyResults(5, 999, UserRole.ADMIN)).resolves.toBeDefined();
+  });
+
+  it('throws ForbiddenException (not BadRequest) for a non-owning organizer', async () => {
+    await expect(service.getSurveyResults(5, 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('throws NotFoundException when the activity does not exist', async () => {
+    activitiesRepo.findByIdWithSurveyAnswers.mockResolvedValue(null);
+    await expect(service.getSurveyResults(5, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
+  });
+});

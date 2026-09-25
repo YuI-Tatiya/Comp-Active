@@ -15,6 +15,9 @@ import { CheckSquare, Download, Search } from "lucide-react"
 import { formatEventDate } from "@/components/ui/event-card"
 import { registrationsAPI, certificatesAPI, type Activity } from "@/lib/api"
 import { ActivityAboutPanel, ActivityRegistrationPanel, ActivityRewardsPanel } from "@/components/activity/activity-info-panels"
+import { ActivityBatchEvaluation } from "@/components/activity/activity-batch-evaluation"
+import { ActivityAssessmentMode } from "@/components/activity/activity-assessment-mode"
+import { ActivityApprovalDashboard } from "@/components/activity/activity-approval-dashboard"
 
 interface RegistrationAnswerRow {
     question: { id: number; label: string }
@@ -251,6 +254,8 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
     const filteredRegs = filterRegistrations(allRegs, participantSearch, participantFilters)
     const questions = activity.questions ?? []
     const pendingIdsInView = filteredRegs.filter((r) => r.status === "pending").map((r) => r.id)
+    // แท็บประเมินรายฝ่ายมีเฉพาะกิจกรรมสตาฟฟ์ที่เลือกทักษะไว้ — ว่ากิจกรรมนั้นเข้าเงื่อนไข Tier 3 จริงหรือไม่ server เป็นผู้ตัดสิน
+    const showBatchEvaluation = activity.registrationType === "staff_volunteer" && (activity.softSkills?.length ?? 0) > 0
 
     const checkedIn = allRegs
         .filter((r) => r.attendance === "attended")
@@ -266,6 +271,12 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
                     <TabsTrigger value="details" className="flex-1">รายละเอียด</TabsTrigger>
                     <TabsTrigger value="participants" className="flex-1">ข้อมูลผู้เข้าร่วม ({allRegs.length})</TabsTrigger>
                     <TabsTrigger value="registration" className="flex-1">คิวอาร์โค้ดลงทะเบียน</TabsTrigger>
+                    {showBatchEvaluation && (
+                        <TabsTrigger value="evaluation" className="flex-1">ประเมินรายฝ่าย</TabsTrigger>
+                    )}
+                    {showBatchEvaluation && (
+                        <TabsTrigger value="approval" className="flex-1">อนุมัติผล</TabsTrigger>
+                    )}
                 </TabsList>
 
                 <TabsContent value="details" className="space-y-6">
@@ -419,7 +430,11 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
                                             )}
                                             {reg.attendance === "attended" && (
                                                 reg.evaluation ? (
-                                                    <Badge variant="success" className="gap-1"><CheckSquare className="size-3" aria-hidden="true" />ประเมินอัตโนมัติแล้ว</Badge>
+                                                    (reg.evaluation as { status?: string }).status === "pending_approval" ? (
+                                                        <Badge variant="warning">รออนุมัติผล</Badge>
+                                                    ) : (
+                                                        <Badge variant="success" className="gap-1"><CheckSquare className="size-3" aria-hidden="true" />ประเมินอัตโนมัติแล้ว</Badge>
+                                                    )
                                                 ) : (
                                                     <Badge variant="neutral">ยังไม่มีคะแนน</Badge>
                                                 )
@@ -554,6 +569,21 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
 
                     <ActivityRegistrationPanel activity={activity} registrationCloseAt={registrationCloseAt} />
                 </TabsContent>
+
+                {showBatchEvaluation && (
+                    <TabsContent value="evaluation" className="rounded-xl border border-border bg-bg p-6 shadow-xs">
+                        <div className="space-y-6">
+                            <ActivityAssessmentMode activityId={activity.id} />
+                            <ActivityBatchEvaluation activityId={activity.id} onSaved={onRefetch} />
+                        </div>
+                    </TabsContent>
+                )}
+
+                {showBatchEvaluation && (
+                    <TabsContent value="approval" className="rounded-xl border border-border bg-bg p-6 shadow-xs">
+                        <ActivityApprovalDashboard activityId={activity.id} onChanged={onRefetch} />
+                    </TabsContent>
+                )}
             </Tabs>
 
             <ConfirmDialog

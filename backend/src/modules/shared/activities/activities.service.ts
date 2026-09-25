@@ -332,7 +332,7 @@ export class ActivitiesService {
 
     if (!activity) throw new NotFoundException('ไม่พบกิจกรรม');
     if (callerRole !== UserRole.ADMIN && activity.organizerId !== callerId) {
-      throw new BadRequestException('คุณไม่มีสิทธิ์ดูผลสำรวจของกิจกรรมนี้');
+      throw new ForbiddenException('คุณไม่มีสิทธิ์ดูผลสำรวจของกิจกรรมนี้');
     }
 
     if (activity.eventId != null) {

@@ -394,3 +394,33 @@ describe('EventsService.findByIdForOrganizer', () => {
     expect(result.activities[0]._count).toBeUndefined();
   });
 });
+
+describe('EventsService.getSurveyResults — ownership', () => {
+  let service: EventsService;
+  let repo: { findByIdWithSurveyAnswers: jest.Mock };
+
+  beforeEach(async () => {
+    repo = { findByIdWithSurveyAnswers: jest.fn().mockResolvedValue({ id: 1, organizerId: 7, surveyQuestions: [] }) };
+    const module = await Test.createTestingModule({
+      providers: [EventsService, { provide: EventsRepository, useValue: repo }],
+    }).compile();
+    service = module.get(EventsService);
+  });
+
+  it('returns results to the owning organizer', async () => {
+    await expect(service.getSurveyResults(1, 7, UserRole.ORGANIZER)).resolves.toBeDefined();
+  });
+
+  it('allows an admin who does not own the event', async () => {
+    await expect(service.getSurveyResults(1, 999, UserRole.ADMIN)).resolves.toBeDefined();
+  });
+
+  it('throws ForbiddenException (not BadRequest) for a non-owning organizer', async () => {
+    await expect(service.getSurveyResults(1, 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('throws NotFoundException when the event does not exist', async () => {
+    repo.findByIdWithSurveyAnswers.mockResolvedValue(null);
+    await expect(service.getSurveyResults(1, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
+  });
+});

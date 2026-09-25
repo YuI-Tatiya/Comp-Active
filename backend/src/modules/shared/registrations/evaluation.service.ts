@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { EvaluationsRepository } from './evaluation.repository';
 import { UpdateEvaluationDto } from './dto/update-evaluation.dto';
 import { UserRole } from '../../../common/enums/role.enum';
+import { EvaluationStatus } from '../../../common/enums/status.enum';
 
 /** SoftSkillType (snake_case, ตรงกับ ActivitySoftSkill.skillType) -> field บน Evaluation (camelCase) */
-const SKILL_TYPE_TO_FIELD: Record<string, string> = {
+export const SKILL_TYPE_TO_FIELD: Record<string, string> = {
   communication: 'communication',
   time_management: 'timeManagement',
   flexibility_adaptability: 'flexibilityAdaptability',
@@ -35,6 +36,8 @@ export class EvaluationsService {
     registrationId: number,
     organizerId: number,
     softSkills: { skillType: string; rate: number }[],
+    /** ฝ่ายของผู้เช็คอิน — ถ้าผู้จัดตั้งคะแนนฐานของฝ่ายนั้นไว้แล้ว (Batch Evaluation) ใช้แทนค่าเริ่มต้นของกิจกรรม */
+    context?: { activityId: number; dutyRole?: string | null; pendingApproval?: boolean },
   ) {
     const existing = await this.evaluationsRepository.findByRegistrationIdTx(tx, registrationId);
     if (existing) return existing;
@@ -58,7 +61,18 @@ export class EvaluationsService {
       if (field) scores[field] = rate;
     }
 
-    const evaluation = await this.evaluationsRepository.createTx(tx, registrationId, organizerId, scores);
+    if (context?.dutyRole) {
+      const selected = new Set(softSkills.map((s) => s.skillType));
+      const baselines = await this.evaluationsRepository.findBaselinesForDutyRoleTx(tx, context.activityId, context.dutyRole);
+      for (const b of baselines) {
+        const field = SKILL_TYPE_TO_FIELD[b.skillType];
+        if (field && selected.has(b.skillType)) scores[field] = b.score;
+      }
+    }
+
+    // กิจกรรมที่เปิดโหมดประเมินรอบด้าน: คะแนนรอผู้จัดอนุมัติ นักศึกษายังไม่เห็น (ดู evaluation-visibility.util)
+    const status = context?.pendingApproval ? EvaluationStatus.PENDING_APPROVAL : EvaluationStatus.APPROVED;
+    const evaluation = await this.evaluationsRepository.createTx(tx, registrationId, organizerId, scores, status);
     this.logger.log(`Evaluation auto-created for registration ID: ${registrationId}`);
     return evaluation;
   }
@@ -70,11 +84,15 @@ export class EvaluationsService {
     if (!registration) throw new NotFoundException('ไม่พบข้อมูลการลงทะเบียน');
 
     if (callerRole !== UserRole.ADMIN && registration.activity.organizerId !== callerId) {
-      throw new BadRequestException('คุณไม่มีสิทธิ์แก้ไขคะแนนของกิจกรรมนี้');
+      throw new ForbiddenException('คุณไม่มีสิทธิ์แก้ไขคะแนนของกิจกรรมนี้');
     }
 
     const existing = await this.evaluationsRepository.findByRegistrationId(registrationId);
     if (!existing) throw new NotFoundException('ยังไม่มีคะแนนสำหรับรายการนี้ — ต้องเช็คอินก่อนจึงจะแก้ไขได้');
+    // ค่าที่ผ่านการอนุมัติรอบด้านแล้วถูกล็อก — แก้ได้ทางเดียวคือหน้าอนุมัติผล (มีเหตุผลและ audit) ห้ามอ้อมด้วยเส้นทางนี้
+    if ((existing as { approval?: unknown }).approval) {
+      throw new BadRequestException('ผลนี้ผ่านการอนุมัติรอบด้านแล้ว แก้ไขได้ที่แท็บ "อนุมัติผล" เท่านั้น');
+    }
 
     return this.evaluationsRepository.update(registrationId, dto as Record<string, any>);
   }
@@ -246,7 +264,15 @@ export class EvaluationsService {
     };
   }
 
-  async findByActivity(activityId: number) {
+  /** ผลประเมินทั้งกิจกรรม — เฉพาะเจ้าของกิจกรรม (หรือ Admin) ไม่ใช่แค่มี role organizer */
+  async findByActivity(callerId: number, callerRole: UserRole, activityId: number) {
+    const organizerId = await this.evaluationsRepository.findActivityOrganizerId(activityId);
+
+    if (organizerId === null) throw new NotFoundException('ไม่พบกิจกรรม');
+    if (callerRole !== UserRole.ADMIN && organizerId !== callerId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์ดูผลการประเมินของกิจกรรมนี้');
+    }
+
     return this.evaluationsRepository.findByActivity(activityId);
   }
 }

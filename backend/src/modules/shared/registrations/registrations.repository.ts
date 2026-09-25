@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RegistrationStatus } from '../../../common/enums/status.enum';
+import { STUDENT_CONTACT_SELECT } from '../../../common/constants/user-select';
 
 @Injectable()
 export class RegistrationsRepository {
@@ -121,7 +122,7 @@ export class RegistrationsRepository {
 
   /** ใช้สำหรับส่งอีเมลยืนยันการลงทะเบียน — ต้องการอีเมล/ชื่อนักศึกษาและรายละเอียดกิจกรรม */
   findByIdWithStudentAndActivity(id: number) {
-    return this.prisma.registration.findUnique({ where: { id }, include: { student: true, activity: true } });
+    return this.prisma.registration.findUnique({ where: { id }, include: { student: { select: STUDENT_CONTACT_SELECT }, activity: true } });
   }
 
   findByStudent(studentId: number) {
@@ -135,7 +136,7 @@ export class RegistrationsRepository {
   findByActivity(activityId: number) {
     return this.prisma.registration.findMany({
       where: { activityId },
-      include: { student: true },
+      include: { student: { select: STUDENT_CONTACT_SELECT } },
       orderBy: { registerDate: 'asc' },
     });
   }
