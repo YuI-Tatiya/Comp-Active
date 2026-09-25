@@ -9,6 +9,7 @@ import { evaluationsAPI, type EvaluationBatch } from "@/lib/api"
 import { softSkillLabel } from "@/lib/soft-skills"
 import { cn } from "@/lib/utils"
 import { TierButtons } from "./tier-buttons"
+import { SoftSkillRubricLink } from "./soft-skill-rubric-link"
 
 type Scores = Record<string, number>
 
@@ -197,6 +198,9 @@ export function ActivityBatchEvaluation({ activityId, onSaved }: Props) {
                 <p className="mt-1 text-sm text-fg-muted">
                     ตั้งระดับให้ทั้งฝ่ายในคลิกเดียว แล้วแก้เฉพาะคนที่เป็นข้อยกเว้น — ผู้ที่เช็คอินทีหลังจะได้ระดับของฝ่ายตัวเองอัตโนมัติ
                 </p>
+                <div className="mt-2">
+                    <SoftSkillRubricLink />
+                </div>
             </div>
 
             {data.withoutDutyRole > 0 && (

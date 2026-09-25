@@ -9,6 +9,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { evaluationsAPI, type ApprovalDashboard, type ApprovalFlag, type ApprovalRow, type ApproveEvaluationBody } from "@/lib/api"
 import { softSkillLabel, softSkillTierLabel } from "@/lib/soft-skills"
 import { TierButtons } from "./tier-buttons"
+import { SoftSkillRubricLink } from "./soft-skill-rubric-link"
 
 const FLAG_LABEL: Record<ApprovalFlag, string> = {
     self_missing: "ยังไม่ส่งแบบประเมินตนเอง",
@@ -267,6 +268,9 @@ export function ActivityApprovalDashboard({ activityId, onChanged }: Props) {
                     <p className="mt-0.5 text-xs text-fg-muted">
                         นักศึกษาจะเห็นคะแนนของกิจกรรมนี้หลังคุณอนุมัติเท่านั้น
                     </p>
+                    <div className="mt-1.5">
+                        <SoftSkillRubricLink />
+                    </div>
                 </div>
                 <Button type="button" size="sm" variant="ghost" className="gap-1.5 text-fg-muted" disabled={refreshing} onClick={refresh}>
                     <RefreshCw className={refreshing ? "size-3.5 animate-spin" : "size-3.5"} aria-hidden="true" /> รีเฟรช

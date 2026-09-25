@@ -11,7 +11,7 @@ import type { Activity } from "@/lib/api"
 const TIER_HELP = SOFT_SKILL_TIERS.map((t) => `${t.label}: ${t.hint}`).join(" · ")
 
 /** ระดับ 3 จุด (●○○ ผ่าน · ●●○ ดี · ●●● ดีเยี่ยม) — อ่านได้ทันทีโดยไม่ต้องรู้ว่าเลข 2/3/5 คืออะไร */
-function LevelDots({ dots }: { dots: number }) {
+export function LevelDots({ dots }: { dots: number }) {
     return (
         <span className="inline-flex gap-1" aria-hidden="true">
             {[1, 2, 3].map((i) => (

@@ -12,6 +12,7 @@ import { Dropzone } from "@/components/ui/dropzone"
 import { DynamicQuestionBuilder } from "@/components/ui/dynamic-question-builder"
 import { CATEGORIES } from "@/lib/categories"
 import { SOFT_SKILLS, SOFT_SKILL_TIERS, MAX_SOFT_SKILLS_PER_ACTIVITY, maxSoftSkillLevel } from "@/lib/soft-skills"
+import { SoftSkillRubricLink } from "@/components/activity/soft-skill-rubric-link"
 import { cn, toggleInArray } from "@/lib/utils"
 import { Paperclip, X } from "lucide-react"
 import type { ActivityFormState, ActivityFormErrors } from "./types"
@@ -430,6 +431,7 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                                             ? `กิจกรรมนี้ (${durationHours} ชม.) ให้ได้สูงสุดระดับ "ดี"`
                                             : `กิจกรรมนี้ (${durationHours} ชม., สตาฟฟ์/จิตอาสา) ให้ได้ถึงระดับ "ดีเยี่ยม"`}
                             </p>
+                            <SoftSkillRubricLink />
                         </div>
                         <div className="grid grid-cols-1 gap-3">
                             {SOFT_SKILLS.map((skill) => {
