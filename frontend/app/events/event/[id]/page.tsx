@@ -8,6 +8,7 @@ import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 import { Container } from "@/components/layout/container"
 import { EventCard, EventCardBadge, EventCardRow, formatEventDate } from "@/components/ui/event-card"
+import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { eventsAPI, EventSummary } from "@/lib/api"
 import { categoriesBadgeLabel } from "@/lib/categories"
 import { resolveEventImageUrl } from "@/lib/event-image"
@@ -115,7 +116,7 @@ export default function PublicEventGroupPage() {
 
                 <h2 className="text-xl font-bold text-fg mb-5">กิจกรรมย่อย ({event.activities.length})</h2>
 
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <div className={EVENT_CARD_GRID}>
                     {event.activities.map((a) => (
                         <Link key={a.id} href={`/events/${a.id}`} className="block">
                             <EventCard
@@ -131,7 +132,7 @@ export default function PublicEventGroupPage() {
                                     {formatEventDate(a.date)} • {a.startTime}
                                 </EventCardRow>
                                 <EventCardRow icon={MapPin} tone="danger">
-                                    <span className="truncate">{a.location}</span>
+                                    {a.location}
                                 </EventCardRow>
                             </EventCard>
                         </Link>

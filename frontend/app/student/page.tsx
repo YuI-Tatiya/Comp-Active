@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
+import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { ActivityCardSkeleton, Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { SectionHeading } from "@/components/ui/section-heading"
@@ -295,17 +296,15 @@ export default function StudentDashboardPage() {
 
           <div className="mt-6">
             {loadingActivities ? (
-              <div className="flex flex-wrap gap-5">
+              <div className={EVENT_CARD_GRID}>
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="w-full sm:w-72">
-                    <ActivityCardSkeleton />
-                  </div>
+                  <ActivityCardSkeleton key={i} />
                 ))}
               </div>
             ) : recommended.length > 0 ? (
-              <div className="flex flex-wrap gap-5">
+              <div className={EVENT_CARD_GRID}>
                 {recommended.map((item) => (
-                  <Link key={item.key} href={item.href} className="block w-full sm:w-72">
+                  <Link key={item.key} href={item.href} className="block">
                     <EventCard
                       activity={{ name: item.name, imageUrl: item.imageUrl }}
                       description={item.description}

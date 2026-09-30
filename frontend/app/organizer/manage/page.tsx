@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { FilterBar, type FilterSpec } from "@/components/ui/filter-bar"
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
+import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { eventsAPI, activitiesAPI, isCancelledByOrganizer, EventSummary, Activity } from "@/lib/api"
@@ -343,7 +344,7 @@ export default function OrganizerManagePage() {
                 ) : totalCount > 0 ? (
                     <div className="space-y-12">
                         {filteredEvents.length > 0 && (
-                            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                            <div className={EVENT_CARD_GRID}>
                                 {filteredEvents.map((ev) => {
                                     const fa = firstActivity(ev)
                                     return (
@@ -381,7 +382,7 @@ export default function OrganizerManagePage() {
                         {filteredStandalone.length > 0 && (
                             <div>
                                 <h2 className="mb-4 text-lg font-bold text-fg">กิจกรรมเดี่ยว (ไม่ผูกกับงาน)</h2>
-                                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                                <div className={EVENT_CARD_GRID}>
                                     {filteredStandalone.map((a) => {
                                         const ap = APPROVAL_META[a.approvalStatus] ?? APPROVAL_META.pending_approval
                                         return (

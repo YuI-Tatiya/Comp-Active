@@ -4,6 +4,7 @@ import * as React from "react"
 import type { LucideIcon } from "lucide-react"
 import { API_BASE_URL } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { EVENT_CARD_HEIGHT } from "./event-card-layout"
 
 const FALLBACK_IMAGE =
     "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop"
@@ -75,7 +76,8 @@ export function EventCardRow({ icon: Icon, tone = "muted", children }: EventCard
     return (
         <div className="flex items-center rounded-lg bg-surface px-3 py-2 text-sm font-medium text-fg-muted">
             <Icon className={cn("mr-3 size-4 shrink-0", ROW_TONES[tone])} aria-hidden="true" />
-            {children}
+            {/* บรรทัดเดียวเสมอ — แถวที่ตัดขึ้นบรรทัดใหม่จะดันเกินความสูงการ์ดที่ตายตัว */}
+            <span className="min-w-0 truncate">{children}</span>
         </div>
     )
 }
@@ -140,10 +142,14 @@ interface EventCardProps {
 }
 
 /**
- * การ์ดกิจกรรม — ใช้ร่วมกันทั้ง 3 หน้ารายการ
- * `/events` · `/student/events` · `/organizer/manage`
+ * การ์ดกิจกรรม — ใช้ร่วมกันทุกหน้าที่แสดงรายการกิจกรรม
  *
- * เดิมโครงนี้ถูกก๊อปไว้ 3 ที่ พอแก้ที่เดียวอีกสองหน้าเลยหลุดธีมกัน
+ * ขนาดตายตัว ทุกการ์ดทั้งเว็บไซต์เท่ากันหมด: กว้างตามช่องที่ห่อ (`EVENT_CARD_SLOT` = 288px) สูง `EVENT_CARD_HEIGHT` (380px)
+ * ชื่อ/คำอธิบายจึงถูกตัดที่ปลายบรรทัด ไม่ยืดการ์ด — ชื่อสำรองที่ไว้ 2 บรรทัดเสมอเพื่อให้เนื้อหาถัดไปเริ่มที่ระดับเดียวกัน
+ *
+ * ข้อจำกัดของส่วนท้าย (`children` แถวข้อมูล / `actions` ปุ่ม): การ์ดตัดส่วนที่เกินทิ้ง ไม่ดันขยาย
+ * งบที่เหลือตอนมีคำอธิบาย 2 บรรทัดอยู่ด้วย ≈ 65px (ปุ่ม 1 แถว) และตอนไม่มีคำอธิบายราว 100px (แถวข้อมูลได้ไม่เกิน 2 แถว)
+ * ถ้าจะใส่มากกว่านี้ให้เพิ่มความสูงที่ event-card-layout.ts ไม่ใช่ปล่อยให้ล้น
  */
 export function EventCard({
     activity,
@@ -153,9 +159,16 @@ export function EventCard({
     children,
     actions,
 }: EventCardProps) {
+    const hasFooter = Boolean(children) || Boolean(actions)
+
     return (
-        <div className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-bg shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
-            <div className="relative h-[200px] overflow-hidden bg-surface">
+        <div
+            className={cn(
+                "group flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-bg shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl",
+                EVENT_CARD_HEIGHT
+            )}
+        >
+            <div className="relative h-44 shrink-0 overflow-hidden bg-surface">
                 {badgeLeft && <div className="absolute left-4 top-4 z-10">{badgeLeft}</div>}
                 {badgeRight && <div className="absolute right-4 top-4 z-10">{badgeRight}</div>}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -173,25 +186,29 @@ export function EventCard({
                 />
             </div>
 
-            <div className="flex flex-grow flex-col p-6">
-                <h3
-                    className={cn(
-                        "line-clamp-2 text-xl font-bold leading-tight text-fg transition-colors group-hover:text-brand-600",
-                        description === undefined ? "mb-6" : "mb-3"
-                    )}
-                >
+            <div className="flex min-h-0 flex-1 flex-col p-5">
+                {/* min-h-[2.5em] = 2 บรรทัดของ leading-tight — ชื่อบรรทัดเดียวก็จองที่ไว้เท่ากัน */}
+                <h3 className="line-clamp-2 min-h-[2.5em] text-xl font-bold leading-tight text-fg transition-colors group-hover:text-brand-600">
                     {activity.name}
                 </h3>
 
                 {description !== undefined && (
-                    <p className="mb-6 line-clamp-2 text-sm text-fg-muted">
+                    <p
+                        className={cn(
+                            "mt-2 overflow-hidden text-sm text-fg-muted",
+                            hasFooter ? "line-clamp-2" : "line-clamp-3"
+                        )}
+                    >
                         {description || "ไม่ระบุรายละเอียด"}
                     </p>
                 )}
 
-                {children && <div className="mt-auto space-y-2">{children}</div>}
-
-                {actions && <div className="mt-6 flex gap-3">{actions}</div>}
+                {hasFooter && (
+                    <div className="mt-auto shrink-0 space-y-3 pt-3">
+                        {children && <div className="space-y-2">{children}</div>}
+                        {actions && <div className="flex gap-3">{actions}</div>}
+                    </div>
+                )}
             </div>
         </div>
     )
