@@ -1,5 +1,5 @@
 import { AboutSections } from "@/components/about/about-sections"
 
 export default function OrganizerAboutPage() {
-    return <AboutSections />
+    return <AboutSections eventsHref="/organizer/events" />
 }
