@@ -14,7 +14,8 @@ import { CATEGORIES } from "@/lib/categories"
 import { SOFT_SKILLS, SOFT_SKILL_TIERS, MAX_SOFT_SKILLS_PER_ACTIVITY, maxSoftSkillLevel } from "@/lib/soft-skills"
 import { SoftSkillRubricLink } from "@/components/activity/soft-skill-rubric-link"
 import { cn, toggleInArray } from "@/lib/utils"
-import { Paperclip, X } from "lucide-react"
+import { Paperclip, Plus, Trash2, X } from "lucide-react"
+import { createEmptyShiftRow, deriveVolunteerRole, type DutyShiftRow } from "@/lib/duty-shift"
 import type { ActivityFormState, ActivityFormErrors } from "./types"
 
 const QUESTION_TYPE_OPTIONS = [
@@ -83,6 +84,18 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
 
     function setSoftSkillRate(skillType: string, rate: number) {
         onChange({ softSkillRates: { ...activity.softSkillRates, [skillType]: rate } })
+    }
+
+    function updateShiftRow(index: number, patch: Partial<DutyShiftRow>) {
+        onChange({ dutyShiftRows: activity.dutyShiftRows.map((r, i) => (i === index ? { ...r, ...patch } : r)) })
+    }
+
+    function addShiftRow() {
+        onChange({ dutyShiftRows: [...activity.dutyShiftRows, createEmptyShiftRow()] })
+    }
+
+    function removeShiftRow(index: number) {
+        onChange({ dutyShiftRows: activity.dutyShiftRows.filter((_, i) => i !== index) })
     }
 
     return (
@@ -295,14 +308,124 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                                     placeholder={"เช่น\nลงทะเบียนหน้างาน\nดูแลอุปกรณ์"}
                                 />
                             </FormField>
-                            <FormField name="dutyShiftOptions" label="ตัวเลือกรอบ/กะเวลา (ถ้ามี, บรรทัดละ 1 ตัวเลือก)">
-                                <Textarea
-                                    value={activity.dutyShiftOptions.join("\n")}
-                                    onChange={(e) => onChange({ dutyShiftOptions: splitLines(e.target.value) })}
-                                    className="min-h-[80px]"
-                                    placeholder={"เช่น\nกะเช้า 08:00-12:00\nกะบ่าย 13:00-17:00"}
-                                />
-                            </FormField>
+                            <div className="space-y-3">
+                                <Label>รูปแบบเวลาปฏิบัติหน้าที่</Label>
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-2 text-sm text-fg">
+                                        <input
+                                            type="radio"
+                                            name={`${activity.key}-shift-mode`}
+                                            checked={activity.dutyShiftMode === "single"}
+                                            onChange={() => onChange({ dutyShiftMode: "single" })}
+                                            className="size-4 shrink-0 border-border text-brand-600 focus:ring-brand-500"
+                                        />
+                                        ตลอดทั้งกิจกรรม (ไม่แบ่งกะ)
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm text-fg">
+                                        <input
+                                            type="radio"
+                                            name={`${activity.key}-shift-mode`}
+                                            checked={activity.dutyShiftMode === "shifts"}
+                                            onChange={() =>
+                                                onChange({
+                                                    dutyShiftMode: "shifts",
+                                                    dutyShiftRows: activity.dutyShiftRows.length
+                                                        ? activity.dutyShiftRows
+                                                        : [createEmptyShiftRow()],
+                                                })
+                                            }
+                                            className="size-4 shrink-0 border-border text-brand-600 focus:ring-brand-500"
+                                        />
+                                        แบ่งเป็นกะ (เช่น กะเช้า/กะบ่าย)
+                                    </label>
+                                </div>
+
+                                {activity.dutyShiftMode === "shifts" && (
+                                    <div className="space-y-2">
+                                        {activity.dutyShiftRows.map((row, i) => (
+                                            <div
+                                                key={row.id}
+                                                className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-bg p-3"
+                                            >
+                                                <div className="min-w-[140px] flex-1 space-y-1">
+                                                    <Label className="text-xs font-normal text-fg-muted">ชื่อกะ</Label>
+                                                    <Input
+                                                        value={row.label}
+                                                        onChange={(e) => updateShiftRow(i, { label: e.target.value })}
+                                                        placeholder="เช่น กะเช้า"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-xs font-normal text-fg-muted">เริ่ม</Label>
+                                                    <Input
+                                                        type="time"
+                                                        value={row.startTime}
+                                                        onChange={(e) => updateShiftRow(i, { startTime: e.target.value })}
+                                                        className="w-[120px]"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-xs font-normal text-fg-muted">สิ้นสุด</Label>
+                                                    <Input
+                                                        type="time"
+                                                        value={row.endTime}
+                                                        onChange={(e) => updateShiftRow(i, { endTime: e.target.value })}
+                                                        className="w-[120px]"
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeShiftRow(i)}
+                                                    aria-label={`ลบ${row.label || "กะนี้"}`}
+                                                    className="flex size-9 items-center justify-center rounded-lg text-fg-subtle hover:bg-danger/10 hover:text-danger"
+                                                >
+                                                    <Trash2 className="size-4" aria-hidden="true" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <button
+                                            type="button"
+                                            onClick={addShiftRow}
+                                            className="flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-sm font-medium text-fg-muted hover:border-border-strong hover:bg-surface"
+                                        >
+                                            <Plus className="size-4" aria-hidden="true" /> เพิ่มกะ
+                                        </button>
+                                        {errors.dutyShiftRows && (
+                                            <p className="text-xs text-danger">{errors.dutyShiftRows}</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* ใบรับรองจิตอาสา — เฉพาะประเภทนี้ที่มีตัวเลือกบทบาท/หน้าที่ให้อ้างอิง */}
+                            <div className="space-y-4 border-t border-border pt-4">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                        <Label>ออกใบรับรองจิตอาสา</Label>
+                                        <p className="mt-0.5 text-xs text-fg-muted">
+                                            ระบบตั้งชั่วโมงจิตอาสาเริ่มต้นให้อัตโนมัติจากวันเวลาข้างต้น — ปรับเป็นรายบุคคลได้ภายหลังตอนออกใบรับรองให้แต่ละคน
+                                        </p>
+                                    </div>
+                                    <Toggle checked={activity.certEnabled} onCheckedChange={(v) => onChange({ certEnabled: v })} />
+                                </div>
+                                {activity.certEnabled && (
+                                    <div className="space-y-1 text-sm text-fg-muted">
+                                        <p>
+                                            บทบาทบนใบรับรอง:{" "}
+                                            <span className="font-bold text-fg">
+                                                {deriveVolunteerRole(activity.dutyRoleOptions) || "กรุณาระบุตัวเลือกบทบาท/หน้าที่ด้านบนก่อน"}
+                                            </span>{" "}
+                                            (อ้างอิงจากตัวเลือกบทบาท/หน้าที่ด้านบน ไม่ต้องกรอกซ้ำ)
+                                        </p>
+                                        <p>
+                                            ชั่วโมงจิตอาสาโดยประมาณ:{" "}
+                                            <span className="font-bold text-brand-600">
+                                                {hoursPreview ? `${hoursPreview} ชั่วโมง` : "กรุณาระบุวันเวลาเริ่ม-สิ้นสุดก่อน"}
+                                            </span>
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -344,38 +467,6 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                 </div>
 
                 <div className="space-y-6 border-t border-border pt-6">
-                    {/* ใบรับรองจิตอาสา */}
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <Label>ออกใบรับรองจิตอาสา</Label>
-                            <p className="mt-0.5 text-xs text-fg-muted">
-                                ระบบตั้งชั่วโมงจิตอาสาเริ่มต้นให้อัตโนมัติจากวันเวลาข้างต้น — ปรับเป็นรายบุคคลได้ภายหลังตอนออกใบรับรองให้แต่ละคน
-                            </p>
-                        </div>
-                        <Toggle
-                            checked={activity.certEnabled}
-                            onCheckedChange={(v) => onChange({ certEnabled: v })}
-                        />
-                    </div>
-                    {activity.certEnabled && (
-                        <div className="space-y-4">
-                            <FormField name="volunteerRole" label="ชื่อบทบาท/การทำงาน" required error={errors.volunteerRole} className="max-w-sm">
-                                <Input
-                                    value={activity.volunteerRole}
-                                    onChange={(e) => onChange({ volunteerRole: e.target.value })}
-                                    onBlur={() => onFieldBlur("volunteerRole")}
-                                    className={fieldInputClass(errors.volunteerRole)}
-                                />
-                            </FormField>
-                            <p className="text-sm text-fg-muted">
-                                ชั่วโมงจิตอาสาโดยประมาณ:{" "}
-                                <span className="font-bold text-brand-600">
-                                    {hoursPreview ? `${hoursPreview} ชั่วโมง` : "กรุณาระบุวันเวลาเริ่ม-สิ้นสุดก่อน"}
-                                </span>
-                            </p>
-                        </div>
-                    )}
-
                     {/* คำถามเพิ่มเติมตอนลงทะเบียน */}
                     <div className="flex items-start justify-between gap-4">
                         <div>

@@ -1,4 +1,5 @@
 import type { BuilderQuestion } from "@/components/ui/dynamic-question-builder"
+import type { DutyShiftMode, DutyShiftRow } from "@/lib/duty-shift"
 
 // State ฝั่ง frontend สำหรับ wizard สร้างงาน — แปลงเป็น CreateEventBody ตอน submit เท่านั้น
 // (capacityEnabled / certEnabled / softSkillsEnabled / questionsEnabled เป็น concept ฝั่ง UI ล้วนๆ ไม่มีใน backend DTO)
@@ -38,8 +39,8 @@ export interface ActivityFormState {
     location: string
     capacityEnabled: boolean
     capacity: string
+    /** มีความหมายเฉพาะเมื่อ registrationType เป็น staff_volunteer — บทบาทบนใบรับรองอ้างอิงจาก dutyRoleOptions โดยตรง ไม่ใช่ฟิลด์แยก (ดู deriveVolunteerRole) */
     certEnabled: boolean
-    volunteerRole: string
     softSkillsEnabled: boolean
     /** skillType -> rate (0-5) — มีเฉพาะทักษะที่ติ๊กเลือก */
     softSkillRates: Record<string, number>
@@ -48,7 +49,9 @@ export interface ActivityFormState {
     registrationType: "participant" | "staff_volunteer" | "contestant"
     /** บรรทัดละ 1 ตัวเลือก — ใช้เมื่อ registrationType เป็น staff_volunteer */
     dutyRoleOptions: string[]
-    dutyShiftOptions: string[]
+    /** "single" = ตลอดทั้งกิจกรรม (ไม่แบ่งกะ, ส่ง dutyShiftOptions เป็น [] ตอน submit), "shifts" = แบ่งเป็นกะตาม dutyShiftRows */
+    dutyShiftMode: DutyShiftMode
+    dutyShiftRows: DutyShiftRow[]
     /** เก็บเป็น string เหมือน capacity — parseInt ตอน submit */
     teamSizeMin: string
     teamSizeMax: string
@@ -97,14 +100,14 @@ export function createEmptyActivity(): ActivityFormState {
         capacityEnabled: false,
         capacity: "",
         certEnabled: false,
-        volunteerRole: "",
         softSkillsEnabled: false,
         softSkillRates: {},
         questionsEnabled: false,
         questions: [],
         registrationType: "participant",
         dutyRoleOptions: [],
-        dutyShiftOptions: [],
+        dutyShiftMode: "single",
+        dutyShiftRows: [],
         teamSizeMin: "",
         teamSizeMax: "",
         competitionCategoryOptions: [],
@@ -114,7 +117,7 @@ export function createEmptyActivity(): ActivityFormState {
 export type EventFormErrors = Partial<Record<"name" | "description", string>>
 
 export type ActivityFormErrors = Partial<Record<
-    "name" | "categories" | "description" | "startAt" | "endAt" | "location" | "capacity" | "volunteerRole"
-    | "dutyRoleOptions" | "teamSizeMax",
+    "name" | "categories" | "description" | "startAt" | "endAt" | "location" | "capacity"
+    | "dutyRoleOptions" | "dutyShiftRows" | "teamSizeMax",
     string
 >>

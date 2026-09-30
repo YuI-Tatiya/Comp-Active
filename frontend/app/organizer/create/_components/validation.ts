@@ -37,14 +37,20 @@ export function validateActivityField(a: ActivityFormState, field: keyof Activit
         case "capacity":
             if (!a.capacityEnabled) return undefined
             return !a.capacity || parseInt(a.capacity) < 1 ? "กรุณาระบุจำนวนที่รับ" : undefined
-        case "volunteerRole":
-            if (!a.certEnabled) return undefined
-            return a.volunteerRole.trim() ? undefined : "กรุณาระบุชื่อบทบาทสำหรับใบจิตอาสา"
         case "dutyRoleOptions":
             if (a.registrationType !== "staff_volunteer") return undefined
             return a.dutyRoleOptions.some((s) => s.trim())
                 ? undefined
                 : "กรุณาระบุตัวเลือกบทบาท/หน้าที่อย่างน้อย 1 รายการ"
+        case "dutyShiftRows":
+            if (a.registrationType !== "staff_volunteer" || a.dutyShiftMode !== "shifts") return undefined
+            if (a.dutyShiftRows.length === 0) return "กรุณาเพิ่มอย่างน้อย 1 กะ"
+            for (const r of a.dutyShiftRows) {
+                if (!r.label.trim()) return "กรุณาระบุชื่อกะให้ครบทุกแถว"
+                if (!r.startTime || !r.endTime) return "กรุณาระบุเวลาเริ่ม-สิ้นสุดให้ครบทุกแถว"
+                if (r.endTime <= r.startTime) return "เวลาสิ้นสุดของแต่ละกะต้องอยู่หลังเวลาเริ่ม"
+            }
+            return undefined
         case "teamSizeMax":
             if (a.registrationType !== "contestant") return undefined
             if (!a.teamSizeMin || !a.teamSizeMax) return undefined
@@ -55,8 +61,8 @@ export function validateActivityField(a: ActivityFormState, field: keyof Activit
 }
 
 export const ACTIVITY_FIELDS: (keyof ActivityFormErrors)[] = [
-    "name", "categories", "description", "startAt", "endAt", "location", "capacity", "volunteerRole",
-    "dutyRoleOptions", "teamSizeMax",
+    "name", "categories", "description", "startAt", "endAt", "location", "capacity",
+    "dutyRoleOptions", "dutyShiftRows", "teamSizeMax",
 ]
 
 export function validateActivityFields(a: ActivityFormState): ActivityFormErrors {

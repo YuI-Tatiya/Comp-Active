@@ -8,6 +8,7 @@ import { Toggle } from "@/components/ui/toggle"
 import { categoryLabel } from "@/lib/categories"
 import { softSkillLabel, softSkillTierLabel } from "@/lib/soft-skills"
 import { PROGRAMS } from "@/lib/programs"
+import { deriveVolunteerRole } from "@/lib/duty-shift"
 import { cn } from "@/lib/utils"
 import { Calendar, MapPin, Users, Award } from "lucide-react"
 import type { EventFormState, ActivityFormState } from "./types"
@@ -191,10 +192,10 @@ export function SectionPublish({ event, activities, onChangeEvent }: Props) {
                                     <Users className="size-3.5 shrink-0" />
                                     {a.capacityEnabled ? `รับ ${a.capacity || "-"} คน` : "ไม่จำกัดจำนวน"}
                                 </div>
-                                {a.certEnabled && (
+                                {a.registrationType === "staff_volunteer" && a.certEnabled && (
                                     <div className="flex items-center gap-2">
                                         <Award className="size-3.5 shrink-0" />
-                                        ออกใบจิตอาสา — {a.volunteerRole || "-"}
+                                        ออกใบจิตอาสา — {deriveVolunteerRole(a.dutyRoleOptions) || "-"}
                                     </div>
                                 )}
                             </div>
