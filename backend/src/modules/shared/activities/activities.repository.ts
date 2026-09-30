@@ -3,6 +3,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { ActivityFilterDto } from './dto/activity-filter.dto';
 import { ActivityStatus, ApprovalStatus } from '../../../common/enums/status.enum';
 import { SoftSkillType } from '../../../common/enums/soft-skill.enum';
+import { STUDENT_CONTACT_SELECT } from '../../../common/constants/user-select';
 
 export const activityInclude = {
   tags: true,
@@ -76,8 +77,9 @@ export class ActivitiesRepository {
         ...activityInclude,
         registrations: {
           include: {
-            student: true,
+            student: { select: STUDENT_CONTACT_SELECT },
             evaluation: true,
+            certificate: true,
             answers: {
               include: {
                 question: { select: { id: true, label: true } },

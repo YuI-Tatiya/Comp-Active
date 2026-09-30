@@ -44,6 +44,21 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get evaluation() {
     return this._client.evaluation;
   }
+  get evaluationBaseline() {
+    return this._client.evaluationBaseline;
+  }
+  get evaluationException() {
+    return this._client.evaluationException;
+  }
+  get assessmentAssignment() {
+    return this._client.assessmentAssignment;
+  }
+  get assessmentScore() {
+    return this._client.assessmentScore;
+  }
+  get evaluationApproval() {
+    return this._client.evaluationApproval;
+  }
   get activityQuestion() {
     return this._client.activityQuestion;
   }

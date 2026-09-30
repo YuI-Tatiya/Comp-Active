@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RegistrationStatus } from '../../../common/enums/status.enum';
+import { STUDENT_CONTACT_SELECT } from '../../../common/constants/user-select';
 
 @Injectable()
 export class RegistrationsRepository {
@@ -15,6 +16,8 @@ export class RegistrationsRepository {
           select: {
             visibility: true,
             visibilityStudentIdFilter: true,
+            // create() ใช้บังคับวันปิดรับสมัคร — ถ้าไม่ select มา ค่าจะเป็น undefined แล้วการเช็คไม่ทำงานโดยไม่มี error
+            registrationCloseAt: true,
             visibilityProgram: { select: { programCode: true } },
             visibilityYears: { select: { year: true } },
           },
@@ -39,6 +42,14 @@ export class RegistrationsRepository {
     activityId: number,
     answers: { questionId: number; textValue?: string; optionIds: number[] }[] = [],
     certRequest: { wantsCertLoanFund?: boolean; wantsCertScholarship?: boolean } = {},
+    registrationTypeFields: {
+      dutyRole?: string | null;
+      dutyShift?: string | null;
+      teamName?: string | null;
+      teamSize?: number | null;
+      competitionCategory?: string | null;
+      submissionLink?: string | null;
+    } = {},
   ) {
     return this.prisma.registration.create({
       data: {
@@ -47,6 +58,12 @@ export class RegistrationsRepository {
         status: RegistrationStatus.PENDING as any,
         wantsCertLoanFund: !!certRequest.wantsCertLoanFund,
         wantsCertScholarship: !!certRequest.wantsCertScholarship,
+        dutyRole: registrationTypeFields.dutyRole ?? null,
+        dutyShift: registrationTypeFields.dutyShift ?? null,
+        teamName: registrationTypeFields.teamName ?? null,
+        teamSize: registrationTypeFields.teamSize ?? null,
+        competitionCategory: registrationTypeFields.competitionCategory ?? null,
+        submissionLink: registrationTypeFields.submissionLink ?? null,
         answers: {
           create: answers.map((a) => ({
             questionId: a.questionId,
@@ -107,7 +124,7 @@ export class RegistrationsRepository {
 
   /** ใช้สำหรับส่งอีเมลยืนยันการลงทะเบียน — ต้องการอีเมล/ชื่อนักศึกษาและรายละเอียดกิจกรรม */
   findByIdWithStudentAndActivity(id: number) {
-    return this.prisma.registration.findUnique({ where: { id }, include: { student: true, activity: true } });
+    return this.prisma.registration.findUnique({ where: { id }, include: { student: { select: STUDENT_CONTACT_SELECT }, activity: true } });
   }
 
   findByStudent(studentId: number) {
@@ -121,7 +138,7 @@ export class RegistrationsRepository {
   findByActivity(activityId: number) {
     return this.prisma.registration.findMany({
       where: { activityId },
-      include: { student: true },
+      include: { student: { select: STUDENT_CONTACT_SELECT } },
       orderBy: { registerDate: 'asc' },
     });
   }

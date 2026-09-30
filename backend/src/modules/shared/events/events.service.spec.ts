@@ -46,6 +46,109 @@ function makeDto(activities: any[] = []) {
   } as any;
 }
 
+describe('EventsService.create — soft skill cap', () => {
+  let service: EventsService;
+  let repo: { create: jest.Mock };
+
+  beforeEach(async () => {
+    repo = { create: jest.fn().mockResolvedValue({ id: 1, name: 'Camp', activities: [] }) };
+    const module = await Test.createTestingModule({
+      providers: [EventsService, { provide: EventsRepository, useValue: repo }],
+    }).compile();
+    service = module.get(EventsService);
+  });
+
+  function activityDto(overrides: Record<string, unknown> = {}) {
+    return {
+      name: 'A1',
+      description: 'd',
+      categories: ['Technology'],
+      startAt: '2027-01-01T09:00:00.000Z',
+      endAt: '2027-01-01T12:00:00.000Z', // 3h — Tier 1, cap = 2
+      location: 'Room 1',
+      ...overrides,
+    };
+  }
+
+  it('rejects more than 3 selected soft skills', async () => {
+    const dto = {
+      name: 'Camp',
+      description: 'desc',
+      activities: [
+        activityDto({
+          softSkillRates: [
+            { skillType: 'communication', rate: 1 },
+            { skillType: 'leadership', rate: 1 },
+            { skillType: 'creativity', rate: 1 },
+            { skillType: 'decision_making', rate: 1 },
+          ],
+        }),
+      ],
+    } as any;
+
+    await expect(service.create(7, dto)).rejects.toThrow(BadRequestException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a rate above the duration-based cap for a short activity', async () => {
+    // 3h activity -> Tier 1 cap = 2
+    const dto = {
+      name: 'Camp',
+      description: 'desc',
+      activities: [activityDto({ softSkillRates: [{ skillType: 'leadership', rate: 5 }] })],
+    } as any;
+
+    await expect(service.create(7, dto)).rejects.toThrow(BadRequestException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('accepts a rate within the duration-based cap', async () => {
+    const dto = {
+      name: 'Camp',
+      description: 'desc',
+      activities: [activityDto({ softSkillRates: [{ skillType: 'leadership', rate: 2 }] })],
+    } as any;
+
+    await service.create(7, dto);
+    expect(repo.create).toHaveBeenCalled();
+  });
+
+  it('unlocks level 5 for a staff_volunteer sub-activity of a multi-activity event, even if individually short', async () => {
+    const dto = {
+      name: 'Camp',
+      description: 'desc',
+      activities: [
+        activityDto({
+          registrationType: 'staff_volunteer',
+          dutyRoleOptions: ['ลงทะเบียนหน้างาน'],
+          softSkillRates: [{ skillType: 'leadership', rate: 5 }],
+        }),
+        activityDto({ name: 'A2', startAt: '2027-01-02T09:00:00.000Z', endAt: '2027-01-02T12:00:00.000Z' }),
+      ],
+    } as any;
+
+    await service.create(7, dto);
+    expect(repo.create).toHaveBeenCalled();
+  });
+
+  it('does NOT unlock level 5 for a short staff_volunteer activity standing alone (not a project)', async () => {
+    const dto = {
+      name: 'Camp',
+      description: 'desc',
+      activities: [
+        activityDto({
+          registrationType: 'staff_volunteer',
+          dutyRoleOptions: ['ลงทะเบียนหน้างาน'],
+          softSkillRates: [{ skillType: 'leadership', rate: 5 }],
+        }),
+      ],
+    } as any;
+
+    await expect(service.create(7, dto)).rejects.toThrow(BadRequestException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+});
+
 describe('EventsService.update', () => {
   let service: EventsService;
   let repo: { findById: jest.Mock; update: jest.Mock };
@@ -289,5 +392,35 @@ describe('EventsService.findByIdForOrganizer', () => {
     expect(result.activities[0].registeredCount).toBe(1);
     expect(result.activities[0].registrations[0].student.name).toBe('A');
     expect(result.activities[0]._count).toBeUndefined();
+  });
+});
+
+describe('EventsService.getSurveyResults — ownership', () => {
+  let service: EventsService;
+  let repo: { findByIdWithSurveyAnswers: jest.Mock };
+
+  beforeEach(async () => {
+    repo = { findByIdWithSurveyAnswers: jest.fn().mockResolvedValue({ id: 1, organizerId: 7, surveyQuestions: [] }) };
+    const module = await Test.createTestingModule({
+      providers: [EventsService, { provide: EventsRepository, useValue: repo }],
+    }).compile();
+    service = module.get(EventsService);
+  });
+
+  it('returns results to the owning organizer', async () => {
+    await expect(service.getSurveyResults(1, 7, UserRole.ORGANIZER)).resolves.toBeDefined();
+  });
+
+  it('allows an admin who does not own the event', async () => {
+    await expect(service.getSurveyResults(1, 999, UserRole.ADMIN)).resolves.toBeDefined();
+  });
+
+  it('throws ForbiddenException (not BadRequest) for a non-owning organizer', async () => {
+    await expect(service.getSurveyResults(1, 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('throws NotFoundException when the event does not exist', async () => {
+    repo.findByIdWithSurveyAnswers.mockResolvedValue(null);
+    await expect(service.getSurveyResults(1, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
   });
 });

@@ -16,12 +16,13 @@ import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { Toast } from "@/components/ui/toast"
 import { RegistrationEvaluation } from "@/components/student/registration-evaluation"
 import { QrCheckInButton } from "@/components/student/qr-checkin-button"
+import { AssessmentDialog } from "@/components/student/assessment-dialog"
 import { registrationsAPI, API_BASE_URL, isCancelledByOrganizer, isActiveRegistration, EventSurveyQuestion, SurveyAnswerBody, SkillScores } from "@/lib/api"
 import { getCategory, categoriesBadgeLabel } from "@/lib/categories"
 import { SOFT_SKILLS } from "@/lib/soft-skills"
 import {
   Calendar, Clock, MapPin, Loader2, CalendarX, X, Star, Sparkles, Search,
-  CheckCircle2, HeartHandshake, TrendingUp, ChevronDown,
+  CheckCircle2, HeartHandshake, TrendingUp, ChevronDown, Users,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -32,6 +33,8 @@ import { cn } from "@/lib/utils"
 interface RegistrationEvaluationData extends SkillScores {
   comment?: string | null
   createdAt: string
+  /** pending_approval = รอผู้จัดอนุมัติ (กิจกรรมประเมินรอบด้าน) — server ปิดคะแนนเป็น 0 ไว้แล้ว */
+  status?: string
 }
 
 interface Registration {
@@ -57,6 +60,8 @@ interface Registration {
     /** Prisma Decimal ส่งมาเป็น string เสมอ — ไม่ใช่ number */
     volunteerHours?: string | null
     volunteerRole?: string | null
+    /** ผู้จัดเปิดโหมดประเมินรอบด้าน (ตนเอง + เพื่อน) ไว้หรือไม่ */
+    peerAssessmentEnabled?: boolean
   }
 }
 
@@ -121,6 +126,7 @@ export default function MyRegistrationsPage() {
 
   // แบบสำรวจความพึงพอใจ — เปิดเป็น dialog ต่อรายการลงทะเบียน
   const [surveyRegId, setSurveyRegId] = useState<number | null>(null)
+  const [assessmentRegId, setAssessmentRegId] = useState<number | null>(null)
   const [surveyQuestions, setSurveyQuestions] = useState<EventSurveyQuestion[]>([])
   const [surveyAnswers, setSurveyAnswers] = useState<Record<number, { ratingValue?: number; textValue?: string }>>({})
   const [surveyLoading, setSurveyLoading] = useState(false)
@@ -493,7 +499,12 @@ export default function MyRegistrationsPage() {
                           </Badge>
                         )}
 
-                        {!!reg.evaluation && <Badge variant="default">ประเมินแล้ว</Badge>}
+                        {!!reg.evaluation &&
+                          (reg.evaluation.status === "pending_approval" ? (
+                            <Badge variant="warning">รออนุมัติผล</Badge>
+                          ) : (
+                            <Badge variant="default">ประเมินแล้ว</Badge>
+                          ))}
 
                         {isCancelledByOrganizer(reg.activity.approvalStatus) && (
                           <Badge variant="danger">กิจกรรมถูกยกเลิก</Badge>
@@ -555,7 +566,11 @@ export default function MyRegistrationsPage() {
 
                       {/* ผลประเมินของกิจกรรมนี้ — กางในการ์ด ไม่ใช่กระโดดไปหน้าโปรไฟล์ที่แสดงค่าเฉลี่ยรวม */}
                       {reg.evaluation && expandedEvaluations.includes(reg.id) && (
-                        <RegistrationEvaluation scores={reg.evaluation} comment={reg.evaluation.comment} />
+                        <RegistrationEvaluation
+                          scores={reg.evaluation}
+                          comment={reg.evaluation.comment}
+                          status={reg.evaluation.status}
+                        />
                       )}
 
                       <div className="mt-6 flex flex-wrap items-center gap-3 pt-2">
@@ -577,6 +592,19 @@ export default function MyRegistrationsPage() {
                             <Star className="size-4" aria-hidden="true" /> ให้คะแนนกิจกรรม
                           </Button>
                         )}
+
+                        {reg.attendance === "attended" &&
+                          reg.activity.status === "completed" &&
+                          reg.activity.peerAssessmentEnabled && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-xl font-bold"
+                              onClick={() => setAssessmentRegId(reg.id)}
+                            >
+                              <Users className="size-4" aria-hidden="true" /> ประเมินตนเองและเพื่อน
+                            </Button>
+                          )}
 
                         {!!reg.evaluation && (
                           <Button
@@ -626,6 +654,8 @@ export default function MyRegistrationsPage() {
           </div>
         )}
       </Container>
+
+      <AssessmentDialog registrationId={assessmentRegId} onClose={() => setAssessmentRegId(null)} />
 
       {/* แบบสำรวจความพึงพอใจ */}
       <Dialog open={surveyRegId !== null} onOpenChange={(open) => !open && setSurveyRegId(null)}>

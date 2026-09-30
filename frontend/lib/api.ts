@@ -78,10 +78,19 @@ export interface Activity<T = unknown> {
   // Prisma Decimal ส่งมาเป็น string เสมอ ไม่ใช่ number
   volunteerHours?: string | null;
   volunteerRole?: string | null;
+  // ประเภทการรับสมัคร — ฟิลด์ config ด้านล่างมีความหมายเฉพาะเมื่อ registrationType ตรงกับประเภทนั้น
+  registrationType?: "participant" | "staff_volunteer" | "contestant";
+  dutyRoleOptions?: string[];
+  dutyShiftOptions?: string[];
+  teamSizeMin?: number | null;
+  teamSizeMax?: number | null;
+  competitionCategoryOptions?: string[];
   approvalStatus: string;
   status: string;
   /** เหตุผลที่ผู้จัดยกเลิกกิจกรรม — แสดงให้นักศึกษาเห็นเมื่อกิจกรรมถูกยกเลิก */
   cancellationReason?: string | null;
+  /** เปิดโหมดประเมินรอบด้าน (นักศึกษาประเมินตนเอง + เพื่อน) — เฉพาะกิจกรรมสตาฟฟ์ Tier 3 */
+  peerAssessmentEnabled?: boolean;
   tags: Tag[];
   conditions: Condition[];
   benefits: Benefit[];
@@ -315,6 +324,12 @@ export interface CreateEventActivityBody {
   volunteerRole?: string;
   softSkillRates?: SoftSkillRateBody[];
   questions?: QuestionBody[];
+  registrationType?: "participant" | "staff_volunteer" | "contestant";
+  dutyRoleOptions?: string[];
+  dutyShiftOptions?: string[];
+  teamSizeMin?: number | null;
+  teamSizeMax?: number | null;
+  competitionCategoryOptions?: string[];
 }
 
 export interface CreateEventBody {
@@ -443,6 +458,15 @@ export interface CertRequestBody {
   wantsCertScholarship?: boolean;
 }
 
+export interface RegistrationTypeFieldsBody {
+  dutyRole?: string;
+  dutyShift?: string;
+  teamName?: string;
+  teamSize?: number;
+  competitionCategory?: string;
+  submissionLink?: string;
+}
+
 export interface CheckInSelfResult {
   id: number;
   status: string;
@@ -452,10 +476,15 @@ export interface CheckInSelfResult {
 }
 
 export const registrationsAPI = {
-  create: (activityId: number, answers?: RegistrationAnswerBody[], certRequest?: CertRequestBody) =>
+  create: (
+    activityId: number,
+    answers?: RegistrationAnswerBody[],
+    certRequest?: CertRequestBody,
+    registrationTypeFields?: RegistrationTypeFieldsBody,
+  ) =>
     fetchAPI('/api/registrations', {
       method: 'POST',
-      body: JSON.stringify({ activityId, answers, ...certRequest }),
+      body: JSON.stringify({ activityId, answers, ...certRequest, ...registrationTypeFields }),
     }),
   cancel: (id: number) => fetchAPI(`/api/registrations/${id}`, { method: 'DELETE' }),
   getMy: () => fetchAPI('/api/registrations/my'),
@@ -514,9 +543,168 @@ export interface SkillsData {
   }[];
 }
 
+// ── Batch Evaluation (ประเมินรายฝ่าย — กิจกรรมสตาฟฟ์ Tier 3) ───────────────────────
+
+export interface EvaluationBatchMember {
+  registrationId: number;
+  name: string;
+  studentId: string | null;
+  /** ระดับที่บันทึกอยู่ใน Evaluation ตอนนี้ ต่อทักษะ */
+  current: Record<string, number>;
+  /** เฉพาะทักษะที่เป็นข้อยกเว้นของคนนี้ พร้อมเหตุผล */
+  exceptions: Record<string, { score: number; reason: string }>;
+}
+
+export interface EvaluationBatchGroup {
+  dutyRole: string;
+  /** คะแนนฐานของฝ่ายต่อทักษะ (ถ้ายังไม่เคยตั้งจะเป็นค่าเริ่มต้นของกิจกรรม ซึ่งอาจไม่ใช่ 2/3/5) */
+  baseline: Record<string, number>;
+  members: EvaluationBatchMember[];
+}
+
+export interface EvaluationBatch {
+  /** false = กิจกรรมนี้ให้คะแนนอัตโนมัติตอนเช็คอิน ไม่ใช้หน้านี้ (server เป็นผู้ตัดสิน) */
+  eligible: boolean;
+  reason?: string;
+  cap: 2 | 3 | 5;
+  skills: string[];
+  defaults: Record<string, number>;
+  groups: EvaluationBatchGroup[];
+  /** ผู้ที่เช็คอินแล้วแต่ไม่ระบุฝ่าย — หน้านี้แก้ให้ไม่ได้ ยังคงใช้ค่าเริ่มต้นของกิจกรรม */
+  withoutDutyRole: number;
+  /** จำนวนคนที่ผู้จัดอนุมัติผลรอบด้านแล้ว — ค่าของคนเหล่านี้ถูกล็อก การบันทึกที่นี่ไม่ทับ */
+  approvedCount: number;
+}
+
+export interface SaveEvaluationBatchBody {
+  groups: { dutyRole: string; scores: { skillType: string; score: number }[] }[];
+  exceptions: { registrationId: number; scores: { skillType: string; score: number }[]; reason: string }[];
+}
+
+// ── ประเมินรอบด้าน 360° (ตนเอง + เพื่อน) — เก็บข้อมูลอย่างเดียว ยังไม่กระทบคะแนนจริง ────────────
+
+/** ฝั่งผู้จัด: เฉพาะจำนวนและรายชื่อคนค้างส่ง — ไม่มีคะแนนดิบ/ตัวตนผู้ให้ */
+export interface AssessmentOrganizerState {
+  /** false = กิจกรรมนี้ไม่เข้าเงื่อนไข Tier 3 (server เป็นผู้ตัดสิน) */
+  eligible: boolean;
+  reason?: string;
+  enabled: boolean;
+  /** ใบงานถูกสร้างและนักศึกษาเริ่มส่งได้หลังผู้จัดกดจบกิจกรรมเท่านั้น */
+  completed: boolean;
+  progress: { self: { submitted: number; total: number }; peer: { submitted: number; total: number } } | null;
+  pending: { registrationId: number; name: string; selfDone: boolean; peerGiven: number; peerTotal: number }[];
+}
+
+export interface AssessmentTask {
+  assignmentId: number;
+  source: 'self' | 'peer';
+  /** ชื่อเพื่อนที่ต้องประเมิน (เฉพาะชื่อ) — ใบประเมินตนเองเป็น null */
+  targetName: string | null;
+  targetDutyRole: string | null;
+  submitted: boolean;
+  /** ระดับที่ส่งไปแล้ว ต่อทักษะ (null ถ้ายังไม่ส่ง) */
+  myScores: Record<string, number> | null;
+}
+
+export interface MyAssessments {
+  enabled: boolean;
+  /** กิจกรรมจบแล้วและเริ่มส่งได้ */
+  open: boolean;
+  skills: string[];
+  tasks: AssessmentTask[];
+}
+
+export interface SubmitAssessmentBody {
+  scores: { skillType: string; score: number }[];
+}
+
+export const assessmentsAPI = {
+  getMine: (registrationId: number) => fetchAPI<MyAssessments>(`/api/assessments/registration/${registrationId}`),
+  submit: (assignmentId: number, body: SubmitAssessmentBody) =>
+    fetchAPI<{ message: string }>(`/api/assessments/${assignmentId}`, { method: 'POST', body: JSON.stringify(body) }),
+};
+
+// ── อนุมัติผลประเมินรอบด้าน (คะแนนสุทธิ + flag) ────────────────────────────────────
+
+/** เหตุผลที่คนนี้ต้องตรวจสอบเองก่อนอนุมัติ — ตัดออกจาก "อนุมัติทั้งหมด" */
+export type ApprovalFlag = 'self_missing' | 'peer_incomplete' | 'divergent' | 'has_exception';
+
+export interface ApprovalSkillView {
+  skillType: string;
+  /** ระดับที่ผู้จัดตั้งไว้ (ข้อยกเว้น ?? ฐานของฝ่าย ?? ค่าเริ่มต้น) */
+  organizer: number;
+  self: number | null;
+  /** ค่าเฉลี่ยจากเพื่อน — null ถ้าส่งมาไม่ถึง 2 คน */
+  peer: number | null;
+  peerCount: number;
+  /** ระดับที่ระบบแนะนำ (ปัดเข้า 2/3/5 และครอบเพดานแล้ว) */
+  recommended: number;
+  /** ค่าที่ล็อกไว้แล้ว — เฉพาะแถวที่อนุมัติแล้ว */
+  final: number | null;
+}
+
+export interface ApprovalRow {
+  registrationId: number;
+  name: string;
+  dutyRole: string | null;
+  approved: boolean;
+  flags: ApprovalFlag[];
+  overrideReason: string | null;
+  skills: ApprovalSkillView[];
+}
+
+export interface ApprovalDashboard {
+  /** false = ยังอนุมัติไม่ได้ (ไม่เข้าเงื่อนไข/ยังไม่เปิดโหมด/ยังไม่จบกิจกรรม) — reason บอกทางไปต่อ */
+  available: boolean;
+  reason?: string;
+  cap: number;
+  skills: string[];
+  summary: { total: number; approved: number; ready: number; flagged: number };
+  rows: ApprovalRow[];
+}
+
+export interface ApproveEvaluationBody {
+  /** ไม่ส่ง = ยอมรับที่ระบบแนะนำ */
+  scores?: { skillType: string; score: number }[];
+  /** บังคับเมื่อค่าที่เลือกต่างจากที่ระบบแนะนำ */
+  reason?: string;
+}
+
+export interface ApproveReadyResult {
+  approved: number;
+  skipped: { registrationId: number; reason: 'not_found' | 'already_approved' | 'flagged' }[];
+}
+
 export const evaluationsAPI = {
   getMySkills: () => fetchAPI<SkillsData>('/api/evaluations/my-skills'),
   getByActivity: (activityId: number) => fetchAPI(`/api/evaluations/activity/${activityId}`),
+  getBatch: (activityId: number) => fetchAPI<EvaluationBatch>(`/api/evaluations/activity/${activityId}/batch`),
+  /** ส่งสถานะทั้งชุดทุกครั้ง (declarative) — ตอบกลับเป็นสถานะล่าสุดหลังบันทึก */
+  saveBatch: (activityId: number, body: SaveEvaluationBatchBody) =>
+    fetchAPI<EvaluationBatch>(`/api/evaluations/activity/${activityId}/batch`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  getAssessment: (activityId: number) =>
+    fetchAPI<AssessmentOrganizerState>(`/api/evaluations/activity/${activityId}/assessment`),
+  setAssessment: (activityId: number, enabled: boolean) =>
+    fetchAPI<AssessmentOrganizerState>(`/api/evaluations/activity/${activityId}/assessment`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    }),
+  getApproval: (activityId: number) => fetchAPI<ApprovalDashboard>(`/api/evaluations/activity/${activityId}/approval`),
+  /** อนุมัติทั้งหมดที่ไม่มีข้อขัดแย้ง — ส่ง id ที่เห็นว่าพร้อม server จะตัดสินใหม่เองอีกครั้ง */
+  approveReady: (activityId: number, registrationIds: number[]) =>
+    fetchAPI<ApproveReadyResult>(`/api/evaluations/activity/${activityId}/approval/approve-ready`, {
+      method: 'POST',
+      body: JSON.stringify({ registrationIds }),
+    }),
+  /** อนุมัติ/แก้ผลรายคน — ตอบกลับเป็นหน้าสรุปล่าสุด */
+  approveOne: (registrationId: number, body: ApproveEvaluationBody) =>
+    fetchAPI<ApprovalDashboard>(`/api/evaluations/registration/${registrationId}/approval`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
 
 // ==================== CERTIFICATES ====================
@@ -531,8 +719,12 @@ export interface Certificate {
 }
 
 export const certificatesAPI = {
-  issue: (registrationId: number) =>
-    fetchAPI(`/api/certificates/issue/${registrationId}`, { method: 'POST' }),
+  // ไม่ระบุ volunteerHours = ใช้ค่าเริ่มต้นที่คำนวณจากกิจกรรม
+  issue: (registrationId: number, volunteerHours?: number) =>
+    fetchAPI(`/api/certificates/issue/${registrationId}`, {
+      method: 'POST',
+      body: JSON.stringify({ volunteerHours }),
+    }),
   getMy: () => fetchAPI<Certificate[]>('/api/certificates/my'),
   getById: (id: number) => fetchAPI(`/api/certificates/${id}`),
 };

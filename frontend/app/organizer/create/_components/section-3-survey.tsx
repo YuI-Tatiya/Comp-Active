@@ -10,8 +10,8 @@ import { Eye, Star } from "lucide-react"
 import type { EventFormState } from "./types"
 
 const SURVEY_TYPE_OPTIONS = [
-    { value: "rating", label: "ให้คะแนน" },
-    { value: "text", label: "คำตอบแบบข้อความ" },
+    { value: "rating", label: "ให้คะแนนดาว" },
+    { value: "text", label: "พิมพ์คำตอบ" },
 ]
 
 interface Props {

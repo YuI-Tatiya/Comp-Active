@@ -4,12 +4,13 @@ import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
-import { Skeleton } from "@/components/ui/skeleton"
+import { ActivityCardSkeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { SectionHeading } from "@/components/ui/section-heading"
 import { StatTile } from "@/components/ui/stat-tile"
 import { FilterBar, type FilterSpec } from "@/components/ui/filter-bar"
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
+import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { activitiesAPI, eventsAPI, isCancelledByOrganizer, Activity, EventSummary, OrganizerStats } from "@/lib/api"
 import { CATEGORIES, categoriesBadgeLabel } from "@/lib/categories"
 import { RANGE_OPTIONS, withinRange } from "@/lib/events-filter"
@@ -321,13 +322,13 @@ export default function OrganizerDashboardPage() {
               />
 
               {loading ? (
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                <div className={EVENT_CARD_GRID}>
                   {Array.from({ length: 4 }).map((_, i) => (
-                    <Skeleton key={i} className="h-[380px] w-full rounded-2xl" />
+                    <ActivityCardSkeleton key={i} />
                   ))}
                 </div>
               ) : filteredActivities.length > 0 ? (
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                <div className={EVENT_CARD_GRID}>
                   {filteredActivities.map((item) => (
                     <Link key={item.key} href={item.href} className="block">
                       <EventCard

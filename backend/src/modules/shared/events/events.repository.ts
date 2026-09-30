@@ -25,6 +25,12 @@ export interface PreparedActivityData {
   capacity?: number | null;
   volunteerHours?: number | null;
   volunteerRole?: string | null;
+  registrationType: string;
+  dutyRoleOptions: string[];
+  dutyShiftOptions: string[];
+  teamSizeMin: number | null;
+  teamSizeMax: number | null;
+  competitionCategoryOptions: string[];
   softSkillRates: { skillType: string; rate: number }[];
   questions: PreparedQuestionData[];
 }
@@ -86,6 +92,7 @@ export const eventOrganizerInclude = {
         include: {
           student: { select: { id: true, name: true, studentId: true, email: true, phone: true } },
           evaluation: true,
+          certificate: true,
           // คำตอบคำถามลงทะเบียน — organizer เห็นได้เต็ม เพื่อกรอง/ export ตามคำตอบ
           answers: {
             include: {

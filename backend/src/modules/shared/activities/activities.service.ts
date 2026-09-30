@@ -5,6 +5,7 @@ import { UpdateActivityDto } from './dto/update-activity.dto';
 import { ActivityFilterDto } from './dto/activity-filter.dto';
 import { CreateSurveyQuestionDto } from '../events/dto/create-survey-question.dto';
 import { ActivityStatus, ApprovalStatus, AttendanceStatus, SurveyQuestionType } from '../../../common/enums/status.enum';
+import { prepareRegistrationTypeFields } from '../../../common/utils/registration-type.util';
 import { UserRole } from '../../../common/enums/role.enum';
 import { isViewerEligibleForEvent, filterVisibleActivities, type Viewer } from '../events/event-visibility.util';
 import { buildSurveyResults } from '../events/survey-results.util';
@@ -36,13 +37,37 @@ export class ActivitiesService {
   }
 
   async create(organizerId: number, createDto: CreateActivityDto) {
-    const { tags, conditions, benefits, softSkills, surveyQuestions, date, ...activityData } = createDto;
+    const {
+      tags,
+      conditions,
+      benefits,
+      softSkills,
+      surveyQuestions,
+      date,
+      registrationType,
+      dutyRoleOptions,
+      dutyShiftOptions,
+      teamSizeMin,
+      teamSizeMax,
+      competitionCategoryOptions,
+      ...activityData
+    } = createDto;
 
     this.validateSurveyQuestions(surveyQuestions);
+
+    const registrationTypeFields = prepareRegistrationTypeFields({
+      registrationType,
+      dutyRoleOptions,
+      dutyShiftOptions,
+      teamSizeMin,
+      teamSizeMax,
+      competitionCategoryOptions,
+    });
 
     const activity = await this.activitiesRepository.create(organizerId, {
       ...activityData,
       date: new Date(date),
+      ...registrationTypeFields,
       tags: { create: tags?.map((tagName) => ({ tagName })) ?? [] },
       conditions: { create: conditions?.map((conditionText) => ({ conditionText })) ?? [] },
       benefits: { create: benefits?.map((benefitText) => ({ benefitText })) ?? [] },
@@ -120,13 +145,48 @@ export class ActivitiesService {
       throw new ForbiddenException('คุณไม่มีสิทธิ์แก้ไขกิจกรรมนี้');
     }
 
-    const { tags, conditions, benefits, softSkills, surveyQuestions, date, ...activityData } = updateDto;
+    const {
+      tags,
+      conditions,
+      benefits,
+      softSkills,
+      surveyQuestions,
+      date,
+      registrationType,
+      dutyRoleOptions,
+      dutyShiftOptions,
+      teamSizeMin,
+      teamSizeMax,
+      competitionCategoryOptions,
+      ...activityData
+    } = updateDto;
 
     this.validateSurveyQuestions(surveyQuestions);
 
+    // เฉพาะเมื่อผู้เรียกส่งฟิลด์ประเภทการรับสมัครมาจริง (ทางแก้ไขกิจกรรมเดี่ยวรุ่นเก่าไม่เคยส่งฟิลด์พวกนี้มาเลย)
+    // จึงจะคำนวณค่าใหม่ทับ — ไม่งั้นจะรีเซ็ตกลับเป็น participant ทุกครั้งที่แก้ไขจากหน้าเดิม
+    const touchedRegistrationType =
+      registrationType !== undefined ||
+      dutyRoleOptions !== undefined ||
+      dutyShiftOptions !== undefined ||
+      teamSizeMin !== undefined ||
+      teamSizeMax !== undefined ||
+      competitionCategoryOptions !== undefined;
+
+    const registrationTypeFields = touchedRegistrationType
+      ? prepareRegistrationTypeFields({
+          registrationType,
+          dutyRoleOptions,
+          dutyShiftOptions,
+          teamSizeMin,
+          teamSizeMax,
+          competitionCategoryOptions,
+        })
+      : {};
+
     const updated = await this.activitiesRepository.updateWithRelations(
       activityId,
-      { ...activityData, ...(date && { date: new Date(date) }) },
+      { ...activityData, ...registrationTypeFields, ...(date && { date: new Date(date) }) },
       {
         tags,
         conditions,
@@ -272,7 +332,7 @@ export class ActivitiesService {
 
     if (!activity) throw new NotFoundException('ไม่พบกิจกรรม');
     if (callerRole !== UserRole.ADMIN && activity.organizerId !== callerId) {
-      throw new BadRequestException('คุณไม่มีสิทธิ์ดูผลสำรวจของกิจกรรมนี้');
+      throw new ForbiddenException('คุณไม่มีสิทธิ์ดูผลสำรวจของกิจกรรมนี้');
     }
 
     if (activity.eventId != null) {

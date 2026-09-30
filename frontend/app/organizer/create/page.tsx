@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { activitiesAPI, eventsAPI, type CreateEventActivityBody, type QuestionBody, type SurveyQuestionBody } from "@/lib/api"
+import { buildDutyShiftOptions, deriveVolunteerRole } from "@/lib/duty-shift"
 import { scrollToFirstError } from "@/components/ui/form-field"
 import { StepperSidebar, type StepMeta } from "./_components/stepper-sidebar"
 import { SectionEventBasics } from "./_components/section-1-event-basics"
@@ -50,6 +51,10 @@ export default function CreateEventPage() {
 
     function patchEvent(patch: Partial<EventFormState>) {
         setEvent((prev) => ({ ...prev, ...patch }))
+        // สลับมาเป็น "กิจกรรมเดี่ยว" ขณะมีหลายกิจกรรมย่อยอยู่แล้ว — เหลือไว้แค่รายการแรก
+        if (patch.type === "single") {
+            setActivities((prev) => (prev.length > 1 ? [prev[0]] : prev))
+        }
     }
 
     function patchActivity(key: string, patch: Partial<ActivityFormState>) {
@@ -178,12 +183,27 @@ export default function CreateEventPage() {
                     endAt: new Date(a.endAt).toISOString(),
                     location: a.location,
                     capacity: a.capacityEnabled ? parseInt(a.capacity) : undefined,
-                    issueVolunteerCertificate: a.certEnabled || undefined,
-                    volunteerRole: a.certEnabled ? a.volunteerRole : undefined,
+                    // ใบจิตอาสามีความหมายเฉพาะประเภทสตาฟฟ์/จิตอาสา — บทบาทบนใบอ้างอิงจาก dutyRoleOptions ไม่ใช่ฟิลด์แยก
+                    issueVolunteerCertificate:
+                        (a.registrationType === "staff_volunteer" && a.certEnabled) || undefined,
+                    volunteerRole:
+                        a.registrationType === "staff_volunteer" && a.certEnabled
+                            ? deriveVolunteerRole(a.dutyRoleOptions)
+                            : undefined,
                     softSkillRates: a.softSkillsEnabled
                         ? Object.entries(a.softSkillRates).map(([skillType, rate]) => ({ skillType, rate }))
                         : undefined,
                     questions,
+                    registrationType: a.registrationType,
+                    dutyRoleOptions: a.registrationType === "staff_volunteer" ? a.dutyRoleOptions.filter(Boolean) : [],
+                    dutyShiftOptions:
+                        a.registrationType === "staff_volunteer"
+                            ? buildDutyShiftOptions(a.dutyShiftMode, a.dutyShiftRows)
+                            : [],
+                    teamSizeMin: a.registrationType === "contestant" && a.teamSizeMin ? parseInt(a.teamSizeMin) : null,
+                    teamSizeMax: a.registrationType === "contestant" && a.teamSizeMax ? parseInt(a.teamSizeMax) : null,
+                    competitionCategoryOptions:
+                        a.registrationType === "contestant" ? a.competitionCategoryOptions.filter(Boolean) : [],
                 })
             }
 
@@ -278,6 +298,7 @@ export default function CreateEventPage() {
                                             activities={activities}
                                             activeKey={activeActivityKey}
                                             errorsByKey={activityErrors}
+                                            isSingleMode={event.type === "single"}
                                             onActiveKeyChange={setActiveActivityKey}
                                             onChangeActivity={patchActivity}
                                             onFieldBlur={handleActivityFieldBlur}

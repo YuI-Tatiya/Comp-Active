@@ -1,11 +1,11 @@
 import { Test } from '@nestjs/testing';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { RegistrationsService } from './registrations.service';
 import { RegistrationsRepository } from './registrations.repository';
 import { EvaluationsService } from './evaluation.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
-import { RegistrationStatus } from '../../../common/enums/status.enum';
+import { RegistrationStatus, RegistrationType } from '../../../common/enums/status.enum';
 import { UserRole } from '../../../common/enums/role.enum';
 
 /** ปล่อยให้ microtask ของ `void this.notifyRegistrationConfirmed(...)` (fire-and-forget) รันจนจบก่อน assert */
@@ -64,8 +64,8 @@ describe('RegistrationsService.confirm', () => {
     expect(repo.update).not.toHaveBeenCalled();
   });
 
-  it('throws BadRequestException when the caller does not own the activity', async () => {
-    await expect(service.confirm(999, UserRole.ORGANIZER, 1)).rejects.toThrow(BadRequestException);
+  it('throws ForbiddenException when the caller does not own the activity', async () => {
+    await expect(service.confirm(999, UserRole.ORGANIZER, 1)).rejects.toThrow(ForbiddenException);
     expect(repo.update).not.toHaveBeenCalled();
   });
 
@@ -170,14 +170,14 @@ describe('RegistrationsService.checkIn', () => {
     await expect(service.checkIn(OWNER_ID, UserRole.ORGANIZER, 1)).rejects.toThrow(NotFoundException);
   });
 
-  it('throws BadRequestException when the caller does not own the activity', async () => {
+  it('throws ForbiddenException when the caller does not own the activity', async () => {
     repo.findByIdWithActivitySoftSkills.mockResolvedValue({
       id: 1,
       status: RegistrationStatus.PENDING,
       activity: ACTIVITY,
     });
 
-    await expect(service.checkIn(999, UserRole.ORGANIZER, 1)).rejects.toThrow(BadRequestException);
+    await expect(service.checkIn(999, UserRole.ORGANIZER, 1)).rejects.toThrow(ForbiddenException);
     expect(repo.updateTx).not.toHaveBeenCalled();
   });
 
@@ -185,11 +185,325 @@ describe('RegistrationsService.checkIn', () => {
     repo.findByIdWithActivitySoftSkills.mockResolvedValue({
       id: 1,
       status: RegistrationStatus.PENDING,
+      activityId: 3,
+      dutyRole: 'ฝ่ายลงทะเบียน',
       activity: ACTIVITY,
     });
 
     await service.checkIn(OWNER_ID, UserRole.ORGANIZER, 1);
 
-    expect(evaluations.autoCreateForCheckIn).toHaveBeenCalledWith({}, 1, OWNER_ID, ACTIVITY.softSkills);
+    // ส่งฝ่ายของผู้เช็คอินไปด้วย เพื่อให้คนที่มาทีหลังได้คะแนนฐานของฝ่ายตัวเอง
+    expect(evaluations.autoCreateForCheckIn).toHaveBeenCalledWith({}, 1, OWNER_ID, ACTIVITY.softSkills, {
+      activityId: 3,
+      dutyRole: 'ฝ่ายลงทะเบียน',
+      pendingApproval: false,
+    });
+  });
+
+  it('marks the new evaluation pending when the activity has the 360° assessment mode on', async () => {
+    repo.findByIdWithActivitySoftSkills.mockResolvedValue({
+      id: 1,
+      status: RegistrationStatus.PENDING,
+      activityId: 3,
+      dutyRole: 'ฝ่ายA',
+      activity: { ...ACTIVITY, peerAssessmentEnabled: true },
+    });
+
+    await service.checkIn(OWNER_ID, UserRole.ORGANIZER, 1);
+
+    expect(evaluations.autoCreateForCheckIn).toHaveBeenCalledWith(
+      {},
+      1,
+      OWNER_ID,
+      ACTIVITY.softSkills,
+      expect.objectContaining({ pendingApproval: true }),
+    );
   });
 });
+
+describe('RegistrationsService.findByStudent — คะแนนที่รออนุมัติต้องไม่ถึงนักศึกษา', () => {
+  const scores = {
+    communication: 5, timeManagement: 5, flexibilityAdaptability: 5, teamworkCollaboration: 5,
+    analyticCriticalThinking: 5, decisionMaking: 5, creativity: 5, complexProblemSolving: 5,
+    curiosityLifelongLearning: 5, negotiationPersuasion: 5, leadership: 5, positiveAttitude: 5,
+  };
+  let service: RegistrationsService;
+  let repo: { findByStudent: jest.Mock };
+
+  beforeEach(async () => {
+    repo = { findByStudent: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [
+        RegistrationsService,
+        { provide: RegistrationsRepository, useValue: repo },
+        { provide: EvaluationsService, useValue: {} },
+        { provide: PrismaService, useValue: {} },
+        { provide: MailService, useValue: {} },
+      ],
+    }).compile();
+    service = module.get(RegistrationsService);
+  });
+
+  it('เก็บแถว evaluation ไว้ (ตรรกะหน้านักศึกษาพึ่งการมีอยู่ของมัน) แต่ปิดคะแนนของแถวที่ยังไม่อนุมัติ', async () => {
+    repo.findByStudent.mockResolvedValue([
+      { id: 1, activity: { id: 9 }, evaluation: { id: 5, status: 'pending_approval', comment: 'x', ...scores } },
+    ]);
+
+    const [row]: any[] = await service.findByStudent(50);
+
+    expect(row.evaluation).not.toBeNull();
+    expect(row.evaluation.status).toBe('pending_approval');
+    expect(row.evaluation.leadership).toBe(0);
+    expect(row.evaluation.communication).toBe(0);
+    expect(row.evaluation.comment).toBeNull();
+    expect(row.activity).toEqual({ id: 9 });
+  });
+
+  it('แถวที่อนุมัติแล้วและแถวที่ยังไม่เช็คอิน (ไม่มี evaluation) ไม่ถูกแตะ', async () => {
+    repo.findByStudent.mockResolvedValue([
+      { id: 1, evaluation: { id: 5, status: 'approved', comment: null, ...scores } },
+      { id: 2, evaluation: null },
+    ]);
+
+    const [approved, none]: any[] = await service.findByStudent(50);
+
+    expect(approved.evaluation.leadership).toBe(5);
+    expect(none.evaluation).toBeNull();
+  });
+});
+
+describe('RegistrationsService.create — registration type validation', () => {
+  let service: RegistrationsService;
+  let repo: {
+    findActivityWithActiveCount: jest.Mock;
+    findActiveByStudentAndActivity: jest.Mock;
+    create: jest.Mock;
+  };
+
+  const STUDENT_ID = 5;
+  const ACTIVITY_ID = 1;
+
+  function baseActivity(overrides: Record<string, unknown> = {}) {
+    return {
+      id: ACTIVITY_ID,
+      event: null,
+      approvalStatus: 'approved',
+      status: 'open',
+      capacity: null,
+      volunteerRole: null,
+      questions: [],
+      _count: { registrations: 0 },
+      registrationType: RegistrationType.PARTICIPANT,
+      dutyRoleOptions: [] as string[],
+      dutyShiftOptions: [] as string[],
+      teamSizeMin: null as number | null,
+      teamSizeMax: null as number | null,
+      competitionCategoryOptions: [] as string[],
+      ...overrides,
+    };
+  }
+
+  beforeEach(async () => {
+    repo = {
+      findActivityWithActiveCount: jest.fn(),
+      findActiveByStudentAndActivity: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 99 }),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        RegistrationsService,
+        { provide: RegistrationsRepository, useValue: repo },
+        { provide: EvaluationsService, useValue: {} },
+        { provide: PrismaService, useValue: {} },
+        { provide: MailService, useValue: {} },
+      ],
+    }).compile();
+    service = module.get(RegistrationsService);
+  });
+
+  it('registers a plain participant without any registration-type fields', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(baseActivity());
+
+    await service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, {});
+
+    expect(repo.create).toHaveBeenCalledWith(
+      STUDENT_ID,
+      ACTIVITY_ID,
+      [],
+      { wantsCertLoanFund: false, wantsCertScholarship: false },
+      {
+        dutyRole: null,
+        dutyShift: null,
+        teamName: null,
+        teamSize: null,
+        competitionCategory: null,
+        submissionLink: null,
+      },
+    );
+  });
+
+  it('rejects a staff_volunteer registration missing dutyRole', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(
+      baseActivity({ registrationType: RegistrationType.STAFF_VOLUNTEER, dutyRoleOptions: ['ลงทะเบียนหน้างาน'] }),
+    );
+
+    await expect(service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, {})).rejects.toThrow(BadRequestException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a dutyRole that is not one of the activity options', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(
+      baseActivity({ registrationType: RegistrationType.STAFF_VOLUNTEER, dutyRoleOptions: ['ลงทะเบียนหน้างาน'] }),
+    );
+
+    await expect(
+      service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, { dutyRole: 'ปลอมแปลง' }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('accepts a valid staff_volunteer registration and stores dutyRole/dutyShift', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(
+      baseActivity({
+        registrationType: RegistrationType.STAFF_VOLUNTEER,
+        dutyRoleOptions: ['ลงทะเบียนหน้างาน'],
+        dutyShiftOptions: ['กะเช้า'],
+      }),
+    );
+
+    await service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, {
+      dutyRole: 'ลงทะเบียนหน้างาน',
+      dutyShift: 'กะเช้า',
+    });
+
+    expect(repo.create).toHaveBeenCalledWith(
+      STUDENT_ID,
+      ACTIVITY_ID,
+      [],
+      { wantsCertLoanFund: false, wantsCertScholarship: false },
+      expect.objectContaining({ dutyRole: 'ลงทะเบียนหน้างาน', dutyShift: 'กะเช้า' }),
+    );
+  });
+
+  it('rejects a contestant registration missing teamName', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(baseActivity({ registrationType: RegistrationType.CONTESTANT }));
+
+    await expect(service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, {})).rejects.toThrow(BadRequestException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a contestant team size outside the activity bounds', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(
+      baseActivity({ registrationType: RegistrationType.CONTESTANT, teamSizeMin: 3, teamSizeMax: 5 }),
+    );
+
+    await expect(
+      service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, { teamName: 'ทีม A', teamSize: 2 }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('accepts a valid contestant registration and stores team details', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(
+      baseActivity({ registrationType: RegistrationType.CONTESTANT, teamSizeMin: 2, teamSizeMax: 5 }),
+    );
+
+    await service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, {
+      teamName: 'ทีม A',
+      teamSize: 3,
+      submissionLink: 'https://example.com/portfolio',
+    });
+
+    expect(repo.create).toHaveBeenCalledWith(
+      STUDENT_ID,
+      ACTIVITY_ID,
+      [],
+      { wantsCertLoanFund: false, wantsCertScholarship: false },
+      expect.objectContaining({ teamName: 'ทีม A', teamSize: 3, submissionLink: 'https://example.com/portfolio' }),
+    );
+  });
+
+  it('still rejects a duplicate active registration regardless of registration type', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(baseActivity());
+    repo.findActiveByStudentAndActivity.mockResolvedValue({ id: 1 });
+
+    await expect(service.create(STUDENT_ID, ACTIVITY_ID, {} as any, [], {}, {})).rejects.toThrow(ConflictException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('RegistrationsService.create — registration deadline (Event.registrationCloseAt)', () => {
+  let service: RegistrationsService;
+  let repo: { findActivityWithActiveCount: jest.Mock; findActiveByStudentAndActivity: jest.Mock; create: jest.Mock };
+
+  const DEADLINE = new Date('2027-01-20T10:00:00.000Z');
+
+  const activityWithDeadline = (registrationCloseAt: Date | null) => ({
+    id: 1,
+    event: { visibility: 'everyone', registrationCloseAt },
+    approvalStatus: 'approved',
+    status: 'open',
+    capacity: null,
+    volunteerRole: null,
+    questions: [],
+    _count: { registrations: 0 },
+    registrationType: RegistrationType.PARTICIPANT,
+    dutyRoleOptions: [] as string[],
+    dutyShiftOptions: [] as string[],
+    teamSizeMin: null,
+    teamSizeMax: null,
+    competitionCategoryOptions: [] as string[],
+  });
+
+  beforeEach(async () => {
+    jest.useFakeTimers().setSystemTime(DEADLINE);
+    repo = {
+      findActivityWithActiveCount: jest.fn(),
+      findActiveByStudentAndActivity: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 99 }),
+    };
+    const module = await Test.createTestingModule({
+      providers: [
+        RegistrationsService,
+        { provide: RegistrationsRepository, useValue: repo },
+        { provide: EvaluationsService, useValue: {} },
+        { provide: PrismaService, useValue: {} },
+        { provide: MailService, useValue: {} },
+      ],
+    }).compile();
+    service = module.get(RegistrationsService);
+  });
+
+  afterEach(() => jest.useRealTimers());
+
+  const register = () => service.create(5, 1, {} as any, [], {}, {});
+
+  it('rejects a registration after the deadline, without creating anything', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithDeadline(new Date(DEADLINE.getTime() - 1)));
+
+    await expect(register()).rejects.toThrow(BadRequestException);
+    await expect(register()).rejects.toThrow('หมดเขตรับสมัครแล้ว');
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects at the exact deadline instant (the deadline itself is already closed)', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithDeadline(DEADLINE));
+
+    await expect(register()).rejects.toThrow(BadRequestException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('still accepts a registration one millisecond before the deadline', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithDeadline(new Date(DEADLINE.getTime() + 1)));
+
+    await expect(register()).resolves.toEqual({ id: 99 });
+  });
+
+  it('accepts when the event has no deadline, and when the activity has no event at all', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithDeadline(null));
+    await expect(register()).resolves.toEqual({ id: 99 });
+
+    repo.findActivityWithActiveCount.mockResolvedValue({ ...activityWithDeadline(null), event: null });
+    await expect(register()).resolves.toEqual({ id: 99 });
+  });
+});
+

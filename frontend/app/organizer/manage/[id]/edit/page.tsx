@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { ArrowLeft, Loader2, Edit } from "lucide-react"
 import { activitiesAPI, eventsAPI, API_BASE_URL, type CreateEventActivityBody, type QuestionBody, type SurveyQuestionBody, type EventSummary } from "@/lib/api"
+import { buildDutyShiftOptions, deriveVolunteerRole, parseDutyShiftOptions } from "@/lib/duty-shift"
 import { scrollToFirstError } from "@/components/ui/form-field"
 import { StepperSidebar, type StepMeta } from "../../../create/_components/stepper-sidebar"
 import { SectionEventBasics } from "../../../create/_components/section-1-event-basics"
@@ -57,6 +58,8 @@ function eventToFormState(event: EventSummary): EventFormState {
         visibilityPrograms: (event.visibilityProgram ?? []).map((p) => p.programCode),
         visibilityYears: (event.visibilityYears ?? []).map((y) => y.year),
         visibilityStudentIdFilter: event.visibilityStudentIdFilter ?? "",
+        // client-only, ไม่มีค่าจาก backend — ตั้งเป็น "project" เสมอเพื่อไม่ให้ UI ของงานหลายกิจกรรมย่อยที่มีอยู่แล้วถูกซ่อนไปโดยไม่ตั้งใจ
+        type: "project",
     }
 }
 
@@ -65,6 +68,7 @@ function activityToFormState(a: EventSummary["activities"][number]): ActivityFor
     for (const s of a.softSkills ?? []) {
         if (s.rate !== undefined) softSkillRates[s.skillType] = s.rate
     }
+    const { mode: dutyShiftMode, rows: dutyShiftRows } = parseDutyShiftOptions(a.dutyShiftOptions ?? [])
     return {
         key: keyFor(a.id),
         activityId: a.id,
@@ -81,7 +85,6 @@ function activityToFormState(a: EventSummary["activities"][number]): ActivityFor
         capacityEnabled: a.capacity != null,
         capacity: a.capacity != null ? String(a.capacity) : "",
         certEnabled: !!a.volunteerRole,
-        volunteerRole: a.volunteerRole ?? "",
         softSkillsEnabled: Object.keys(softSkillRates).length > 0,
         softSkillRates,
         questionsEnabled: (a.questions?.length ?? 0) > 0,
@@ -91,6 +94,13 @@ function activityToFormState(a: EventSummary["activities"][number]): ActivityFor
             required: q.required,
             options: q.options?.map((o) => o.label) ?? [],
         })),
+        registrationType: a.registrationType ?? "participant",
+        dutyRoleOptions: a.dutyRoleOptions ?? [],
+        dutyShiftMode,
+        dutyShiftRows,
+        teamSizeMin: a.teamSizeMin != null ? String(a.teamSizeMin) : "",
+        teamSizeMax: a.teamSizeMax != null ? String(a.teamSizeMax) : "",
+        competitionCategoryOptions: a.competitionCategoryOptions ?? [],
     }
 }
 
@@ -130,6 +140,10 @@ export default function EditEventPage() {
 
     function patchEvent(patch: Partial<EventFormState>) {
         setEvent((prev) => (prev ? { ...prev, ...patch } : prev))
+        // สลับมาเป็น "กิจกรรมเดี่ยว" ขณะมีหลายกิจกรรมย่อยอยู่แล้ว — เหลือไว้แค่รายการแรก
+        if (patch.type === "single") {
+            setActivities((prev) => (prev.length > 1 ? [prev[0]] : prev))
+        }
     }
 
     function patchActivity(key: string, patch: Partial<ActivityFormState>) {
@@ -166,11 +180,17 @@ export default function EditEventPage() {
             capacityEnabled: false,
             capacity: "",
             certEnabled: false,
-            volunteerRole: "",
             softSkillsEnabled: false,
             softSkillRates: {},
             questionsEnabled: false,
             questions: [],
+            registrationType: "participant",
+            dutyRoleOptions: [],
+            dutyShiftMode: "single",
+            dutyShiftRows: [],
+            teamSizeMin: "",
+            teamSizeMax: "",
+            competitionCategoryOptions: [],
         }
         setActivities((prev) => [...prev, next])
         setActiveActivityKey(next.key)
@@ -275,12 +295,26 @@ export default function EditEventPage() {
                     endAt: new Date(a.endAt).toISOString(),
                     location: a.location,
                     capacity: a.capacityEnabled ? parseInt(a.capacity) : undefined,
-                    issueVolunteerCertificate: a.certEnabled || undefined,
-                    volunteerRole: a.certEnabled ? a.volunteerRole : undefined,
+                    issueVolunteerCertificate:
+                        (a.registrationType === "staff_volunteer" && a.certEnabled) || undefined,
+                    volunteerRole:
+                        a.registrationType === "staff_volunteer" && a.certEnabled
+                            ? deriveVolunteerRole(a.dutyRoleOptions)
+                            : undefined,
                     softSkillRates: a.softSkillsEnabled
                         ? Object.entries(a.softSkillRates).map(([skillType, rate]) => ({ skillType, rate }))
                         : undefined,
                     questions,
+                    registrationType: a.registrationType,
+                    dutyRoleOptions: a.registrationType === "staff_volunteer" ? a.dutyRoleOptions.filter(Boolean) : [],
+                    dutyShiftOptions:
+                        a.registrationType === "staff_volunteer"
+                            ? buildDutyShiftOptions(a.dutyShiftMode, a.dutyShiftRows)
+                            : [],
+                    teamSizeMin: a.registrationType === "contestant" && a.teamSizeMin ? parseInt(a.teamSizeMin) : null,
+                    teamSizeMax: a.registrationType === "contestant" && a.teamSizeMax ? parseInt(a.teamSizeMax) : null,
+                    competitionCategoryOptions:
+                        a.registrationType === "contestant" ? a.competitionCategoryOptions.filter(Boolean) : [],
                 })
             }
 
@@ -375,6 +409,7 @@ export default function EditEventPage() {
                                     activities={activities}
                                     activeKey={activeActivityKey}
                                     errorsByKey={activityErrors}
+                                    isSingleMode={event.type === "single"}
                                     onActiveKeyChange={setActiveActivityKey}
                                     onChangeActivity={patchActivity}
                                     onFieldBlur={handleActivityFieldBlur}

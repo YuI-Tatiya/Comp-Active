@@ -142,6 +142,23 @@ export const SOFT_SKILLS: SoftSkillMeta[] = [
     },
 ]
 
+// ระดับ 3 ระดับ (ผ่าน/ดี/ดีเยี่ยม) อยู่ใน soft-skill-tiers.ts (ไม่ผูก icon) — re-export ให้ import จากที่นี่ได้เหมือนเดิม
+export { SOFT_SKILL_TIERS, softSkillTierLabel } from "./soft-skill-tiers"
+
+export const MAX_SOFT_SKILLS_PER_ACTIVITY = 3
+
+/**
+ * เพดานระดับ Soft Skills ตามระยะเวลากิจกรรม — พรีวิวฝั่ง client เท่านั้น server ตรวจซ้ำเสมอ
+ * (ต้องตรงกับ backend/src/common/utils/soft-skill-cap.util.ts เป๊ะ ห้ามแก้ที่เดียว)
+ */
+export function maxSoftSkillLevel(durationHours: number, registrationType: string, isProject: boolean): 2 | 3 | 5 {
+    // เช็คเงื่อนไขปลดล็อกระดับสูงสุดก่อนเสมอ — "ทำโครงการ" ต้องปลดล็อกได้แม้กิจกรรมย่อยตัวนั้นจะสั้น
+    if (registrationType === "staff_volunteer" && (durationHours > 72 || isProject)) return 5
+    if (durationHours <= 4) return 2
+    if (durationHours <= 48) return 3
+    return 3
+}
+
 const BY_VALUE = new Map(SOFT_SKILLS.map((s) => [s.value, s]))
 const BY_FIELD = new Map(SOFT_SKILLS.map((s) => [s.field, s]))
 

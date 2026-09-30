@@ -32,3 +32,18 @@ export type ActivityQuestionType = (typeof ActivityQuestionType)[keyof typeof Ac
 
 export const SurveyQuestionType = { RATING: 'rating', TEXT: 'text' } as const;
 export type SurveyQuestionType = (typeof SurveyQuestionType)[keyof typeof SurveyQuestionType];
+
+export const RegistrationType = {
+  PARTICIPANT: 'participant',
+  STAFF_VOLUNTEER: 'staff_volunteer',
+  CONTESTANT: 'contestant',
+} as const;
+export type RegistrationType = (typeof RegistrationType)[keyof typeof RegistrationType];
+
+/** แหล่งของคะแนนประเมินรอบด้าน (360°) ฝั่งนักศึกษา — ตรงกับ enum AssessmentSource ใน schema.prisma */
+export const AssessmentSource = { SELF: 'self', PEER: 'peer' } as const;
+export type AssessmentSource = (typeof AssessmentSource)[keyof typeof AssessmentSource];
+
+/** สถานะคะแนนของนักศึกษาหนึ่งกิจกรรม — ตรงกับ enum EvaluationStatus ใน schema.prisma */
+export const EvaluationStatus = { PENDING_APPROVAL: 'pending_approval', APPROVED: 'approved' } as const;
+export type EvaluationStatus = (typeof EvaluationStatus)[keyof typeof EvaluationStatus];

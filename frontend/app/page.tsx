@@ -8,6 +8,7 @@ import { Container } from "@/components/layout/container"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
+import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { ActivityCardSkeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { activitiesAPI, eventsAPI, Activity } from "@/lib/api"
@@ -214,17 +215,15 @@ export default function RootPage() {
 
           <div className="mt-8">
             {loading ? (
-              <div className="flex flex-wrap gap-5">
+              <div className={EVENT_CARD_GRID}>
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="w-full sm:w-72">
-                    <ActivityCardSkeleton />
-                  </div>
+                  <ActivityCardSkeleton key={i} />
                 ))}
               </div>
             ) : filteredItems.length > 0 ? (
-              <div className="flex flex-wrap gap-5">
+              <div className={EVENT_CARD_GRID}>
                 {filteredItems.map((item) => (
-                  <Link key={item.key} href={item.href} className="block w-full sm:w-72">
+                  <Link key={item.key} href={item.href} className="block">
                     <EventCard
                       activity={{ name: item.name, imageUrl: item.imageUrl }}
                       description={item.description}

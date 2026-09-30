@@ -1,4 +1,15 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString, IsArray, IsInt, IsBoolean, ValidateNested } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsArray,
+  IsInt,
+  Min,
+  IsUrl,
+  IsBoolean,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -41,4 +52,35 @@ export class CreateRegistrationDto {
   @IsOptional()
   @IsBoolean()
   wantsCertScholarship?: boolean;
+
+  @ApiPropertyOptional({ description: 'บทบาท/หน้าที่ที่เลือก — ใช้เมื่อกิจกรรมเป็นประเภทสตาฟฟ์/จิตอาสา' })
+  @IsOptional()
+  @IsString()
+  dutyRole?: string;
+
+  @ApiPropertyOptional({ description: 'รอบ/กะเวลาที่เลือก — ใช้เมื่อกิจกรรมเป็นประเภทสตาฟฟ์/จิตอาสา' })
+  @IsOptional()
+  @IsString()
+  dutyShift?: string;
+
+  @ApiPropertyOptional({ description: 'ชื่อทีม — ใช้เมื่อกิจกรรมเป็นประเภทผู้สมัครแข่งขัน' })
+  @IsOptional()
+  @IsString()
+  teamName?: string;
+
+  @ApiPropertyOptional({ description: 'จำนวนสมาชิกทีม — ใช้เมื่อกิจกรรมเป็นประเภทผู้สมัครแข่งขัน' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  teamSize?: number;
+
+  @ApiPropertyOptional({ description: 'ประเภท/รุ่นการแข่งขันที่เลือก' })
+  @IsOptional()
+  @IsString()
+  competitionCategory?: string;
+
+  @ApiPropertyOptional({ description: 'ลิงก์ผลงาน/ไฟล์ส่ง (URL)' })
+  @IsOptional()
+  @IsUrl()
+  submissionLink?: string;
 }

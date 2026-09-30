@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Toggle } from "@/components/ui/toggle"
 import { categoryLabel } from "@/lib/categories"
-import { softSkillLabel } from "@/lib/soft-skills"
+import { softSkillLabel, softSkillTierLabel } from "@/lib/soft-skills"
 import { PROGRAMS } from "@/lib/programs"
+import { deriveVolunteerRole } from "@/lib/duty-shift"
 import { cn } from "@/lib/utils"
 import { Calendar, MapPin, Users, Award } from "lucide-react"
 import type { EventFormState, ActivityFormState } from "./types"
@@ -36,30 +37,23 @@ export function SectionPublish({ event, activities, onChangeEvent }: Props) {
             </div>
 
             <div className="space-y-6 border-b border-border pb-8">
+                <p className="text-sm font-bold text-fg">สิทธิ์การเข้าถึงงานนี้</p>
+
                 <div className="flex items-start justify-between gap-4">
                     <div>
-                        <Label>เผยแพร่แบบสาธารณะ</Label>
+                        <Label>เผยแพร่งานนี้</Label>
                         <p className="mt-0.5 text-xs text-fg-muted">
-                            เปิดไว้ = นักศึกษาทุกคนเห็นและลงทะเบียนได้ทันทีที่อนุมัติ
+                            เมื่อเปิด นักศึกษาจะเห็นและลงทะเบียนงานนี้ได้ทันทีที่ได้รับอนุมัติ
                         </p>
                     </div>
                     <Toggle checked={event.isPublic} onCheckedChange={(v) => onChangeEvent({ isPublic: v })} />
                 </div>
 
-                <div className="max-w-xs space-y-2">
-                    <Label>วันปิดรับสมัคร (ถ้ามี)</Label>
-                    <Input
-                        type="datetime-local"
-                        value={event.registrationCloseAt}
-                        onChange={(e) => onChangeEvent({ registrationCloseAt: e.target.value })}
-                    />
-                </div>
-
                 <div className="space-y-3">
                     <div>
-                        <Label>การมองเห็น</Label>
+                        <Label>ใครเห็นได้บ้าง</Label>
                         <p className="mt-0.5 text-xs text-fg-muted">
-                            เฉพาะกลุ่มที่กำหนด = เห็นเฉพาะนักศึกษาที่ตรงเงื่อนไขสาขา/ชั้นปี/รหัสนักศึกษาด้านล่าง
+                            จะเห็นเฉพาะนักศึกษาที่ตรงเงื่อนไขสาขา/ชั้นปี/รหัสนักศึกษาด้านล่าง
                         </p>
                     </div>
                     <div className="flex gap-2">
@@ -80,6 +74,15 @@ export function SectionPublish({ event, activities, onChangeEvent }: Props) {
                             </button>
                         ))}
                     </div>
+                </div>
+
+                <div className="max-w-xs space-y-2">
+                    <Label>วันปิดรับสมัคร (ถ้ามี)</Label>
+                    <Input
+                        type="datetime-local"
+                        value={event.registrationCloseAt}
+                        onChange={(e) => onChangeEvent({ registrationCloseAt: e.target.value })}
+                    />
                 </div>
 
                 {event.visibility === "restricted" && (
@@ -189,10 +192,10 @@ export function SectionPublish({ event, activities, onChangeEvent }: Props) {
                                     <Users className="size-3.5 shrink-0" />
                                     {a.capacityEnabled ? `รับ ${a.capacity || "-"} คน` : "ไม่จำกัดจำนวน"}
                                 </div>
-                                {a.certEnabled && (
+                                {a.registrationType === "staff_volunteer" && a.certEnabled && (
                                     <div className="flex items-center gap-2">
                                         <Award className="size-3.5 shrink-0" />
-                                        ออกใบจิตอาสา — {a.volunteerRole || "-"}
+                                        ออกใบจิตอาสา — {deriveVolunteerRole(a.dutyRoleOptions) || "-"}
                                     </div>
                                 )}
                             </div>
@@ -200,7 +203,7 @@ export function SectionPublish({ event, activities, onChangeEvent }: Props) {
                                 <div className="mt-3 flex flex-wrap gap-1.5">
                                     {Object.entries(a.softSkillRates).map(([skillType, rate]) => (
                                         <Badge key={skillType} variant="outline" className="text-xs">
-                                            {softSkillLabel(skillType)} · {rate}/5
+                                            {softSkillLabel(skillType)} · {softSkillTierLabel(rate)}
                                         </Badge>
                                     ))}
                                 </div>

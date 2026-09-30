@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { RegistrationsRepository } from './registrations.repository';
 import { EvaluationsService } from './evaluation.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -9,9 +9,11 @@ import {
   ApprovalStatus,
   ActivityQuestionType,
   SurveyQuestionType,
+  RegistrationType,
 } from '../../../common/enums/status.enum';
 import { isViewerEligibleForEvent, type Viewer } from '../events/event-visibility.util';
 import { MailService } from '../mail/mail.service';
+import { maskUnapprovedEvaluation } from './evaluation-visibility.util';
 import { UserRole } from '../../../common/enums/role.enum';
 
 interface AnswerInput {
@@ -23,6 +25,15 @@ interface AnswerInput {
 interface CertRequestInput {
   wantsCertLoanFund?: boolean;
   wantsCertScholarship?: boolean;
+}
+
+interface RegistrationTypeFieldsInput {
+  dutyRole?: string;
+  dutyShift?: string;
+  teamName?: string;
+  teamSize?: number;
+  competitionCategory?: string;
+  submissionLink?: string;
 }
 
 interface SurveyAnswerInput {
@@ -48,6 +59,7 @@ export class RegistrationsService {
     viewer: Viewer,
     answers: AnswerInput[] = [],
     certRequest: CertRequestInput = {},
+    registrationTypeFields: RegistrationTypeFieldsInput = {},
   ) {
     const activity = await this.registrationsRepository.findActivityWithActiveCount(activityId);
 
@@ -66,6 +78,13 @@ export class RegistrationsService {
       throw new BadRequestException('กิจกรรมนี้ปิดรับสมัครแล้ว');
     }
 
+    // วันปิดรับสมัครระดับงาน (Event.registrationCloseAt) — เดิมเก็บและแสดงอย่างเดียว ไม่เคยบังคับ ยิง API ตรงจึงสมัครหลังหมดเขตได้
+    // ถึงเวลาปิดพอดีถือว่าปิดแล้ว (<=) ให้ตรงกับหน้าจอที่ปิดปุ่มเมื่อ deadline <= ตอนนี้
+    const closeAt = (activity as { event?: { registrationCloseAt?: Date | null } | null }).event?.registrationCloseAt;
+    if (closeAt && closeAt.getTime() <= Date.now()) {
+      throw new BadRequestException('หมดเขตรับสมัครแล้ว');
+    }
+
     if (activity.capacity !== null && activity._count.registrations >= activity.capacity) {
       throw new BadRequestException('กิจกรรมนี้เต็มแล้ว');
     }
@@ -81,10 +100,18 @@ export class RegistrationsService {
     const wantsCertLoanFund = offersVolunteerCert && !!certRequest.wantsCertLoanFund;
     const wantsCertScholarship = offersVolunteerCert && !!certRequest.wantsCertScholarship;
 
-    const registration = await this.registrationsRepository.create(studentId, activityId, preparedAnswers, {
-      wantsCertLoanFund,
-      wantsCertScholarship,
-    });
+    const preparedRegistrationTypeFields = this.validateAndPrepareRegistrationTypeFields(
+      activity as any,
+      registrationTypeFields,
+    );
+
+    const registration = await this.registrationsRepository.create(
+      studentId,
+      activityId,
+      preparedAnswers,
+      { wantsCertLoanFund, wantsCertScholarship },
+      preparedRegistrationTypeFields,
+    );
 
     this.logger.log(`Registration created: student ${studentId} → activity ${activityId}`);
     return registration;
@@ -122,6 +149,78 @@ export class RegistrationsService {
     return prepared;
   }
 
+  /** ตรวจ+เตรียมฟิลด์เฉพาะประเภทการรับสมัคร — บังคับกรอกเมื่อกิจกรรมเป็นประเภทที่ต้องใช้ฟิลด์นั้น
+   *  และค่าที่เลือก (บทบาท/กะเวลา/ประเภทการแข่งขัน) ต้องอยู่ในตัวเลือกที่ผู้จัดกำหนดไว้จริง (กันค่าหลุดจากฟอร์ม) */
+  private validateAndPrepareRegistrationTypeFields(
+    activity: {
+      registrationType: string;
+      dutyRoleOptions: string[];
+      dutyShiftOptions: string[];
+      teamSizeMin: number | null;
+      teamSizeMax: number | null;
+      competitionCategoryOptions: string[];
+    },
+    input: RegistrationTypeFieldsInput,
+  ) {
+    if (activity.registrationType === RegistrationType.STAFF_VOLUNTEER) {
+      const dutyRole = input.dutyRole?.trim();
+      if (!dutyRole || !activity.dutyRoleOptions.includes(dutyRole)) {
+        throw new BadRequestException('กรุณาเลือกบทบาท/หน้าที่จากตัวเลือกที่กำหนด');
+      }
+      const needsShift = activity.dutyShiftOptions.length > 0;
+      const dutyShift = input.dutyShift?.trim();
+      if (needsShift && (!dutyShift || !activity.dutyShiftOptions.includes(dutyShift))) {
+        throw new BadRequestException('กรุณาเลือกรอบ/กะเวลาจากตัวเลือกที่กำหนด');
+      }
+      return {
+        dutyRole,
+        dutyShift: needsShift ? dutyShift : null,
+        teamName: null,
+        teamSize: null,
+        competitionCategory: null,
+        submissionLink: null,
+      };
+    }
+
+    if (activity.registrationType === RegistrationType.CONTESTANT) {
+      const teamName = input.teamName?.trim();
+      if (!teamName) throw new BadRequestException('กรุณาระบุชื่อทีม');
+
+      const teamSize = input.teamSize;
+      if (activity.teamSizeMin != null && (teamSize == null || teamSize < activity.teamSizeMin)) {
+        throw new BadRequestException(`จำนวนสมาชิกทีมต้องไม่น้อยกว่า ${activity.teamSizeMin} คน`);
+      }
+      if (activity.teamSizeMax != null && (teamSize == null || teamSize > activity.teamSizeMax)) {
+        throw new BadRequestException(`จำนวนสมาชิกทีมต้องไม่เกิน ${activity.teamSizeMax} คน`);
+      }
+
+      const needsCategory = activity.competitionCategoryOptions.length > 0;
+      const competitionCategory = input.competitionCategory?.trim();
+      if (needsCategory && (!competitionCategory || !activity.competitionCategoryOptions.includes(competitionCategory))) {
+        throw new BadRequestException('กรุณาเลือกประเภท/รุ่นการแข่งขันจากตัวเลือกที่กำหนด');
+      }
+
+      return {
+        dutyRole: null,
+        dutyShift: null,
+        teamName,
+        teamSize: teamSize ?? null,
+        competitionCategory: needsCategory ? competitionCategory : competitionCategory || null,
+        submissionLink: input.submissionLink?.trim() || null,
+      };
+    }
+
+    // participant — กันค่าหลุดมาจากกิจกรรมที่ไม่รองรับ (เหมือน offersVolunteerCert gate ด้านบน)
+    return {
+      dutyRole: null,
+      dutyShift: null,
+      teamName: null,
+      teamSize: null,
+      competitionCategory: null,
+      submissionLink: null,
+    };
+  }
+
   async cancel(registrationId: number, studentId: number) {
     const registration = await this.registrationsRepository.findByIdAndStudent(registrationId, studentId);
 
@@ -143,7 +242,12 @@ export class RegistrationsService {
   }
 
   async findByStudent(studentId: number) {
-    return this.registrationsRepository.findByStudent(studentId);
+    const registrations = await this.registrationsRepository.findByStudent(studentId);
+    // คะแนนที่ยังรอผู้จัดอนุมัติ (โหมด 360°) ต้องไม่ถึงนักศึกษา — คงแถวไว้แต่ปิดคะแนน (ดูเหตุผลที่ maskUnapprovedEvaluation)
+    return registrations.map((registration) => ({
+      ...registration,
+      evaluation: maskUnapprovedEvaluation(registration.evaluation),
+    }));
   }
 
   async findByActivity(callerId: number, callerRole: UserRole, activityId: number) {
@@ -158,7 +262,7 @@ export class RegistrationsService {
   /** organizer/admin เท่านั้นที่แก้ไขข้อมูลผู้เข้าร่วมของกิจกรรมได้ — และต้องเป็นเจ้าของกิจกรรมนั้นจริง (ไม่ใช่แค่มี role ที่ถูกต้อง) */
   private assertOwnsActivity(callerId: number, callerRole: UserRole, organizerId: number, action: string) {
     if (callerRole !== UserRole.ADMIN && organizerId !== callerId) {
-      throw new BadRequestException(`คุณไม่มีสิทธิ์${action}ของกิจกรรมนี้`);
+      throw new ForbiddenException(`คุณไม่มีสิทธิ์${action}ของกิจกรรมนี้`);
     }
   }
 
@@ -234,7 +338,9 @@ export class RegistrationsService {
   private async performCheckIn(registration: {
     id: number;
     status: string;
-    activity: { organizerId: number; softSkills: { skillType: string; rate: number }[] };
+    activityId: number;
+    dutyRole?: string | null;
+    activity: { organizerId: number; peerAssessmentEnabled?: boolean; softSkills: { skillType: string; rate: number }[] };
   }) {
     // การยืนยันลงทะเบียน (organizer อนุมัติล่วงหน้า) กับการเช็คอิน (มาเข้าร่วมจริงหน้างาน) เป็นคนละเรื่องกัน —
     // ไม่ยืนยันไว้ก่อนไม่ได้แปลว่าจะไม่มาจริง จึงให้เช็คอินได้เลยแม้สถานะยังรอการยืนยัน (ยกเว้นถูกยกเลิกไปแล้ว)
@@ -257,6 +363,11 @@ export class RegistrationsService {
         registration.id,
         registration.activity.organizerId,
         registration.activity.softSkills,
+        {
+          activityId: registration.activityId,
+          dutyRole: registration.dutyRole,
+          pendingApproval: !!registration.activity.peerAssessmentEnabled,
+        },
       );
 
       return updated;

@@ -1,4 +1,5 @@
 import type { BuilderQuestion } from "@/components/ui/dynamic-question-builder"
+import type { DutyShiftMode, DutyShiftRow } from "@/lib/duty-shift"
 
 // State ฝั่ง frontend สำหรับ wizard สร้างงาน — แปลงเป็น CreateEventBody ตอน submit เท่านั้น
 // (capacityEnabled / certEnabled / softSkillsEnabled / questionsEnabled เป็น concept ฝั่ง UI ล้วนๆ ไม่มีใน backend DTO)
@@ -18,6 +19,8 @@ export interface EventFormState {
     /** ชั้นปีที่มีสิทธิ์เห็น (1-8) — ใช้เมื่อ visibility เป็น restricted, ว่าง = ทุกชั้นปี */
     visibilityYears: number[]
     visibilityStudentIdFilter: string
+    /** client-only — ไม่ส่งไป backend, ใช้ขับ UI ของ step 2 เท่านั้น (backend สร้าง Event+Activities เสมอไม่ว่าค่านี้จะเป็นอะไร) */
+    type: "single" | "project"
 }
 
 export interface ActivityFormState {
@@ -36,13 +39,24 @@ export interface ActivityFormState {
     location: string
     capacityEnabled: boolean
     capacity: string
+    /** มีความหมายเฉพาะเมื่อ registrationType เป็น staff_volunteer — บทบาทบนใบรับรองอ้างอิงจาก dutyRoleOptions โดยตรง ไม่ใช่ฟิลด์แยก (ดู deriveVolunteerRole) */
     certEnabled: boolean
-    volunteerRole: string
     softSkillsEnabled: boolean
     /** skillType -> rate (0-5) — มีเฉพาะทักษะที่ติ๊กเลือก */
     softSkillRates: Record<string, number>
     questionsEnabled: boolean
     questions: BuilderQuestion[]
+    registrationType: "participant" | "staff_volunteer" | "contestant"
+    /** บรรทัดละ 1 ตัวเลือก — ใช้เมื่อ registrationType เป็น staff_volunteer */
+    dutyRoleOptions: string[]
+    /** "single" = ตลอดทั้งกิจกรรม (ไม่แบ่งกะ, ส่ง dutyShiftOptions เป็น [] ตอน submit), "shifts" = แบ่งเป็นกะตาม dutyShiftRows */
+    dutyShiftMode: DutyShiftMode
+    dutyShiftRows: DutyShiftRow[]
+    /** เก็บเป็น string เหมือน capacity — parseInt ตอน submit */
+    teamSizeMin: string
+    teamSizeMax: string
+    /** บรรทัดละ 1 ตัวเลือก — ใช้เมื่อ registrationType เป็น contestant */
+    competitionCategoryOptions: string[]
 }
 
 export function createEmptyEvent(): EventFormState {
@@ -63,6 +77,7 @@ export function createEmptyEvent(): EventFormState {
         visibilityPrograms: [],
         visibilityYears: [],
         visibilityStudentIdFilter: "",
+        type: "project",
     }
 }
 
@@ -85,17 +100,24 @@ export function createEmptyActivity(): ActivityFormState {
         capacityEnabled: false,
         capacity: "",
         certEnabled: false,
-        volunteerRole: "",
         softSkillsEnabled: false,
         softSkillRates: {},
         questionsEnabled: false,
         questions: [],
+        registrationType: "participant",
+        dutyRoleOptions: [],
+        dutyShiftMode: "single",
+        dutyShiftRows: [],
+        teamSizeMin: "",
+        teamSizeMax: "",
+        competitionCategoryOptions: [],
     }
 }
 
 export type EventFormErrors = Partial<Record<"name" | "description", string>>
 
 export type ActivityFormErrors = Partial<Record<
-    "name" | "categories" | "description" | "startAt" | "endAt" | "location" | "capacity" | "volunteerRole",
+    "name" | "categories" | "description" | "startAt" | "endAt" | "location" | "capacity"
+    | "dutyRoleOptions" | "dutyShiftRows" | "teamSizeMax",
     string
 >>

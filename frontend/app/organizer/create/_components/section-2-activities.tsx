@@ -10,6 +10,7 @@ interface Props {
     activities: ActivityFormState[]
     activeKey: string
     errorsByKey: Record<string, ActivityFormErrors>
+    isSingleMode?: boolean
     onActiveKeyChange: (key: string) => void
     onChangeActivity: (key: string, patch: Partial<ActivityFormState>) => void
     onFieldBlur: (key: string, field: keyof ActivityFormErrors) => void
@@ -21,12 +22,39 @@ export function SectionActivities({
     activities,
     activeKey,
     errorsByKey,
+    isSingleMode,
     onActiveKeyChange,
     onChangeActivity,
     onFieldBlur,
     onAdd,
     onRemove,
 }: Props) {
+    // "ทำโครงการ" สำหรับปลดล็อกเพดาน Soft Skills ระดับสูง — ต้องตรงกับ isProject ฝั่ง backend
+    // (EventsService.create/update ใช้ dto.activities.length > 1 เป๊ะ)
+    const isProject = activities.length > 1
+
+    if (isSingleMode) {
+        const a = activities[0]
+        if (!a) return null
+        return (
+            <div className="space-y-6">
+                <div>
+                    <h2 className="text-lg font-bold text-fg">รายละเอียดกิจกรรม</h2>
+                    <p className="mt-1 text-sm text-fg-muted">
+                        กรอกรายละเอียด วันเวลา เงื่อนไขการรับสมัคร และการประเมินผลของกิจกรรมนี้
+                    </p>
+                </div>
+                <ActivityTabForm
+                    activity={a}
+                    errors={errorsByKey[a.key] ?? {}}
+                    isProject={isProject}
+                    onChange={(patch) => onChangeActivity(a.key, patch)}
+                    onFieldBlur={(field) => onFieldBlur(a.key, field)}
+                />
+            </div>
+        )
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between gap-4">
@@ -77,6 +105,7 @@ export function SectionActivities({
                         <ActivityTabForm
                             activity={a}
                             errors={errorsByKey[a.key] ?? {}}
+                            isProject={isProject}
                             onChange={(patch) => onChangeActivity(a.key, patch)}
                             onFieldBlur={(field) => onFieldBlur(a.key, field)}
                         />

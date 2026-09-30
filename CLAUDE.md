@@ -22,9 +22,9 @@ Isolated subdomain with dedicated Admin authentication.
 
 #### Student & Organizer Portal (`app.compactive.com`)
 
-Shared login path for both Students and Organizers (`/auth/login`).
+Shared login path for both Students and Organizers (`/auth`).
 
-- **Student Features:** Register for activities, request volunteer certificates, gain points across 5 soft skills (teamwork, leadership, communication, problem solving, adaptability), and evaluate activities.
+- **Student Features:** Register for activities, request volunteer certificates, gain points across 12 soft skills (communication, time management, flexibility/adaptability, teamwork/collaboration, analytic/critical thinking, decision making, creativity, complex problem solving, curiosity/lifelong learning, negotiation/persuasion, leadership, positive attitude), and evaluate activities.
 - **Organizer Features:** Create activities (with soft-skill point rules), download registration/attendance data, view activity feedback, and view activity dashboards.
 
 #### Public Developer Services (`api.compactive.com`)
@@ -198,6 +198,8 @@ Requires `NEXT_PUBLIC_API_URL` pointing to the Nginx Gateway domain or backend e
 - **Developer API Security:** External endpoints under `api.compactive.com` MUST be protected by `ApiKeyGuard` and throttled via `ApiKeyThrottlerGuard`. Public endpoints must filter out internal/confidential user data.
 - **Role & Guard Application:** Enforce route security using `@UseGuards(JwtAuthGuard, RolesGuard)` alongside `@Roles(...)`. Endpoints exposed on `admin.compactive.com` MUST strictly verify `UserRole.ADMIN`.
 - **Ownership checks belong in the service:** Controllers pass `callerId` and `callerRole` down; the service decides. The established shape is `if (callerRole !== UserRole.ADMIN && resource.organizerId !== callerId) throw new ForbiddenException(...)`. Keep it — a role check alone does not stop one organizer from editing another's activity.
+- **Evaluation visibility (360° mode):** an activity with `peerAssessmentEnabled` creates its `Evaluation` rows as `pending_approval` and students must not see those scores until the organizer approves them. Every student/public/admin reader of `Evaluation` filters with `APPROVED_ONLY` (`modules/shared/registrations/evaluation-visibility.util.ts`), and student-facing payloads that carry an `evaluation` object pass it through `maskUnapprovedEvaluation` (the row stays because the frontend treats "has an evaluation" as "checked in"; only the scores are zeroed). Organizer-facing readers deliberately do not filter. A row with an `EvaluationApproval` is locked — Batch Evaluation and `PATCH /evaluations/:registrationId` must not overwrite it; only the approval flow may.
+- **Never `include: { student: true }` (or any bare `true` on a User relation):** it ships the whole User row, password hash and OTP included. Use `STUDENT_BASIC_SELECT` / `STUDENT_CONTACT_SELECT` from `common/constants/user-select.ts`; `user-select.spec.ts` fails the build if a bare include comes back.
 
 ## Security Conventions
 

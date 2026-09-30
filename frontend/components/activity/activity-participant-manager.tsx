@@ -6,13 +6,18 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { CheckSquare, Download, Search } from "lucide-react"
 import { formatEventDate } from "@/components/ui/event-card"
-import { registrationsAPI, type Activity } from "@/lib/api"
+import { registrationsAPI, certificatesAPI, type Activity } from "@/lib/api"
 import { ActivityAboutPanel, ActivityRegistrationPanel, ActivityRewardsPanel } from "@/components/activity/activity-info-panels"
+import { ActivityBatchEvaluation } from "@/components/activity/activity-batch-evaluation"
+import { ActivityAssessmentMode } from "@/components/activity/activity-assessment-mode"
+import { ActivityApprovalDashboard } from "@/components/activity/activity-approval-dashboard"
 
 interface RegistrationAnswerRow {
     question: { id: number; label: string }
@@ -30,6 +35,13 @@ export interface RegistrationRow {
     evaluation?: unknown
     wantsCertLoanFund?: boolean
     wantsCertScholarship?: boolean
+    dutyRole?: string | null
+    dutyShift?: string | null
+    teamName?: string | null
+    teamSize?: number | null
+    competitionCategory?: string | null
+    submissionLink?: string | null
+    certificate?: { id: number; volunteerHours: string | null; issueDate: string } | null
     answers?: RegistrationAnswerRow[]
 }
 
@@ -102,6 +114,9 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
     const [participantSearch, setParticipantSearch] = useState("")
     const [participantFilters, setParticipantFilters] = useState<ParticipantFilters>(INITIAL_PARTICIPANT_FILTERS)
     const [checkinSearch, setCheckinSearch] = useState("")
+    const [issueCertReg, setIssueCertReg] = useState<RegistrationRow | null>(null)
+    const [issueHoursInput, setIssueHoursInput] = useState("")
+    const [issuingCert, setIssuingCert] = useState(false)
 
     const handleConfirm = async (regId: number) => {
         try {
@@ -122,6 +137,28 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
         } catch (err: unknown) {
             const e = err as Error
             alert(e.message || "เช็คอินไม่สำเร็จ")
+        }
+    }
+
+    const openIssueCertDialog = (reg: RegistrationRow) => {
+        setIssueCertReg(reg)
+        setIssueHoursInput(activity.volunteerHours ?? "")
+    }
+
+    const handleIssueCertificate = async () => {
+        if (!issueCertReg) return
+        setIssuingCert(true)
+        try {
+            const hours = issueHoursInput.trim() ? parseFloat(issueHoursInput) : undefined
+            await certificatesAPI.issue(issueCertReg.id, hours)
+            setIssueCertReg(null)
+            alert("ออกใบรับรองสำเร็จ")
+            onRefetch()
+        } catch (err: unknown) {
+            const e = err as Error
+            alert(e.message || "ออกใบรับรองไม่สำเร็จ")
+        } finally {
+            setIssuingCert(false)
         }
     }
 
@@ -151,12 +188,20 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
 
         // คอลัมน์คำถามลงทะเบียนแตกต่างกันไปตามกิจกรรม — สร้างหัวตารางจากคำถามจริงของกิจกรรมนี้
         const questions = activity.questions ?? []
+        const registrationType = activity.registrationType ?? "participant"
+        const typeHeaders =
+            registrationType === "staff_volunteer"
+                ? ["บทบาท/หน้าที่", "รอบ/กะเวลา"]
+                : registrationType === "contestant"
+                    ? ["ชื่อทีม", "จำนวนสมาชิกทีม", "ประเภท/รุ่นการแข่งขัน", "ลิงก์ผลงาน"]
+                    : []
         const headers = [
             "ลำดับ",
             "ชื่อ-นามสกุล",
             "รหัสนักศึกษา",
             "อีเมล",
             "เบอร์โทร",
+            ...typeHeaders,
             ...questions.map((q) => q.label),
             "ขอจิตอาสา กยศ.",
             "ขอจิตอาสาทุนการศึกษา",
@@ -169,6 +214,11 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
             reg.student?.studentId || "-",
             reg.student?.email || "-",
             reg.student?.phone || "-",
+            ...(registrationType === "staff_volunteer"
+                ? [reg.dutyRole || "-", reg.dutyShift || "-"]
+                : registrationType === "contestant"
+                    ? [reg.teamName || "-", reg.teamSize ?? "-", reg.competitionCategory || "-", reg.submissionLink || "-"]
+                    : []),
             ...questions.map((q) => {
                 const a = reg.answers?.find((ans) => ans.question.id === q.id)
                 return a ? answerText(a) : "-"
@@ -204,6 +254,8 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
     const filteredRegs = filterRegistrations(allRegs, participantSearch, participantFilters)
     const questions = activity.questions ?? []
     const pendingIdsInView = filteredRegs.filter((r) => r.status === "pending").map((r) => r.id)
+    // แท็บประเมินรายฝ่ายมีเฉพาะกิจกรรมสตาฟฟ์ที่เลือกทักษะไว้ — ว่ากิจกรรมนั้นเข้าเงื่อนไข Tier 3 จริงหรือไม่ server เป็นผู้ตัดสิน
+    const showBatchEvaluation = activity.registrationType === "staff_volunteer" && (activity.softSkills?.length ?? 0) > 0
 
     const checkedIn = allRegs
         .filter((r) => r.attendance === "attended")
@@ -219,6 +271,12 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
                     <TabsTrigger value="details" className="flex-1">รายละเอียด</TabsTrigger>
                     <TabsTrigger value="participants" className="flex-1">ข้อมูลผู้เข้าร่วม ({allRegs.length})</TabsTrigger>
                     <TabsTrigger value="registration" className="flex-1">คิวอาร์โค้ดลงทะเบียน</TabsTrigger>
+                    {showBatchEvaluation && (
+                        <TabsTrigger value="evaluation" className="flex-1">ประเมินรายฝ่าย</TabsTrigger>
+                    )}
+                    {showBatchEvaluation && (
+                        <TabsTrigger value="approval" className="flex-1">อนุมัติผล</TabsTrigger>
+                    )}
                 </TabsList>
 
                 <TabsContent value="details" className="space-y-6">
@@ -334,11 +392,33 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
                                                 {reg.attendance === "attended" && <Badge variant="success">เข้าร่วมแล้ว</Badge>}
                                                 {reg.wantsCertLoanFund && <Badge variant="default">กยศ.</Badge>}
                                                 {reg.wantsCertScholarship && <Badge variant="default">ทุน</Badge>}
+                                                {reg.dutyRole && <Badge variant="default">บทบาท: {reg.dutyRole}</Badge>}
+                                                {reg.dutyShift && <Badge variant="default">รอบ: {reg.dutyShift}</Badge>}
+                                                {reg.teamName && <Badge variant="default">ทีม: {reg.teamName}</Badge>}
+                                                {reg.competitionCategory && <Badge variant="default">{reg.competitionCategory}</Badge>}
                                             </div>
                                             <div className="mt-1 text-xs text-fg-muted">
                                                 {reg.student.studentId} · {reg.student.email}
                                                 {reg.student.phone && <> · {reg.student.phone}</>}
                                             </div>
+                                            {(reg.teamSize != null || reg.submissionLink) && (
+                                                <div className="mt-1 text-xs text-fg-muted">
+                                                    {reg.teamSize != null && <>สมาชิก {reg.teamSize} คน</>}
+                                                    {reg.submissionLink && (
+                                                        <>
+                                                            {reg.teamSize != null && " · "}
+                                                            <a
+                                                                href={reg.submissionLink}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="text-brand-600 underline"
+                                                            >
+                                                                ลิงก์ผลงาน
+                                                            </a>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="flex shrink-0 gap-2">
@@ -350,9 +430,24 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
                                             )}
                                             {reg.attendance === "attended" && (
                                                 reg.evaluation ? (
-                                                    <Badge variant="success" className="gap-1"><CheckSquare className="size-3" aria-hidden="true" />ประเมินอัตโนมัติแล้ว</Badge>
+                                                    (reg.evaluation as { status?: string }).status === "pending_approval" ? (
+                                                        <Badge variant="warning">รออนุมัติผล</Badge>
+                                                    ) : (
+                                                        <Badge variant="success" className="gap-1"><CheckSquare className="size-3" aria-hidden="true" />ประเมินอัตโนมัติแล้ว</Badge>
+                                                    )
                                                 ) : (
                                                     <Badge variant="neutral">ยังไม่มีคะแนน</Badge>
+                                                )
+                                            )}
+                                            {activity.volunteerRole && reg.attendance === "attended" && (
+                                                reg.certificate ? (
+                                                    <Badge variant="success">
+                                                        ออกใบรับรองแล้ว{reg.certificate.volunteerHours ? ` (${reg.certificate.volunteerHours} ชม.)` : ""}
+                                                    </Badge>
+                                                ) : (
+                                                    <Button size="sm" variant="outline" className="text-brand-600" onClick={() => openIssueCertDialog(reg)}>
+                                                        ออกใบรับรอง
+                                                    </Button>
                                                 )
                                             )}
                                         </div>
@@ -474,6 +569,21 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
 
                     <ActivityRegistrationPanel activity={activity} registrationCloseAt={registrationCloseAt} />
                 </TabsContent>
+
+                {showBatchEvaluation && (
+                    <TabsContent value="evaluation" className="rounded-xl border border-border bg-bg p-6 shadow-xs">
+                        <div className="space-y-6">
+                            <ActivityAssessmentMode activityId={activity.id} />
+                            <ActivityBatchEvaluation activityId={activity.id} onSaved={onRefetch} />
+                        </div>
+                    </TabsContent>
+                )}
+
+                {showBatchEvaluation && (
+                    <TabsContent value="approval" className="rounded-xl border border-border bg-bg p-6 shadow-xs">
+                        <ActivityApprovalDashboard activityId={activity.id} onChanged={onRefetch} />
+                    </TabsContent>
+                )}
             </Tabs>
 
             <ConfirmDialog
@@ -485,6 +595,33 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
                 loading={confirmingAll}
                 onConfirm={handleConfirmAll}
             />
+
+            <Dialog open={!!issueCertReg} onOpenChange={(open) => !open && setIssueCertReg(null)}>
+                <DialogContent className="sm:max-w-[420px]">
+                    <DialogHeader>
+                        <DialogTitle>ออกใบรับรองจิตอาสา — {issueCertReg?.student.name}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-2 py-2">
+                        <Label htmlFor="issue-cert-hours">ชั่วโมงจิตอาสา</Label>
+                        <Input
+                            id="issue-cert-hours"
+                            type="number"
+                            min={0}
+                            max={999.99}
+                            step="0.5"
+                            value={issueHoursInput}
+                            onChange={(e) => setIssueHoursInput(e.target.value)}
+                        />
+                        <p className="text-xs text-fg-subtle">ค่าเริ่มต้นคำนวณจากวันเวลาของกิจกรรม ปรับได้ตามการทำงานจริงของคนนี้</p>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIssueCertReg(null)} disabled={issuingCert}>ยกเลิก</Button>
+                        <Button onClick={handleIssueCertificate} disabled={issuingCert}>
+                            {issuingCert ? "กำลังออกใบรับรอง..." : "ออกใบรับรอง"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     )
 }

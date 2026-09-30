@@ -10,6 +10,8 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    // ให้ไฟล์ตรรกะล้วนใน lib/ (ทดสอบด้วย node --test) import กันด้วยนามสกุล .ts ได้ — ปลอดภัยเพราะ noEmit
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
