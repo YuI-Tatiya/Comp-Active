@@ -156,10 +156,12 @@ export default function EditEventPage() {
         setEventErrors((prev) => ({ ...prev, [field]: errs[field] }))
     }
 
-    function handleActivityFieldBlur(key: string, field: keyof ActivityFormErrors) {
+    function handleActivityFieldBlur(key: string, field: keyof ActivityFormErrors, patch?: Partial<ActivityFormState>) {
         const activity = activities.find((a) => a.key === key)
         if (!activity) return
-        const errs = validateAllActivities([activity])[key] ?? {}
+        // patch: ค่าที่เพิ่งเปลี่ยนจาก onChange เดียวกัน (เช่น checkbox) — activities ใน state ยัง commit ไม่ทันตอนนี้
+        const merged = patch ? { ...activity, ...patch } : activity
+        const errs = validateAllActivities([merged])[key] ?? {}
         setActivityErrors((prev) => ({ ...prev, [key]: { ...prev[key], [field]: errs[field] } }))
     }
 

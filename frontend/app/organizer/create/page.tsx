@@ -66,10 +66,11 @@ export default function CreateEventPage() {
         setEventErrors((prev) => ({ ...prev, [field]: message }))
     }
 
-    function handleActivityFieldBlur(key: string, field: keyof ActivityFormErrors) {
+    function handleActivityFieldBlur(key: string, field: keyof ActivityFormErrors, patch?: Partial<ActivityFormState>) {
         const activity = activities.find((a) => a.key === key)
         if (!activity) return
-        const message = validateActivityField(activity, field)
+        // patch: ค่าที่เพิ่งเปลี่ยนจาก onChange เดียวกัน (เช่น checkbox) — activities ใน state ยัง commit ไม่ทันตอนนี้
+        const message = validateActivityField(patch ? { ...activity, ...patch } : activity, field)
         setActivityErrors((prev) => ({
             ...prev,
             [key]: { ...prev[key], [field]: message },

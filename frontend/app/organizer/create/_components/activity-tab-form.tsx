@@ -40,7 +40,11 @@ interface Props {
     /** กิจกรรมนี้เป็นส่วนหนึ่งของโครงการหลายกิจกรรมหรือไม่ — ใช้ปลดล็อกเพดาน Soft Skills ระดับสูงสุด (ดู maxSoftSkillLevel) */
     isProject?: boolean
     onChange: (patch: Partial<ActivityFormState>) => void
-    onFieldBlur: (field: keyof ActivityFormErrors) => void
+    /**
+     * patch: ใช้เมื่อเรียกจากตัว onChange เดียวกัน (เช่น checkbox หมวดหมู่) ไม่ใช่ event blur จริง —
+     * ส่งค่าที่เพิ่งเปลี่ยนไปด้วย กัน parent validate กับ activity เก่าที่ state ยัง commit ไม่ทัน
+     */
+    onFieldBlur: (field: keyof ActivityFormErrors, patch?: Partial<ActivityFormState>) => void
 }
 
 /** พรีวิวชั่วโมงจิตอาสาฝั่ง client เท่านั้น — server คำนวณค่าจริงจาก startAt/endAt เองเสมอ ห้ามส่งค่านี้ไป backend */
@@ -135,8 +139,12 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                                         className="size-4 rounded border-border text-brand-600 focus:ring-brand-500"
                                         checked={selected}
                                         onChange={() => {
-                                            onChange({ categories: toggleInArray(activity.categories, c.value) })
-                                            onFieldBlur("categories")
+                                            const nextCategories = toggleInArray(activity.categories, c.value)
+                                            onChange({ categories: nextCategories })
+                                            // ส่งค่าใหม่ตรงๆ ให้ validate — onFieldBlur เรียกในบรรทัดเดียวกับ onChange
+                                            // (ไม่ใช่ event blur จริง) ถ้าปล่อยให้พ่อแม่ไปอ่านค่า activity จาก state
+                                            // เองจะได้ค่าเก่าก่อนติ๊ก (setState ยัง commit ไม่ทัน) แล้วขึ้น error ค้างทั้งที่เลือกแล้ว
+                                            onFieldBlur("categories", { categories: nextCategories })
                                         }}
                                     />
                                     <span className={`size-2 rounded-full ${c.dot}`} aria-hidden="true" />

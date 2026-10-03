@@ -13,7 +13,7 @@ interface Props {
     isSingleMode?: boolean
     onActiveKeyChange: (key: string) => void
     onChangeActivity: (key: string, patch: Partial<ActivityFormState>) => void
-    onFieldBlur: (key: string, field: keyof ActivityFormErrors) => void
+    onFieldBlur: (key: string, field: keyof ActivityFormErrors, patch?: Partial<ActivityFormState>) => void
     onAdd: () => void
     onRemove: (key: string) => void
 }
@@ -49,7 +49,7 @@ export function SectionActivities({
                     errors={errorsByKey[a.key] ?? {}}
                     isProject={isProject}
                     onChange={(patch) => onChangeActivity(a.key, patch)}
-                    onFieldBlur={(field) => onFieldBlur(a.key, field)}
+                    onFieldBlur={(field, patch) => onFieldBlur(a.key, field, patch)}
                 />
             </div>
         )
@@ -107,7 +107,7 @@ export function SectionActivities({
                             errors={errorsByKey[a.key] ?? {}}
                             isProject={isProject}
                             onChange={(patch) => onChangeActivity(a.key, patch)}
-                            onFieldBlur={(field) => onFieldBlur(a.key, field)}
+                            onFieldBlur={(field, patch) => onFieldBlur(a.key, field, patch)}
                         />
                     </TabsContent>
                 ))}
