@@ -4,6 +4,16 @@ import type { DutyShiftMode, DutyShiftRow } from "@/lib/duty-shift"
 // State ฝั่ง frontend สำหรับ wizard สร้างงาน — แปลงเป็น CreateEventBody ตอน submit เท่านั้น
 // (capacityEnabled / certEnabled / softSkillsEnabled / questionsEnabled เป็น concept ฝั่ง UI ล้วนๆ ไม่มีใน backend DTO)
 
+export type RegistrationType = "participant" | "staff_volunteer" | "contestant"
+
+/** ตัวเลือกประเภทการรับสมัคร — เลือกครั้งเดียวระดับงาน (ขั้นตอนที่ 1) แล้วทุกกิจกรรมย่อยในงานนี้ใช้ประเภทเดียวกัน
+ *  กันไม่ให้งานเดียวมีกิจกรรมย่อยปนกันหลายรูปแบบ (เช่น กิจกรรมหนึ่งเป็นจิตอาสา อีกกิจกรรมเป็นแข่งขัน) */
+export const REGISTRATION_TYPE_OPTIONS: { value: RegistrationType; label: string; desc: string }[] = [
+    { value: "participant", label: "ผู้เข้าร่วมทั่วไป", desc: "ลงทะเบียนเข้าร่วมกิจกรรมตามปกติ" },
+    { value: "staff_volunteer", label: "สตาฟฟ์ · จิตอาสา", desc: "ช่วยงานหรือปฏิบัติหน้าที่ในกิจกรรม" },
+    { value: "contestant", label: "ผู้สมัครแข่งขัน", desc: "สมัครเพื่อเข้าแข่งขันในกิจกรรม" },
+]
+
 export interface EventFormState {
     name: string
     description: string
@@ -21,6 +31,11 @@ export interface EventFormState {
     visibilityStudentIdFilter: string
     /** client-only — ไม่ส่งไป backend, ใช้ขับ UI ของ step 2 เท่านั้น (backend สร้าง Event+Activities เสมอไม่ว่าค่านี้จะเป็นอะไร) */
     type: "single" | "project"
+    /**
+     * client-only — เลือกที่งาน (ขั้นตอนที่ 1) แล้ว "สำเนา" ลง ActivityFormState.registrationType ของทุกกิจกรรมย่อยตอนเพิ่ม/เปลี่ยนค่านี้
+     * (บังคับใช้ที่หน้า create/edit page.tsx — ดู handleAddActivity และ patchEvent) ไม่มีฟิลด์นี้ตรงๆ ใน backend
+     */
+    registrationType: RegistrationType
 }
 
 export interface ActivityFormState {
@@ -46,7 +61,8 @@ export interface ActivityFormState {
     softSkillRates: Record<string, number>
     questionsEnabled: boolean
     questions: BuilderQuestion[]
-    registrationType: "participant" | "staff_volunteer" | "contestant"
+    /** เสมอกับ EventFormState.registrationType ของงานแม่ — แก้ไขได้ที่ขั้นตอนที่ 1 เท่านั้น (ดูเหตุผลที่ EventFormState) */
+    registrationType: RegistrationType
     /** บรรทัดละ 1 ตัวเลือก — ใช้เมื่อ registrationType เป็น staff_volunteer */
     dutyRoleOptions: string[]
     /** "single" = ตลอดทั้งกิจกรรม (ไม่แบ่งกะ, ส่ง dutyShiftOptions เป็น [] ตอน submit), "shifts" = แบ่งเป็นกะตาม dutyShiftRows */
@@ -78,12 +94,14 @@ export function createEmptyEvent(): EventFormState {
         visibilityYears: [],
         visibilityStudentIdFilter: "",
         type: "project",
+        registrationType: "participant",
     }
 }
 
 let activityKeySeq = 0
 
-export function createEmptyActivity(): ActivityFormState {
+/** registrationType: ส่งมาจาก EventFormState.registrationType ของงานแม่เสมอ (ไม่ระบุ = "participant" ค่าเริ่มต้นของงานใหม่) */
+export function createEmptyActivity(registrationType: RegistrationType = "participant"): ActivityFormState {
     activityKeySeq += 1
     return {
         key: `activity-${Date.now()}-${activityKeySeq}`,
@@ -104,7 +122,7 @@ export function createEmptyActivity(): ActivityFormState {
         softSkillRates: {},
         questionsEnabled: false,
         questions: [],
-        registrationType: "participant",
+        registrationType,
         dutyRoleOptions: [],
         dutyShiftMode: "single",
         dutyShiftRows: [],

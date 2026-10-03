@@ -55,6 +55,11 @@ export default function CreateEventPage() {
         if (patch.type === "single") {
             setActivities((prev) => (prev.length > 1 ? [prev[0]] : prev))
         }
+        // ประเภทการรับสมัครเลือกครั้งเดียวระดับงาน — เปลี่ยนที่นี่ต้องสำเนาลงทุกกิจกรรมย่อยที่มีอยู่แล้วด้วย กันกิจกรรมเก่าค้างประเภทเดิม
+        if (patch.registrationType) {
+            const nextType = patch.registrationType
+            setActivities((prev) => prev.map((a) => ({ ...a, registrationType: nextType })))
+        }
     }
 
     function patchActivity(key: string, patch: Partial<ActivityFormState>) {
@@ -78,7 +83,7 @@ export default function CreateEventPage() {
     }
 
     function handleAddActivity() {
-        const next = createEmptyActivity()
+        const next = createEmptyActivity(event.registrationType)
         setActivities((prev) => [...prev, next])
         setActiveActivityKey(next.key)
     }
@@ -106,7 +111,7 @@ export default function CreateEventPage() {
             setEventErrors(errs)
             const n = countErrors(errs)
             if (n > 0) {
-                setError(`มี ${n} ฟิลด์ที่ต้องแก้ไข`)
+                setError("กรุณากรอกข้อมูลให้ครบถ้วน")
                 scrollToFirstError(errs)
                 return
             }
@@ -119,7 +124,7 @@ export default function CreateEventPage() {
             setActivityErrors(errsByKey)
             const total = Object.values(errsByKey).reduce((sum, e) => sum + countErrors(e), 0)
             if (total > 0) {
-                setError(`มี ${total} ฟิลด์ที่ต้องแก้ไข`)
+                setError("กรุณากรอกข้อมูลให้ครบถ้วน")
                 const firstKey = Object.keys(errsByKey)[0]
                 if (firstKey) setActiveActivityKey(firstKey)
                 scrollToFirstError(errsByKey[firstKey] ?? {})
@@ -138,7 +143,7 @@ export default function CreateEventPage() {
         setActivityErrors(activityErrsByKey)
         const total = countErrors(eventErrs) + Object.values(activityErrsByKey).reduce((sum, e) => sum + countErrors(e), 0)
         if (total > 0) {
-            setError(`มี ${total} ฟิลด์ที่ต้องแก้ไข`)
+            setError("กรุณากรอกข้อมูลให้ครบถ้วน")
             return
         }
 
@@ -275,11 +280,29 @@ export default function CreateEventPage() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-8 md:grid-cols-[220px_1fr]">
-                            <StepperSidebar steps={STEPS} currentStep={step} className="hidden md:flex" />
+                        {/*
+                          md:items-start: ปล่อยให้ความสูงแต่ละคอลัมน์เป็นอิสระต่อกัน ไม่งั้น grid จะยืดทั้งคู่
+                          เท่าคอลัมน์ที่สูงที่สุด แล้ว sticky บนแถบขั้นตอนจะไม่มีระยะให้ขยับ (เห็นผลเหมือนไม่ sticky)
+                        */}
+                        <div className="grid grid-cols-1 gap-8 md:grid-cols-[220px_1fr] md:items-start">
+                            {/* top-24 เว้นระยะใต้ AppHeader (sticky top-0 h-16) ไม่ให้แถบขั้นตอนชนขอบบนพอดี */}
+                            <StepperSidebar
+                                steps={STEPS}
+                                currentStep={step}
+                                className="hidden md:sticky md:top-24 md:flex"
+                            />
 
                             <div>
-                                <div className="min-h-[500px] rounded-2xl border border-border bg-bg p-8 shadow-xs">
+                                {/*
+                                  การ์ดฟอร์มเลื่อนในตัวเอง (overflow-y-auto + max-h) แทนที่จะให้ทั้งหน้าเลื่อน —
+                                  กันไม่ให้แถบขั้นตอนทางซ้ายหลุดจอเวลาฟอร์มยาว (รวม 4 หัวข้อย่อยในขั้นตอน "กิจกรรมย่อย" แล้วยาวมาก)
+                                  contain-layout: ไม่งั้นตอนเนื้อหาในการ์ดเปลี่ยนความสูงมากๆ (เช่น เปิด toggle ทักษะที่กิจกรรม
+                                  ช่วยพัฒนาที่ดึงรายการ 12 ทักษะมาแสดง) Chrome จะรายงาน documentElement.scrollHeight ผิด
+                                  เกินจริงหลายร้อยพิกเซล ทำให้เลื่อนหน้าเว็บเกินเนื้อหาจริงไปเจอพื้นที่ว่างใต้ footer ได้
+                                  (ยืนยันแล้วว่า Dialog ปลอดภัย เพราะ components/ui/dialog.tsx พอร์ทัลไป document.body แล้ว
+                                  ไม่งั้น contain-layout จะทำให้ dialog ที่ซ้อนอยู่ข้างในถูกบีบให้เล็กเท่ากรอบการ์ดไปด้วย)
+                                */}
+                                <div className="contain-layout max-h-[calc(100vh-16rem)] min-h-[500px] overflow-y-auto rounded-2xl border border-border bg-bg p-8 shadow-xs">
                                     {error && (
                                         <div className="mb-6 rounded-lg border border-danger bg-danger-bg px-4 py-3 text-center text-sm text-danger">
                                             {error}

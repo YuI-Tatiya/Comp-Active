@@ -1,11 +1,10 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, type ReactNode } from "react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Toggle } from "@/components/ui/toggle"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { FormField, fieldInputClass } from "@/components/ui/form-field"
 import { ImageCropUpload } from "@/components/ui/image-crop-upload"
 import { Dropzone } from "@/components/ui/dropzone"
@@ -16,7 +15,7 @@ import { SoftSkillRubricLink } from "@/components/activity/soft-skill-rubric-lin
 import { cn, toggleInArray } from "@/lib/utils"
 import { Paperclip, Plus, Trash2, X } from "lucide-react"
 import { createEmptyShiftRow, deriveVolunteerRole, type DutyShiftRow } from "@/lib/duty-shift"
-import type { ActivityFormState, ActivityFormErrors } from "./types"
+import { REGISTRATION_TYPE_OPTIONS, type ActivityFormState, type ActivityFormErrors } from "./types"
 
 const QUESTION_TYPE_OPTIONS = [
     { value: "text", label: "คำตอบแบบข้อความ" },
@@ -24,14 +23,18 @@ const QUESTION_TYPE_OPTIONS = [
     { value: "multi_choice", label: "เลือกตอบได้หลายข้อ" },
 ]
 
-const REGISTRATION_TYPE_OPTIONS: { value: ActivityFormState["registrationType"]; label: string; desc: string }[] = [
-    { value: "participant", label: "ผู้เข้าร่วมทั่วไป", desc: "ลงทะเบียนเข้าร่วมกิจกรรมตามปกติ" },
-    { value: "staff_volunteer", label: "สตาฟฟ์ · จิตอาสา", desc: "ช่วยงานหรือปฏิบัติหน้าที่ในกิจกรรม" },
-    { value: "contestant", label: "ผู้สมัครแข่งขัน", desc: "สมัครเพื่อเข้าแข่งขันในกิจกรรม" },
-]
-
 function splitLines(text: string): string[] {
     return text.split("\n").map((s) => s.trim()).filter(Boolean)
+}
+
+/** หัวข้อย่อยของฟอร์มกิจกรรม — เดิมแยกเป็น 4 แท็บ ตามที่ผู้ใช้ขอให้รวมมาอยู่หน้าเดียวกัน จึงเหลือแค่หัวข้อ+เส้นคั่น */
+function FormSection({ title, first, children }: { title: string; first?: boolean; children: ReactNode }) {
+    return (
+        <section className={cn("space-y-6", !first && "border-t border-border pt-8")}>
+            <h3 className="text-base font-bold text-fg">{title}</h3>
+            {children}
+        </section>
+    )
 }
 
 interface Props {
@@ -103,15 +106,8 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
     }
 
     return (
-        <Tabs defaultValue="info">
-            <TabsList className="h-auto flex-wrap justify-start gap-1 bg-surface p-1">
-                <TabsTrigger value="info">ข้อมูลกิจกรรม</TabsTrigger>
-                <TabsTrigger value="datetime">วันเวลา/สถานที่</TabsTrigger>
-                <TabsTrigger value="conditions">เงื่อนไขการรับสมัคร</TabsTrigger>
-                <TabsTrigger value="eval">การประเมินผล</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="info" className="mt-6 space-y-6">
+        <div className="space-y-8">
+            <FormSection title="ข้อมูลกิจกรรม" first>
                 <FormField name="name" label="ชื่อกิจกรรม" required error={errors.name}>
                     <Input
                         value={activity.name}
@@ -198,9 +194,9 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                         </Dropzone>
                     </div>
                 </div>
-            </TabsContent>
+            </FormSection>
 
-            <TabsContent value="datetime" className="mt-6 space-y-6">
+            <FormSection title="วันเวลา/สถานที่">
                 <p className="text-sm text-fg-muted">ระบุวันเวลาเริ่มกิจกรรมและสิ้นสุดกิจกรรม</p>
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <FormField name="startAt" label="วันเวลาเริ่ม" required error={errors.startAt}>
@@ -231,9 +227,9 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                         className={fieldInputClass(errors.location)}
                     />
                 </FormField>
-            </TabsContent>
+            </FormSection>
 
-            <TabsContent value="conditions" className="mt-6 space-y-6">
+            <FormSection title="เงื่อนไขการรับสมัคร">
                 <div className="space-y-3">
                     <Label>จำนวนผู้เข้าร่วม</Label>
                     <div className="space-y-2">
@@ -277,27 +273,18 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                 </div>
 
                 <div className="space-y-3 border-t border-border pt-6">
+                    {/*
+                      เลือกครั้งเดียวที่ขั้นตอนที่ 1 (ข้อมูลพื้นฐาน) แล้วใช้เหมือนกันทุกกิจกรรมย่อยในงานนี้ — กันไม่ให้
+                      งานเดียวมีกิจกรรมย่อยปนกันหลายรูปแบบ ที่นี่แสดงผลอย่างเดียว แก้ไขไม่ได้ (ดู REGISTRATION_TYPE_OPTIONS)
+                    */}
                     <div>
                         <Label>ประเภทการรับสมัคร</Label>
-                        <p className="mt-0.5 text-xs text-fg-muted">เลือกรูปแบบผู้เข้าร่วมของกิจกรรมนี้</p>
+                        <p className="mt-0.5 text-xs text-fg-muted">
+                            ตั้งค่าไว้ที่ขั้นตอนที่ 1 (ข้อมูลพื้นฐาน) ใช้เหมือนกันทุกกิจกรรมย่อยในงานนี้
+                        </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        {REGISTRATION_TYPE_OPTIONS.map((opt) => (
-                            <button
-                                key={opt.value}
-                                type="button"
-                                onClick={() => onChange({ registrationType: opt.value })}
-                                aria-pressed={activity.registrationType === opt.value}
-                                className={cn(
-                                    "rounded-full border px-4 py-2 text-sm font-bold transition-colors",
-                                    activity.registrationType === opt.value
-                                        ? "border-brand-600 bg-brand-600 text-white shadow-md shadow-brand-500/20"
-                                        : "border-border bg-bg text-fg-muted hover:border-border-strong hover:bg-surface"
-                                )}
-                            >
-                                {opt.label}
-                            </button>
-                        ))}
+                    <div className="inline-flex items-center gap-2 rounded-full border border-brand-600 bg-brand-50 px-4 py-2 text-sm font-bold text-brand-700">
+                        {REGISTRATION_TYPE_OPTIONS.find((o) => o.value === activity.registrationType)?.label}
                     </div>
 
                     {activity.registrationType === "staff_volunteer" && (
@@ -500,9 +487,9 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                         />
                     )}
                 </div>
-            </TabsContent>
+            </FormSection>
 
-            <TabsContent value="eval" className="mt-6 space-y-6">
+            <FormSection title="การประเมินผล">
                 <div className="flex items-start justify-between gap-4">
                     <div>
                         <Label>ทักษะที่กิจกรรมนี้ช่วยพัฒนา</Label>
@@ -523,7 +510,7 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                             </p>
                             <p>
                                 {durationHours == null
-                                    ? "กรอกวันเวลาเริ่ม-สิ้นสุดในแท็บ \"วันเวลา/สถานที่\" ก่อน เพื่อคำนวณระดับสูงสุดที่ปลดล็อกได้"
+                                    ? "กรอกวันเวลาเริ่ม-สิ้นสุดในหัวข้อ \"วันเวลา/สถานที่\" ด้านบนก่อน เพื่อคำนวณระดับสูงสุดที่ปลดล็อกได้"
                                     : softSkillCap === 2
                                         ? `กิจกรรมนี้ (${durationHours} ชม.) ให้ได้สูงสุดระดับ "ผ่าน" — กิจกรรมที่ยาวขึ้นจะปลดล็อกระดับสูงกว่านี้`
                                         : softSkillCap === 3
@@ -588,7 +575,7 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                         </div>
                     </div>
                 )}
-            </TabsContent>
-        </Tabs>
+            </FormSection>
+        </div>
     )
 }
