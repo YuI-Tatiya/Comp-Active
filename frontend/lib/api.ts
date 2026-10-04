@@ -267,6 +267,8 @@ export const activitiesAPI = {
   /** จบกิจกรรม — ทำได้เฉพาะเมื่อเลยเวลาสิ้นสุดแล้ว (backend บังคับ) */
   markCompleted: (id: number) =>
     fetchAPI<Activity>(`/api/activities/${id}/complete`, { method: 'PATCH' }),
+  /** คัดลอกกิจกรรมทั้งใบเป็นกิจกรรมใหม่ (ชื่อต่อท้ายด้วย "(สำเนา)") — ไม่คัดลอกผู้ลงทะเบียน */
+  duplicate: (id: number) => fetchAPI<Activity>(`/api/activities/${id}/duplicate`, { method: 'POST' }),
   getPlatformStats: () => fetchAPI<PlatformStats>('/api/activities/stats/platform'),
   getOrganizerStats: () => fetchAPI<OrganizerStats>('/api/activities/stats/organizer'),
   /** ผลสรุปแบบสำรวจของกิจกรรมเดี่ยว — โครงสร้างตรงกับ eventsAPI.getSurveyResults */
@@ -429,6 +431,8 @@ export const eventsAPI = {
       body: JSON.stringify({ isPublic }),
     }),
   delete: (id: number) => fetchAPI<void>(`/api/events/${id}`, { method: 'DELETE' }),
+  /** คัดลอกงานทั้งงานพร้อมกิจกรรมย่อยเป็นงานใหม่ (ชื่อต่อท้ายด้วย "(สำเนา)", ไม่เผยแพร่อัตโนมัติ) — ไม่คัดลอกผู้ลงทะเบียน */
+  duplicate: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}/duplicate`, { method: 'POST' }),
   // ฉบับร่างของตัวช่วยสร้างงาน — คนละอย่างกับ Event จริง มีได้ทีละ 1 ฉบับต่อผู้จัด (บันทึกซ้ำ = ทับของเดิม)
   getDraft: () => fetchAPI<EventDraftResponse | null>('/api/events/draft'),
   saveDraft: (payload: unknown) =>
