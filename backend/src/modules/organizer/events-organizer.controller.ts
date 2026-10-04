@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Delete,
   Body,
@@ -30,9 +31,11 @@ import {
 import { join } from "path";
 import * as crypto from "crypto";
 import { EventsService } from "../shared/events/events.service";
+import { EventDraftService } from "../shared/events/event-draft.service";
 import { CreateEventDto } from "../shared/events/dto/create-event.dto";
 import { UpdateEventDto } from "../shared/events/dto/update-event.dto";
 import { SetEventPublicDto } from "../shared/events/dto/set-event-public.dto";
+import { SaveEventDraftDto } from "../shared/events/dto/save-event-draft.dto";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -45,7 +48,10 @@ import { UserRole } from "../../common/enums/role.enum";
 @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
 @ApiBearerAuth()
 export class EventsOrganizerController {
-  constructor(private readonly eventsService: EventsService) {}
+  constructor(
+    private readonly eventsService: EventsService,
+    private readonly eventDraftService: EventDraftService,
+  ) {}
 
   /**
    * GET /api/events/my - ดูงานที่ฉันสร้าง (Organizer)
@@ -54,6 +60,40 @@ export class EventsOrganizerController {
   @ApiOperation({ summary: "ดูงานที่ฉันสร้าง (Organizer)" })
   async findMyEvents(@CurrentUser("id") userId: number) {
     return this.eventsService.findByOrganizer(userId);
+  }
+
+  // เส้นทางฉบับร่างทั้ง 3 ต้องอยู่ก่อน ":id" เสมอ — ไม่งั้น Nest จะจับ "draft" เป็นค่า :id แทน (ParseIntPipe พัง)
+
+  /**
+   * GET /api/events/draft - ดูฉบับร่างงานที่บันทึกไว้ล่าสุดของฉัน (Organizer) — ไม่มี = null
+   */
+  @Get("draft")
+  @ApiOperation({
+    summary: "ดูฉบับร่างงานที่บันทึกไว้ล่าสุดของฉัน (Organizer)",
+  })
+  async getDraft(@CurrentUser("id") userId: number) {
+    return this.eventDraftService.getDraft(userId);
+  }
+
+  /**
+   * PUT /api/events/draft - บันทึก/ทับฉบับร่างงาน (Organizer) — มีได้ทีละ 1 ฉบับต่อผู้จัด
+   */
+  @Put("draft")
+  @ApiOperation({ summary: "บันทึก/ทับฉบับร่างงาน (Organizer)" })
+  async saveDraft(
+    @CurrentUser("id") userId: number,
+    @Body() dto: SaveEventDraftDto,
+  ) {
+    return this.eventDraftService.saveDraft(userId, dto.payload);
+  }
+
+  /**
+   * DELETE /api/events/draft - ลบฉบับร่างงานของฉัน (Organizer)
+   */
+  @Delete("draft")
+  @ApiOperation({ summary: "ลบฉบับร่างงานของฉัน (Organizer)" })
+  async clearDraft(@CurrentUser("id") userId: number) {
+    await this.eventDraftService.clearDraft(userId);
   }
 
   /**

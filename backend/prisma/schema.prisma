@@ -156,6 +156,7 @@ model User {
   verificationOtpAttempts  Int       @default(0) @map("verification_otp_attempts")
 
   events                    Event[]
+  eventDraft                EventDraft?
   activities                Activity[]
   registrations             Registration[]
   evaluations               Evaluation[]
@@ -203,6 +204,22 @@ model Event {
   visibilityYears   EventVisibilityYear[]
 
   @@map("events")
+}
+
+/// ฉบับร่างงาน "สร้างงานใหม่" (wizard /organizer/create) — ไม่ใช่ Event จริง จึงไม่ผ่าน validation ของ
+/// CreateEventDto เลย (payload อาจมีฟิลด์ว่าง/ไม่ครบ) ผู้จัดคนหนึ่งมีได้ 1 ฉบับต่อครั้ง (บันทึกซ้ำ = ทับของเดิม)
+/// payload เก็บ state ทั้งหมดของ wizard (event + activities[]) ยกเว้นไฟล์ที่ยังไม่อัปโหลด ซึ่งฝั่ง frontend
+/// จะอัปโหลดให้ได้ imageUrl/attachmentUrl ก่อนค่อยบันทึกฉบับร่างเสมอ (ดู lib/event-draft.ts)
+model EventDraft {
+  id          Int      @id @default(autoincrement())
+  organizerId Int      @unique @map("organizer_id")
+  payload     Json
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  organizer User @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+
+  @@map("event_drafts")
 }
 
 model EventVisibilityProgram {

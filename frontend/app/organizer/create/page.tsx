@@ -1,11 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { ArrowLeft, Loader2 } from "lucide-react"
-import { activitiesAPI, eventsAPI, type CreateEventActivityBody, type QuestionBody, type SurveyQuestionBody } from "@/lib/api"
+import {
+    activitiesAPI,
+    eventsAPI,
+    API_BASE_URL,
+    type CreateEventActivityBody,
+    type QuestionBody,
+    type SurveyQuestionBody,
+} from "@/lib/api"
 import { buildDutyShiftOptions, deriveVolunteerRole } from "@/lib/duty-shift"
 import { scrollToFirstError } from "@/components/ui/form-field"
 import { StepperSidebar, type StepMeta } from "./_components/stepper-sidebar"
@@ -14,6 +21,7 @@ import { SectionActivities } from "./_components/section-2-activities"
 import { SectionSurvey } from "./_components/section-3-survey"
 import { SectionPublish } from "./_components/section-4-publish"
 import { SectionSuccess } from "./_components/section-5-success"
+import { serializeDraft, deserializeDraft } from "./_components/draft"
 import {
     createEmptyEvent,
     createEmptyActivity,
@@ -37,6 +45,20 @@ const STEPS: StepMeta[] = [
     { number: 4, title: "เผยแพร่", subtitle: "ตรวจสอบและยืนยัน" },
 ]
 
+/** เวลาแบบอ่านง่าย ใช้โชว์ตอน "บันทึกฉบับร่างล่าสุดเมื่อ..." — ไม่ทำ relative time (เช่น "5 นาทีที่แล้ว") เพื่อไม่ต้องมี useEffect คอยอัปเดตตัวเลข */
+function formatDraftTime(iso: string): string {
+    try {
+        return new Intl.DateTimeFormat("th-TH", {
+            day: "numeric",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+        }).format(new Date(iso))
+    } catch {
+        return iso
+    }
+}
+
 export default function CreateEventPage() {
     const router = useRouter()
     const [step, setStep] = useState(1)
@@ -48,6 +70,20 @@ export default function CreateEventPage() {
     const [error, setError] = useState("")
     const [eventErrors, setEventErrors] = useState<EventFormErrors>({})
     const [activityErrors, setActivityErrors] = useState<Record<string, ActivityFormErrors>>({})
+    // ฉบับร่างที่เจอตอนเปิดหน้า (รอผู้จัดเลือกว่าจะดำเนินการต่อหรือเริ่มใหม่) — คนละตัวกับสถานะ "กำลังบันทึก" ด้านล่าง
+    const [draftOffer, setDraftOffer] = useState<{ payload: unknown; updatedAt: string } | null>(null)
+    const [savingDraft, setSavingDraft] = useState(false)
+    const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null)
+
+    // ฉบับร่างมีได้ทีละ 1 ต่อผู้จัด — เช็คครั้งเดียวตอนเปิดหน้า ไม่รบกวนถ้าดึงไม่ได้ (เป็นแค่ความสะดวก ไม่ใช่ข้อมูลที่พลาดแล้วเสียหาย)
+    useEffect(() => {
+        eventsAPI
+            .getDraft()
+            .then((draft) => {
+                if (draft) setDraftOffer(draft)
+            })
+            .catch(() => {})
+    }, [])
 
     function patchEvent(patch: Partial<EventFormState>) {
         setEvent((prev) => ({ ...prev, ...patch }))
@@ -93,6 +129,76 @@ export default function CreateEventPage() {
         setActivities(next)
         if (activeActivityKey === key) {
             setActiveActivityKey(next[0]?.key ?? "")
+        }
+    }
+
+    function handleResumeDraft() {
+        if (!draftOffer) return
+        const restored = deserializeDraft(draftOffer.payload, createEmptyEvent(), createEmptyActivity)
+        setEvent(restored.event)
+        setActivities(restored.activities)
+        setActiveActivityKey(restored.activeActivityKey)
+        setStep(Math.min(Math.max(restored.step, 1), STEPS.length))
+        setDraftOffer(null)
+    }
+
+    async function handleDiscardDraft() {
+        setDraftOffer(null)
+        try {
+            await eventsAPI.clearDraft()
+        } catch {
+            // เงียบไว้ — ไม่ใช่ error ที่ผู้จัดต้องรู้ ฉบับร่างเก่าจะถูกทับตอนบันทึกฉบับร่างใหม่ครั้งต่อไปอยู่แล้ว
+        }
+    }
+
+    /**
+     * อัปโหลดไฟล์ที่เลือกค้างไว้ก่อน (รูปงาน/รูปกิจกรรม/ไฟล์แนบ) แล้วค่อยบันทึกฉบับร่างเป็น JSON ล้วนๆ — ทำแบบเดียว
+     * กับตอน "สร้างงาน" จริง (handleSubmit) เพื่อให้ resume กลับมาแล้วเห็นรูป/ไฟล์แนบที่เลือกไว้ครบ ไม่ใช่แค่ชื่อไฟล์เปล่าๆ
+     * ไม่ validate ก่อนบันทึก — จุดประสงค์ของฉบับร่างคือเก็บงานที่ยังไม่เสร็จไว้ก่อน
+     */
+    async function handleSaveDraft() {
+        setSavingDraft(true)
+        setError("")
+        try {
+            let nextEvent = event
+            if (nextEvent.imageFile) {
+                const uploadRes = await activitiesAPI.uploadImage(nextEvent.imageFile)
+                if (uploadRes?.imageUrl) {
+                    nextEvent = { ...nextEvent, imageFile: null, imagePreview: `${API_BASE_URL}${uploadRes.imageUrl}` }
+                }
+            }
+
+            const nextActivities: ActivityFormState[] = []
+            for (const a of activities) {
+                let next = a
+                if (next.imageFile) {
+                    const uploadRes = await activitiesAPI.uploadImage(next.imageFile)
+                    if (uploadRes?.imageUrl) {
+                        next = { ...next, imageFile: null, imagePreview: `${API_BASE_URL}${uploadRes.imageUrl}` }
+                    }
+                }
+                if (next.attachmentFile) {
+                    const file = next.attachmentFile
+                    const uploadRes = await eventsAPI.uploadAttachment(file)
+                    if (uploadRes?.attachmentUrl) {
+                        next = { ...next, attachmentFile: null, attachmentUrl: uploadRes.attachmentUrl, attachmentName: file.name }
+                    }
+                }
+                nextActivities.push(next)
+            }
+
+            // sync state ไว้ด้วย — กันอัปโหลดไฟล์เดิมซ้ำถ้ากดบันทึกฉบับร่างอีกครั้ง หรือกดสร้างงานต่อจากนี้เลย
+            setEvent(nextEvent)
+            setActivities(nextActivities)
+
+            const payload = serializeDraft({ step, activeActivityKey, event: nextEvent, activities: nextActivities })
+            const res = await eventsAPI.saveDraft(payload)
+            setDraftSavedAt(res.updatedAt)
+        } catch (err: unknown) {
+            const e = err as Error
+            setError(e.message || "บันทึกฉบับร่างไม่สำเร็จ")
+        } finally {
+            setSavingDraft(false)
         }
     }
 
@@ -150,7 +256,11 @@ export default function CreateEventPage() {
         setSubmitting(true)
         setError("")
         try {
-            let eventImageUrl: string | undefined
+            // fallback ไปที่ imagePreview/attachmentUrl ที่อัปโหลดไว้แล้ว — เกิดขึ้นได้เมื่อดำเนินการต่อจากฉบับร่าง
+            // ที่เคยกด "บันทึกฉบับร่าง" ไปแล้วรอบหนึ่ง (อัปโหลดไฟล์เสร็จไปแล้ว ไม่มี File ให้เลือกอัปโหลดซ้ำอีกรอบ)
+            let eventImageUrl: string | undefined = event.imagePreview?.startsWith(API_BASE_URL)
+                ? event.imagePreview.slice(API_BASE_URL.length)
+                : undefined
             if (event.imageFile) {
                 const uploadRes = await activitiesAPI.uploadImage(event.imageFile)
                 eventImageUrl = uploadRes?.imageUrl
@@ -158,13 +268,15 @@ export default function CreateEventPage() {
 
             const activityBodies: CreateEventActivityBody[] = []
             for (const a of activities) {
-                let imageUrl: string | undefined
+                let imageUrl: string | undefined = a.imagePreview?.startsWith(API_BASE_URL)
+                    ? a.imagePreview.slice(API_BASE_URL.length)
+                    : undefined
                 if (a.imageFile) {
                     const uploadRes = await activitiesAPI.uploadImage(a.imageFile)
                     imageUrl = uploadRes?.imageUrl
                 }
 
-                let attachmentUrl: string | undefined
+                let attachmentUrl: string | undefined = a.attachmentUrl ?? undefined
                 if (a.attachmentFile) {
                     const uploadRes = await eventsAPI.uploadAttachment(a.attachmentFile)
                     attachmentUrl = uploadRes?.attachmentUrl
@@ -237,6 +349,8 @@ export default function CreateEventPage() {
             })
 
             setSubmitted(true)
+            // เผยแพร่สำเร็จแล้ว ฉบับร่างหมดหน้าที่ — ลบทิ้งแบบ best-effort ไม่ต้องรอ/ไม่ต้องบล็อกหน้าสำเร็จถ้าลบไม่ได้
+            eventsAPI.clearDraft().catch(() => {})
         } catch (err: unknown) {
             const e = err as Error
             setError(e.message || "สร้างงานไม่สำเร็จ")
@@ -255,6 +369,7 @@ export default function CreateEventPage() {
         setEventErrors({})
         setActivityErrors({})
         setError("")
+        setDraftSavedAt(null)
     }
 
     return (
@@ -264,6 +379,22 @@ export default function CreateEventPage() {
                     <SectionSuccess event={event} activities={activities} onCreateAnother={handleCreateAnother} />
                 ) : (
                     <>
+                        {draftOffer && (
+                            <div className="mb-6 flex flex-col gap-3 rounded-xl border border-brand-200 bg-brand-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                <p className="text-sm text-brand-900">
+                                    พบฉบับร่างที่บันทึกไว้ล่าสุดเมื่อ {formatDraftTime(draftOffer.updatedAt)} — ดำเนินการต่อจากที่ค้างไว้หรือไม่?
+                                </p>
+                                <div className="flex shrink-0 gap-2">
+                                    <Button variant="outline" size="sm" onClick={handleDiscardDraft}>
+                                        เริ่มใหม่
+                                    </Button>
+                                    <Button size="sm" onClick={handleResumeDraft}>
+                                        ดำเนินการต่อ
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="mb-8">
                             <Button variant="outline" onClick={handleBack} className="mb-4">
                                 <ArrowLeft className="size-4" />
@@ -336,26 +467,47 @@ export default function CreateEventPage() {
                                     )}
                                 </div>
 
-                                <div className="mt-6 flex justify-between">
+                                <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
                                     <Button variant="outline" onClick={handleBack}>
                                         {step === 1 ? "ยกเลิก" : "ก่อนหน้า"}
                                     </Button>
-                                    <Button
-                                        onClick={step === STEPS.length ? handleSubmit : handleNext}
-                                        disabled={submitting}
-                                        className="w-36"
-                                    >
-                                        {submitting ? (
-                                            <>
-                                                <Loader2 className="size-4 animate-spin" />
-                                                กำลังสร้าง...
-                                            </>
-                                        ) : step === STEPS.length ? (
-                                            "สร้างงาน"
-                                        ) : (
-                                            "ถัดไป"
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        {draftSavedAt && (
+                                            <span className="text-xs text-fg-muted">
+                                                บันทึกฉบับร่างล่าสุดเมื่อ {formatDraftTime(draftSavedAt)}
+                                            </span>
                                         )}
-                                    </Button>
+                                        <Button
+                                            variant="outline"
+                                            onClick={handleSaveDraft}
+                                            disabled={savingDraft || submitting}
+                                        >
+                                            {savingDraft ? (
+                                                <>
+                                                    <Loader2 className="size-4 animate-spin" />
+                                                    กำลังบันทึก...
+                                                </>
+                                            ) : (
+                                                "บันทึกฉบับร่าง"
+                                            )}
+                                        </Button>
+                                        <Button
+                                            onClick={step === STEPS.length ? handleSubmit : handleNext}
+                                            disabled={submitting}
+                                            className="w-36"
+                                        >
+                                            {submitting ? (
+                                                <>
+                                                    <Loader2 className="size-4 animate-spin" />
+                                                    กำลังสร้าง...
+                                                </>
+                                            ) : step === STEPS.length ? (
+                                                "สร้างงาน"
+                                            ) : (
+                                                "ถัดไป"
+                                            )}
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

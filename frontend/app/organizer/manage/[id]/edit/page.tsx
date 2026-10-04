@@ -81,6 +81,7 @@ function activityToFormState(a: EventSummary["activities"][number]): ActivityFor
         imagePreview: a.imageUrl ? `${API_BASE_URL}${a.imageUrl}` : null,
         attachmentFile: null,
         attachmentName: a.attachmentUrl ? a.attachmentUrl.split("/").pop() ?? null : null,
+        attachmentUrl: a.attachmentUrl ?? null,
         startAt: a.startAt ? toLocalDatetimeValue(a.startAt) : "",
         endAt: a.endAt ? toLocalDatetimeValue(a.endAt) : "",
         location: a.location,
@@ -183,6 +184,7 @@ export default function EditEventPage() {
             imagePreview: null,
             attachmentFile: null,
             attachmentName: null,
+            attachmentUrl: null,
             startAt: "",
             endAt: "",
             location: "",
@@ -284,7 +286,9 @@ export default function EditEventPage() {
                     imageUrl = uploadRes?.imageUrl
                 }
 
-                let attachmentUrl: string | undefined = a.attachmentName ? undefined : undefined
+                // แก้บั๊กเดิม: ค่านี้เคยเป็น undefined เสมอไม่ว่า attachmentName จะมีหรือไม่ — ไฟล์แนบเดิมเลยหายทุกครั้งที่บันทึกแก้ไข
+                // ถ้าไม่ได้เลือกไฟล์ใหม่ ให้คงไฟล์แนบเดิมไว้ (a.attachmentUrl มาจาก activityToFormState ตอนโหลด หรือจากฉบับร่าง)
+                let attachmentUrl: string | undefined = a.attachmentUrl ?? undefined
                 if (a.attachmentFile) {
                     const uploadRes = await eventsAPI.uploadAttachment(a.attachmentFile)
                     attachmentUrl = uploadRes?.attachmentUrl

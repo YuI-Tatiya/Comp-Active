@@ -48,6 +48,8 @@ export interface ActivityFormState {
     imagePreview: string | null
     attachmentFile: File | null
     attachmentName: string | null
+    /** URL ไฟล์แนบที่อัปโหลดไปแล้ว (ถ้ามี) — ใช้ส่งซ้ำตอน submit เมื่อไม่ได้เลือกไฟล์ใหม่ (แก้ไขงานเดิม/ฉบับร่างที่อัปโหลดไว้ก่อนหน้า) */
+    attachmentUrl: string | null
     // <input type="datetime-local"> value
     startAt: string
     endAt: string
@@ -112,6 +114,7 @@ export function createEmptyActivity(registrationType: RegistrationType = "partic
         imagePreview: null,
         attachmentFile: null,
         attachmentName: null,
+        attachmentUrl: null,
         startAt: "",
         endAt: "",
         location: "",
