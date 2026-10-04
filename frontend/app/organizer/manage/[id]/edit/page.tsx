@@ -60,6 +60,8 @@ function eventToFormState(event: EventSummary): EventFormState {
         visibilityStudentIdFilter: event.visibilityStudentIdFilter ?? "",
         // client-only, ไม่มีค่าจาก backend — ตั้งเป็น "project" เสมอเพื่อไม่ให้ UI ของงานหลายกิจกรรมย่อยที่มีอยู่แล้วถูกซ่อนไปโดยไม่ตั้งใจ
         type: "project",
+        // client-only — ไม่มีฟิลด์นี้ระดับ Event ใน backend จริง อนุมานจากกิจกรรมแรกที่มีอยู่ (ปกติทุกกิจกรรมในงานเดียวกันควรเป็นประเภทเดียวกันอยู่แล้ว)
+        registrationType: event.activities[0]?.registrationType ?? "participant",
     }
 }
 
@@ -79,6 +81,7 @@ function activityToFormState(a: EventSummary["activities"][number]): ActivityFor
         imagePreview: a.imageUrl ? `${API_BASE_URL}${a.imageUrl}` : null,
         attachmentFile: null,
         attachmentName: a.attachmentUrl ? a.attachmentUrl.split("/").pop() ?? null : null,
+        attachmentUrl: a.attachmentUrl ?? null,
         startAt: a.startAt ? toLocalDatetimeValue(a.startAt) : "",
         endAt: a.endAt ? toLocalDatetimeValue(a.endAt) : "",
         location: a.location,
@@ -144,6 +147,11 @@ export default function EditEventPage() {
         if (patch.type === "single") {
             setActivities((prev) => (prev.length > 1 ? [prev[0]] : prev))
         }
+        // ประเภทการรับสมัครเลือกครั้งเดียวระดับงาน — เปลี่ยนที่นี่ต้องสำเนาลงทุกกิจกรรมย่อยที่มีอยู่แล้วด้วย กันกิจกรรมเก่าค้างประเภทเดิม
+        if (patch.registrationType) {
+            const nextType = patch.registrationType
+            setActivities((prev) => prev.map((a) => ({ ...a, registrationType: nextType })))
+        }
     }
 
     function patchActivity(key: string, patch: Partial<ActivityFormState>) {
@@ -156,10 +164,12 @@ export default function EditEventPage() {
         setEventErrors((prev) => ({ ...prev, [field]: errs[field] }))
     }
 
-    function handleActivityFieldBlur(key: string, field: keyof ActivityFormErrors) {
+    function handleActivityFieldBlur(key: string, field: keyof ActivityFormErrors, patch?: Partial<ActivityFormState>) {
         const activity = activities.find((a) => a.key === key)
         if (!activity) return
-        const errs = validateAllActivities([activity])[key] ?? {}
+        // patch: ค่าที่เพิ่งเปลี่ยนจาก onChange เดียวกัน (เช่น checkbox) — activities ใน state ยัง commit ไม่ทันตอนนี้
+        const merged = patch ? { ...activity, ...patch } : activity
+        const errs = validateAllActivities([merged])[key] ?? {}
         setActivityErrors((prev) => ({ ...prev, [key]: { ...prev[key], [field]: errs[field] } }))
     }
 
@@ -174,6 +184,7 @@ export default function EditEventPage() {
             imagePreview: null,
             attachmentFile: null,
             attachmentName: null,
+            attachmentUrl: null,
             startAt: "",
             endAt: "",
             location: "",
@@ -184,7 +195,8 @@ export default function EditEventPage() {
             softSkillRates: {},
             questionsEnabled: false,
             questions: [],
-            registrationType: "participant",
+            // ประเภทการรับสมัครตั้งค่าได้ที่ขั้นตอนที่ 1 เท่านั้น — กิจกรรมใหม่ต้องตามงานเสมอ กันปนกันหลายรูปแบบในงานเดียว
+            registrationType: event?.registrationType ?? "participant",
             dutyRoleOptions: [],
             dutyShiftMode: "single",
             dutyShiftRows: [],
@@ -217,7 +229,7 @@ export default function EditEventPage() {
             const errs = validateEventFields(event)
             setEventErrors(errs)
             if (countErrors(errs) > 0) {
-                setError(`มี ${countErrors(errs)} ฟิลด์ที่ต้องแก้ไข`)
+                setError("กรุณากรอกข้อมูลให้ครบถ้วน")
                 scrollToFirstError(errs)
                 return
             }
@@ -230,7 +242,7 @@ export default function EditEventPage() {
             setActivityErrors(errsByKey)
             const total = Object.values(errsByKey).reduce((sum, e) => sum + countErrors(e), 0)
             if (total > 0) {
-                setError(`มี ${total} ฟิลด์ที่ต้องแก้ไข`)
+                setError("กรุณากรอกข้อมูลให้ครบถ้วน")
                 const firstKey = Object.keys(errsByKey)[0]
                 if (firstKey) setActiveActivityKey(firstKey)
                 scrollToFirstError(errsByKey[firstKey] ?? {})
@@ -249,7 +261,7 @@ export default function EditEventPage() {
         setActivityErrors(activityErrsByKey)
         const total = countErrors(eventErrs) + Object.values(activityErrsByKey).reduce((sum, e) => sum + countErrors(e), 0)
         if (total > 0) {
-            setError(`มี ${total} ฟิลด์ที่ต้องแก้ไข`)
+            setError("กรุณากรอกข้อมูลให้ครบถ้วน")
             return
         }
 
@@ -274,7 +286,9 @@ export default function EditEventPage() {
                     imageUrl = uploadRes?.imageUrl
                 }
 
-                let attachmentUrl: string | undefined = a.attachmentName ? undefined : undefined
+                // แก้บั๊กเดิม: ค่านี้เคยเป็น undefined เสมอไม่ว่า attachmentName จะมีหรือไม่ — ไฟล์แนบเดิมเลยหายทุกครั้งที่บันทึกแก้ไข
+                // ถ้าไม่ได้เลือกไฟล์ใหม่ ให้คงไฟล์แนบเดิมไว้ (a.attachmentUrl มาจาก activityToFormState ตอนโหลด หรือจากฉบับร่าง)
+                let attachmentUrl: string | undefined = a.attachmentUrl ?? undefined
                 if (a.attachmentFile) {
                     const uploadRes = await eventsAPI.uploadAttachment(a.attachmentFile)
                     attachmentUrl = uploadRes?.attachmentUrl
@@ -390,11 +404,25 @@ export default function EditEventPage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-8 md:grid-cols-[220px_1fr]">
-                    <StepperSidebar steps={STEPS} currentStep={step} className="hidden md:flex" />
+                {/*
+                  md:items-start: ปล่อยให้ความสูงแต่ละคอลัมน์เป็นอิสระต่อกัน ไม่งั้น grid จะยืดทั้งคู่
+                  เท่าคอลัมน์ที่สูงที่สุด แล้ว sticky บนแถบขั้นตอนจะไม่มีระยะให้ขยับ (เห็นผลเหมือนไม่ sticky)
+                */}
+                <div className="grid grid-cols-1 gap-8 md:grid-cols-[220px_1fr] md:items-start">
+                    {/* top-24 เว้นระยะใต้ AppHeader (sticky top-0 h-16) ไม่ให้แถบขั้นตอนชนขอบบนพอดี */}
+                    <StepperSidebar steps={STEPS} currentStep={step} className="hidden md:sticky md:top-24 md:flex" />
 
                     <div>
-                        <div className="min-h-[500px] rounded-2xl border border-border bg-bg p-8 shadow-xs">
+                        {/*
+                          การ์ดฟอร์มเลื่อนในตัวเอง (overflow-y-auto + max-h) แทนที่จะให้ทั้งหน้าเลื่อน —
+                          กันไม่ให้แถบขั้นตอนทางซ้ายหลุดจอเวลาฟอร์มยาว (รวม 4 หัวข้อย่อยในขั้นตอน "กิจกรรมย่อย" แล้วยาวมาก)
+                          contain-layout: ไม่งั้นตอนเนื้อหาในการ์ดเปลี่ยนความสูงมากๆ (เช่น เปิด toggle ทักษะที่กิจกรรม
+                          ช่วยพัฒนาที่ดึงรายการ 12 ทักษะมาแสดง) Chrome จะรายงาน documentElement.scrollHeight ผิด
+                          เกินจริงหลายร้อยพิกเซล ทำให้เลื่อนหน้าเว็บเกินเนื้อหาจริงไปเจอพื้นที่ว่างใต้ footer ได้
+                          (ยืนยันแล้วว่า Dialog ปลอดภัย เพราะ components/ui/dialog.tsx พอร์ทัลไป document.body แล้ว
+                          ไม่งั้น contain-layout จะทำให้ dialog ที่ซ้อนอยู่ข้างในถูกบีบให้เล็กเท่ากรอบการ์ดไปด้วย)
+                        */}
+                        <div className="contain-layout max-h-[calc(100vh-16rem)] min-h-[500px] overflow-y-auto rounded-2xl border border-border bg-bg p-8 shadow-xs">
                             {error && (
                                 <div className="mb-6 rounded-lg border border-danger bg-danger-bg px-4 py-3 text-center text-sm text-danger">
                                     {error}

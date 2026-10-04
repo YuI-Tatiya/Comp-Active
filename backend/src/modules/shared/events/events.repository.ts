@@ -169,6 +169,97 @@ export class EventsRepository {
     });
   }
 
+  /**
+   * คัดลอกงานทั้งงานพร้อมกิจกรรมย่อยทุกตัวเป็นแถวใหม่ทั้งหมด — ไม่คัดลอกผู้ลงทะเบียน
+   * เผยแพร่สถานะรีเซ็ตเป็น "ไม่เผยแพร่" เสมอ ให้ผู้จัดตรวจก่อนเปิดจริง (ดู EventsService.duplicate)
+   * คืน null ถ้าไม่พบต้นฉบับ (ผู้เรียกตรวจสิทธิ์ความเป็นเจ้าของเองอีกชั้นก่อนเรียกเมธอดนี้)
+   */
+  duplicateEvent(eventId: number, organizerId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const source = await tx.event.findUnique({
+        where: { id: eventId },
+        include: {
+          activities: { include: activityInclude },
+          surveyQuestions: { orderBy: { sortOrder: 'asc' } },
+          visibilityProgram: true,
+          visibilityYears: true,
+        },
+      });
+      if (!source) return null;
+
+      const event = await tx.event.create({
+        data: {
+          organizerId,
+          name: `${source.name} (สำเนา)`,
+          description: source.description,
+          imageUrl: source.imageUrl,
+          isPublic: false, // สำเนาใหม่ไม่เผยแพร่อัตโนมัติเสมอ แม้ต้นฉบับจะเผยแพร่อยู่
+          registrationCloseAt: source.registrationCloseAt,
+          visibility: source.visibility,
+          visibilityStudentIdFilter: source.visibilityStudentIdFilter,
+          visibilityProgram: { create: source.visibilityProgram.map((p) => ({ programCode: p.programCode })) },
+          visibilityYears: { create: source.visibilityYears.map((y) => ({ year: y.year })) },
+          surveyQuestions: {
+            create: source.surveyQuestions.map((q) => ({
+              label: q.label,
+              type: q.type,
+              scaleMax: q.scaleMax,
+              sortOrder: q.sortOrder,
+            })),
+          },
+        } as any,
+      });
+
+      for (const a of source.activities) {
+        await tx.activity.create({
+          data: {
+            organizerId,
+            eventId: event.id,
+            name: a.name,
+            description: a.description,
+            categories: a.categories,
+            date: a.date,
+            startTime: a.startTime,
+            endTime: a.endTime,
+            startAt: a.startAt,
+            endAt: a.endAt,
+            location: a.location,
+            capacity: a.capacity,
+            status: 'open' as any,
+            approvalStatus: ApprovalStatus.APPROVED as any,
+            imageUrl: a.imageUrl,
+            attachmentUrl: a.attachmentUrl,
+            volunteerHours: a.volunteerHours,
+            volunteerRole: a.volunteerRole,
+            registrationType: a.registrationType,
+            dutyRoleOptions: a.dutyRoleOptions,
+            dutyShiftOptions: a.dutyShiftOptions,
+            teamSizeMin: a.teamSizeMin,
+            teamSizeMax: a.teamSizeMax,
+            competitionCategoryOptions: a.competitionCategoryOptions,
+            peerAssessmentEnabled: false,
+            tags: { create: a.tags.map((t) => ({ tagName: t.tagName })) },
+            conditions: { create: a.conditions.map((c) => ({ conditionText: c.conditionText })) },
+            benefits: { create: a.benefits.map((b) => ({ benefitText: b.benefitText })) },
+            softSkills: { create: a.softSkills.map((s) => ({ skillType: s.skillType, rate: s.rate })) },
+            questions: {
+              create: a.questions.map((q) => ({
+                label: q.label,
+                type: q.type,
+                required: q.required,
+                sortOrder: q.sortOrder,
+                options: { create: q.options.map((o) => ({ label: o.label, sortOrder: o.sortOrder })) },
+              })),
+            },
+            // ไม่คัดลอก a.surveyQuestions — กิจกรรมย่อยของงานใช้แบบสำรวจระดับ Event เท่านั้น (เหมือน create()/update())
+          } as any,
+        });
+      }
+
+      return tx.event.findUnique({ where: { id: event.id }, include: eventOrganizerInclude }) as any;
+    });
+  }
+
   update(eventId: number, data: PreparedEventUpdateData, removedActivityIds: number[]) {
     return this.prisma.$transaction(async (tx) => {
       await tx.event.update({

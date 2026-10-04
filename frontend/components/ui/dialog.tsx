@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -13,9 +14,16 @@ const Dialog = ({
     onOpenChange?: (open: boolean) => void
     children: React.ReactNode
 }) => {
-    if (!open) return null
+    // พอร์ทัลไป document.body เสมอ — ไม่งั้น position:fixed ของ dialog จะยึดกรอบของ ancestor ที่มี
+    // transform/contain/filter แทนวิวพอร์ตจริง (เช่น การ์ดฟอร์มในวิซาร์ดสร้าง/แก้ไขงานที่ใส่ contain:layout
+    // กันปัญหา overflow-auto รายงานความสูงหน้าเว็บผิด — ถ้า Dialog ไม่พอร์ทัล จะโดนย่อให้เล็กเท่ากรอบการ์ดไปด้วย)
+    // useEffect กัน document ไม่มีตอน SSR
+    const [mounted, setMounted] = React.useState(false)
+    React.useEffect(() => setMounted(true), [])
 
-    return (
+    if (!open || !mounted) return null
+
+    return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
             <div
@@ -26,7 +34,8 @@ const Dialog = ({
             <div className="relative z-50 w-full max-w-lg animate-dialog-pop rounded-2xl border border-border bg-bg p-6 shadow-lg">
                 {children}
             </div>
-        </div>
+        </div>,
+        document.body
     )
 }
 

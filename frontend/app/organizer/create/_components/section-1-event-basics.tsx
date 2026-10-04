@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { FormField, fieldInputClass } from "@/components/ui/form-field"
 import { ImageCropUpload } from "@/components/ui/image-crop-upload"
 import { cn } from "@/lib/utils"
-import type { EventFormState, EventFormErrors } from "./types"
+import { REGISTRATION_TYPE_OPTIONS, type EventFormState, type EventFormErrors } from "./types"
 
 interface Props {
     data: EventFormState
@@ -45,6 +45,32 @@ export function SectionEventBasics({ data, errors, onChange, onFieldBlur }: Prop
                                     ? "งานนี้มีกิจกรรมเดียว กรอกรายละเอียดเป็นฟอร์มเดียวในขั้นตอนถัดไป"
                                     : "งานนี้มีได้หลายกิจกรรมย่อย แต่ละกิจกรรมมีรายละเอียด/เงื่อนไขของตัวเอง"}
                             </p>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="space-y-2">
+                <p className="text-sm font-bold text-fg">ประเภทการรับสมัคร</p>
+                <p className="text-xs text-fg-muted">
+                    เลือกก่อนเริ่มเพิ่มกิจกรรมย่อย — ทุกกิจกรรมย่อยในงานนี้จะเป็นประเภทเดียวกันทั้งหมด กันไม่ให้ปนกัน (เช่น กิจกรรมหนึ่งรับจิตอาสา อีกกิจกรรมรับผู้แข่งขัน)
+                </p>
+                <div className="flex flex-wrap gap-2">
+                    {REGISTRATION_TYPE_OPTIONS.map((opt) => (
+                        <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => onChange({ registrationType: opt.value })}
+                            aria-pressed={data.registrationType === opt.value}
+                            title={opt.desc}
+                            className={cn(
+                                "rounded-full border px-4 py-2 text-sm font-bold transition-colors",
+                                data.registrationType === opt.value
+                                    ? "border-brand-600 bg-brand-600 text-white shadow-md shadow-brand-500/20"
+                                    : "border-border bg-bg text-fg-muted hover:border-border-strong hover:bg-surface"
+                            )}
+                        >
+                            {opt.label}
                         </button>
                     ))}
                 </div>

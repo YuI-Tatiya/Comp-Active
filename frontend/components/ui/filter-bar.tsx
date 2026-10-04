@@ -57,48 +57,52 @@ export function FilterBar({
 
     return (
         <div className="mb-8 space-y-4 rounded-2xl border border-border bg-bg p-5 shadow-xs">
-            <div className="max-w-md">
-                <label className="mb-1.5 block text-xs font-semibold text-fg-muted" htmlFor="filter-search">
-                    ค้นหา
-                </label>
-                <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
-                    <Input
-                        id="filter-search"
-                        type="text"
-                        placeholder={searchPlaceholder}
-                        className="h-10 rounded-lg pl-10 focus-visible:ring-brand-500"
-                        value={searchValue}
-                        onChange={(e) => onSearchChange(e.target.value)}
-                    />
-                </div>
-            </div>
-
-            {/* auto-fill แทน flex-wrap — ทุกช่องกว้างเท่ากันเสมอไม่ว่าจะมีตัวกรองกี่ตัว
-                ไม่ทิ้งช่องว้างท้ายแถวแบบสุ่มเวลาจำนวนตัวกรองหารไม่ลงตัวกับความกว้างจอ */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(160px,1fr))]">
-                {filters.map((f) => (
-                    <div key={f.key}>
-                        <label
-                            className="mb-1.5 block text-xs font-semibold text-fg-muted"
-                            htmlFor={`filter-${f.key}`}
-                        >
-                            {f.label}
-                        </label>
-                        <Select
-                            id={`filter-${f.key}`}
-                            className="h-10 rounded-lg"
-                            value={values[f.key] ?? f.neutralValue ?? ""}
-                            onChange={(e) => onFilterChange(f.key, e.target.value)}
-                        >
-                            {f.options.map((o) => (
-                                <option key={o.value} value={o.value}>
-                                    {o.label}
-                                </option>
-                            ))}
-                        </Select>
+            {/* ค้นหา + ตัวกรอง อยู่แถวเดียวกันตั้งแต่จอกว้าง (xl+) ไม่งั้น stack เป็น 2 แถวเหมือนเดิม —
+                xl ไม่ใช่ lg เพราะหน้าที่มีตัวกรองเยอะ (เช่น /organizer/manage) จะแน่นเกินไปถ้าบีบเร็วกว่านี้ */}
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-end">
+                <div className="xl:w-64 xl:shrink-0">
+                    <label className="mb-1.5 block text-xs font-semibold text-fg-muted" htmlFor="filter-search">
+                        ค้นหา
+                    </label>
+                    <div className="relative">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
+                        <Input
+                            id="filter-search"
+                            type="text"
+                            placeholder={searchPlaceholder}
+                            className="h-10 rounded-lg pl-10 focus-visible:ring-brand-500"
+                            value={searchValue}
+                            onChange={(e) => onSearchChange(e.target.value)}
+                        />
                     </div>
-                ))}
+                </div>
+
+                {/* auto-fill แทน flex-wrap — ทุกช่องกว้างเท่ากันเสมอไม่ว่าจะมีตัวกรองกี่ตัว
+                    ไม่ทิ้งช่องว้างท้ายแถวแบบสุ่มเวลาจำนวนตัวกรองหารไม่ลงตัวกับความกว้างจอ */}
+                <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
+                    {filters.map((f) => (
+                        <div key={f.key}>
+                            <label
+                                className="mb-1.5 block text-xs font-semibold text-fg-muted"
+                                htmlFor={`filter-${f.key}`}
+                            >
+                                {f.label}
+                            </label>
+                            <Select
+                                id={`filter-${f.key}`}
+                                className="h-10 rounded-lg"
+                                value={values[f.key] ?? f.neutralValue ?? ""}
+                                onChange={(e) => onFilterChange(f.key, e.target.value)}
+                            >
+                                {f.options.map((o) => (
+                                    <option key={o.value} value={o.value}>
+                                        {o.label}
+                                    </option>
+                                ))}
+                            </Select>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">

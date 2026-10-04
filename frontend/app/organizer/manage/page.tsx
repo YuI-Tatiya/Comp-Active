@@ -1,19 +1,84 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { FilterBar, type FilterSpec } from "@/components/ui/filter-bar"
-import { EventCard, EventCardBadge } from "@/components/ui/event-card"
+import { EventCard, EventCardBadge, EventCardRow, formatEventDate } from "@/components/ui/event-card"
 import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { eventsAPI, activitiesAPI, isCancelledByOrganizer, EventSummary, Activity } from "@/lib/api"
+import { Toast } from "@/components/ui/toast"
+import { eventsAPI, activitiesAPI, API_BASE_URL, EventSummary, Activity, type EventDraftResponse } from "@/lib/api"
 import { CATEGORIES } from "@/lib/categories"
 import { RANGE_OPTIONS, withinRange } from "@/lib/events-filter"
-import { Loader2, Search, Plus, CalendarPlus, Layers, Pencil, Eye, EyeOff, Trash2 } from "lucide-react"
+import { closedReason, type RegistrationWindow } from "@/lib/activity-view"
+import { cn } from "@/lib/utils"
+import {
+    Loader2,
+    Search,
+    Plus,
+    CalendarPlus,
+    Layers,
+    Pencil,
+    Eye,
+    EyeOff,
+    Trash2,
+    FileEdit,
+    Copy,
+    ExternalLink,
+    CalendarDays,
+} from "lucide-react"
+
+/** ชื่อที่ใช้แสดงฉบับร่าง — payload เป็น JSON ล้วนๆ จาก lib/event-draft.ts ไม่มี type ร่วมกับหน้านี้ (คนละ bundle) */
+function draftDisplayName(payload: unknown): string {
+    if (payload && typeof payload === "object") {
+        const p = payload as { event?: { name?: string }; activities?: { name?: string }[] }
+        const name = p.event?.name?.trim() || p.activities?.find((a) => a?.name?.trim())?.name?.trim()
+        if (name) return name
+    }
+    return "ฉบับร่างยังไม่ตั้งชื่อ"
+}
+
+/** EventCard ต่อ API_BASE_URL ให้เองจาก path สัมพัทธ์ แต่ imagePreview ในฉบับร่างเก็บเป็น URL เต็มแล้ว (ดู handleSaveDraft) ต้องตัดคำนำหน้าออกก่อนส่งต่อ */
+function draftImageUrl(payload: unknown): string | undefined {
+    if (payload && typeof payload === "object") {
+        const preview = (payload as { event?: { imagePreview?: string | null } }).event?.imagePreview
+        if (preview?.startsWith(API_BASE_URL)) return preview.slice(API_BASE_URL.length)
+    }
+    return undefined
+}
+
+/** เวลาแบบอ่านง่าย ใช้โชว์ตอน "บันทึกฉบับร่างล่าสุดเมื่อ..." — เหมือนกับที่ใช้ใน create/page.tsx */
+function formatDraftTime(iso: string): string {
+    try {
+        return new Intl.DateTimeFormat("th-TH", {
+            day: "numeric",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+        }).format(new Date(iso))
+    } catch {
+        return iso
+    }
+}
+
+/**
+ * สถานะรวมที่ผู้จัดเห็นในหน้านี้ — ใช้ closedReason (ตัวเดียวกับที่หน้าลงทะเบียนนักศึกษาใช้ตัดสิน
+ * ว่ากิจกรรมปิดรับสมัครหรือยัง) แทนการเช็ค a.status === "open" เฉยๆ เพราะของเดิมเอา "จบแล้ว"
+ * (completed) กับ "ปิดรับสมัคร" ไปรวมเป็นก้อนเดียวกันหมด ผู้จัดแยกไม่ออกว่ากิจกรรมไหนจบจริงแล้ว
+ */
+type StatusBucket = "open" | "closed" | "completed" | "cancelled"
+
+function statusBucket(w: RegistrationWindow, now: Date): StatusBucket {
+    const reason = closedReason(w, now)
+    if (reason === "cancelled") return "cancelled"
+    if (reason === "completed") return "completed"
+    if (reason === null) return "open"
+    return "closed" // "closed" | "deadline_passed" — ปิดรับสมัครแล้วแต่ยังไม่ถูกทำเครื่องหมายว่าจบ
+}
 
 /** สถานะการอนุมัติของกิจกรรมย่อย — ตรงกับ ApprovalStatus ใน backend/prisma/schema.prisma */
 const APPROVAL_META: Record<string, { label: string; className: string }> = {
@@ -35,6 +100,22 @@ function firstActivity(ev: EventSummary): Activity | undefined {
 
 function eventRegisteredCount(ev: EventSummary): number {
     return ev.activities.reduce((sum, a) => sum + (a.registeredCount ?? 0), 0)
+}
+
+/**
+ * บรรทัดข้อมูลสั้นๆ ใต้ชื่อการ์ด — วันที่ + ยอดลงทะเบียน รวมไว้บรรทัดเดียว (ไม่ใช่ 2 แถวแยก) เพราะพื้นที่ท้ายการ์ด
+ * ตายตัว (ดูคอมเมนต์งบความสูงใน event-card.tsx) 2 แถวเต็ม + ปุ่ม 1 แถวจะดันล้นกรอบ
+ */
+function eventInfoLine(ev: EventSummary): string {
+    const fa = firstActivity(ev)
+    const dateStr = fa ? formatEventDate(fa.date) : "ยังไม่ระบุวันที่"
+    return `${dateStr} · ลงทะเบียน ${eventRegisteredCount(ev)} คน`
+}
+
+function activityInfoLine(a: Activity): string {
+    const dateStr = formatEventDate(a.date)
+    const seats = a.capacity != null ? `${a.registeredCount ?? 0}/${a.capacity} คน` : `${a.registeredCount ?? 0} คน (ไม่จำกัด)`
+    return `${dateStr} · ${seats}`
 }
 
 /** วันจัดกิจกรรมย่อยที่เร็วที่สุด — ใช้เรียงลำดับ "ใกล้จัดงาน" และกรองช่วงเวลา */
@@ -76,17 +157,28 @@ function compareBySort(sort: string, a: SortableFields, b: SortableFields): numb
     }
 }
 
+/**
+ * แท็บสถานะทรงแคปซูล — หน้าตาเดียวกับเมนู pill บน AppHeader (rounded-full bg-surface p-1 + แท็บที่เลือกเป็น bg-bg)
+ * แยกออกมาจาก FilterBar เพราะผู้ใช้อยากเห็นเป็นแท็บเลือกได้ชัดเจน ไม่ใช่ dropdown ซ่อนอยู่ในตัวกรอง
+ * แท็บ "จบแล้ว" ผู้ใช้ยืนยันให้รวมกิจกรรมที่ยกเลิก (cancelled) เข้ากับกิจกรรมที่ดำเนินจบแล้ว (completed)
+ * เป็นก้อนเดียว ไม่แยกเป็น "สิ้นสุดไปแล้ว"/"จบไปแล้ว" สองแท็บเหมือนที่เคยลองทำ — ดู matchesStatusFilter
+ */
+const STATUS_TABS: { value: string; label: string }[] = [
+    { value: "", label: "ทั้งหมด" },
+    { value: "draft", label: "ฉบับร่าง" },
+    { value: "open", label: "กำลังเปิดรับสมัคร" },
+    { value: "closed", label: "ปิดรับสมัคร" },
+    { value: "completed", label: "จบแล้ว" },
+]
+
+/** แท็บ "จบแล้ว" ครอบคลุมทั้ง completed และ cancelled — ดูหมายเหตุที่ STATUS_TABS */
+function matchesStatusFilter(bucket: StatusBucket, filterValue: string): boolean {
+    if (!filterValue) return true
+    if (filterValue === "completed") return bucket === "completed" || bucket === "cancelled"
+    return bucket === filterValue
+}
+
 const FILTERS: FilterSpec[] = [
-    {
-        key: "status",
-        label: "สถานะ",
-        options: [
-            { value: "", label: "ทั้งหมด" },
-            { value: "open", label: "เปิดรับสมัคร" },
-            { value: "closed", label: "ปิดแล้ว" },
-            { value: "cancelled", label: "ยกเลิก" },
-        ],
-    },
     {
         key: "visibility",
         label: "การเผยแพร่",
@@ -140,13 +232,17 @@ const INITIAL_VALUES: Record<string, string> = {
     sort: "newest",
 }
 
-type DeleteTarget = { kind: "event"; id: number; name: string } | { kind: "activity"; id: number; name: string }
+type DeleteTarget =
+    | { kind: "event"; id: number; name: string }
+    | { kind: "activity"; id: number; name: string }
+    | { kind: "draft"; name: string }
 
 /** หน้าจัดการกิจกรรมของผู้จัด — แสดงเป็น "งาน" (Event) พร้อมกิจกรรมย่อย, และกิจกรรมเดี่ยวรุ่นเก่าแยกไว้ด้านล่าง */
 export default function OrganizerManagePage() {
     const router = useRouter()
     const [events, setEvents] = useState<EventSummary[]>([])
     const [standaloneActivities, setStandaloneActivities] = useState<Activity[]>([])
+    const [draft, setDraft] = useState<EventDraftResponse | null>(null)
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
     const [values, setValues] = useState<Record<string, string>>(INITIAL_VALUES)
@@ -160,13 +256,20 @@ export default function OrganizerManagePage() {
     async function loadData() {
         try {
             setLoading(true)
-            const [eventData, activityData] = await Promise.all([eventsAPI.getMy(), activitiesAPI.getMy()])
+            // ฉบับร่างดึงแยก catch ของตัวเอง — ดึงไม่ได้ก็แค่ไม่โชว์การ์ดฉบับร่าง ไม่ควรทำให้รายการงานจริงหายไปด้วย
+            const [eventData, activityData, draftData] = await Promise.all([
+                eventsAPI.getMy(),
+                activitiesAPI.getMy(),
+                eventsAPI.getDraft().catch(() => null),
+            ])
             setEvents(Array.isArray(eventData) ? eventData : [])
             setStandaloneActivities(Array.isArray(activityData) ? activityData.filter((a) => !a.eventId) : [])
+            setDraft(draftData)
         } catch (err) {
             console.error(err)
             setEvents([])
             setStandaloneActivities([])
+            setDraft(null)
         } finally {
             setLoading(false)
         }
@@ -181,19 +284,29 @@ export default function OrganizerManagePage() {
         setValues(INITIAL_VALUES)
     }
 
-    /** สถานะรวมของงาน — ยกเลิกเมื่อกิจกรรมย่อยทุกตัวถูกยกเลิก, เปิดเมื่อมีอย่างน้อยหนึ่งตัวเปิดอยู่ */
-    function eventStatus(ev: EventSummary): "open" | "closed" | "cancelled" {
-        const list = ev.activities
-        if (list.length > 0 && list.every((a) => isCancelledByOrganizer(a.approvalStatus))) return "cancelled"
-        return list.some((a) => a.status === "open") ? "open" : "closed"
+    /**
+     * สถานะรวมของงาน — เปิดถ้ามีกิจกรรมย่อยอย่างน้อยหนึ่งตัวยังเปิดอยู่, ยกเลิกถ้าทุกตัวถูกยกเลิก,
+     * จบแล้วถ้า (ที่ไม่ถูกยกเลิก) ทุกตัวถูกทำเครื่องหมายว่าจบ, นอกนั้นถือว่าปิดรับสมัคร
+     */
+    function eventStatus(ev: EventSummary, now: Date): StatusBucket {
+        const buckets = ev.activities.map((a) =>
+            statusBucket({ status: a.status, approvalStatus: a.approvalStatus, registrationCloseAt: ev.registrationCloseAt }, now)
+        )
+        if (buckets.length === 0) return "closed"
+        if (buckets.every((b) => b === "cancelled")) return "cancelled"
+        if (buckets.some((b) => b === "open")) return "open"
+        const relevant = buckets.filter((b) => b !== "cancelled")
+        if (relevant.length > 0 && relevant.every((b) => b === "completed")) return "completed"
+        return "closed"
     }
 
     const filteredEvents = useMemo(() => {
         const q = searchQuery.trim().toLowerCase()
+        const now = new Date()
         const list = events.filter((ev) => {
             const matchesSearch =
                 !q || ev.name.toLowerCase().includes(q) || ev.activities.some((a) => a.name.toLowerCase().includes(q))
-            const matchesStatus = !values.status || eventStatus(ev) === values.status
+            const matchesStatus = matchesStatusFilter(eventStatus(ev, now), values.status)
             const matchesVisibility =
                 !values.visibility || (values.visibility === "public" ? ev.isPublic : !ev.isPublic)
             const matchesCategory = !values.category || ev.activities.some((a) => a.categories.includes(values.category))
@@ -213,10 +326,12 @@ export default function OrganizerManagePage() {
 
     const filteredStandalone = useMemo(() => {
         const q = searchQuery.trim().toLowerCase()
+        const now = new Date()
         const list = standaloneActivities.filter((a) => {
             const matchesSearch = !q || a.name.toLowerCase().includes(q)
-            const status = isCancelledByOrganizer(a.approvalStatus) ? "cancelled" : a.status === "open" ? "open" : "closed"
-            const matchesStatus = !values.status || status === values.status
+            // กิจกรรมเดี่ยวไม่มี registrationCloseAt ของตัวเอง (ฟิลด์นี้อยู่ระดับ Event เท่านั้น)
+            const status = statusBucket({ status: a.status, approvalStatus: a.approvalStatus, registrationCloseAt: null }, now)
+            const matchesStatus = matchesStatusFilter(status, values.status)
             const matchesCategory = !values.category || a.categories.includes(values.category)
             const matchesCert = !values.cert || (values.cert === "yes" ? !!a.volunteerRole : !a.volunteerRole)
             const matchesRange = withinRange(new Date(a.date).getTime(), values.range)
@@ -234,7 +349,35 @@ export default function OrganizerManagePage() {
         )
     }, [standaloneActivities, searchQuery, values])
 
-    const totalCount = filteredEvents.length + filteredStandalone.length
+    // ฉบับร่างไม่มีหมวดหมู่/วันที่/ใบรับรองให้กรองแบบงานจริง — เคารพแค่ตัวกรองสถานะกับคำค้นหา ส่วนตัวกรองอื่นไม่เกี่ยวข้อง
+    const draftMatches = useMemo(() => {
+        if (!draft) return false
+        if (values.status && values.status !== "draft") return false
+        const q = searchQuery.trim().toLowerCase()
+        if (q && !draftDisplayName(draft.payload).toLowerCase().includes(q)) return false
+        return true
+    }, [draft, values.status, searchQuery])
+
+    const totalCount = filteredEvents.length + filteredStandalone.length + (draftMatches ? 1 : 0)
+
+    /**
+     * จำนวนรายการต่อแท็บสถานะ — นับจาก events/standaloneActivities/draft ดิบ (ไม่ผ่านตัวกรองค้นหา/หมวดหมู่/ฯลฯ)
+     * ให้ตัวเลขบนแท็บนิ่ง ไม่กระพริบเวลาผู้ใช้พิมพ์ค้นหาหรือเปลี่ยนตัวกรองอื่น — สะท้อนแค่ "สถานะนี้มีกี่รายการ" ล้วนๆ
+     */
+    const statusCounts = useMemo(() => {
+        const now = new Date()
+        const counts: Record<string, number> = { "": 0, draft: draft ? 1 : 0, open: 0, closed: 0, completed: 0 }
+        for (const ev of events) {
+            const bucket = eventStatus(ev, now)
+            counts[bucket === "cancelled" ? "completed" : bucket]++
+        }
+        for (const a of standaloneActivities) {
+            const bucket = statusBucket({ status: a.status, approvalStatus: a.approvalStatus, registrationCloseAt: null }, now)
+            counts[bucket === "cancelled" ? "completed" : bucket]++
+        }
+        counts[""] = events.length + standaloneActivities.length + (draft ? 1 : 0)
+        return counts
+    }, [events, standaloneActivities, draft])
 
     async function toggleEventPublic(ev: EventSummary) {
         try {
@@ -245,14 +388,48 @@ export default function OrganizerManagePage() {
         }
     }
 
+    const [toast, setToast] = useState<{ open: boolean; message: string; description?: string }>({
+        open: false,
+        message: "",
+    })
+    const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    function showToast(message: string, description?: string) {
+        setToast({ open: true, message, description })
+        if (toastTimer.current) clearTimeout(toastTimer.current)
+        toastTimer.current = setTimeout(() => setToast((prev) => ({ ...prev, open: false })), 3200)
+    }
+
+    async function handleDuplicateEvent(ev: EventSummary) {
+        try {
+            await eventsAPI.duplicate(ev.id)
+            showToast("คัดลอกงานสำเร็จ", `สร้าง "${ev.name} (สำเนา)" แล้ว — ยังไม่เผยแพร่ แก้ไขก่อนเปิดรับสมัครได้เลย`)
+            loadData()
+        } catch (err: unknown) {
+            alert((err as Error).message || "คัดลอกงานไม่สำเร็จ")
+        }
+    }
+
+    async function handleDuplicateActivity(a: Activity) {
+        try {
+            await activitiesAPI.duplicate(a.id)
+            showToast("คัดลอกกิจกรรมสำเร็จ", `สร้าง "${a.name} (สำเนา)" แล้ว`)
+            loadData()
+        } catch (err: unknown) {
+            alert((err as Error).message || "คัดลอกกิจกรรมไม่สำเร็จ")
+        }
+    }
+
     async function confirmDelete() {
         if (!deleteTarget) return
         setDeleting(true)
         try {
             if (deleteTarget.kind === "event") {
                 await eventsAPI.delete(deleteTarget.id)
-            } else {
+            } else if (deleteTarget.kind === "activity") {
                 await activitiesAPI.delete(deleteTarget.id)
+            } else {
+                await eventsAPI.clearDraft()
             }
             setDeleteTarget(null)
             loadData()
@@ -276,6 +453,16 @@ export default function OrganizerManagePage() {
                 onClick: () => toggleEventPublic(ev),
             },
             {
+                label: "คัดลอกกิจกรรม",
+                icon: Copy,
+                onClick: () => handleDuplicateEvent(ev),
+            },
+            {
+                label: "ดูตัวอย่าง",
+                icon: ExternalLink,
+                onClick: () => window.open(`/events/event/${ev.id}`, "_blank", "noopener,noreferrer"),
+            },
+            {
                 label: "ลบกิจกรรม",
                 icon: Trash2,
                 tone: "danger",
@@ -291,6 +478,16 @@ export default function OrganizerManagePage() {
                 label: "แก้ไขกิจกรรม",
                 icon: Pencil,
                 onClick: () => router.push(`/organizer/activities/${a.id}/edit`),
+            },
+            {
+                label: "คัดลอกกิจกรรม",
+                icon: Copy,
+                onClick: () => handleDuplicateActivity(a),
+            },
+            {
+                label: "ดูตัวอย่าง",
+                icon: ExternalLink,
+                onClick: () => window.open(`/events/activities/${a.id}`, "_blank", "noopener,noreferrer"),
             },
             {
                 label: "ลบกิจกรรม",
@@ -315,13 +512,44 @@ export default function OrganizerManagePage() {
                     <Button
                         asChild
                         size="lg"
-                        className="w-full gap-2 rounded-xl font-bold shadow-lg shadow-brand-500/30 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/40 md:w-auto"
+                        className="w-full gap-2 rounded-full font-bold shadow-lg shadow-brand-500/30 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/40 md:w-auto"
                     >
                         <Link href="/organizer/create">
                             <CalendarPlus className="size-5" aria-hidden="true" />
                             สร้างงานใหม่
                         </Link>
                     </Button>
+                </div>
+
+                {/* แท็บสถานะทรงแคปซูล — กดสลับได้ทันทีโดยไม่ต้องเปิด dropdown เหมือนเมนู pill บน AppHeader */}
+                <div className="mb-6 overflow-x-auto">
+                    <div className="inline-flex items-center gap-1 rounded-full bg-surface p-1">
+                        {STATUS_TABS.map((tab) => {
+                            const active = values.status === tab.value
+                            return (
+                                <button
+                                    key={tab.value}
+                                    type="button"
+                                    onClick={() => setFilter("status", tab.value)}
+                                    aria-current={active ? "page" : undefined}
+                                    className={cn(
+                                        "flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm transition-colors",
+                                        active ? "bg-bg font-semibold text-brand-600 shadow-xs" : "text-fg-muted hover:text-fg"
+                                    )}
+                                >
+                                    {tab.label}
+                                    <span
+                                        className={cn(
+                                            "rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums",
+                                            active ? "bg-brand-50 text-brand-600" : "bg-border text-fg-subtle"
+                                        )}
+                                    >
+                                        {statusCounts[tab.value] ?? 0}
+                                    </span>
+                                </button>
+                            )
+                        })}
+                    </div>
                 </div>
 
                 <FilterBar
@@ -343,6 +571,43 @@ export default function OrganizerManagePage() {
                     </div>
                 ) : totalCount > 0 ? (
                     <div className="space-y-12">
+                        {draftMatches && draft && (
+                            <div>
+                                <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-fg">
+                                    <FileEdit className="size-5 text-brand-600" aria-hidden="true" />
+                                    ฉบับร่าง
+                                </h2>
+                                <div className={EVENT_CARD_GRID}>
+                                    <EventCard
+                                        activity={{ name: draftDisplayName(draft.payload), imageUrl: draftImageUrl(draft.payload) }}
+                                        description={`บันทึกล่าสุดเมื่อ ${formatDraftTime(draft.updatedAt)}`}
+                                        badgeLeft={<EventCardBadge className="bg-fg-subtle/90">ฉบับร่าง</EventCardBadge>}
+                                        actions={
+                                            <>
+                                                <Link href="/organizer/create" className="flex-1">
+                                                    <Button className="w-full shadow-md shadow-brand-500/20 font-bold rounded-full h-11">
+                                                        ดำเนินการต่อ
+                                                    </Button>
+                                                </Link>
+                                                <ActionMenu
+                                                    items={[
+                                                        {
+                                                            label: "ลบฉบับร่าง",
+                                                            icon: Trash2,
+                                                            tone: "danger",
+                                                            onClick: () =>
+                                                                setDeleteTarget({ kind: "draft", name: draftDisplayName(draft.payload) }),
+                                                        },
+                                                    ]}
+                                                    label="ตัวเลือกของฉบับร่าง"
+                                                />
+                                            </>
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         {filteredEvents.length > 0 && (
                             <div className={EVENT_CARD_GRID}>
                                 {filteredEvents.map((ev) => {
@@ -351,7 +616,6 @@ export default function OrganizerManagePage() {
                                         <EventCard
                                             key={`event-${ev.id}`}
                                             activity={{ name: ev.name, imageUrl: ev.imageUrl ?? fa?.imageUrl }}
-                                            description={ev.description}
                                             badgeLeft={
                                                 ev.activities.length > 1 ? (
                                                     <EventCardBadge variant="light">
@@ -368,12 +632,16 @@ export default function OrganizerManagePage() {
                                             actions={
                                                 <>
                                                     <Link href={`/organizer/events/${ev.id}`} className="flex-1">
-                                                        <Button className="w-full shadow-md shadow-brand-500/20 font-bold rounded-xl h-11">ดูรายละเอียด</Button>
+                                                        <Button className="w-full shadow-md shadow-brand-500/20 font-bold rounded-full h-11">ดูรายละเอียด</Button>
                                                     </Link>
                                                     <ActionMenu items={eventMenuItems(ev)} label={`ตัวเลือกของ ${ev.name}`} />
                                                 </>
                                             }
-                                        />
+                                        >
+                                            <EventCardRow icon={CalendarDays} tone="brand">
+                                                {eventInfoLine(ev)}
+                                            </EventCardRow>
+                                        </EventCard>
                                     )
                                 })}
                             </div>
@@ -389,17 +657,20 @@ export default function OrganizerManagePage() {
                                             <EventCard
                                                 key={`activity-${a.id}`}
                                                 activity={a}
-                                                description={a.description}
                                                 badgeRight={<EventCardBadge className={ap.className}>{ap.label}</EventCardBadge>}
                                                 actions={
                                                     <>
                                                         <Link href={`/organizer/activities/${a.id}`} className="flex-1">
-                                                            <Button className="w-full shadow-md shadow-brand-500/20 font-bold rounded-xl h-11">ดูรายละเอียด</Button>
+                                                            <Button className="w-full shadow-md shadow-brand-500/20 font-bold rounded-full h-11">ดูรายละเอียด</Button>
                                                         </Link>
                                                         <ActionMenu items={activityMenuItems(a)} label={`ตัวเลือกของ ${a.name}`} />
                                                     </>
                                                 }
-                                            />
+                                            >
+                                                <EventCardRow icon={CalendarDays} tone="brand">
+                                                    {activityInfoLine(a)}
+                                                </EventCardRow>
+                                            </EventCard>
                                         )
                                     })}
                                 </div>
@@ -451,6 +722,8 @@ export default function OrganizerManagePage() {
                 loading={deleting}
                 onConfirm={confirmDelete}
             />
+
+            <Toast open={toast.open} message={toast.message} description={toast.description} />
         </div>
     )
 }

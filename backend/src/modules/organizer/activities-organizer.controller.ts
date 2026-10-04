@@ -120,6 +120,19 @@ export class ActivitiesOrganizerController {
   }
 
   /**
+   * POST /api/activities/:id/duplicate - คัดลอกกิจกรรมเดี่ยวทั้งใบเป็นกิจกรรมใหม่ (เจ้าของ / Admin)
+   */
+  @Post(":id/duplicate")
+  @ApiOperation({ summary: "คัดลอกกิจกรรมเดี่ยวทั้งใบเป็นกิจกรรมใหม่ (เจ้าของ / Admin)" })
+  async duplicate(
+    @Param("id", ParseIntPipe) id: number,
+    @CurrentUser("id") userId: number,
+    @CurrentUser("role") userRole: UserRole,
+  ) {
+    return this.activitiesService.duplicate(id, userId, userRole);
+  }
+
+  /**
    * POST /api/activities/upload-image - อัปโหลดรูปภาพกิจกรรม
    */
   @Post("upload-image")

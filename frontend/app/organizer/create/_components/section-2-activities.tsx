@@ -1,9 +1,9 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { ActivityTabForm } from "./activity-tab-form"
 import { Plus, X } from "lucide-react"
+import { cn } from "@/lib/utils"
 import type { ActivityFormState, ActivityFormErrors } from "./types"
 
 interface Props {
@@ -13,7 +13,7 @@ interface Props {
     isSingleMode?: boolean
     onActiveKeyChange: (key: string) => void
     onChangeActivity: (key: string, patch: Partial<ActivityFormState>) => void
-    onFieldBlur: (key: string, field: keyof ActivityFormErrors) => void
+    onFieldBlur: (key: string, field: keyof ActivityFormErrors, patch?: Partial<ActivityFormState>) => void
     onAdd: () => void
     onRemove: (key: string) => void
 }
@@ -49,7 +49,7 @@ export function SectionActivities({
                     errors={errorsByKey[a.key] ?? {}}
                     isProject={isProject}
                     onChange={(patch) => onChangeActivity(a.key, patch)}
-                    onFieldBlur={(field) => onFieldBlur(a.key, field)}
+                    onFieldBlur={(field, patch) => onFieldBlur(a.key, field, patch)}
                 />
             </div>
         )
@@ -57,28 +57,26 @@ export function SectionActivities({
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-lg font-bold text-fg">กิจกรรมย่อยในงานนี้</h2>
-                    <p className="mt-1 text-sm text-fg-muted">
-                        งานหนึ่งมีได้หลายกิจกรรม แต่ละกิจกรรมมีเวลาและเงื่อนไขของตัวเอง
-                    </p>
-                </div>
-                <Button type="button" variant="outline" size="sm" onClick={onAdd}>
-                    <Plus className="size-4" />
-                    เพิ่มกิจกรรม
-                </Button>
+            <div>
+                <h2 className="text-lg font-bold text-fg">กิจกรรมย่อยในงานนี้</h2>
+                <p className="mt-1 text-sm text-fg-muted">
+                    งานหนึ่งมีได้หลายกิจกรรม แต่ละกิจกรรมมีเวลาและเงื่อนไขของตัวเอง
+                </p>
             </div>
 
             <Tabs value={activeKey} onValueChange={onActiveKeyChange}>
-                <TabsList className="h-auto flex-wrap justify-start gap-1 bg-surface p-1">
+                {/*
+                  แถวแท็บเลื่อนในแนวนอนแทนการตัดบรรทัด (flex-nowrap + overflow-x-auto) — ปุ่ม "เพิ่มกิจกรรม"
+                  อยู่ท้ายแถวเดียวกัน เพิ่มกิจกรรมใหม่กี่ครั้งก็เลื่อนตามไปเรื่อยๆ ไม่ดันหัวข้อข้างบนให้สูงขึ้น
+                */}
+                <TabsList className="h-auto w-full flex-nowrap items-center justify-start gap-1 overflow-x-auto bg-surface p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {activities.map((a, i) => {
                         const hasError = Object.values(errorsByKey[a.key] ?? {}).some(Boolean)
                         return (
-                            <div key={a.key} className="relative">
-                                <TabsTrigger value={a.key} className={activities.length > 1 ? "pr-7" : ""}>
+                            <div key={a.key} className="relative shrink-0">
+                                <TabsTrigger value={a.key} className={cn("whitespace-nowrap", activities.length > 1 && "pr-7")}>
                                     {hasError && (
-                                        <span className="mr-1.5 inline-block size-1.5 rounded-full bg-danger" aria-label="มีฟิลด์ที่ต้องแก้ไข" />
+                                        <span className="mr-1.5 inline-block size-1.5 rounded-full bg-danger" aria-label="มีข้อมูลที่ต้องกรอกให้ครบถ้วน" />
                                     )}
                                     {`กิจกรรมที่ ${i + 1}`}{a.name ? `: ${a.name}` : ""}
                                 </TabsTrigger>
@@ -98,6 +96,14 @@ export function SectionActivities({
                             </div>
                         )
                     })}
+                    <button
+                        type="button"
+                        onClick={onAdd}
+                        className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-sm border border-dashed border-border-strong px-3 py-1.5 text-sm font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+                    >
+                        <Plus className="size-4" aria-hidden="true" />
+                        เพิ่มกิจกรรม
+                    </button>
                 </TabsList>
 
                 {activities.map((a) => (
@@ -107,7 +113,7 @@ export function SectionActivities({
                             errors={errorsByKey[a.key] ?? {}}
                             isProject={isProject}
                             onChange={(patch) => onChangeActivity(a.key, patch)}
-                            onFieldBlur={(field) => onFieldBlur(a.key, field)}
+                            onFieldBlur={(field, patch) => onFieldBlur(a.key, field, patch)}
                         />
                     </TabsContent>
                 ))}

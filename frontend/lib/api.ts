@@ -175,7 +175,10 @@ async function fetchAPI<T = unknown>(endpoint: string, options: RequestInit = {}
     throw new Error(data.message?.[0] || data.message || 'เกิดข้อผิดพลาด');
   }
 
-  return (data.data ?? data) as T;
+  // backend ห่อ response ด้วย TransformInterceptor เป็น { success, data, timestamp } เสมอ (ดู main.ts) —
+  // เช็คว่าคีย์ "data" มีอยู่จริง ไม่ใช่แค่ truthy เพราะ endpoint ที่ data เป็น null โดยตั้งใจ (เช่น "ยังไม่มีฉบับร่าง")
+  // เคยโดน (data.data ?? data) ตีความว่า null = ไม่มีคีย์ แล้วคืนทั้ง envelope แทนค่า null ที่ตั้งใจส่งมาจริงๆ
+  return ('data' in data ? data.data : data) as T;
 }
 
 // ==================== AUTH ====================
@@ -264,6 +267,8 @@ export const activitiesAPI = {
   /** จบกิจกรรม — ทำได้เฉพาะเมื่อเลยเวลาสิ้นสุดแล้ว (backend บังคับ) */
   markCompleted: (id: number) =>
     fetchAPI<Activity>(`/api/activities/${id}/complete`, { method: 'PATCH' }),
+  /** คัดลอกกิจกรรมทั้งใบเป็นกิจกรรมใหม่ (ชื่อต่อท้ายด้วย "(สำเนา)") — ไม่คัดลอกผู้ลงทะเบียน */
+  duplicate: (id: number) => fetchAPI<Activity>(`/api/activities/${id}/duplicate`, { method: 'POST' }),
   getPlatformStats: () => fetchAPI<PlatformStats>('/api/activities/stats/platform'),
   getOrganizerStats: () => fetchAPI<OrganizerStats>('/api/activities/stats/organizer'),
   /** ผลสรุปแบบสำรวจของกิจกรรมเดี่ยว — โครงสร้างตรงกับ eventsAPI.getSurveyResults */
@@ -407,6 +412,12 @@ export interface EventSummary {
   surveyQuestions?: EventSurveyQuestion[];
 }
 
+/** payload เป็น EventDraftPayload จาก lib/event-draft.ts — backend เก็บเป็น JSON ล้วนๆ ไม่ตรวจรูปร่าง */
+export interface EventDraftResponse {
+  payload: unknown;
+  updatedAt: string;
+}
+
 export const eventsAPI = {
   create: (body: CreateEventBody) =>
     fetchAPI<EventSummary>('/api/events', { method: 'POST', body: JSON.stringify(body) }),
@@ -420,6 +431,13 @@ export const eventsAPI = {
       body: JSON.stringify({ isPublic }),
     }),
   delete: (id: number) => fetchAPI<void>(`/api/events/${id}`, { method: 'DELETE' }),
+  /** คัดลอกงานทั้งงานพร้อมกิจกรรมย่อยเป็นงานใหม่ (ชื่อต่อท้ายด้วย "(สำเนา)", ไม่เผยแพร่อัตโนมัติ) — ไม่คัดลอกผู้ลงทะเบียน */
+  duplicate: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}/duplicate`, { method: 'POST' }),
+  // ฉบับร่างของตัวช่วยสร้างงาน — คนละอย่างกับ Event จริง มีได้ทีละ 1 ฉบับต่อผู้จัด (บันทึกซ้ำ = ทับของเดิม)
+  getDraft: () => fetchAPI<EventDraftResponse | null>('/api/events/draft'),
+  saveDraft: (payload: unknown) =>
+    fetchAPI<EventDraftResponse>('/api/events/draft', { method: 'PUT', body: JSON.stringify({ payload }) }),
+  clearDraft: () => fetchAPI<void>('/api/events/draft', { method: 'DELETE' }),
   getAllPublic: () => fetchAPI<EventSummary[]>('/api/events'),
   getPublicById: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}/public`),
   getSurveyResults: (id: number) => fetchAPI<EventSurveyResultsResponse>(`/api/events/${id}/survey-results`),

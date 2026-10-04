@@ -278,6 +278,22 @@ export class EventsService {
     this.logger.log(`Event deleted: "${event.name}" (ID: ${eventId})`);
   }
 
+  /** คัดลอกงานทั้งงานพร้อมกิจกรรมย่อยทุกตัวเป็นงานใหม่ (ไม่เผยแพร่, ไม่คัดลอกผู้ลงทะเบียน) */
+  async duplicate(organizerId: number, callerRole: UserRole, eventId: number) {
+    const event = await this.eventsRepository.findById(eventId);
+    if (!event) throw new NotFoundException('ไม่พบงาน');
+    if (callerRole !== UserRole.ADMIN && (event as any).organizerId !== organizerId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์คัดลอกงานนี้');
+    }
+
+    // organizerId ของสำเนาเป็นของผู้ที่กดคัดลอก ไม่ใช่เจ้าของเดิมเสมอไป (แอดมินคัดลอกแทนผู้จัดได้)
+    const copy = await this.eventsRepository.duplicateEvent(eventId, organizerId);
+    if (!copy) throw new NotFoundException('ไม่พบงาน');
+
+    this.logger.log(`Event duplicated: "${event.name}" (ID: ${eventId}) → new ID ${(copy as any).id}`);
+    return this.mapRegisteredCount(copy);
+  }
+
   /** ใช้ภายใน service เท่านั้น (เช่น update() ตรวจสอบสิทธิ์/รายการกิจกรรมย่อย) — ไม่ได้ผูก registeredCount */
   findById(id: number) {
     return this.eventsRepository.findById(id);

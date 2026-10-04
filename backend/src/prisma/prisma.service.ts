@@ -20,6 +20,9 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get event() {
     return this._client.event;
   }
+  get eventDraft() {
+    return this._client.eventDraft;
+  }
   get activity() {
     return this._client.activity;
   }
