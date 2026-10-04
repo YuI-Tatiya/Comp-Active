@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { FilterBar, type FilterSpec } from "@/components/ui/filter-bar"
-import { EventCard, EventCardBadge, EventCardRow, formatEventDate } from "@/components/ui/event-card"
+import { EventCard, EventCardBadge, formatEventDate } from "@/components/ui/event-card"
 import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -24,12 +24,13 @@ import {
     Layers,
     Pencil,
     Eye,
-    EyeOff,
+    ToggleLeft,
     Trash2,
     FileEdit,
     Copy,
-    ExternalLink,
+    ClipboardList,
     CalendarDays,
+    User,
 } from "lucide-react"
 
 /** ชื่อที่ใช้แสดงฉบับร่าง — payload เป็น JSON ล้วนๆ จาก lib/event-draft.ts ไม่มี type ร่วมกับหน้านี้ (คนละ bundle) */
@@ -82,11 +83,11 @@ function statusBucket(w: RegistrationWindow, now: Date): StatusBucket {
 
 /** สถานะการอนุมัติของกิจกรรมย่อย — ตรงกับ ApprovalStatus ใน backend/prisma/schema.prisma */
 const APPROVAL_META: Record<string, { label: string; className: string }> = {
-    approved: { label: "อนุมัติแล้ว", className: "bg-success/90" },
-    pending_approval: { label: "รออนุมัติ", className: "bg-warning/90" },
-    cancelled: { label: "ยกเลิกแล้ว", className: "bg-danger/90" },
+    approved: { label: "อนุมัติแล้ว", className: "bg-success/75" },
+    pending_approval: { label: "รออนุมัติ", className: "bg-warning/75" },
+    cancelled: { label: "ยกเลิกแล้ว", className: "bg-danger/75" },
     // ค่าเก่าก่อนแยก enum — backend ไม่เขียนค่านี้อีกแล้วแต่คงไว้เผื่อข้อมูลเก่า
-    rejected: { label: "ยกเลิกแล้ว", className: "bg-danger/90" },
+    rejected: { label: "ยกเลิกแล้ว", className: "bg-danger/75" },
 }
 
 function eventHasRegistrations(ev: EventSummary): boolean {
@@ -102,20 +103,44 @@ function eventRegisteredCount(ev: EventSummary): number {
     return ev.activities.reduce((sum, a) => sum + (a.registeredCount ?? 0), 0)
 }
 
-/**
- * บรรทัดข้อมูลสั้นๆ ใต้ชื่อการ์ด — วันที่ + ยอดลงทะเบียน รวมไว้บรรทัดเดียว (ไม่ใช่ 2 แถวแยก) เพราะพื้นที่ท้ายการ์ด
- * ตายตัว (ดูคอมเมนต์งบความสูงใน event-card.tsx) 2 แถวเต็ม + ปุ่ม 1 แถวจะดันล้นกรอบ
- */
-function eventInfoLine(ev: EventSummary): string {
+/** วันที่จัดงาน (แถวแรกใต้ชื่อการ์ด) — event ใช้กิจกรรมย่อยที่ใกล้ที่สุด */
+function eventDateLabel(ev: EventSummary): string {
     const fa = firstActivity(ev)
-    const dateStr = fa ? formatEventDate(fa.date) : "ยังไม่ระบุวันที่"
-    return `${dateStr} · ลงทะเบียน ${eventRegisteredCount(ev)} คน`
+    return fa ? formatEventDate(fa.date) : "ยังไม่ระบุวันที่"
 }
 
-function activityInfoLine(a: Activity): string {
-    const dateStr = formatEventDate(a.date)
-    const seats = a.capacity != null ? `${a.registeredCount ?? 0}/${a.capacity} คน` : `${a.registeredCount ?? 0} คน (ไม่จำกัด)`
-    return `${dateStr} · ${seats}`
+/**
+ * ยอดลงทะเบียน (แถวสอง) — งานที่มีกิจกรรมย่อยเดียวโชว์ "X/Y คน" ของกิจกรรมนั้นตรงๆ
+ * งานที่มีหลายกิจกรรมย่อยรวมยอดลงทะเบียนทั้งหมด แต่ไม่รวมที่นั่ง (จำนวนที่นั่งแต่ละกิจกรรมย่อยไม่เท่ากัน
+ * รวมกันแล้วไม่สื่อความหมาย) ไว้ให้กดเข้าไปดูรายละเอียดราย กิจกรรมย่อยแทน
+ */
+function eventSeatsLabel(ev: EventSummary): string {
+    if (ev.activities.length === 1) return activitySeatsLabel(ev.activities[0])
+    return `ลงทะเบียนรวม ${eventRegisteredCount(ev)} คน`
+}
+
+function activitySeatsLabel(a: Activity): string {
+    return a.capacity != null ? `${a.registeredCount ?? 0}/${a.capacity} คน` : `${a.registeredCount ?? 0} คน (ไม่จำกัด)`
+}
+
+/**
+ * แถววันที่ + ยอดลงทะเบียน รวมไว้แถวเดียว (2 กลุ่มไอคอนในกล่องเดียว ไม่ใช่ EventCardRow 2 ชิ้นซ้อนกัน) —
+ * ลองแยกเป็น 2 แถวเต็มแล้วเจอว่าล้นกรอบการ์ดจริง (วัดจาก scrollHeight ตอนทดสอบ, EVENT_CARD_HEIGHT ตายตัว 380px)
+ * รูปแบบนี้ให้ข้อมูลครบเหมือนเดิมแต่กินพื้นที่แค่แถวเดียว
+ */
+function CardInfoRow({ dateLabel, seatsLabel }: { dateLabel: string; seatsLabel: string }) {
+    return (
+        <div className="flex items-center gap-4 rounded-lg bg-surface px-3 py-2 text-sm font-medium text-fg-muted">
+            <span className="flex min-w-0 items-center gap-1.5">
+                <CalendarDays className="size-4 shrink-0 text-brand-500" aria-hidden="true" />
+                <span className="truncate">{dateLabel}</span>
+            </span>
+            <span className="flex min-w-0 items-center gap-1.5">
+                <User className="size-4 shrink-0 text-fg-subtle" aria-hidden="true" />
+                <span className="truncate">{seatsLabel}</span>
+            </span>
+        </div>
+    )
 }
 
 /** วันจัดกิจกรรมย่อยที่เร็วที่สุด — ใช้เรียงลำดับ "ใกล้จัดงาน" และกรองช่วงเวลา */
@@ -449,7 +474,7 @@ export default function OrganizerManagePage() {
             },
             {
                 label: "แก้สถานะกิจกรรม",
-                icon: ev.isPublic ? EyeOff : Eye,
+                icon: ToggleLeft,
                 onClick: () => toggleEventPublic(ev),
             },
             {
@@ -459,7 +484,7 @@ export default function OrganizerManagePage() {
             },
             {
                 label: "ดูตัวอย่าง",
-                icon: ExternalLink,
+                icon: Eye,
                 onClick: () => window.open(`/events/event/${ev.id}`, "_blank", "noopener,noreferrer"),
             },
             {
@@ -486,7 +511,7 @@ export default function OrganizerManagePage() {
             },
             {
                 label: "ดูตัวอย่าง",
-                icon: ExternalLink,
+                icon: Eye,
                 onClick: () => window.open(`/events/activities/${a.id}`, "_blank", "noopener,noreferrer"),
             },
             {
@@ -579,29 +604,38 @@ export default function OrganizerManagePage() {
                                 </h2>
                                 <div className={EVENT_CARD_GRID}>
                                     <EventCard
+                                        // จางลงเหมือนเป็นแค่ hint ว่ามีฉบับร่างค้างอยู่ — ยังไม่ใช่กิจกรรมจริง ไม่ใช่ hover:-translate-y-1
+                                        // เหมือนการ์ดจริงเพราะจะทำให้ดูเหมือนกดดูได้ปกติทั้งที่มันคือทางลัดกลับไปทำต่อเท่านั้น
+                                        className="opacity-60 hover:translate-y-0 hover:opacity-100"
                                         activity={{ name: draftDisplayName(draft.payload), imageUrl: draftImageUrl(draft.payload) }}
                                         description={`บันทึกล่าสุดเมื่อ ${formatDraftTime(draft.updatedAt)}`}
-                                        badgeLeft={<EventCardBadge className="bg-fg-subtle/90">ฉบับร่าง</EventCardBadge>}
+                                        badgeLeft={
+                                            <EventCardBadge variant="glass" className="bg-fg/60">
+                                                ฉบับร่าง
+                                            </EventCardBadge>
+                                        }
+                                        badgeRight={
+                                            <ActionMenu
+                                                items={[
+                                                    {
+                                                        label: "ลบฉบับร่าง",
+                                                        icon: Trash2,
+                                                        tone: "danger",
+                                                        onClick: () =>
+                                                            setDeleteTarget({ kind: "draft", name: draftDisplayName(draft.payload) }),
+                                                    },
+                                                ]}
+                                                label="ตัวเลือกของฉบับร่าง"
+                                                className="size-9 rounded-full bg-bg/90 backdrop-blur-md shadow-md"
+                                            />
+                                        }
                                         actions={
-                                            <>
-                                                <Link href="/organizer/create" className="flex-1">
-                                                    <Button className="w-full shadow-md shadow-brand-500/20 font-bold rounded-full h-11">
-                                                        ดำเนินการต่อ
-                                                    </Button>
-                                                </Link>
-                                                <ActionMenu
-                                                    items={[
-                                                        {
-                                                            label: "ลบฉบับร่าง",
-                                                            icon: Trash2,
-                                                            tone: "danger",
-                                                            onClick: () =>
-                                                                setDeleteTarget({ kind: "draft", name: draftDisplayName(draft.payload) }),
-                                                        },
-                                                    ]}
-                                                    label="ตัวเลือกของฉบับร่าง"
-                                                />
-                                            </>
+                                            <Link href="/organizer/create" className="w-full">
+                                                <Button variant="secondary" size="sm" className="w-full gap-1.5 rounded-xl text-xs font-medium">
+                                                    <Pencil className="size-3.5" aria-hidden="true" />
+                                                    ดำเนินการต่อ
+                                                </Button>
+                                            </Link>
                                         }
                                     />
                                 </div>
@@ -617,30 +651,35 @@ export default function OrganizerManagePage() {
                                             key={`event-${ev.id}`}
                                             activity={{ name: ev.name, imageUrl: ev.imageUrl ?? fa?.imageUrl }}
                                             badgeLeft={
-                                                ev.activities.length > 1 ? (
-                                                    <EventCardBadge variant="light">
-                                                        <Layers className="mr-1 inline size-3" aria-hidden="true" />
-                                                        {ev.activities.length} กิจกรรมย่อย
+                                                <div className="flex flex-col items-start gap-1.5">
+                                                    <EventCardBadge variant="glass" className={ev.isPublic ? "bg-success/75" : "bg-fg/60"}>
+                                                        {ev.isPublic ? "เผยแพร่แล้ว" : "ไม่เผยแพร่"}
                                                     </EventCardBadge>
-                                                ) : undefined
+                                                    {ev.activities.length > 1 && (
+                                                        <EventCardBadge variant="light">
+                                                            <Layers className="mr-1 inline size-3" aria-hidden="true" />
+                                                            {ev.activities.length} กิจกรรมย่อย
+                                                        </EventCardBadge>
+                                                    )}
+                                                </div>
                                             }
                                             badgeRight={
-                                                <EventCardBadge className={ev.isPublic ? "bg-success/90" : "bg-fg-subtle/90"}>
-                                                    {ev.isPublic ? "เผยแพร่แล้ว" : "ไม่เผยแพร่"}
-                                                </EventCardBadge>
+                                                <ActionMenu
+                                                    items={eventMenuItems(ev)}
+                                                    label={`ตัวเลือกของ ${ev.name}`}
+                                                    className="size-9 rounded-full bg-bg/90 backdrop-blur-md shadow-md"
+                                                />
                                             }
                                             actions={
-                                                <>
-                                                    <Link href={`/organizer/events/${ev.id}`} className="flex-1">
-                                                        <Button className="w-full shadow-md shadow-brand-500/20 font-bold rounded-full h-11">ดูรายละเอียด</Button>
-                                                    </Link>
-                                                    <ActionMenu items={eventMenuItems(ev)} label={`ตัวเลือกของ ${ev.name}`} />
-                                                </>
+                                                <Link href={`/organizer/events/${ev.id}`} className="w-full">
+                                                    <Button variant="secondary" size="sm" className="w-full gap-1.5 rounded-xl text-xs font-medium">
+                                                        <ClipboardList className="size-3.5" aria-hidden="true" />
+                                                        รายละเอียดเพิ่มเติม
+                                                    </Button>
+                                                </Link>
                                             }
                                         >
-                                            <EventCardRow icon={CalendarDays} tone="brand">
-                                                {eventInfoLine(ev)}
-                                            </EventCardRow>
+                                            <CardInfoRow dateLabel={eventDateLabel(ev)} seatsLabel={eventSeatsLabel(ev)} />
                                         </EventCard>
                                     )
                                 })}
@@ -657,19 +696,28 @@ export default function OrganizerManagePage() {
                                             <EventCard
                                                 key={`activity-${a.id}`}
                                                 activity={a}
-                                                badgeRight={<EventCardBadge className={ap.className}>{ap.label}</EventCardBadge>}
+                                                badgeLeft={
+                                                    <EventCardBadge variant="glass" className={ap.className}>
+                                                        {ap.label}
+                                                    </EventCardBadge>
+                                                }
+                                                badgeRight={
+                                                    <ActionMenu
+                                                        items={activityMenuItems(a)}
+                                                        label={`ตัวเลือกของ ${a.name}`}
+                                                        className="size-9 rounded-full bg-bg/90 backdrop-blur-md shadow-md"
+                                                    />
+                                                }
                                                 actions={
-                                                    <>
-                                                        <Link href={`/organizer/activities/${a.id}`} className="flex-1">
-                                                            <Button className="w-full shadow-md shadow-brand-500/20 font-bold rounded-full h-11">ดูรายละเอียด</Button>
-                                                        </Link>
-                                                        <ActionMenu items={activityMenuItems(a)} label={`ตัวเลือกของ ${a.name}`} />
-                                                    </>
+                                                    <Link href={`/organizer/activities/${a.id}`} className="w-full">
+                                                        <Button variant="secondary" size="sm" className="w-full gap-1.5 rounded-xl text-xs font-medium">
+                                                            <ClipboardList className="size-3.5" aria-hidden="true" />
+                                                            รายละเอียดเพิ่มเติม
+                                                        </Button>
+                                                    </Link>
                                                 }
                                             >
-                                                <EventCardRow icon={CalendarDays} tone="brand">
-                                                    {activityInfoLine(a)}
-                                                </EventCardRow>
+                                                <CardInfoRow dateLabel={formatEventDate(a.date)} seatsLabel={activitySeatsLabel(a)} />
                                             </EventCard>
                                         )
                                     })}

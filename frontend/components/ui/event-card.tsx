@@ -26,11 +26,12 @@ export function formatEventDate(dateString: string) {
    ป้ายมุมรูป
    solid = พื้นสีทึบ ตัวอักษรขาว (สถานะ / สถานะอนุมัติ)
    light = พื้นขาว ตัวอักษรแบรนด์ (หมวดหมู่)
+   glass = พื้นเข้มโปร่งแสง + เบลอหลัง ตัวอักษรขาว (สถานะ แบบ glassmorphism — ใช้ที่ /organizer/manage)
    ───────────────────────────────────────────────────────────────────────── */
 
 interface EventCardBadgeProps {
-    variant?: "solid" | "light"
-    /** สีพื้นสำหรับ variant solid เช่น "bg-success/90" */
+    variant?: "solid" | "light" | "glass"
+    /** สีพื้นสำหรับ variant solid/glass เช่น "bg-success/90" หรือ "bg-success/75" */
     className?: string
     children: React.ReactNode
 }
@@ -40,6 +41,19 @@ export function EventCardBadge({
     className,
     children,
 }: EventCardBadgeProps) {
+    if (variant === "glass") {
+        return (
+            <span
+                className={cn(
+                    "rounded-full border border-white/20 bg-fg/60 px-2.5 py-1 text-xs font-medium text-white shadow-sm backdrop-blur-md",
+                    className
+                )}
+            >
+                {children}
+            </span>
+        )
+    }
+
     return (
         <span
             className={cn(
@@ -131,7 +145,7 @@ interface EventCardProps {
     activity: { name: string; imageUrl?: string | null }
     /** ป้ายมุมซ้ายบนของรูป — หมวดหมู่ (public/student) หรือสถานะ (organizer) */
     badgeLeft?: React.ReactNode
-    /** ป้ายมุมขวาบนของรูป — สถานะ (public/student) หรือสถานะอนุมัติ (organizer) */
+    /** ป้ายมุมขวาบนของรูป — สถานะ (public/student) หรือปุ่มเมนู ⋮ (organizer) */
     badgeRight?: React.ReactNode
     /** คำอธิบายใต้ชื่อ — ไม่ส่งมาก็ไม่แสดง (organizer ไม่ใช้) */
     description?: string | null
@@ -139,6 +153,8 @@ interface EventCardProps {
     children?: React.ReactNode
     /** ปุ่มท้ายการ์ด — ปกติคือ 2 ปุ่มที่ห่อด้วย flex-1 — ไม่ส่งมาก็ไม่แสดง */
     actions?: React.ReactNode
+    /** เพิ่ม class บนกรอบนอกสุด เช่น ทำการ์ดฉบับร่างให้จางลง (opacity) — ไม่ส่งมาก็ไม่กระทบของเดิม */
+    className?: string
 }
 
 /**
@@ -158,6 +174,7 @@ export function EventCard({
     description,
     children,
     actions,
+    className,
 }: EventCardProps) {
     const hasFooter = Boolean(children) || Boolean(actions)
 
@@ -165,7 +182,8 @@ export function EventCard({
         <div
             className={cn(
                 "group flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-bg shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl",
-                EVENT_CARD_HEIGHT
+                EVENT_CARD_HEIGHT,
+                className
             )}
         >
             <div className="relative h-44 shrink-0 overflow-hidden bg-surface">
