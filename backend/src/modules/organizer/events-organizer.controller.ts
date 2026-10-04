@@ -151,6 +151,19 @@ export class EventsOrganizerController {
   }
 
   /**
+   * POST /api/events/:id/duplicate - คัดลอกงานทั้งงานพร้อมกิจกรรมย่อยเป็นงานใหม่ (เจ้าของ / Admin)
+   */
+  @Post(":id/duplicate")
+  @ApiOperation({ summary: "คัดลอกงานทั้งงานพร้อมกิจกรรมย่อยเป็นงานใหม่ (เจ้าของ / Admin)" })
+  async duplicate(
+    @Param("id", ParseIntPipe) id: number,
+    @CurrentUser("id") userId: number,
+    @CurrentUser("role") userRole: UserRole,
+  ) {
+    return this.eventsService.duplicate(userId, userRole, id);
+  }
+
+  /**
    * DELETE /api/events/:id - ลบงานทั้งงานพร้อมกิจกรรมย่อย (เจ้าของ / Admin)
    */
   @Delete(":id")

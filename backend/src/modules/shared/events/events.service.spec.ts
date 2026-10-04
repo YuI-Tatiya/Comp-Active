@@ -424,3 +424,55 @@ describe('EventsService.getSurveyResults — ownership', () => {
     await expect(service.getSurveyResults(1, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
   });
 });
+
+describe('EventsService.duplicate', () => {
+  let service: EventsService;
+  let repo: { findById: jest.Mock; duplicateEvent: jest.Mock };
+
+  beforeEach(async () => {
+    repo = {
+      findById: jest.fn().mockResolvedValue({ id: 1, organizerId: 7, name: 'Camp' }),
+      duplicateEvent: jest.fn(),
+    };
+    const module = await Test.createTestingModule({
+      providers: [EventsService, { provide: EventsRepository, useValue: repo }],
+    }).compile();
+    service = module.get(EventsService);
+  });
+
+  it('duplicates for the owning organizer and maps registeredCount', async () => {
+    repo.duplicateEvent.mockResolvedValue({
+      id: 2,
+      name: 'Camp (สำเนา)',
+      activities: [{ id: 20, _count: { registrations: 0 } }],
+    });
+
+    const result = await service.duplicate(7, UserRole.ORGANIZER, 1);
+
+    expect(repo.duplicateEvent).toHaveBeenCalledWith(1, 7);
+    expect(result.id).toBe(2);
+    expect(result.activities[0].registeredCount).toBe(0);
+    expect(result.activities[0]._count).toBeUndefined();
+  });
+
+  it('allows an admin who does not own the event, copying to the admin', async () => {
+    repo.duplicateEvent.mockResolvedValue({ id: 2, activities: [] });
+    await service.duplicate(999, UserRole.ADMIN, 1);
+    expect(repo.duplicateEvent).toHaveBeenCalledWith(1, 999);
+  });
+
+  it('throws ForbiddenException for a non-owning organizer', async () => {
+    await expect(service.duplicate(999, UserRole.ORGANIZER, 1)).rejects.toThrow(ForbiddenException);
+    expect(repo.duplicateEvent).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundException when the event does not exist', async () => {
+    repo.findById.mockResolvedValue(null);
+    await expect(service.duplicate(7, UserRole.ORGANIZER, 1)).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws NotFoundException if the event is deleted between the ownership check and the copy', async () => {
+    repo.duplicateEvent.mockResolvedValue(null);
+    await expect(service.duplicate(7, UserRole.ORGANIZER, 1)).rejects.toThrow(NotFoundException);
+  });
+});

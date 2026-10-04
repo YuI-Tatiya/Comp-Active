@@ -117,6 +117,70 @@ export class ActivitiesRepository {
     });
   }
 
+  /**
+   * คัดลอกกิจกรรมเดี่ยวทั้งใบ (รวม tags/conditions/benefits/softSkills/questions+options/surveyQuestions)
+   * เป็นแถวใหม่ทั้งหมด — ไม่แตะ/อ้างอิงของเดิมเลย, ไม่คัดลอก registrations/ผู้ลงทะเบียน
+   * คืน null ถ้าไม่พบต้นฉบับ (ผู้เรียกตรวจสิทธิ์ความเป็นเจ้าของเองอีกชั้นก่อนเรียกเมธอดนี้)
+   */
+  duplicate(activityId: number, organizerId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const source = await tx.activity.findUnique({ where: { id: activityId }, include: activityInclude });
+      if (!source) return null;
+
+      return tx.activity.create({
+        data: {
+          organizerId,
+          eventId: null, // คัดลอกกิจกรรมเดี่ยว ไม่ผูกกับ event เดิม (ถ้าต้นฉบับมี event แม่)
+          name: `${source.name} (สำเนา)`,
+          description: source.description,
+          categories: source.categories,
+          date: source.date,
+          startTime: source.startTime,
+          endTime: source.endTime,
+          startAt: source.startAt,
+          endAt: source.endAt,
+          location: source.location,
+          capacity: source.capacity,
+          status: 'open' as any,
+          approvalStatus: 'approved' as any, // เหมือน create() — กิจกรรมใหม่ไม่ผ่านคิวอนุมัติ
+          imageUrl: source.imageUrl,
+          attachmentUrl: source.attachmentUrl,
+          volunteerHours: source.volunteerHours,
+          volunteerRole: source.volunteerRole,
+          registrationType: source.registrationType,
+          dutyRoleOptions: source.dutyRoleOptions,
+          dutyShiftOptions: source.dutyShiftOptions,
+          teamSizeMin: source.teamSizeMin,
+          teamSizeMax: source.teamSizeMax,
+          competitionCategoryOptions: source.competitionCategoryOptions,
+          peerAssessmentEnabled: false, // โหมด 360° ต้องเปิดเองใหม่ ไม่ inherit มาด้วย
+          tags: { create: source.tags.map((t) => ({ tagName: t.tagName })) },
+          conditions: { create: source.conditions.map((c) => ({ conditionText: c.conditionText })) },
+          benefits: { create: source.benefits.map((b) => ({ benefitText: b.benefitText })) },
+          softSkills: { create: source.softSkills.map((s) => ({ skillType: s.skillType, rate: s.rate })) },
+          questions: {
+            create: source.questions.map((q) => ({
+              label: q.label,
+              type: q.type,
+              required: q.required,
+              sortOrder: q.sortOrder,
+              options: { create: q.options.map((o) => ({ label: o.label, sortOrder: o.sortOrder })) },
+            })),
+          },
+          surveyQuestions: {
+            create: source.surveyQuestions.map((q) => ({
+              label: q.label,
+              type: q.type,
+              scaleMax: q.scaleMax,
+              sortOrder: q.sortOrder,
+            })),
+          },
+        } as any,
+        include: { ...activityInclude, _count: { select: { registrations: true } } },
+      });
+    });
+  }
+
   updateWithRelations(activityId: number, activityData: Record<string, any>, relations: RelationUpdate) {
     return this.prisma.$transaction(async (tx) => {
       await tx.activity.update({ where: { id: activityId }, data: activityData });

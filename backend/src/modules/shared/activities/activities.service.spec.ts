@@ -322,3 +322,58 @@ describe('ActivitiesService.getSurveyResults — ownership', () => {
     await expect(service.getSurveyResults(5, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
   });
 });
+
+describe('ActivitiesService.duplicate', () => {
+  let service: ActivitiesService;
+  let activitiesRepo: { findById: jest.Mock; duplicate: jest.Mock };
+
+  beforeEach(async () => {
+    activitiesRepo = {
+      findById: jest.fn().mockResolvedValue(makeActivity()),
+      duplicate: jest.fn(),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: activitiesRepo },
+        { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
+        { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
+        { provide: MailService, useValue: {} },
+        { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+  });
+
+  it('duplicates for the owning organizer and maps registeredCount', async () => {
+    activitiesRepo.duplicate.mockResolvedValue({
+      id: 6,
+      name: 'Workshop (สำเนา)',
+      _count: { registrations: 0 },
+    });
+
+    const result = await service.duplicate(5, 7, UserRole.ORGANIZER);
+
+    expect(activitiesRepo.duplicate).toHaveBeenCalledWith(5, 7);
+    expect(result.id).toBe(6);
+    expect(result.registeredCount).toBe(0);
+    expect(result._count).toBeUndefined();
+  });
+
+  it('allows an admin who does not own the activity, copying to the admin', async () => {
+    activitiesRepo.duplicate.mockResolvedValue({ id: 6, _count: { registrations: 0 } });
+    await service.duplicate(5, 999, UserRole.ADMIN);
+    expect(activitiesRepo.duplicate).toHaveBeenCalledWith(5, 999);
+  });
+
+  it('throws ForbiddenException for a non-owning organizer', async () => {
+    await expect(service.duplicate(5, 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
+    expect(activitiesRepo.duplicate).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundException if the activity is deleted between the ownership check and the copy', async () => {
+    activitiesRepo.duplicate.mockResolvedValue(null);
+    await expect(service.duplicate(5, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
+  });
+});

@@ -218,6 +218,23 @@ export class ActivitiesService {
     this.logger.log(`Activity deleted: "${activity.name}" (ID: ${activityId})`);
   }
 
+  /** คัดลอกกิจกรรมเดี่ยวทั้งใบเป็นแถวใหม่ (ไม่คัดลอกผู้ลงทะเบียน) — ตั้งชื่อต่อท้ายด้วย "(สำเนา)" */
+  async duplicate(activityId: number, userId: number, userRole: UserRole) {
+    const activity = await this.findById(activityId);
+
+    if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์คัดลอกกิจกรรมนี้');
+    }
+
+    // organizerId ของสำเนาเป็นของผู้ที่กดคัดลอก ไม่ใช่เจ้าของเดิมเสมอไป (แอดมินคัดลอกแทนผู้จัดได้)
+    const copy = await this.activitiesRepository.duplicate(activityId, userId);
+    if (!copy) throw new NotFoundException(`ไม่พบกิจกรรม ID: ${activityId}`);
+
+    this.logger.log(`Activity duplicated: "${activity.name}" (ID: ${activityId}) → new ID ${copy.id}`);
+    const { _count, ...rest } = copy as any;
+    return { ...rest, registeredCount: _count.registrations };
+  }
+
   countAll() {
     return this.activitiesRepository.countAll();
   }
