@@ -23,6 +23,8 @@ interface ActionMenuProps {
     /** label สำหรับ screen reader บนปุ่มสามจุด — ควรระบุว่าเมนูของอะไร เช่น "ตัวเลือกของกิจกรรม X" */
     label: string
     className?: string
+    /** ขนาดไอคอนจุดสามจุด — ปรับเวลาใช้ในที่แคบ เช่น แท็บเล็กๆ (ค่าเริ่มต้นคงขนาดเดิมของปุ่มมุมการ์ด) */
+    iconClassName?: string
 }
 
 const MENU_WIDTH = 208 // w-52
@@ -38,7 +40,7 @@ const SUBMENU_WIDTH = 260 // ข้อความแถวในเมนูย
  * รายการที่มี submenu กดแล้วกางเมนูย่อยออกทางขวาของแถวนั้น (พับทางซ้ายถ้าทางขวาไม่พอที่) แทนการเรียก onClick —
  * เมนูหลักยังเปิดค้างไว้ระหว่างเมนูย่อยเปิดอยู่ (กดนอกทั้งคู่ หรือเลือกรายการในเมนูย่อยถึงจะปิดทั้งหมด)
  */
-export function ActionMenu({ items, label, className }: ActionMenuProps) {
+export function ActionMenu({ items, label, className, iconClassName }: ActionMenuProps) {
     const pathname = usePathname()
     const [open, setOpen] = React.useState(false)
     const [position, setPosition] = React.useState<{ top: number; left: number } | null>(null)
@@ -176,7 +178,7 @@ export function ActionMenu({ items, label, className }: ActionMenuProps) {
                     className
                 )}
             >
-                <MoreVertical className="size-5" aria-hidden="true" />
+                <MoreVertical className={iconClassName ?? "size-5"} aria-hidden="true" />
             </button>
 
             {open && mounted && position &&

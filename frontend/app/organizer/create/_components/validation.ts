@@ -18,7 +18,17 @@ export function validateEventFields(event: EventFormState): EventFormErrors {
     return errors
 }
 
-export function validateActivityField(a: ActivityFormState, field: keyof ActivityFormErrors): string | undefined {
+/**
+ * isMultiActivity: งานประเภท "หลายกิจกรรมย่อย" (event.type !== "single") — เฉพาะตอนนั้นที่กิจกรรมสตาฟฟ์/จิตอาสา
+ * ใช้โหมดกรอกแบบ "1 บทบาทต่อแท็บ" (วันที่+เวลาปฏิบัติหน้าที่แทนวันเวลาเริ่ม/สิ้นสุดตรงๆ, สถานที่แทนตัวเลือกบทบาท/หน้าที่
+ * หลายรายการ) ดู activity-tab-form.tsx — โหมด "กิจกรรมเดี่ยว" ยังใช้ฟอร์มเดิมเป๊ะ เพราะอาจเป็นภารกิจยาวหลายวันได้
+ */
+export function validateActivityField(
+    a: ActivityFormState,
+    field: keyof ActivityFormErrors,
+    isMultiActivity: boolean
+): string | undefined {
+    const isNewRoleMode = a.registrationType === "staff_volunteer" && isMultiActivity
     switch (field) {
         case "name":
             return a.name.trim() ? undefined : "กรุณากรอกชื่อกิจกรรม"
@@ -38,10 +48,14 @@ export function validateActivityField(a: ActivityFormState, field: keyof Activit
             if (!a.capacityEnabled) return undefined
             return !a.capacity || parseInt(a.capacity) < 1 ? "กรุณาระบุจำนวนที่รับ" : undefined
         case "dutyRoleOptions":
-            if (a.registrationType !== "staff_volunteer") return undefined
+            // โหมดบทบาทต่อแท็บไม่เก็บฟิลด์นี้แล้ว (ช่องกรอกถูกแทนด้วยสถานที่) — บังคับกรอกเฉพาะฟอร์มเดิม (โหมดกิจกรรมเดี่ยว)
+            if (a.registrationType !== "staff_volunteer" || isNewRoleMode) return undefined
             return a.dutyRoleOptions.some((s) => s.trim())
                 ? undefined
                 : "กรุณาระบุตัวเลือกบทบาท/หน้าที่อย่างน้อย 1 รายการ"
+        case "dutyDate":
+            if (!isNewRoleMode) return undefined
+            return a.dutyDate ? undefined : "กรุณาระบุวันที่ปฏิบัติหน้าที่"
         case "dutyShiftRows":
             if (a.registrationType !== "staff_volunteer" || a.dutyShiftMode !== "shifts") return undefined
             if (a.dutyShiftRows.length === 0) return "กรุณาเพิ่มอย่างน้อย 1 กะ"
@@ -62,22 +76,22 @@ export function validateActivityField(a: ActivityFormState, field: keyof Activit
 
 export const ACTIVITY_FIELDS: (keyof ActivityFormErrors)[] = [
     "name", "categories", "description", "startAt", "endAt", "location", "capacity",
-    "dutyRoleOptions", "dutyShiftRows", "teamSizeMax",
+    "dutyRoleOptions", "dutyDate", "dutyShiftRows", "teamSizeMax",
 ]
 
-export function validateActivityFields(a: ActivityFormState): ActivityFormErrors {
+export function validateActivityFields(a: ActivityFormState, isMultiActivity: boolean): ActivityFormErrors {
     const errors: ActivityFormErrors = {}
     for (const field of ACTIVITY_FIELDS) {
-        const message = validateActivityField(a, field)
+        const message = validateActivityField(a, field, isMultiActivity)
         if (message) errors[field] = message
     }
     return errors
 }
 
-export function validateAllActivities(activities: ActivityFormState[]): Record<string, ActivityFormErrors> {
+export function validateAllActivities(activities: ActivityFormState[], isMultiActivity: boolean): Record<string, ActivityFormErrors> {
     const map: Record<string, ActivityFormErrors> = {}
     for (const a of activities) {
-        const errs = validateActivityFields(a)
+        const errs = validateActivityFields(a, isMultiActivity)
         if (Object.keys(errs).length > 0) map[a.key] = errs
     }
     return map

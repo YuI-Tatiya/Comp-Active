@@ -6,14 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { ArrowLeft, Loader2, Edit } from "lucide-react"
 import { activitiesAPI, eventsAPI, API_BASE_URL, type CreateEventActivityBody, type QuestionBody, type SurveyQuestionBody, type EventSummary } from "@/lib/api"
-import { buildDutyShiftOptions, deriveVolunteerRole, parseDutyShiftOptions } from "@/lib/duty-shift"
+import { buildDutyShiftOptions, deriveVolunteerRole, parseDutyShiftOptions, resolveDutyRoleOptions } from "@/lib/duty-shift"
 import { scrollToFirstError } from "@/components/ui/form-field"
 import { StepperSidebar, type StepMeta } from "../../../create/_components/stepper-sidebar"
 import { SectionEventBasics } from "../../../create/_components/section-1-event-basics"
 import { SectionActivities } from "../../../create/_components/section-2-activities"
 import { SectionSurvey } from "../../../create/_components/section-3-survey"
 import { SectionPublish } from "../../../create/_components/section-4-publish"
-import type { EventFormState, ActivityFormState, EventFormErrors, ActivityFormErrors } from "../../../create/_components/types"
+import { duplicateActivity, type EventFormState, type ActivityFormState, type EventFormErrors, type ActivityFormErrors } from "../../../create/_components/types"
 import {
     validateEventFields,
     validateAllActivities,
@@ -84,6 +84,9 @@ function activityToFormState(a: EventSummary["activities"][number]): ActivityFor
         attachmentUrl: a.attachmentUrl ?? null,
         startAt: a.startAt ? toLocalDatetimeValue(a.startAt) : "",
         endAt: a.endAt ? toLocalDatetimeValue(a.endAt) : "",
+        // ใช้เป็นค่าตั้งต้นของช่อง "วันที่ปฏิบัติหน้าที่" ในโหมดบทบาทต่อแท็บเท่านั้น (ดู activity-tab-form.tsx)
+        // กิจกรรมเดิมที่ปฏิบัติหน้าที่ข้ามวัน (startAt/endAt คนละวัน) ฟอร์มจะใช้ช่องวันเวลาเดิมแทนอัตโนมัติ ไม่เสียข้อมูล
+        dutyDate: a.startAt ? toLocalDatetimeValue(a.startAt).slice(0, 10) : "",
         location: a.location,
         capacityEnabled: a.capacity != null,
         capacity: a.capacity != null ? String(a.capacity) : "",
@@ -165,11 +168,12 @@ export default function EditEventPage() {
     }
 
     function handleActivityFieldBlur(key: string, field: keyof ActivityFormErrors, patch?: Partial<ActivityFormState>) {
+        if (!event) return
         const activity = activities.find((a) => a.key === key)
         if (!activity) return
         // patch: ค่าที่เพิ่งเปลี่ยนจาก onChange เดียวกัน (เช่น checkbox) — activities ใน state ยัง commit ไม่ทันตอนนี้
         const merged = patch ? { ...activity, ...patch } : activity
-        const errs = validateAllActivities([merged])[key] ?? {}
+        const errs = validateAllActivities([merged], event.type !== "single")[key] ?? {}
         setActivityErrors((prev) => ({ ...prev, [key]: { ...prev[key], [field]: errs[field] } }))
     }
 
@@ -187,6 +191,7 @@ export default function EditEventPage() {
             attachmentUrl: null,
             startAt: "",
             endAt: "",
+            dutyDate: "",
             location: "",
             capacityEnabled: false,
             capacity: "",
@@ -206,6 +211,18 @@ export default function EditEventPage() {
         }
         setActivities((prev) => [...prev, next])
         setActiveActivityKey(next.key)
+    }
+
+    /** ทำซ้ำกิจกรรมหนึ่งเป็นแท็บใหม่ — แทรกต่อท้ายกิจกรรมต้นฉบับทันที แล้วสลับไปแท็บสำเนาให้แก้ไขต่อได้เลย
+     *  duplicateActivity คืน ActivityFormState ล้วนๆ ไม่มี activityId ติดมา (ดูคอมเมนต์ที่ types.ts) —
+     *  สำเนาจึงเป็นกิจกรรม "ใหม่" เสมอ ต่อให้ทำซ้ำจากกิจกรรมเดิมที่มี activityId อยู่แล้วก็ตาม */
+    function handleDuplicateActivity(key: string) {
+        const source = activities.find((a) => a.key === key)
+        if (!source) return
+        const copy = duplicateActivity(source)
+        const sourceIndex = activities.findIndex((a) => a.key === key)
+        setActivities((prev) => [...prev.slice(0, sourceIndex + 1), copy, ...prev.slice(sourceIndex + 1)])
+        setActiveActivityKey(copy.key)
     }
 
     function handleRemoveActivity(key: string) {
@@ -238,7 +255,7 @@ export default function EditEventPage() {
                 setError("ต้องมีอย่างน้อย 1 กิจกรรม")
                 return
             }
-            const errsByKey = validateAllActivities(activities)
+            const errsByKey = validateAllActivities(activities, event.type !== "single")
             setActivityErrors(errsByKey)
             const total = Object.values(errsByKey).reduce((sum, e) => sum + countErrors(e), 0)
             if (total > 0) {
@@ -256,7 +273,7 @@ export default function EditEventPage() {
     async function handleSave() {
         if (!event) return
         const eventErrs = validateEventFields(event)
-        const activityErrsByKey = validateAllActivities(activities)
+        const activityErrsByKey = validateAllActivities(activities, event.type !== "single")
         setEventErrors(eventErrs)
         setActivityErrors(activityErrsByKey)
         const total = countErrors(eventErrs) + Object.values(activityErrsByKey).reduce((sum, e) => sum + countErrors(e), 0)
@@ -311,16 +328,18 @@ export default function EditEventPage() {
                     capacity: a.capacityEnabled ? parseInt(a.capacity) : undefined,
                     issueVolunteerCertificate:
                         (a.registrationType === "staff_volunteer" && a.certEnabled) || undefined,
+                    // โหมดบทบาทต่อแท็บ (isMultiActivity) ไม่เก็บ dutyRoleOptions แล้ว — ใช้ชื่อกิจกรรม (= ชื่อบทบาทนั้น) แทน
                     volunteerRole:
                         a.registrationType === "staff_volunteer" && a.certEnabled
-                            ? deriveVolunteerRole(a.dutyRoleOptions)
+                            ? deriveVolunteerRole(a.dutyRoleOptions) || a.name
                             : undefined,
                     softSkillRates: a.softSkillsEnabled
                         ? Object.entries(a.softSkillRates).map(([skillType, rate]) => ({ skillType, rate }))
                         : undefined,
                     questions,
                     registrationType: a.registrationType,
-                    dutyRoleOptions: a.registrationType === "staff_volunteer" ? a.dutyRoleOptions.filter(Boolean) : [],
+                    dutyRoleOptions:
+                        a.registrationType === "staff_volunteer" ? resolveDutyRoleOptions(a.dutyRoleOptions, a.name) : [],
                     dutyShiftOptions:
                         a.registrationType === "staff_volunteer"
                             ? buildDutyShiftOptions(a.dutyShiftMode, a.dutyShiftRows)
@@ -443,6 +462,7 @@ export default function EditEventPage() {
                                     onFieldBlur={handleActivityFieldBlur}
                                     onAdd={handleAddActivity}
                                     onRemove={handleRemoveActivity}
+                                    onDuplicate={handleDuplicateActivity}
                                 />
                             )}
                             {step === 3 && <SectionSurvey event={event} onChange={patchEvent} />}

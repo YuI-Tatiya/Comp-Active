@@ -13,7 +13,7 @@ import {
     type QuestionBody,
     type SurveyQuestionBody,
 } from "@/lib/api"
-import { buildDutyShiftOptions, deriveVolunteerRole } from "@/lib/duty-shift"
+import { buildDutyShiftOptions, deriveVolunteerRole, resolveDutyRoleOptions } from "@/lib/duty-shift"
 import { scrollToFirstError } from "@/components/ui/form-field"
 import { StepperSidebar, type StepMeta } from "./_components/stepper-sidebar"
 import { SectionEventBasics } from "./_components/section-1-event-basics"
@@ -25,6 +25,7 @@ import { serializeDraft, deserializeDraft } from "./_components/draft"
 import {
     createEmptyEvent,
     createEmptyActivity,
+    duplicateActivity,
     type EventFormState,
     type ActivityFormState,
     type EventFormErrors,
@@ -111,7 +112,7 @@ export default function CreateEventPage() {
         const activity = activities.find((a) => a.key === key)
         if (!activity) return
         // patch: ค่าที่เพิ่งเปลี่ยนจาก onChange เดียวกัน (เช่น checkbox) — activities ใน state ยัง commit ไม่ทันตอนนี้
-        const message = validateActivityField(patch ? { ...activity, ...patch } : activity, field)
+        const message = validateActivityField(patch ? { ...activity, ...patch } : activity, field, event.type !== "single")
         setActivityErrors((prev) => ({
             ...prev,
             [key]: { ...prev[key], [field]: message },
@@ -122,6 +123,16 @@ export default function CreateEventPage() {
         const next = createEmptyActivity(event.registrationType)
         setActivities((prev) => [...prev, next])
         setActiveActivityKey(next.key)
+    }
+
+    /** ทำซ้ำกิจกรรมหนึ่งเป็นแท็บใหม่ — แทรกต่อท้ายกิจกรรมต้นฉบับทันที แล้วสลับไปแท็บสำเนาให้แก้ไขต่อได้เลย */
+    function handleDuplicateActivity(key: string) {
+        const source = activities.find((a) => a.key === key)
+        if (!source) return
+        const copy = duplicateActivity(source)
+        const sourceIndex = activities.findIndex((a) => a.key === key)
+        setActivities((prev) => [...prev.slice(0, sourceIndex + 1), copy, ...prev.slice(sourceIndex + 1)])
+        setActiveActivityKey(copy.key)
     }
 
     function handleRemoveActivity(key: string) {
@@ -226,7 +237,7 @@ export default function CreateEventPage() {
                 setError("ต้องมีอย่างน้อย 1 กิจกรรม")
                 return
             }
-            const errsByKey = validateAllActivities(activities)
+            const errsByKey = validateAllActivities(activities, event.type !== "single")
             setActivityErrors(errsByKey)
             const total = Object.values(errsByKey).reduce((sum, e) => sum + countErrors(e), 0)
             if (total > 0) {
@@ -244,7 +255,7 @@ export default function CreateEventPage() {
 
     async function handleSubmit() {
         const eventErrs = validateEventFields(event)
-        const activityErrsByKey = validateAllActivities(activities)
+        const activityErrsByKey = validateAllActivities(activities, event.type !== "single")
         setEventErrors(eventErrs)
         setActivityErrors(activityErrsByKey)
         const total = countErrors(eventErrs) + Object.values(activityErrsByKey).reduce((sum, e) => sum + countErrors(e), 0)
@@ -304,16 +315,18 @@ export default function CreateEventPage() {
                     // ใบจิตอาสามีความหมายเฉพาะประเภทสตาฟฟ์/จิตอาสา — บทบาทบนใบอ้างอิงจาก dutyRoleOptions ไม่ใช่ฟิลด์แยก
                     issueVolunteerCertificate:
                         (a.registrationType === "staff_volunteer" && a.certEnabled) || undefined,
+                    // โหมดบทบาทต่อแท็บ (isMultiActivity) ไม่เก็บ dutyRoleOptions แล้ว — ใช้ชื่อกิจกรรม (= ชื่อบทบาทนั้น) แทน
                     volunteerRole:
                         a.registrationType === "staff_volunteer" && a.certEnabled
-                            ? deriveVolunteerRole(a.dutyRoleOptions)
+                            ? deriveVolunteerRole(a.dutyRoleOptions) || a.name
                             : undefined,
                     softSkillRates: a.softSkillsEnabled
                         ? Object.entries(a.softSkillRates).map(([skillType, rate]) => ({ skillType, rate }))
                         : undefined,
                     questions,
                     registrationType: a.registrationType,
-                    dutyRoleOptions: a.registrationType === "staff_volunteer" ? a.dutyRoleOptions.filter(Boolean) : [],
+                    dutyRoleOptions:
+                        a.registrationType === "staff_volunteer" ? resolveDutyRoleOptions(a.dutyRoleOptions, a.name) : [],
                     dutyShiftOptions:
                         a.registrationType === "staff_volunteer"
                             ? buildDutyShiftOptions(a.dutyShiftMode, a.dutyShiftRows)
@@ -459,6 +472,7 @@ export default function CreateEventPage() {
                                             onFieldBlur={handleActivityFieldBlur}
                                             onAdd={handleAddActivity}
                                             onRemove={handleRemoveActivity}
+                                            onDuplicate={handleDuplicateActivity}
                                         />
                                     )}
                                     {step === 3 && <SectionSurvey event={event} onChange={patchEvent} />}
