@@ -35,6 +35,7 @@ import { EventDraftService } from "../shared/events/event-draft.service";
 import { CreateEventDto } from "../shared/events/dto/create-event.dto";
 import { UpdateEventDto } from "../shared/events/dto/update-event.dto";
 import { SetEventPublicDto } from "../shared/events/dto/set-event-public.dto";
+import { SetActivityStatusDto } from "../shared/activities/dto/set-activity-status.dto";
 import { SaveEventDraftDto } from "../shared/events/dto/save-event-draft.dto";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
@@ -148,6 +149,20 @@ export class EventsOrganizerController {
     @Body() dto: SetEventPublicDto,
   ) {
     return this.eventsService.setPublic(userId, userRole, id, dto.isPublic);
+  }
+
+  /**
+   * PATCH /api/events/:id/activities-status - เปิด/ปิดรับสมัครกิจกรรมย่อยทั้งหมดในงานนี้ชั่วคราว (เจ้าของ / Admin)
+   */
+  @Patch(":id/activities-status")
+  @ApiOperation({ summary: "เปิด/ปิดรับสมัครกิจกรรมย่อยทั้งหมดในงานนี้ชั่วคราว (เจ้าของ / Admin)" })
+  async setActivitiesStatus(
+    @Param("id", ParseIntPipe) id: number,
+    @CurrentUser("id") userId: number,
+    @CurrentUser("role") userRole: UserRole,
+    @Body() dto: SetActivityStatusDto,
+  ) {
+    return this.eventsService.setActivitiesStatus(userId, userRole, id, dto.status);
   }
 
   /**

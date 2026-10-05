@@ -42,6 +42,8 @@ interface Props {
     errors: ActivityFormErrors
     /** กิจกรรมนี้เป็นส่วนหนึ่งของโครงการหลายกิจกรรมหรือไม่ — ใช้ปลดล็อกเพดาน Soft Skills ระดับสูงสุด (ดู maxSoftSkillLevel) */
     isProject?: boolean
+    /** งานประเภท "หลายกิจกรรมย่อย" (event.type !== "single") — กิจกรรมสตาฟฟ์/จิตอาสาในโหมดนี้ใช้ฟอร์ม "1 บทบาทต่อแท็บ" (ดู isNewRoleMode ด้านล่าง) */
+    isMultiActivity?: boolean
     onChange: (patch: Partial<ActivityFormState>) => void
     /**
      * patch: ใช้เมื่อเรียกจากตัว onChange เดียวกัน (เช่น checkbox หมวดหมู่) ไม่ใช่ event blur จริง —
@@ -59,12 +61,61 @@ function computeHoursPreview(startAt: string, endAt: string): string | null {
     return ((end.getTime() - start.getTime()) / (1000 * 60 * 60)).toFixed(2)
 }
 
-export function ActivityTabForm({ activity, errors, isProject, onChange, onFieldBlur }: Props) {
+/** รวมวันที่ + เวลา (HH:mm) เป็น <input type="datetime-local"> value — ว่างถ้าขาดอย่างใดอย่างหนึ่ง */
+function toDateTimeLocal(date: string, time: string): string {
+    return date && time ? `${date}T${time}` : ""
+}
+
+/**
+ * โหมดบทบาทต่อแท็บ: คำนวณ startAt/endAt จากวันที่ปฏิบัติหน้าที่ + เวลา — โหมดเดี่ยว (ไม่แบ่งกะ) ใช้แถวเดียวใน
+ * dutyShiftRows[0] เป็นที่เก็บเวลาเริ่ม/สิ้นสุด (ไม่ส่งไป backend เป็นกะจริง — buildDutyShiftOptions คืน [] เสมอตอน
+ * โหมด "single"); โหมดแบ่งกะใช้ช่วงรวมของทุกกะ (เร็วสุด-ช้าสุด)
+ */
+function computeDutyDates(dutyDate: string, mode: ActivityFormState["dutyShiftMode"], rows: ActivityFormState["dutyShiftRows"]): { startAt: string; endAt: string } {
+    if (!dutyDate) return { startAt: "", endAt: "" }
+    if (mode === "single") {
+        const row = rows[0]
+        if (!row?.startTime || !row?.endTime) return { startAt: "", endAt: "" }
+        return { startAt: toDateTimeLocal(dutyDate, row.startTime), endAt: toDateTimeLocal(dutyDate, row.endTime) }
+    }
+    const valid = rows.filter((r) => r.startTime && r.endTime)
+    if (valid.length === 0) return { startAt: "", endAt: "" }
+    const earliestStart = valid.reduce((min, r) => (r.startTime < min ? r.startTime : min), valid[0].startTime)
+    const latestEnd = valid.reduce((max, r) => (r.endTime > max ? r.endTime : max), valid[0].endTime)
+    return { startAt: toDateTimeLocal(dutyDate, earliestStart), endAt: toDateTimeLocal(dutyDate, latestEnd) }
+}
+
+export function ActivityTabForm({ activity, errors, isProject, isMultiActivity, onChange, onFieldBlur }: Props) {
     const hoursPreview = computeHoursPreview(activity.startAt, activity.endAt)
     const durationHours = hoursPreview ? parseFloat(hoursPreview) : null
     const softSkillCap = maxSoftSkillLevel(durationHours ?? 0, activity.registrationType, !!isProject)
     const selectedSkillCount = Object.keys(activity.softSkillRates).length
     const atMaxSkills = selectedSkillCount >= MAX_SOFT_SKILLS_PER_ACTIVITY
+
+    // งานปฏิบัติหน้าที่หลายวันจริง (กรอกมาก่อนหน้านี้ด้วยฟอร์มวันเวลาเต็ม) ยังต้องแก้ด้วยฟอร์มเดิมได้ —
+    // โหมดวันเดียว+เวลาปฏิบัติหน้าที่ใหม่รองรับได้แค่ "1 วัน" ไม่งั้นจะย่อช่วงวันที่ของจริงหายไปเงียบๆ ตอนบันทึก
+    const spansMultipleDays = !!activity.startAt && !!activity.endAt && activity.startAt.slice(0, 10) !== activity.endAt.slice(0, 10)
+    const isNewRoleMode = activity.registrationType === "staff_volunteer" && !!isMultiActivity && !spansMultipleDays
+    // งานประเภทแข่งขันแบบหลายประเภทการแข่งขัน — เปลี่ยนคำว่า "กิจกรรม" เป็น "การแข่งขัน" ในฟอร์ม (ดู SectionActivities)
+    const isContestantMultiMode = activity.registrationType === "contestant" && !!isMultiActivity
+
+    // โหมดบทบาทต่อแท็บ: วันที่เปลี่ยน/โหมดกะเปลี่ยน/เวลาในแถวเปลี่ยน → คำนวณ startAt/endAt ใหม่เสมอ
+    // ข้อมูลเดิมโหมด "single" ที่ยังไม่เคยมีแถวเวลา (แก้ไขกิจกรรมเก่าก่อนมีฟีเจอร์นี้) ดึงเวลาจาก startAt/endAt
+    // เดิมมาตั้งเป็นแถวแรกก่อน แทนที่จะคำนวณด้วยแถวว่างแล้วเคลียร์ค่าที่มีอยู่ทิ้ง
+    useEffect(() => {
+        if (!isNewRoleMode) return
+        if (activity.dutyShiftMode === "single" && activity.dutyShiftRows.length === 0 && activity.startAt && activity.endAt) {
+            const startTime = activity.startAt.slice(11, 16)
+            const endTime = activity.endAt.slice(11, 16)
+            if (startTime && endTime) {
+                onChange({ dutyShiftRows: [{ ...createEmptyShiftRow(), startTime, endTime }] })
+                return
+            }
+        }
+        const { startAt, endAt } = computeDutyDates(activity.dutyDate, activity.dutyShiftMode, activity.dutyShiftRows)
+        if (startAt !== activity.startAt || endAt !== activity.endAt) onChange({ startAt, endAt })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isNewRoleMode, activity.dutyDate, activity.dutyShiftMode, activity.dutyShiftRows, activity.startAt, activity.endAt])
 
     // เพดานลดลง (เช่น แก้วันเวลาให้สั้นลงทีหลัง) ต้องลดค่าที่เลือกไว้แล้วลงมาด้วย ไม่ปล่อยให้ค้างเกินเพดาน
     useEffect(() => {
@@ -108,7 +159,7 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
     return (
         <div className="space-y-8">
             <FormSection title="ข้อมูลกิจกรรม" first>
-                <FormField name="name" label="ชื่อกิจกรรม" required error={errors.name}>
+                <FormField name="name" label={isContestantMultiMode ? "ชื่อการแข่งขัน" : "ชื่อกิจกรรม"} required error={errors.name}>
                     <Input
                         value={activity.name}
                         onChange={(e) => onChange({ name: e.target.value })}
@@ -151,7 +202,7 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                     </div>
                 </FormField>
 
-                <FormField name="description" label="รายละเอียดกิจกรรม" required error={errors.description}>
+                <FormField name="description" label={isContestantMultiMode ? "รายละเอียดการแข่งขัน" : "รายละเอียดกิจกรรม"} required error={errors.description}>
                     <Textarea
                         value={activity.description}
                         onChange={(e) => onChange({ description: e.target.value })}
@@ -196,38 +247,42 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                 </div>
             </FormSection>
 
-            <FormSection title="วันเวลา/สถานที่">
-                <p className="text-sm text-fg-muted">ระบุวันเวลาเริ่มกิจกรรมและสิ้นสุดกิจกรรม</p>
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                    <FormField name="startAt" label="วันเวลาเริ่ม" required error={errors.startAt}>
-                        <Input
-                            type="datetime-local"
-                            value={activity.startAt}
-                            onChange={(e) => onChange({ startAt: e.target.value })}
-                            onBlur={() => onFieldBlur("startAt")}
-                            className={fieldInputClass(errors.startAt)}
-                        />
-                    </FormField>
-                    <FormField name="endAt" label="วันเวลาสิ้นสุด" required error={errors.endAt}>
-                        <Input
-                            type="datetime-local"
-                            value={activity.endAt}
-                            onChange={(e) => onChange({ endAt: e.target.value })}
-                            onBlur={() => onFieldBlur("endAt")}
-                            className={fieldInputClass(errors.endAt)}
-                        />
-                    </FormField>
-                </div>
+            {/* โหมดบทบาทต่อแท็บ (isNewRoleMode) ย้ายวันที่+เวลาไปรวมกับ "รูปแบบเวลาปฏิบัติหน้าที่" และสถานที่ไปแทนช่อง
+                ตัวเลือกบทบาท/หน้าที่ ในหัวข้อ "เงื่อนไขการรับสมัคร" ด้านล่างแทน — ดูเหตุผลที่ isNewRoleMode */}
+            {!isNewRoleMode && (
+                <FormSection title="วันเวลา/สถานที่">
+                    <p className="text-sm text-fg-muted">ระบุวันเวลาเริ่มกิจกรรมและสิ้นสุดกิจกรรม</p>
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <FormField name="startAt" label="วันเวลาเริ่ม" required error={errors.startAt}>
+                            <Input
+                                type="datetime-local"
+                                value={activity.startAt}
+                                onChange={(e) => onChange({ startAt: e.target.value })}
+                                onBlur={() => onFieldBlur("startAt")}
+                                className={fieldInputClass(errors.startAt)}
+                            />
+                        </FormField>
+                        <FormField name="endAt" label="วันเวลาสิ้นสุด" required error={errors.endAt}>
+                            <Input
+                                type="datetime-local"
+                                value={activity.endAt}
+                                onChange={(e) => onChange({ endAt: e.target.value })}
+                                onBlur={() => onFieldBlur("endAt")}
+                                className={fieldInputClass(errors.endAt)}
+                            />
+                        </FormField>
+                    </div>
 
-                <FormField name="location" label="สถานที่" required error={errors.location}>
-                    <Input
-                        value={activity.location}
-                        onChange={(e) => onChange({ location: e.target.value })}
-                        onBlur={() => onFieldBlur("location")}
-                        className={fieldInputClass(errors.location)}
-                    />
-                </FormField>
-            </FormSection>
+                    <FormField name="location" label="สถานที่" required error={errors.location}>
+                        <Input
+                            value={activity.location}
+                            onChange={(e) => onChange({ location: e.target.value })}
+                            onBlur={() => onFieldBlur("location")}
+                            className={fieldInputClass(errors.location)}
+                        />
+                    </FormField>
+                </FormSection>
+            )}
 
             <FormSection title="เงื่อนไขการรับสมัคร">
                 <div className="space-y-3">
@@ -289,21 +344,43 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
 
                     {activity.registrationType === "staff_volunteer" && (
                         <div className="space-y-4 rounded-lg border border-border bg-surface p-4">
-                            <FormField
-                                name="dutyRoleOptions"
-                                label="ตัวเลือกบทบาท/หน้าที่ (บรรทัดละ 1 ตัวเลือก)"
-                                required
-                                error={errors.dutyRoleOptions}
-                            >
-                                <Textarea
-                                    value={activity.dutyRoleOptions.join("\n")}
-                                    onChange={(e) => onChange({ dutyRoleOptions: splitLines(e.target.value) })}
-                                    onBlur={() => onFieldBlur("dutyRoleOptions")}
-                                    className={`min-h-[80px] ${fieldInputClass(errors.dutyRoleOptions)}`}
-                                    placeholder={"เช่น\nลงทะเบียนหน้างาน\nดูแลอุปกรณ์"}
-                                />
-                            </FormField>
+                            {isNewRoleMode ? (
+                                <FormField name="location" label="สถานที่" required error={errors.location}>
+                                    <Input
+                                        value={activity.location}
+                                        onChange={(e) => onChange({ location: e.target.value })}
+                                        onBlur={() => onFieldBlur("location")}
+                                        className={fieldInputClass(errors.location)}
+                                    />
+                                </FormField>
+                            ) : (
+                                <FormField
+                                    name="dutyRoleOptions"
+                                    label="ตัวเลือกบทบาท/หน้าที่ (บรรทัดละ 1 ตัวเลือก)"
+                                    required
+                                    error={errors.dutyRoleOptions}
+                                >
+                                    <Textarea
+                                        value={activity.dutyRoleOptions.join("\n")}
+                                        onChange={(e) => onChange({ dutyRoleOptions: splitLines(e.target.value) })}
+                                        onBlur={() => onFieldBlur("dutyRoleOptions")}
+                                        className={`min-h-[80px] ${fieldInputClass(errors.dutyRoleOptions)}`}
+                                        placeholder={"เช่น\nลงทะเบียนหน้างาน\nดูแลอุปกรณ์"}
+                                    />
+                                </FormField>
+                            )}
                             <div className="space-y-3">
+                                {isNewRoleMode && (
+                                    <FormField name="dutyDate" label="วันที่ปฏิบัติหน้าที่" required error={errors.dutyDate}>
+                                        <Input
+                                            type="date"
+                                            value={activity.dutyDate}
+                                            onChange={(e) => onChange({ dutyDate: e.target.value })}
+                                            onBlur={() => onFieldBlur("dutyDate")}
+                                            className={`max-w-[200px] ${fieldInputClass(errors.dutyDate)}`}
+                                        />
+                                    </FormField>
+                                )}
                                 <Label>รูปแบบเวลาปฏิบัติหน้าที่</Label>
                                 <div className="space-y-2">
                                     <label className="flex items-center gap-2 text-sm text-fg">
@@ -316,6 +393,37 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                                         />
                                         ตลอดทั้งกิจกรรม (ไม่แบ่งกะ)
                                     </label>
+                                    {isNewRoleMode && activity.dutyShiftMode === "single" && (
+                                        <div className="ml-6 flex flex-wrap items-end gap-3">
+                                            <div className="space-y-1">
+                                                <Label className="text-xs font-normal text-fg-muted">เวลาเริ่ม</Label>
+                                                <Input
+                                                    type="time"
+                                                    value={activity.dutyShiftRows[0]?.startTime ?? ""}
+                                                    onChange={(e) => {
+                                                        const row = activity.dutyShiftRows[0] ?? createEmptyShiftRow()
+                                                        onChange({ dutyShiftRows: [{ ...row, startTime: e.target.value }] })
+                                                    }}
+                                                    onBlur={() => onFieldBlur("startAt")}
+                                                    className="w-[120px]"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-xs font-normal text-fg-muted">เวลาสิ้นสุด</Label>
+                                                <Input
+                                                    type="time"
+                                                    value={activity.dutyShiftRows[0]?.endTime ?? ""}
+                                                    onChange={(e) => {
+                                                        const row = activity.dutyShiftRows[0] ?? createEmptyShiftRow()
+                                                        onChange({ dutyShiftRows: [{ ...row, endTime: e.target.value }] })
+                                                    }}
+                                                    onBlur={() => onFieldBlur("endAt")}
+                                                    className="w-[120px]"
+                                                />
+                                            </div>
+                                            {errors.endAt && <p className="text-xs text-danger">{errors.endAt}</p>}
+                                        </div>
+                                    )}
                                     <label className="flex items-center gap-2 text-sm text-fg">
                                         <input
                                             type="radio"
@@ -408,9 +516,13 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                                         <p>
                                             บทบาทบนใบรับรอง:{" "}
                                             <span className="font-bold text-fg">
-                                                {deriveVolunteerRole(activity.dutyRoleOptions) || "กรุณาระบุตัวเลือกบทบาท/หน้าที่ด้านบนก่อน"}
+                                                {isNewRoleMode
+                                                    ? activity.name || "กรุณาระบุชื่อบทบาท/หน้าที่ด้านบนก่อน"
+                                                    : deriveVolunteerRole(activity.dutyRoleOptions) || "กรุณาระบุตัวเลือกบทบาท/หน้าที่ด้านบนก่อน"}
                                             </span>{" "}
-                                            (อ้างอิงจากตัวเลือกบทบาท/หน้าที่ด้านบน ไม่ต้องกรอกซ้ำ)
+                                            {isNewRoleMode
+                                                ? "(อ้างอิงจากชื่อกิจกรรมด้านบน ไม่ต้องกรอกซ้ำ)"
+                                                : "(อ้างอิงจากตัวเลือกบทบาท/หน้าที่ด้านบน ไม่ต้องกรอกซ้ำ)"}
                                         </p>
                                         <p>
                                             ชั่วโมงจิตอาสาโดยประมาณ:{" "}
@@ -449,13 +561,17 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                                 </div>
                             </div>
                             {errors.teamSizeMax && <p className="text-xs text-danger">{errors.teamSizeMax}</p>}
-                            <FormField name="competitionCategoryOptions" label="ตัวเลือกประเภท/รุ่นการแข่งขัน (ถ้ามี, บรรทัดละ 1 ตัวเลือก)">
-                                <Textarea
-                                    value={activity.competitionCategoryOptions.join("\n")}
-                                    onChange={(e) => onChange({ competitionCategoryOptions: splitLines(e.target.value) })}
-                                    className="min-h-[80px]"
-                                />
-                            </FormField>
+                            {/* แต่ละแท็บ = 1 การแข่งขันอยู่แล้วในโหมดนี้ (isContestantMultiMode) ไม่ต้องมีตัวเลือกประเภท/รุ่นย่อยซ้อนอีกชั้น
+                                เหมือนกับที่ตัวเลือกบทบาท/หน้าที่ถูกตัดออกในโหมดบทบาทต่อแท็บ — โหมดกิจกรรมเดี่ยวยังมีช่องนี้ตามปกติ */}
+                            {!isContestantMultiMode && (
+                                <FormField name="competitionCategoryOptions" label="ตัวเลือกประเภท/รุ่นการแข่งขัน (ถ้ามี, บรรทัดละ 1 ตัวเลือก)">
+                                    <Textarea
+                                        value={activity.competitionCategoryOptions.join("\n")}
+                                        onChange={(e) => onChange({ competitionCategoryOptions: splitLines(e.target.value) })}
+                                        className="min-h-[80px]"
+                                    />
+                                </FormField>
+                            )}
                             <p className="text-xs text-fg-subtle">นักศึกษาจะกรอกชื่อทีมและลิงก์ผลงานตอนลงทะเบียน</p>
                         </div>
                     )}
@@ -510,7 +626,9 @@ export function ActivityTabForm({ activity, errors, isProject, onChange, onField
                             </p>
                             <p>
                                 {durationHours == null
-                                    ? "กรอกวันเวลาเริ่ม-สิ้นสุดในหัวข้อ \"วันเวลา/สถานที่\" ด้านบนก่อน เพื่อคำนวณระดับสูงสุดที่ปลดล็อกได้"
+                                    ? isNewRoleMode
+                                        ? "กรอกวันที่และเวลาปฏิบัติหน้าที่ในหัวข้อ \"เงื่อนไขการรับสมัคร\" ด้านบนก่อน เพื่อคำนวณระดับสูงสุดที่ปลดล็อกได้"
+                                        : "กรอกวันเวลาเริ่ม-สิ้นสุดในหัวข้อ \"วันเวลา/สถานที่\" ด้านบนก่อน เพื่อคำนวณระดับสูงสุดที่ปลดล็อกได้"
                                     : softSkillCap === 2
                                         ? `กิจกรรมนี้ (${durationHours} ชม.) ให้ได้สูงสุดระดับ "ผ่าน" — กิจกรรมที่ยาวขึ้นจะปลดล็อกระดับสูงกว่านี้`
                                         : softSkillCap === 3

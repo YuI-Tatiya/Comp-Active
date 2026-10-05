@@ -261,6 +261,19 @@ export class EventsService {
     return updated;
   }
 
+  /** เปิด/ปิดรับสมัครกิจกรรมย่อยทั้งหมดในงานนี้พร้อมกันชั่วคราว — ย้อนกลับได้ */
+  async setActivitiesStatus(organizerId: number, callerRole: UserRole, eventId: number, status: 'open' | 'closed') {
+    const event = await this.eventsRepository.findById(eventId);
+    if (!event) throw new NotFoundException('ไม่พบงาน');
+    if (callerRole !== UserRole.ADMIN && (event as any).organizerId !== organizerId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์แก้ไขสถานะงานนี้');
+    }
+
+    const result = await this.eventsRepository.updateActivitiesStatus(eventId, status);
+    this.logger.log(`Event activities status set to ${status}: "${event.name}" (ID: ${eventId}, ${result.count} activities)`);
+    return result;
+  }
+
   /** ลบงานทั้งงานพร้อมกิจกรรมย่อย — บล็อกถ้ามีกิจกรรมย่อยตัวใดตัวหนึ่งมีผู้ลงทะเบียนแล้ว */
   async delete(organizerId: number, callerRole: UserRole, eventId: number) {
     const event = await this.eventsRepository.findById(eventId);

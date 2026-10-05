@@ -32,6 +32,7 @@ import {
 import { ActivitiesService } from "../shared/activities/activities.service";
 import { CreateActivityDto } from "../shared/activities/dto/create-activity.dto";
 import { UpdateActivityDto } from "../shared/activities/dto/update-activity.dto";
+import { SetActivityStatusDto } from "../shared/activities/dto/set-activity-status.dto";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -130,6 +131,20 @@ export class ActivitiesOrganizerController {
     @CurrentUser("role") userRole: UserRole,
   ) {
     return this.activitiesService.duplicate(id, userId, userRole);
+  }
+
+  /**
+   * PATCH /api/activities/:id/status - เปิด/ปิดรับสมัครกิจกรรมชั่วคราว (เจ้าของ / Admin)
+   */
+  @Patch(":id/status")
+  @ApiOperation({ summary: "เปิด/ปิดรับสมัครกิจกรรมชั่วคราว (เจ้าของ / Admin)" })
+  async setStatus(
+    @Param("id", ParseIntPipe) id: number,
+    @CurrentUser("id") userId: number,
+    @CurrentUser("role") userRole: UserRole,
+    @Body() dto: SetActivityStatusDto,
+  ) {
+    return this.activitiesService.setStatus(id, userId, userRole, dto.status);
   }
 
   /**

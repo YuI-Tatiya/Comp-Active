@@ -269,6 +269,9 @@ export const activitiesAPI = {
     fetchAPI<Activity>(`/api/activities/${id}/complete`, { method: 'PATCH' }),
   /** คัดลอกกิจกรรมทั้งใบเป็นกิจกรรมใหม่ (ชื่อต่อท้ายด้วย "(สำเนา)") — ไม่คัดลอกผู้ลงทะเบียน */
   duplicate: (id: number) => fetchAPI<Activity>(`/api/activities/${id}/duplicate`, { method: 'POST' }),
+  /** เปิด/ปิดรับสมัครชั่วคราว — ย้อนกลับได้ คนละอย่างกับ markCompleted/requestCancel ที่เป็นถาวร */
+  setStatus: (id: number, status: 'open' | 'closed') =>
+    fetchAPI<Activity>(`/api/activities/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   getPlatformStats: () => fetchAPI<PlatformStats>('/api/activities/stats/platform'),
   getOrganizerStats: () => fetchAPI<OrganizerStats>('/api/activities/stats/organizer'),
   /** ผลสรุปแบบสำรวจของกิจกรรมเดี่ยว — โครงสร้างตรงกับ eventsAPI.getSurveyResults */
@@ -433,6 +436,12 @@ export const eventsAPI = {
   delete: (id: number) => fetchAPI<void>(`/api/events/${id}`, { method: 'DELETE' }),
   /** คัดลอกงานทั้งงานพร้อมกิจกรรมย่อยเป็นงานใหม่ (ชื่อต่อท้ายด้วย "(สำเนา)", ไม่เผยแพร่อัตโนมัติ) — ไม่คัดลอกผู้ลงทะเบียน */
   duplicate: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}/duplicate`, { method: 'POST' }),
+  /** เปิด/ปิดรับสมัครกิจกรรมย่อยทั้งหมดในงานนี้พร้อมกันชั่วคราว — ย้อนกลับได้ คนละอย่างกับ setPublic */
+  setActivitiesStatus: (id: number, status: 'open' | 'closed') =>
+    fetchAPI<{ count: number }>(`/api/events/${id}/activities-status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
   // ฉบับร่างของตัวช่วยสร้างงาน — คนละอย่างกับ Event จริง มีได้ทีละ 1 ฉบับต่อผู้จัด (บันทึกซ้ำ = ทับของเดิม)
   getDraft: () => fetchAPI<EventDraftResponse | null>('/api/events/draft'),
   saveDraft: (payload: unknown) =>

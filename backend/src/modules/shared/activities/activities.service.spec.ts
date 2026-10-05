@@ -377,3 +377,51 @@ describe('ActivitiesService.duplicate', () => {
     await expect(service.duplicate(5, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
   });
 });
+
+describe('ActivitiesService.setStatus', () => {
+  let service: ActivitiesService;
+  let activitiesRepo: { findById: jest.Mock; updateStatus: jest.Mock };
+
+  beforeEach(async () => {
+    activitiesRepo = {
+      findById: jest.fn().mockResolvedValue(makeActivity()),
+      updateStatus: jest.fn(),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: activitiesRepo },
+        { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
+        { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
+        { provide: MailService, useValue: {} },
+        { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+  });
+
+  it('closes registration for the owning organizer', async () => {
+    activitiesRepo.updateStatus.mockResolvedValue({ id: 5, status: 'closed', _count: { registrations: 0 } });
+    const result = await service.setStatus(5, 7, UserRole.ORGANIZER, 'closed');
+    expect(activitiesRepo.updateStatus).toHaveBeenCalledWith(5, 'closed');
+    expect(result.registeredCount).toBe(0);
+  });
+
+  it('reopens registration for the owning organizer', async () => {
+    activitiesRepo.updateStatus.mockResolvedValue({ id: 5, status: 'open', _count: { registrations: 0 } });
+    await service.setStatus(5, 7, UserRole.ORGANIZER, 'open');
+    expect(activitiesRepo.updateStatus).toHaveBeenCalledWith(5, 'open');
+  });
+
+  it('allows an admin who does not own the activity', async () => {
+    activitiesRepo.updateStatus.mockResolvedValue({ id: 5, _count: { registrations: 0 } });
+    await service.setStatus(5, 999, UserRole.ADMIN, 'closed');
+    expect(activitiesRepo.updateStatus).toHaveBeenCalledWith(5, 'closed');
+  });
+
+  it('throws ForbiddenException for a non-owning organizer', async () => {
+    await expect(service.setStatus(5, 999, UserRole.ORGANIZER, 'closed')).rejects.toThrow(ForbiddenException);
+    expect(activitiesRepo.updateStatus).not.toHaveBeenCalled();
+  });
+});

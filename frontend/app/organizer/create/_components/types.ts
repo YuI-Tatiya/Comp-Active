@@ -10,7 +10,7 @@ export type RegistrationType = "participant" | "staff_volunteer" | "contestant"
  *  กันไม่ให้งานเดียวมีกิจกรรมย่อยปนกันหลายรูปแบบ (เช่น กิจกรรมหนึ่งเป็นจิตอาสา อีกกิจกรรมเป็นแข่งขัน) */
 export const REGISTRATION_TYPE_OPTIONS: { value: RegistrationType; label: string; desc: string }[] = [
     { value: "participant", label: "ผู้เข้าร่วมทั่วไป", desc: "ลงทะเบียนเข้าร่วมกิจกรรมตามปกติ" },
-    { value: "staff_volunteer", label: "สตาฟฟ์ · จิตอาสา", desc: "ช่วยงานหรือปฏิบัติหน้าที่ในกิจกรรม" },
+    { value: "staff_volunteer", label: "ผู้สมัครจิตอาสา/สตาฟฟ์", desc: "สมัครเพื่อช่วยงานหรือปฏิบัติหน้าที่ในกิจกรรม" },
     { value: "contestant", label: "ผู้สมัครแข่งขัน", desc: "สมัครเพื่อเข้าแข่งขันในกิจกรรม" },
 ]
 
@@ -50,9 +50,12 @@ export interface ActivityFormState {
     attachmentName: string | null
     /** URL ไฟล์แนบที่อัปโหลดไปแล้ว (ถ้ามี) — ใช้ส่งซ้ำตอน submit เมื่อไม่ได้เลือกไฟล์ใหม่ (แก้ไขงานเดิม/ฉบับร่างที่อัปโหลดไว้ก่อนหน้า) */
     attachmentUrl: string | null
-    // <input type="datetime-local"> value
+    // <input type="datetime-local"> value — กิจกรรมทั่วไป/แข่งขันกรอกตรงๆ; สตาฟฟ์/จิตอาสาในโหมดหลายบทบาท (isMultiActivity)
+    // คำนวณจาก dutyDate + เวลาปฏิบัติหน้าที่ (dutyShiftMode/dutyShiftRows) แทน ดู deriveDutyDateTimes ใน activity-tab-form.tsx
     startAt: string
     endAt: string
+    /** เฉพาะสตาฟฟ์/จิตอาสาโหมดหลายบทบาท — วันที่ปฏิบัติหน้าที่ (<input type="date"> value) ใช้ร่วมกับ dutyShiftMode/dutyShiftRows คำนวณ startAt/endAt */
+    dutyDate: string
     location: string
     capacityEnabled: boolean
     capacity: string
@@ -117,6 +120,7 @@ export function createEmptyActivity(registrationType: RegistrationType = "partic
         attachmentUrl: null,
         startAt: "",
         endAt: "",
+        dutyDate: "",
         location: "",
         capacityEnabled: false,
         capacity: "",
@@ -135,10 +139,51 @@ export function createEmptyActivity(registrationType: RegistrationType = "partic
     }
 }
 
+/**
+ * คัดลอกกิจกรรมหนึ่งเป็นกิจกรรมใหม่ในฟอร์ม (ยังไม่ส่งไป backend) — ใช้ตอนกด "ทำซ้ำกิจกรรมเดิม" ที่แท็บ
+ * key ใหม่เสมอ (ใช้ตัวนับเดียวกับ createEmptyActivity กันชนกัน) และคัดลอกทีละฟิลด์ตรงๆ (ไม่ spread ทั้งก้อน)
+ * เพื่อไม่ให้ activityId ของกิจกรรมเดิม (หน้าแก้ไขงาน ขยาย ActivityFormState เพิ่มฟิลด์นี้) หลุดติดมาด้วย —
+ * สำเนาต้องเป็นกิจกรรม "ใหม่" ที่ยังไม่มีอยู่จริงใน DB เสมอ ต่อให้คัดลอกจากกิจกรรมที่มี activityId อยู่แล้วก็ตาม
+ * อาเรย์/ออบเจ็กต์คัดลอกเป็นชุดใหม่ (ไม่ใช้ reference เดิม) กันแก้ไขสำเนาแล้วกระทบต้นฉบับโดยไม่ตั้งใจ —
+ * ส่วน imageFile/attachmentFile (เป็น File ของเบราว์เซอร์) ใช้ reference เดิมได้ปลอดภัย เพราะ File ไม่ถูกแก้ไขซ้ำ
+ */
+export function duplicateActivity(source: ActivityFormState): ActivityFormState {
+    activityKeySeq += 1
+    return {
+        key: `activity-${Date.now()}-${activityKeySeq}`,
+        name: source.name,
+        description: source.description,
+        categories: [...source.categories],
+        imageFile: source.imageFile,
+        imagePreview: source.imagePreview,
+        attachmentFile: source.attachmentFile,
+        attachmentName: source.attachmentName,
+        attachmentUrl: source.attachmentUrl,
+        startAt: source.startAt,
+        endAt: source.endAt,
+        dutyDate: source.dutyDate,
+        location: source.location,
+        capacityEnabled: source.capacityEnabled,
+        capacity: source.capacity,
+        certEnabled: source.certEnabled,
+        softSkillsEnabled: source.softSkillsEnabled,
+        softSkillRates: { ...source.softSkillRates },
+        questionsEnabled: source.questionsEnabled,
+        questions: source.questions.map((q) => ({ ...q, options: q.options ? [...q.options] : q.options })),
+        registrationType: source.registrationType,
+        dutyRoleOptions: [...source.dutyRoleOptions],
+        dutyShiftMode: source.dutyShiftMode,
+        dutyShiftRows: source.dutyShiftRows.map((r) => ({ ...r })),
+        teamSizeMin: source.teamSizeMin,
+        teamSizeMax: source.teamSizeMax,
+        competitionCategoryOptions: [...source.competitionCategoryOptions],
+    }
+}
+
 export type EventFormErrors = Partial<Record<"name" | "description", string>>
 
 export type ActivityFormErrors = Partial<Record<
     "name" | "categories" | "description" | "startAt" | "endAt" | "location" | "capacity"
-    | "dutyRoleOptions" | "dutyShiftRows" | "teamSizeMax",
+    | "dutyRoleOptions" | "dutyDate" | "dutyShiftRows" | "teamSizeMax",
     string
 >>

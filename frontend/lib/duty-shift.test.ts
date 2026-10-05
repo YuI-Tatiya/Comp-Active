@@ -5,6 +5,7 @@ import {
     parseDutyShiftOptions,
     formatDutyShift,
     deriveVolunteerRole,
+    resolveDutyRoleOptions,
     type DutyShiftRow,
 } from "./duty-shift.ts"
 
@@ -90,5 +91,27 @@ describe("deriveVolunteerRole", () => {
 
     test("ไม่มีตัวเลือกเลย → string ว่าง", () => {
         assert.equal(deriveVolunteerRole([]), "")
+    })
+})
+
+describe("resolveDutyRoleOptions", () => {
+    test("มีตัวเลือกกรอกไว้แล้ว (โหมดกิจกรรมเดี่ยว) → ใช้ค่านั้นตามปกติ ไม่สนชื่อกิจกรรม", () => {
+        assert.deepEqual(resolveDutyRoleOptions(["ลงทะเบียนหน้างาน", "ดูแลอุปกรณ์"], "ฝ่ายทั่วไป"), ["ลงทะเบียนหน้างาน", "ดูแลอุปกรณ์"])
+    })
+
+    test("ไม่มีตัวเลือก (โหมด 1 บทบาทต่อแท็บ) → ใช้ชื่อกิจกรรมเป็นตัวเลือกเดียว ให้ backend ที่บังคับอย่างน้อย 1 รายการผ่าน", () => {
+        assert.deepEqual(resolveDutyRoleOptions([], "ฝ่ายลงทะเบียน"), ["ฝ่ายลงทะเบียน"])
+    })
+
+    test("ตัวเลือกกรอกไว้แต่เป็นค่าว่าง/เว้นวรรคล้วน → fallback ไปใช้ชื่อกิจกรรมเหมือนไม่มีตัวเลือกเลย", () => {
+        assert.deepEqual(resolveDutyRoleOptions(["", "   "], "ฝ่ายลงทะเบียน"), ["ฝ่ายลงทะเบียน"])
+    })
+
+    test("ไม่มีทั้งตัวเลือกและชื่อกิจกรรม → อาเรย์ว่าง (validation ชั้นอื่นต้องกันไม่ให้ submit ถึงจุดนี้อยู่แล้ว)", () => {
+        assert.deepEqual(resolveDutyRoleOptions([], ""), [])
+    })
+
+    test("ตัดช่องว่างหัวท้ายชื่อกิจกรรมตอนใช้เป็น fallback", () => {
+        assert.deepEqual(resolveDutyRoleOptions([], "  ฝ่ายลงทะเบียน  "), ["ฝ่ายลงทะเบียน"])
     })
 })

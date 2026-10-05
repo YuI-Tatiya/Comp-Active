@@ -125,12 +125,12 @@ async function bootstrap() {
   }
 
   await app.listen(port);
-  logger.log(`🚀 Server running on http://localhost:${port}`);
+  logger.log(`Server running on http://localhost:${port}`);
   if (configService.get<string>("NODE_ENV") !== "production") {
-    logger.log(`📖 Swagger docs: http://localhost:${port}/api`);
+    logger.log(`Swagger docs: http://localhost:${port}/api`);
   }
   logger.log(
-    `🌐 CORS enabled for: ${[frontendUrl, adminFrontendUrl].filter(Boolean).join(", ")}`,
+    `CORS enabled for: ${[frontendUrl, adminFrontendUrl].filter(Boolean).join(", ")}`,
   );
 }
 

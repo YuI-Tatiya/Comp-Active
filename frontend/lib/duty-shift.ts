@@ -60,3 +60,15 @@ export function parseDutyShiftOptions(options: string[]): { mode: DutyShiftMode;
 export function deriveVolunteerRole(dutyRoleOptions: string[]): string {
     return dutyRoleOptions.map((s) => s.trim()).filter(Boolean).join(" / ")
 }
+
+/**
+ * ตัวเลือกบทบาท/หน้าที่ที่จะส่งไป backend — โหมด "1 บทบาทต่อแท็บ" (isNewRoleMode ใน activity-tab-form.tsx)
+ * ไม่มีช่องกรอกรายการนี้แล้ว (ถูกแทนด้วยสถานที่) แต่ backend ยังต้องมีอย่างน้อย 1 รายการเสมอสำหรับกิจกรรม
+ * staff_volunteer (ใช้เป็นตัวเลือกตอนนักศึกษาลงทะเบียน) — ใช้ชื่อกิจกรรม (= ชื่อบทบาทนั้นเอง) เป็นตัวเลือกเดียวแทน
+ * กิจกรรมเดิม (โหมดกิจกรรมเดี่ยว) ที่ยังกรอกผ่านช่องเดิมอยู่ ใช้ค่าที่กรอกไว้ตามปกติ ไม่เปลี่ยนพฤติกรรม
+ */
+export function resolveDutyRoleOptions(dutyRoleOptions: string[], activityName: string): string[] {
+    const explicit = dutyRoleOptions.map((s) => s.trim()).filter(Boolean)
+    if (explicit.length > 0) return explicit
+    return activityName.trim() ? [activityName.trim()] : []
+}

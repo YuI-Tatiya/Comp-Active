@@ -2,8 +2,8 @@
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { ActivityTabForm } from "./activity-tab-form"
-import { Plus, X } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu"
+import { Plus, Copy, Trash2 } from "lucide-react"
 import type { ActivityFormState, ActivityFormErrors } from "./types"
 
 interface Props {
@@ -16,6 +16,7 @@ interface Props {
     onFieldBlur: (key: string, field: keyof ActivityFormErrors, patch?: Partial<ActivityFormState>) => void
     onAdd: () => void
     onRemove: (key: string) => void
+    onDuplicate: (key: string) => void
 }
 
 export function SectionActivities({
@@ -28,10 +29,14 @@ export function SectionActivities({
     onFieldBlur,
     onAdd,
     onRemove,
+    onDuplicate,
 }: Props) {
     // "ทำโครงการ" สำหรับปลดล็อกเพดาน Soft Skills ระดับสูง — ต้องตรงกับ isProject ฝั่ง backend
     // (EventsService.create/update ใช้ dto.activities.length > 1 เป๊ะ)
     const isProject = activities.length > 1
+    // registrationType เลือกครั้งเดียวระดับงาน เหมือนกันทุกกิจกรรมย่อยเสมอ — เช็คจากตัวแรกตัวเดียวพอ
+    const isStaffVolunteer = activities[0]?.registrationType === "staff_volunteer"
+    const isContestant = activities[0]?.registrationType === "contestant"
 
     if (isSingleMode) {
         const a = activities[0]
@@ -48,6 +53,7 @@ export function SectionActivities({
                     activity={a}
                     errors={errorsByKey[a.key] ?? {}}
                     isProject={isProject}
+                    isMultiActivity={false}
                     onChange={(patch) => onChangeActivity(a.key, patch)}
                     onFieldBlur={(field, patch) => onFieldBlur(a.key, field, patch)}
                 />
@@ -58,9 +64,15 @@ export function SectionActivities({
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-lg font-bold text-fg">กิจกรรมย่อยในงานนี้</h2>
+                <h2 className="text-lg font-bold text-fg">
+                    {isStaffVolunteer ? "บทบาทหน้าที่" : isContestant ? "ประเภทการแข่งขันในงานนี้" : "กิจกรรมย่อยในงานนี้"}
+                </h2>
                 <p className="mt-1 text-sm text-fg-muted">
-                    งานหนึ่งมีได้หลายกิจกรรม แต่ละกิจกรรมมีเวลาและเงื่อนไขของตัวเอง
+                    {isStaffVolunteer
+                        ? "บทบาทหน้าที่ ที่จะเปิดรับสมัคร"
+                        : isContestant
+                            ? "งานหนึ่งมีได้หลายประเภทการแข่งขัน แต่ละการแข่งขันมีเวลาและเงื่อนไขของตัวเอง"
+                            : "งานหนึ่งมีได้หลายกิจกรรม แต่ละกิจกรรมมีเวลาและเงื่อนไขของตัวเอง"}
                 </p>
             </div>
 
@@ -72,27 +84,32 @@ export function SectionActivities({
                 <TabsList className="h-auto w-full flex-nowrap items-center justify-start gap-1 overflow-x-auto bg-surface p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {activities.map((a, i) => {
                         const hasError = Object.values(errorsByKey[a.key] ?? {}).some(Boolean)
+                        const itemLabel = isStaffVolunteer ? "บทบาท/หน้าที่" : isContestant ? "การแข่งขัน" : "กิจกรรม"
+                        const menuItems: ActionMenuItem[] = [
+                            { label: "ทำซ้ำกิจกรรมเดิม", icon: Copy, onClick: () => onDuplicate(a.key) },
+                            { label: "เพิ่มกิจกรรม", icon: Plus, onClick: onAdd },
+                            {
+                                label: `ลบ${itemLabel}นี้`,
+                                icon: Trash2,
+                                tone: "danger",
+                                disabled: activities.length <= 1,
+                                onClick: () => onRemove(a.key),
+                            },
+                        ]
                         return (
                             <div key={a.key} className="relative shrink-0">
-                                <TabsTrigger value={a.key} className={cn("whitespace-nowrap", activities.length > 1 && "pr-7")}>
+                                <TabsTrigger value={a.key} className="whitespace-nowrap pr-7">
                                     {hasError && (
                                         <span className="mr-1.5 inline-block size-1.5 rounded-full bg-danger" aria-label="มีข้อมูลที่ต้องกรอกให้ครบถ้วน" />
                                     )}
-                                    {`กิจกรรมที่ ${i + 1}`}{a.name ? `: ${a.name}` : ""}
+                                    {isStaffVolunteer ? `บทบาท/หน้าที่ ${i + 1}` : isContestant ? `การแข่งขันที่ ${i + 1}` : `กิจกรรมที่ ${i + 1}`}{a.name ? `: ${a.name}` : ""}
                                 </TabsTrigger>
-                                {activities.length > 1 && (
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            onRemove(a.key)
-                                        }}
-                                        aria-label="ลบกิจกรรมนี้"
-                                        className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-fg-subtle hover:bg-danger-bg hover:text-danger"
-                                    >
-                                        <X className="size-3" />
-                                    </button>
-                                )}
+                                <ActionMenu
+                                    items={menuItems}
+                                    label={`ตัวเลือกของ${itemLabel} ${i + 1}`}
+                                    className="absolute right-1 top-1/2 size-6 -translate-y-1/2 border-0 bg-transparent p-0 text-fg-subtle shadow-none hover:bg-surface-2 hover:text-fg"
+                                    iconClassName="size-3.5"
+                                />
                             </div>
                         )
                     })}
@@ -112,6 +129,7 @@ export function SectionActivities({
                             activity={a}
                             errors={errorsByKey[a.key] ?? {}}
                             isProject={isProject}
+                            isMultiActivity
                             onChange={(patch) => onChangeActivity(a.key, patch)}
                             onFieldBlur={(field, patch) => onFieldBlur(a.key, field, patch)}
                         />

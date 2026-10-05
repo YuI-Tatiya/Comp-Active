@@ -8,7 +8,8 @@ const LINKS: AppNavLink[] = [
   { href: "/organizer", label: "หน้าหลัก", exact: true },
   { href: "/organizer/manage", label: "จัดการกิจกรรม" },
   { href: "/organizer/dashboard", label: "แดชบอร์ด" },
-  { href: "/organizer/soft-skills", label: "เกณฑ์ประเมินทักษะ" },
+  // ซ่อนออกจากเมนูหลัก — หน้า /organizer/soft-skills ยังอยู่ปกติ เข้าถึงได้จากลิงก์ "ดูเกณฑ์การประเมินแต่ละระดับ"
+  // ในวิซาร์ดสร้างงาน/หน้าประเมินรายฝ่าย/อนุมัติผล (SoftSkillRubricLink) ซึ่งน่าจะตรงบริบทกว่าวางไว้แยกบนเมนูหลัก
   { href: "/organizer/about", label: "เกี่ยวกับเรา" },
 ]
 

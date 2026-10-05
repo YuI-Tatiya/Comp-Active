@@ -195,7 +195,7 @@ export function SectionPublish({ event, activities, onChangeEvent }: Props) {
                                 {a.registrationType === "staff_volunteer" && a.certEnabled && (
                                     <div className="flex items-center gap-2">
                                         <Award className="size-3.5 shrink-0" />
-                                        ออกใบจิตอาสา — {deriveVolunteerRole(a.dutyRoleOptions) || "-"}
+                                        ออกใบจิตอาสา — {deriveVolunteerRole(a.dutyRoleOptions) || a.name || "-"}
                                     </div>
                                 )}
                             </div>

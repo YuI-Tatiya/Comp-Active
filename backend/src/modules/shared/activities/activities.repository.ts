@@ -292,6 +292,15 @@ export class ActivitiesRepository {
     return this.prisma.activity.count();
   }
 
+  /** เปิด/ปิดรับสมัครชั่วคราว ย้อนกลับได้ — คนละอย่างกับ markCompleted/cancelByOrganizer ที่เป็นถาวร */
+  updateStatus(activityId: number, status: 'open' | 'closed') {
+    return this.prisma.activity.update({
+      where: { id: activityId },
+      data: { status: status as any },
+      include: { ...activityInclude, _count: { select: { registrations: true } } },
+    });
+  }
+
   /** ปิดกิจกรรมแบบ "จบแล้ว" — ต่างจาก cancelByOrganizer ตรงที่ไม่ใช่การยกเลิก */
   markCompleted(activityId: number) {
     return this.prisma.activity.update({
