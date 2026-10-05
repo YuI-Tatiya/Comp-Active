@@ -33,22 +33,26 @@ interface EventCardBadgeProps {
     variant?: "solid" | "light" | "glass"
     /** สีพื้นสำหรับ variant solid/glass เช่น "bg-success/90" หรือ "bg-success/75" */
     className?: string
+    /** จุดสีหน้าข้อความสำหรับ variant glass เช่น "bg-success" — ไม่ส่งมาก็ไม่มีจุด */
+    dotClassName?: string
     children: React.ReactNode
 }
 
 export function EventCardBadge({
     variant = "solid",
     className,
+    dotClassName,
     children,
 }: EventCardBadgeProps) {
     if (variant === "glass") {
         return (
             <span
                 className={cn(
-                    "rounded-full border border-white/20 bg-fg/60 px-2.5 py-1 text-xs font-medium text-white shadow-sm backdrop-blur-md",
+                    "inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-fg/60 px-2.5 py-1 text-xs font-medium text-white shadow-sm backdrop-blur-md",
                     className
                 )}
             >
+                {dotClassName && <span className={cn("size-1.5 shrink-0 rounded-full", dotClassName)} aria-hidden="true" />}
                 {children}
             </span>
         )
@@ -160,12 +164,13 @@ interface EventCardProps {
 /**
  * การ์ดกิจกรรม — ใช้ร่วมกันทุกหน้าที่แสดงรายการกิจกรรม
  *
- * ขนาดตายตัว ทุกการ์ดทั้งเว็บไซต์เท่ากันหมด: กว้างตามช่องที่ห่อ (`EVENT_CARD_SLOT` = 288px) สูง `EVENT_CARD_HEIGHT` (380px)
+ * ขนาดตายตัว ทุกการ์ดทั้งเว็บไซต์เท่ากันหมด: กว้างตามช่องที่ห่อ (`EVENT_CARD_SLOT` = 320px) สูง `EVENT_CARD_HEIGHT` (420px)
  * ชื่อ/คำอธิบายจึงถูกตัดที่ปลายบรรทัด ไม่ยืดการ์ด — ชื่อสำรองที่ไว้ 2 บรรทัดเสมอเพื่อให้เนื้อหาถัดไปเริ่มที่ระดับเดียวกัน
  *
- * ข้อจำกัดของส่วนท้าย (`children` แถวข้อมูล / `actions` ปุ่ม): การ์ดตัดส่วนที่เกินทิ้ง ไม่ดันขยาย
- * งบที่เหลือตอนมีคำอธิบาย 2 บรรทัดอยู่ด้วย ≈ 65px (ปุ่ม 1 แถว) และตอนไม่มีคำอธิบายราว 100px (แถวข้อมูลได้ไม่เกิน 2 แถว)
- * ถ้าจะใส่มากกว่านี้ให้เพิ่มความสูงที่ event-card-layout.ts ไม่ใช่ปล่อยให้ล้น
+ * ข้อจำกัดของส่วนท้าย (`children` แถวข้อมูล / `actions` ปุ่ม): การ์ดตัดส่วนที่เกินทิ้ง ไม่ดันขยาย แต่ก็ไม่เตือนด้วย —
+ * ถ้าเนื้อหารวมเกินงบ บรรทัดสุดท้ายของคำอธิบาย (line-clamp) จะถูกบีบจนอ่านไม่ได้แทนที่จะล้นออกมาให้เห็นชัดๆ
+ * งบที่เหลือตอนมีคำอธิบาย 2 บรรทัดอยู่ด้วย ≈ 105px และตอนไม่มีคำอธิบายราว 140px (แถวข้อมูลได้ไม่เกิน 2 แถว)
+ * ถ้าจะใส่มากกว่านี้ให้เพิ่มความสูงที่ event-card-layout.ts ไม่ใช่ปล่อยให้ล้น/บีบ
  */
 export function EventCard({
     activity,

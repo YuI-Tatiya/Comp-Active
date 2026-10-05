@@ -24,10 +24,13 @@ import {
     Layers,
     Pencil,
     Eye,
+    EyeOff,
     ToggleLeft,
+    ToggleRight,
+    PauseCircle,
+    Share2,
     Trash2,
     FileEdit,
-    Copy,
     ClipboardList,
     CalendarDays,
     User,
@@ -82,12 +85,12 @@ function statusBucket(w: RegistrationWindow, now: Date): StatusBucket {
 }
 
 /** สถานะการอนุมัติของกิจกรรมย่อย — ตรงกับ ApprovalStatus ใน backend/prisma/schema.prisma */
-const APPROVAL_META: Record<string, { label: string; className: string }> = {
-    approved: { label: "อนุมัติแล้ว", className: "bg-success/75" },
-    pending_approval: { label: "รออนุมัติ", className: "bg-warning/75" },
-    cancelled: { label: "ยกเลิกแล้ว", className: "bg-danger/75" },
+const APPROVAL_META: Record<string, { label: string; className: string; dotClassName: string }> = {
+    approved: { label: "อนุมัติแล้ว", className: "bg-success/75", dotClassName: "bg-success" },
+    pending_approval: { label: "รออนุมัติ", className: "bg-warning/75", dotClassName: "bg-warning" },
+    cancelled: { label: "ยกเลิกแล้ว", className: "bg-danger/75", dotClassName: "bg-danger" },
     // ค่าเก่าก่อนแยก enum — backend ไม่เขียนค่านี้อีกแล้วแต่คงไว้เผื่อข้อมูลเก่า
-    rejected: { label: "ยกเลิกแล้ว", className: "bg-danger/75" },
+    rejected: { label: "ยกเลิกแล้ว", className: "bg-danger/75", dotClassName: "bg-danger" },
 }
 
 function eventHasRegistrations(ev: EventSummary): boolean {
@@ -124,21 +127,20 @@ function activitySeatsLabel(a: Activity): string {
 }
 
 /**
- * แถววันที่ + ยอดลงทะเบียน รวมไว้แถวเดียว (2 กลุ่มไอคอนในกล่องเดียว ไม่ใช่ EventCardRow 2 ชิ้นซ้อนกัน) —
- * ลองแยกเป็น 2 แถวเต็มแล้วเจอว่าล้นกรอบการ์ดจริง (วัดจาก scrollHeight ตอนทดสอบ, EVENT_CARD_HEIGHT ตายตัว 380px)
- * รูปแบบนี้ให้ข้อมูลครบเหมือนเดิมแต่กินพื้นที่แค่แถวเดียว
+ * แถววันที่ + ยอดลงทะเบียน — 2 แถวแยกแบบข้อความเปล่า ไม่มีกล่องพื้นหลัง (ตามภาพอ้างอิงที่ผู้ใช้ส่งมา)
+ * มีเส้นคั่นบางๆ ใต้แถวสุดท้ายก่อนถึงปุ่ม ที่ EVENT_CARD_HEIGHT 420px พอมีที่ให้ 2 แถวนี้แล้ว (เดิม 380px ไม่พอ)
  */
 function CardInfoRow({ dateLabel, seatsLabel }: { dateLabel: string; seatsLabel: string }) {
     return (
-        <div className="flex items-center gap-4 rounded-lg bg-surface px-3 py-2 text-sm font-medium text-fg-muted">
-            <span className="flex min-w-0 items-center gap-1.5">
-                <CalendarDays className="size-4 shrink-0 text-brand-500" aria-hidden="true" />
+        <div className="space-y-1.5 border-b border-border pb-2.5">
+            <div className="flex items-center gap-2 text-xs text-fg-muted">
+                <CalendarDays className="size-3.5 shrink-0 text-fg-subtle" aria-hidden="true" />
                 <span className="truncate">{dateLabel}</span>
-            </span>
-            <span className="flex min-w-0 items-center gap-1.5">
-                <User className="size-4 shrink-0 text-fg-subtle" aria-hidden="true" />
+            </div>
+            <div className="flex items-center gap-2 text-xs text-fg-muted">
+                <User className="size-3.5 shrink-0 text-fg-subtle" aria-hidden="true" />
                 <span className="truncate">{seatsLabel}</span>
-            </span>
+            </div>
         </div>
     )
 }
@@ -189,11 +191,10 @@ function compareBySort(sort: string, a: SortableFields, b: SortableFields): numb
  * เป็นก้อนเดียว ไม่แยกเป็น "สิ้นสุดไปแล้ว"/"จบไปแล้ว" สองแท็บเหมือนที่เคยลองทำ — ดู matchesStatusFilter
  */
 const STATUS_TABS: { value: string; label: string }[] = [
-    { value: "", label: "ทั้งหมด" },
-    { value: "draft", label: "ฉบับร่าง" },
     { value: "open", label: "กำลังเปิดรับสมัคร" },
     { value: "closed", label: "ปิดรับสมัคร" },
-    { value: "completed", label: "จบแล้ว" },
+    { value: "completed", label: "กิจกรรมจบแล้ว" },
+    { value: "draft", label: "ฉบับร่าง" },
 ]
 
 /** แท็บ "จบแล้ว" ครอบคลุมทั้ง completed และ cancelled — ดูหมายเหตุที่ STATUS_TABS */
@@ -249,7 +250,9 @@ const FILTERS: FilterSpec[] = [
 ]
 
 const INITIAL_VALUES: Record<string, string> = {
-    status: "",
+    // ไม่มีแท็บ "ทั้งหมด" แล้ว (ดู STATUS_TABS) ค่าเริ่มต้นจึงต้องเป็นแท็บแรกจริงๆ ไม่ใช่ "" เฉยๆ
+    // ไม่งั้นตอนโหลดหน้าครั้งแรก/กดล้างตัวกรอง จะไม่มีแท็บไหนถูกไฮไลต์ว่าเลือกอยู่เลย
+    status: "open",
     visibility: "",
     category: "",
     cert: "",
@@ -262,6 +265,18 @@ type DeleteTarget =
     | { kind: "activity"; id: number; name: string }
     | { kind: "draft"; name: string }
 
+/**
+ * ยืนยันก่อนเปิด/ปิดรับสมัคร — คนละอันกับ DeleteTarget/ConfirmDialog ตัวแรก (นั่นไว้เฉพาะลบ)
+ * เก็บเป็น title/description/confirmLabel/run ตรงๆ แทนการทำ discriminated union ตามชนิดแอ็กชัน
+ * เพราะมีหลายรูปแบบ (ปิดชั่วคราว/ปิดถาวร/เปิด × งาน/กิจกรรมเดี่ยว) ข้อความแต่ละอันต่างกันพอสมควร
+ */
+interface StatusConfirm {
+    title: string
+    description: string
+    confirmLabel: string
+    run: () => Promise<void>
+}
+
 /** หน้าจัดการกิจกรรมของผู้จัด — แสดงเป็น "งาน" (Event) พร้อมกิจกรรมย่อย, และกิจกรรมเดี่ยวรุ่นเก่าแยกไว้ด้านล่าง */
 export default function OrganizerManagePage() {
     const router = useRouter()
@@ -273,6 +288,8 @@ export default function OrganizerManagePage() {
     const [values, setValues] = useState<Record<string, string>>(INITIAL_VALUES)
     const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
     const [deleting, setDeleting] = useState(false)
+    const [statusConfirm, setStatusConfirm] = useState<StatusConfirm | null>(null)
+    const [statusActing, setStatusActing] = useState(false)
 
     useEffect(() => {
         loadData()
@@ -404,15 +421,6 @@ export default function OrganizerManagePage() {
         return counts
     }, [events, standaloneActivities, draft])
 
-    async function toggleEventPublic(ev: EventSummary) {
-        try {
-            await eventsAPI.setPublic(ev.id, !ev.isPublic)
-            loadData()
-        } catch (err: unknown) {
-            alert((err as Error).message || "เปลี่ยนสถานะเผยแพร่ไม่สำเร็จ")
-        }
-    }
-
     const [toast, setToast] = useState<{ open: boolean; message: string; description?: string }>({
         open: false,
         message: "",
@@ -425,24 +433,67 @@ export default function OrganizerManagePage() {
         toastTimer.current = setTimeout(() => setToast((prev) => ({ ...prev, open: false })), 3200)
     }
 
-    async function handleDuplicateEvent(ev: EventSummary) {
+    /** มีกิจกรรมย่อยอย่างน้อย 1 ตัวเปิดรับสมัครอยู่ไหม — ใช้ตัดสินใจเมนูย่อยแก้สถานะเท่านั้น
+     * (ไม่ใช้ eventStatus/statusBucket เพราะอันนั้นปนเรื่องกิจกรรมจบแล้ว/ยกเลิกไปด้วย ซึ่งไม่เกี่ยวกับปุ่มนี้) */
+    function eventHasOpenActivity(ev: EventSummary): boolean {
+        return ev.activities.some((a) => a.status === "open")
+    }
+
+    async function runStatusConfirm() {
+        if (!statusConfirm) return
+        setStatusActing(true)
         try {
-            await eventsAPI.duplicate(ev.id)
-            showToast("คัดลอกงานสำเร็จ", `สร้าง "${ev.name} (สำเนา)" แล้ว — ยังไม่เผยแพร่ แก้ไขก่อนเปิดรับสมัครได้เลย`)
-            loadData()
+            await statusConfirm.run()
+            setStatusConfirm(null)
         } catch (err: unknown) {
-            alert((err as Error).message || "คัดลอกงานไม่สำเร็จ")
+            alert((err as Error).message || "ทำรายการไม่สำเร็จ")
+        } finally {
+            setStatusActing(false)
         }
     }
 
-    async function handleDuplicateActivity(a: Activity) {
-        try {
-            await activitiesAPI.duplicate(a.id)
-            showToast("คัดลอกกิจกรรมสำเร็จ", `สร้าง "${a.name} (สำเนา)" แล้ว`)
-            loadData()
-        } catch (err: unknown) {
-            alert((err as Error).message || "คัดลอกกิจกรรมไม่สำเร็จ")
-        }
+    async function closeEventTemporarily(ev: EventSummary) {
+        await eventsAPI.setActivitiesStatus(ev.id, "closed")
+        showToast("ปิดรับสมัครชั่วคราวแล้ว", `"${ev.name}" จะไม่แสดงปุ่มลงทะเบียนให้นักศึกษาจนกว่าจะเปิดอีกครั้ง`)
+        loadData()
+    }
+
+    async function unpublishEventPermanently(ev: EventSummary) {
+        await eventsAPI.setPublic(ev.id, false)
+        showToast("ปิดการใช้งานถาวรแล้ว", `"${ev.name}" จะไม่แสดงให้นักศึกษาเห็นอีก จนกว่าจะเผยแพร่ใหม่ด้วยตัวเอง`)
+        loadData()
+    }
+
+    /** "เปิด" แก้ทั้งสถานะรับสมัครและการเผยแพร่พร้อมกันเสมอ — ไม่ว่าเดิมถูกปิดมาด้วยวิธีไหน กลับมาเปิดปกติทั้งหมด */
+    async function reopenEvent(ev: EventSummary) {
+        await Promise.all([
+            eventsAPI.setActivitiesStatus(ev.id, "open"),
+            ev.isPublic ? Promise.resolve() : eventsAPI.setPublic(ev.id, true),
+        ])
+        showToast("เปิดกิจกรรมแล้ว", `"${ev.name}" กลับมาเปิดรับสมัครตามปกติ`)
+        loadData()
+    }
+
+    async function closeActivityTemporarily(a: Activity) {
+        await activitiesAPI.setStatus(a.id, "closed")
+        showToast("ปิดรับสมัครชั่วคราวแล้ว", `"${a.name}" จะไม่แสดงปุ่มลงทะเบียนให้นักศึกษาจนกว่าจะเปิดอีกครั้ง`)
+        loadData()
+    }
+
+    async function reopenActivity(a: Activity) {
+        await activitiesAPI.setStatus(a.id, "open")
+        showToast("เปิดกิจกรรมแล้ว", `"${a.name}" กลับมาเปิดรับสมัครตามปกติ`)
+        loadData()
+    }
+
+    function shareEvent(ev: EventSummary) {
+        navigator.clipboard.writeText(`${window.location.origin}/events/${ev.id}`)
+        showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")
+    }
+
+    function shareActivity(a: Activity) {
+        navigator.clipboard.writeText(`${window.location.origin}/events/activities/${a.id}`)
+        showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")
     }
 
     async function confirmDelete() {
@@ -465,6 +516,87 @@ export default function OrganizerManagePage() {
         }
     }
 
+    /**
+     * เมนูย่อยของ "แก้สถานะกิจกรรม" — ปิดอยู่ (ไม่เผยแพร่ หรือไม่มีกิจกรรมย่อยไหนเปิดเลย) แสดงแค่ "เปิด"
+     * เปิดอยู่แสดง 2 ทาง (ปิดชั่วคราว/ปิดถาวร) ทุกตัวเลือกต้องผ่านยืนยันก่อนเสมอ (ดู statusConfirm)
+     */
+    function eventStatusSubmenu(ev: EventSummary): ActionMenuItem[] {
+        const closed = !ev.isPublic || !eventHasOpenActivity(ev)
+        if (closed) {
+            return [
+                {
+                    label: "เปิด",
+                    icon: ToggleRight,
+                    onClick: () =>
+                        setStatusConfirm({
+                            title: `เปิด "${ev.name}" อีกครั้ง?`,
+                            description: "กิจกรรมนี้จะกลับมาเปิดรับสมัครและแสดงให้นักศึกษาเห็นตามปกติทันที",
+                            confirmLabel: "เปิดกิจกรรม",
+                            run: () => reopenEvent(ev),
+                        }),
+                },
+            ]
+        }
+        return [
+            {
+                label: "ปิดรับสมัครกิจกรรมชั่วคราว",
+                icon: PauseCircle,
+                onClick: () =>
+                    setStatusConfirm({
+                        title: `ปิดรับสมัคร "${ev.name}" ชั่วคราว?`,
+                        description: "นักศึกษาจะลงทะเบียนไม่ได้ชั่วคราว แต่ยังเห็นกิจกรรมนี้อยู่ตามปกติ — กลับมาเปิดได้ทุกเมื่อ",
+                        confirmLabel: "ปิดรับสมัครชั่วคราว",
+                        run: () => closeEventTemporarily(ev),
+                    }),
+            },
+            {
+                label: "ปิดการใช้งานกิจกรรมถาวร",
+                icon: EyeOff,
+                tone: "danger",
+                onClick: () =>
+                    setStatusConfirm({
+                        title: `ปิดการใช้งาน "${ev.name}" ถาวร?`,
+                        description: "กิจกรรมนี้จะไม่แสดงให้นักศึกษาเห็นอีกเลย จนกว่าจะเผยแพร่ใหม่ด้วยตัวเอง",
+                        confirmLabel: "ปิดการใช้งานถาวร",
+                        run: () => unpublishEventPermanently(ev),
+                    }),
+            },
+        ]
+    }
+
+    /** กิจกรรมเดี่ยวไม่มีสถานะเผยแพร่แยกต่างหากแบบงาน (ไม่มี isPublic) จึงมีแค่ตัวเลือกปิดชั่วคราว/เปิด ไม่มี "ปิดถาวร" */
+    function activityStatusSubmenu(a: Activity): ActionMenuItem[] {
+        const closed = a.status !== "open"
+        if (closed) {
+            return [
+                {
+                    label: "เปิด",
+                    icon: ToggleRight,
+                    onClick: () =>
+                        setStatusConfirm({
+                            title: `เปิด "${a.name}" อีกครั้ง?`,
+                            description: "กิจกรรมนี้จะกลับมาเปิดรับสมัครตามปกติทันที",
+                            confirmLabel: "เปิดกิจกรรม",
+                            run: () => reopenActivity(a),
+                        }),
+                },
+            ]
+        }
+        return [
+            {
+                label: "ปิดรับสมัครกิจกรรมชั่วคราว",
+                icon: PauseCircle,
+                onClick: () =>
+                    setStatusConfirm({
+                        title: `ปิดรับสมัคร "${a.name}" ชั่วคราว?`,
+                        description: "นักศึกษาจะลงทะเบียนไม่ได้ชั่วคราว แต่ยังเห็นกิจกรรมนี้อยู่ตามปกติ — กลับมาเปิดได้ทุกเมื่อ",
+                        confirmLabel: "ปิดรับสมัครชั่วคราว",
+                        run: () => closeActivityTemporarily(a),
+                    }),
+            },
+        ]
+    }
+
     function eventMenuItems(ev: EventSummary): ActionMenuItem[] {
         return [
             {
@@ -475,17 +607,22 @@ export default function OrganizerManagePage() {
             {
                 label: "แก้สถานะกิจกรรม",
                 icon: ToggleLeft,
-                onClick: () => toggleEventPublic(ev),
+                submenu: eventStatusSubmenu(ev),
             },
             {
-                label: "คัดลอกกิจกรรม",
-                icon: Copy,
-                onClick: () => handleDuplicateEvent(ev),
+                label: "ดูรายละเอียดกิจกรรมเพิ่มเติม",
+                icon: ClipboardList,
+                onClick: () => router.push(`/organizer/events/${ev.id}`),
             },
             {
                 label: "ดูตัวอย่าง",
                 icon: Eye,
-                onClick: () => window.open(`/events/event/${ev.id}`, "_blank", "noopener,noreferrer"),
+                onClick: () => window.open(`/events/${ev.id}`, "_blank", "noopener,noreferrer"),
+            },
+            {
+                label: "แชร์กิจกรรม",
+                icon: Share2,
+                onClick: () => shareEvent(ev),
             },
             {
                 label: "ลบกิจกรรม",
@@ -505,14 +642,24 @@ export default function OrganizerManagePage() {
                 onClick: () => router.push(`/organizer/activities/${a.id}/edit`),
             },
             {
-                label: "คัดลอกกิจกรรม",
-                icon: Copy,
-                onClick: () => handleDuplicateActivity(a),
+                label: "แก้สถานะกิจกรรม",
+                icon: ToggleLeft,
+                submenu: activityStatusSubmenu(a),
+            },
+            {
+                label: "ดูรายละเอียดกิจกรรมเพิ่มเติม",
+                icon: ClipboardList,
+                onClick: () => router.push(`/organizer/activities/${a.id}`),
             },
             {
                 label: "ดูตัวอย่าง",
                 icon: Eye,
                 onClick: () => window.open(`/events/activities/${a.id}`, "_blank", "noopener,noreferrer"),
+            },
+            {
+                label: "แชร์กิจกรรม",
+                icon: Share2,
+                onClick: () => shareActivity(a),
             },
             {
                 label: "ลบกิจกรรม",
@@ -537,7 +684,7 @@ export default function OrganizerManagePage() {
                     <Button
                         asChild
                         size="lg"
-                        className="w-full gap-2 rounded-full font-bold shadow-lg shadow-brand-500/30 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/40 md:w-auto"
+                        className="w-full gap-2 rounded-lg font-bold shadow-lg shadow-brand-500/30 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/40 md:w-auto"
                     >
                         <Link href="/organizer/create">
                             <CalendarPlus className="size-5" aria-hidden="true" />
@@ -610,32 +757,32 @@ export default function OrganizerManagePage() {
                                         activity={{ name: draftDisplayName(draft.payload), imageUrl: draftImageUrl(draft.payload) }}
                                         description={`บันทึกล่าสุดเมื่อ ${formatDraftTime(draft.updatedAt)}`}
                                         badgeLeft={
-                                            <EventCardBadge variant="glass" className="bg-fg/60">
+                                            <EventCardBadge variant="glass" className="bg-fg/60" dotClassName="bg-fg-subtle">
                                                 ฉบับร่าง
                                             </EventCardBadge>
                                         }
-                                        badgeRight={
-                                            <ActionMenu
-                                                items={[
-                                                    {
-                                                        label: "ลบฉบับร่าง",
-                                                        icon: Trash2,
-                                                        tone: "danger",
-                                                        onClick: () =>
-                                                            setDeleteTarget({ kind: "draft", name: draftDisplayName(draft.payload) }),
-                                                    },
-                                                ]}
-                                                label="ตัวเลือกของฉบับร่าง"
-                                                className="size-9 rounded-full bg-bg/90 backdrop-blur-md shadow-md"
-                                            />
-                                        }
                                         actions={
-                                            <Link href="/organizer/create" className="w-full">
-                                                <Button variant="secondary" size="sm" className="w-full gap-1.5 rounded-xl text-xs font-medium">
-                                                    <Pencil className="size-3.5" aria-hidden="true" />
-                                                    ดำเนินการต่อ
-                                                </Button>
-                                            </Link>
+                                            <>
+                                                <Link href="/organizer/create" className="flex-1">
+                                                    <Button variant="secondary" size="sm" className="w-full gap-1.5 rounded-lg text-xs font-medium">
+                                                        <Pencil className="size-3.5" aria-hidden="true" />
+                                                        ดำเนินการต่อ
+                                                    </Button>
+                                                </Link>
+                                                <ActionMenu
+                                                    items={[
+                                                        {
+                                                            label: "ลบฉบับร่าง",
+                                                            icon: Trash2,
+                                                            tone: "danger",
+                                                            onClick: () =>
+                                                                setDeleteTarget({ kind: "draft", name: draftDisplayName(draft.payload) }),
+                                                        },
+                                                    ]}
+                                                    label="ตัวเลือกของฉบับร่าง"
+                                                    className="size-9 shrink-0 rounded-lg bg-surface-2 hover:bg-border"
+                                                />
+                                            </>
                                         }
                                     />
                                 </div>
@@ -650,9 +797,14 @@ export default function OrganizerManagePage() {
                                         <EventCard
                                             key={`event-${ev.id}`}
                                             activity={{ name: ev.name, imageUrl: ev.imageUrl ?? fa?.imageUrl }}
+                                            description={ev.description}
                                             badgeLeft={
                                                 <div className="flex flex-col items-start gap-1.5">
-                                                    <EventCardBadge variant="glass" className={ev.isPublic ? "bg-success/75" : "bg-fg/60"}>
+                                                    <EventCardBadge
+                                                        variant="glass"
+                                                        className={ev.isPublic ? "bg-success/75" : "bg-fg/60"}
+                                                        dotClassName={ev.isPublic ? "bg-success" : "bg-fg-subtle"}
+                                                    >
                                                         {ev.isPublic ? "เผยแพร่แล้ว" : "ไม่เผยแพร่"}
                                                     </EventCardBadge>
                                                     {ev.activities.length > 1 && (
@@ -663,20 +815,20 @@ export default function OrganizerManagePage() {
                                                     )}
                                                 </div>
                                             }
-                                            badgeRight={
-                                                <ActionMenu
-                                                    items={eventMenuItems(ev)}
-                                                    label={`ตัวเลือกของ ${ev.name}`}
-                                                    className="size-9 rounded-full bg-bg/90 backdrop-blur-md shadow-md"
-                                                />
-                                            }
                                             actions={
-                                                <Link href={`/organizer/events/${ev.id}`} className="w-full">
-                                                    <Button variant="secondary" size="sm" className="w-full gap-1.5 rounded-xl text-xs font-medium">
-                                                        <ClipboardList className="size-3.5" aria-hidden="true" />
-                                                        รายละเอียดเพิ่มเติม
-                                                    </Button>
-                                                </Link>
+                                                <>
+                                                    <Link href={`/organizer/events/${ev.id}`} className="flex-1">
+                                                        <Button variant="secondary" size="sm" className="w-full gap-1.5 rounded-lg text-xs font-medium">
+                                                            <ClipboardList className="size-3.5" aria-hidden="true" />
+                                                            รายละเอียดเพิ่มเติม
+                                                        </Button>
+                                                    </Link>
+                                                    <ActionMenu
+                                                        items={eventMenuItems(ev)}
+                                                        label={`ตัวเลือกของ ${ev.name}`}
+                                                        className="size-9 shrink-0 rounded-lg bg-surface-2 hover:bg-border"
+                                                    />
+                                                </>
                                             }
                                         >
                                             <CardInfoRow dateLabel={eventDateLabel(ev)} seatsLabel={eventSeatsLabel(ev)} />
@@ -696,25 +848,26 @@ export default function OrganizerManagePage() {
                                             <EventCard
                                                 key={`activity-${a.id}`}
                                                 activity={a}
+                                                description={a.description}
                                                 badgeLeft={
-                                                    <EventCardBadge variant="glass" className={ap.className}>
+                                                    <EventCardBadge variant="glass" className={ap.className} dotClassName={ap.dotClassName}>
                                                         {ap.label}
                                                     </EventCardBadge>
                                                 }
-                                                badgeRight={
-                                                    <ActionMenu
-                                                        items={activityMenuItems(a)}
-                                                        label={`ตัวเลือกของ ${a.name}`}
-                                                        className="size-9 rounded-full bg-bg/90 backdrop-blur-md shadow-md"
-                                                    />
-                                                }
                                                 actions={
-                                                    <Link href={`/organizer/activities/${a.id}`} className="w-full">
-                                                        <Button variant="secondary" size="sm" className="w-full gap-1.5 rounded-xl text-xs font-medium">
-                                                            <ClipboardList className="size-3.5" aria-hidden="true" />
-                                                            รายละเอียดเพิ่มเติม
-                                                        </Button>
-                                                    </Link>
+                                                    <>
+                                                        <Link href={`/organizer/activities/${a.id}`} className="flex-1">
+                                                            <Button variant="secondary" size="sm" className="w-full gap-1.5 rounded-lg text-xs font-medium">
+                                                                <ClipboardList className="size-3.5" aria-hidden="true" />
+                                                                รายละเอียดเพิ่มเติม
+                                                            </Button>
+                                                        </Link>
+                                                        <ActionMenu
+                                                            items={activityMenuItems(a)}
+                                                            label={`ตัวเลือกของ ${a.name}`}
+                                                            className="size-9 shrink-0 rounded-lg bg-surface-2 hover:bg-border"
+                                                        />
+                                                    </>
                                                 }
                                             >
                                                 <CardInfoRow dateLabel={formatEventDate(a.date)} seatsLabel={activitySeatsLabel(a)} />
@@ -736,7 +889,7 @@ export default function OrganizerManagePage() {
                             <>
                                 <h3 className="text-xl font-bold text-fg mb-2">ยังไม่มีงาน</h3>
                                 <p className="text-fg-muted">เริ่มต้นด้วยการสร้างงานแรกของคุณ</p>
-                                <Button asChild className="mt-6 gap-2 rounded-full px-8 shadow-lg shadow-brand-500/30">
+                                <Button asChild className="mt-6 gap-2 rounded-lg px-8 shadow-lg shadow-brand-500/30">
                                     <Link href="/organizer/create">
                                         <CalendarPlus className="size-4" aria-hidden="true" />
                                         สร้างงานใหม่
@@ -769,6 +922,16 @@ export default function OrganizerManagePage() {
                 tone="danger"
                 loading={deleting}
                 onConfirm={confirmDelete}
+            />
+
+            <ConfirmDialog
+                open={!!statusConfirm}
+                onOpenChange={(open) => !open && setStatusConfirm(null)}
+                title={statusConfirm?.title ?? ""}
+                description={statusConfirm?.description}
+                confirmLabel={statusConfirm?.confirmLabel}
+                loading={statusActing}
+                onConfirm={runStatusConfirm}
             />
 
             <Toast open={toast.open} message={toast.message} description={toast.description} />
