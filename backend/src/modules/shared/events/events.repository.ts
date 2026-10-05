@@ -468,6 +468,15 @@ export class EventsRepository {
   }
 
   /**
+   * เปิด/ปิดรับสมัครกิจกรรมย่อยทั้งหมดในงานนี้พร้อมกันชั่วคราว — Event เองไม่มีฟิลด์ status
+   * (อยู่ที่ระดับ Activity) จึงต้อง updateMany ทุกตัวที่ผูกกับงานนี้ ย้อนกลับได้ คนละอย่างกับ updatePublic
+   * (ซึ่งคุมว่าเพจงานแสดงต่อสาธารณะหรือไม่ ไม่เกี่ยวกับรับสมัครได้หรือไม่)
+   */
+  updateActivitiesStatus(eventId: number, status: 'open' | 'closed') {
+    return this.prisma.activity.updateMany({ where: { eventId }, data: { status: status as any } });
+  }
+
+  /**
    * ลบงานทั้งงานพร้อมกิจกรรมย่อยทั้งหมด — ต้องลบ Activity ก่อนเพราะความสัมพันธ์
    * Activity.event เป็น onDelete: SetNull (ลบ Event เฉยๆ จะทำให้กิจกรรมย่อยกลายเป็น
    * กิจกรรมเดี่ยวลอยๆ แทนที่จะถูกลบไปด้วย) — ผู้เรียกต้องเช็คว่าไม่มีผู้ลงทะเบียนก่อนแล้ว

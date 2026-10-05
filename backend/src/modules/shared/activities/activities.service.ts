@@ -235,6 +235,23 @@ export class ActivitiesService {
     return { ...rest, registeredCount: _count.registrations };
   }
 
+  /**
+   * เปิด/ปิดรับสมัครชั่วคราว — ย้อนกลับได้ คนละอย่างกับ markCompleted (จบถาวร) หรือ
+   * requestCancellation (ยกเลิกถาวร ต้องมีเหตุผล แจ้งอีเมลผู้ลงทะเบียน)
+   */
+  async setStatus(activityId: number, userId: number, userRole: UserRole, status: 'open' | 'closed') {
+    const activity = await this.findById(activityId);
+
+    if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์แก้ไขสถานะกิจกรรมนี้');
+    }
+
+    const updated = await this.activitiesRepository.updateStatus(activityId, status);
+    this.logger.log(`Activity status set to ${status}: "${activity.name}" (ID: ${activityId})`);
+    const { _count, ...rest } = updated as any;
+    return { ...rest, registeredCount: _count.registrations };
+  }
+
   countAll() {
     return this.activitiesRepository.countAll();
   }

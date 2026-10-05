@@ -476,3 +476,46 @@ describe('EventsService.duplicate', () => {
     await expect(service.duplicate(7, UserRole.ORGANIZER, 1)).rejects.toThrow(NotFoundException);
   });
 });
+
+describe('EventsService.setActivitiesStatus', () => {
+  let service: EventsService;
+  let repo: { findById: jest.Mock; updateActivitiesStatus: jest.Mock };
+
+  beforeEach(async () => {
+    repo = {
+      findById: jest.fn().mockResolvedValue({ id: 1, organizerId: 7, name: 'Camp' }),
+      updateActivitiesStatus: jest.fn(),
+    };
+    const module = await Test.createTestingModule({
+      providers: [EventsService, { provide: EventsRepository, useValue: repo }],
+    }).compile();
+    service = module.get(EventsService);
+  });
+
+  it('closes every sub-activity for the owning organizer', async () => {
+    repo.updateActivitiesStatus.mockResolvedValue({ count: 2 });
+    const result = await service.setActivitiesStatus(7, UserRole.ORGANIZER, 1, 'closed');
+    expect(repo.updateActivitiesStatus).toHaveBeenCalledWith(1, 'closed');
+    expect(result.count).toBe(2);
+  });
+
+  it('allows an admin who does not own the event', async () => {
+    repo.updateActivitiesStatus.mockResolvedValue({ count: 1 });
+    await service.setActivitiesStatus(999, UserRole.ADMIN, 1, 'open');
+    expect(repo.updateActivitiesStatus).toHaveBeenCalledWith(1, 'open');
+  });
+
+  it('throws ForbiddenException for a non-owning organizer', async () => {
+    await expect(service.setActivitiesStatus(999, UserRole.ORGANIZER, 1, 'closed')).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(repo.updateActivitiesStatus).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundException when the event does not exist', async () => {
+    repo.findById.mockResolvedValue(null);
+    await expect(service.setActivitiesStatus(7, UserRole.ORGANIZER, 1, 'closed')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+});
