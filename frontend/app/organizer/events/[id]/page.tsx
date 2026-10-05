@@ -4,20 +4,19 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
-import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, Edit, CheckSquare, Loader2 } from "lucide-react"
+import { Users, Share2, ArrowLeft, Edit, CheckSquare, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { eventsAPI, activitiesAPI, isUnlimitedCapacity, isCancelledByOrganizer, EventSummary } from "@/lib/api"
+import { eventsAPI, activitiesAPI, isCancelledByOrganizer, EventSummary } from "@/lib/api"
 import { resolveEventImageUrl } from "@/lib/event-image"
 import { ActivityParticipantManager } from "@/components/activity/activity-participant-manager"
+import { ActivityHeroCard } from "@/components/activity/activity-hero-card"
 import { EventSurveyResults } from "@/components/activity/event-survey-results"
 import { programLabel } from "@/lib/programs"
 
@@ -127,73 +126,82 @@ export default function OrganizerEventDetailsPage() {
 
     return (
         <div className="bg-surface pb-12">
-            <Container className="py-8">
-                <div className="mb-6 flex justify-between items-center gap-4">
-                    <Link href="/organizer/manage" className="inline-flex items-center text-sm text-fg-muted transition-colors hover:text-fg">
-                        <ArrowLeft className="w-4 h-4 mr-2" /> กลับสู่หน้าจัดการ
-                    </Link>
-                    <div className="flex gap-2">
-                        <Link href={`/organizer/manage/${event.id}/edit`}>
-                            <Button variant="outline" size="sm"><Edit className="w-4 h-4 mr-2" /> แก้ไขงาน</Button>
-                        </Link>
-                        {activeActivity && !isCancelledByOrganizer(activeActivity.approvalStatus) && activeActivity.status !== "completed" && (
-                            <Button variant="outline" size="sm" onClick={handleMarkCompleted} disabled={submitting}>
-                                <CheckSquare className="w-4 h-4 mr-2" /> จบกิจกรรม
-                            </Button>
-                        )}
-                        {activeActivity && !isCancelledByOrganizer(activeActivity.approvalStatus) && (
-                            <Button variant="destructive" size="sm" onClick={() => setIsCancelOpen(true)}>
-                                ยกเลิกกิจกรรมนี้
-                            </Button>
-                        )}
-                    </div>
-                </div>
+            <Container className="space-y-6 py-8">
+                <Link href="/organizer/manage" className="inline-flex items-center text-sm text-fg-muted transition-colors hover:text-fg">
+                    <ArrowLeft className="w-4 h-4 mr-2" /> กลับสู่หน้าจัดการ
+                </Link>
 
-                <div className="mb-6">
-                    <div className="aspect-video max-h-[280px] w-full bg-surface-2 rounded-2xl overflow-hidden relative border border-border shadow-sm">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={resolveEventImageUrl(event, activeActivity)} alt={event.name} className="size-full object-cover" />
-                        <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+                {/* รูป/วันเวลา/สถานที่อิงกิจกรรมย่อยที่เลือกอยู่ในแท็บด้านล่าง (activeActivity) — ชื่อ/คำอธิบาย/รูปเริ่มต้นอิงระดับงาน
+                    สลับแท็บแล้วส่วนนี้จะอัปเดตตาม เพราะงานหนึ่งมีได้หลายกิจกรรมย่อย วันเวลาจึงไม่ใช่ค่าเดียวของทั้งงาน */}
+                <ActivityHeroCard
+                    imageUrl={resolveEventImageUrl(event, activeActivity)}
+                    imageAlt={event.name}
+                    badges={
+                        <>
                             <Badge variant={event.isPublic ? "success" : "neutral"}>{event.isPublic ? "เผยแพร่แล้ว" : "ไม่เผยแพร่"}</Badge>
                             {event.activities.length > 1 && <Badge variant="default">{event.activities.length} กิจกรรมย่อย</Badge>}
-                        </div>
-                    </div>
-                    <h1 className="mt-4 text-2xl md:text-3xl font-bold text-fg">{event.name}</h1>
-                    <p className="mt-2 text-fg-muted whitespace-pre-line">{event.description}</p>
+                        </>
+                    }
+                    title={event.name}
+                    byline="จัดโดยคุณ"
+                    date={activeActivity ? formatEventDate(activeActivity.date) : "-"}
+                    startTime={activeActivity?.startTime ?? "-"}
+                    endTime={activeActivity?.endTime ?? "-"}
+                    location={activeActivity?.location ?? "-"}
+                    actions={
+                        <>
+                            <Link href={`/organizer/manage/${event.id}/edit`}>
+                                <Button variant="outline" size="sm"><Edit className="w-4 h-4 mr-2" /> แก้ไขงาน</Button>
+                            </Link>
+                            {activeActivity && !isCancelledByOrganizer(activeActivity.approvalStatus) && activeActivity.status !== "completed" && (
+                                <Button variant="outline" size="sm" onClick={handleMarkCompleted} disabled={submitting}>
+                                    <CheckSquare className="w-4 h-4 mr-2" /> จบกิจกรรม
+                                </Button>
+                            )}
+                            <Button variant="outline" size="sm" onClick={handleShare}><Share2 className="w-4 h-4 mr-2" /> แชร์งานนี้</Button>
+                            {activeActivity && !isCancelledByOrganizer(activeActivity.approvalStatus) && (
+                                <Button variant="destructive" size="sm" onClick={() => setIsCancelOpen(true)}>
+                                    ยกเลิกกิจกรรมนี้
+                                </Button>
+                            )}
+                        </>
+                    }
+                />
 
-                    {/* กลุ่มเป้าหมายที่ตั้งไว้ตอนสร้าง — เดิมดูย้อนไม่ได้เลย ต้องเปิด wizard แก้ไขถึงจะเห็น */}
-                    {event.visibility === "restricted" && (
-                        <div className="mt-4 rounded-xl border border-border bg-surface p-4">
-                            <div className="flex items-center gap-2 text-sm font-semibold text-fg">
-                                <Users className="size-4 text-brand-600" aria-hidden="true" /> เห็นเฉพาะกลุ่มที่กำหนด
-                            </div>
-                            <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-                                <div>
-                                    <dt className="text-xs text-fg-muted">สาขา</dt>
-                                    <dd className="text-fg">
-                                        {event.visibilityProgram?.length
-                                            ? event.visibilityProgram.map((p) => programLabel(p.programCode)).join(", ")
-                                            : "ทุกสาขา"}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt className="text-xs text-fg-muted">ชั้นปี</dt>
-                                    <dd className="text-fg">
-                                        {event.visibilityYears?.length
-                                            ? event.visibilityYears.map((y) => `ปี ${y.year}`).join(", ")
-                                            : "ทุกชั้นปี"}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt className="text-xs text-fg-muted">ตัวกรองรหัสนักศึกษา</dt>
-                                    <dd className="whitespace-pre-line break-words font-mono text-xs text-fg">
-                                        {event.visibilityStudentIdFilter || "ไม่กำหนด"}
-                                    </dd>
-                                </div>
-                            </dl>
+                <p className="text-fg-muted whitespace-pre-line">{event.description}</p>
+
+                {/* กลุ่มเป้าหมายที่ตั้งไว้ตอนสร้าง — เดิมดูย้อนไม่ได้เลย ต้องเปิด wizard แก้ไขถึงจะเห็น */}
+                {event.visibility === "restricted" && (
+                    <div className="rounded-xl border border-border bg-surface p-4">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-fg">
+                            <Users className="size-4 text-brand-600" aria-hidden="true" /> เห็นเฉพาะกลุ่มที่กำหนด
                         </div>
-                    )}
-                </div>
+                        <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+                            <div>
+                                <dt className="text-xs text-fg-muted">สาขา</dt>
+                                <dd className="text-fg">
+                                    {event.visibilityProgram?.length
+                                        ? event.visibilityProgram.map((p) => programLabel(p.programCode)).join(", ")
+                                        : "ทุกสาขา"}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-xs text-fg-muted">ชั้นปี</dt>
+                                <dd className="text-fg">
+                                    {event.visibilityYears?.length
+                                        ? event.visibilityYears.map((y) => `ปี ${y.year}`).join(", ")
+                                        : "ทุกชั้นปี"}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-xs text-fg-muted">ตัวกรองรหัสนักศึกษา</dt>
+                                <dd className="whitespace-pre-line break-words font-mono text-xs text-fg">
+                                    {event.visibilityStudentIdFilter || "ไม่กำหนด"}
+                                </dd>
+                            </div>
+                        </dl>
+                    </div>
+                )}
 
                 <Tabs value={activeActivityId ? String(activeActivityId) : undefined} onValueChange={(v) => setActiveActivityId(Number(v))}>
                     <TabsList className="h-auto flex-wrap justify-start gap-1 bg-surface-2 p-1 mb-6">
@@ -202,64 +210,16 @@ export default function OrganizerEventDetailsPage() {
                         ))}
                     </TabsList>
 
-                    {event.activities.map((a) => {
-                        const unlimited = isUnlimitedCapacity(a.capacity)
-                        const capacity = a.capacity || 0
-                        const registered = a.registrations?.length || 0
-                        const fillPercent = !unlimited && capacity > 0 ? Math.round((registered / capacity) * 100) : 0
-                        const seatsLeft = Math.max(capacity - registered, 0)
-                        return (
+                    {event.activities.map((a) => (
                         <TabsContent key={a.id} value={String(a.id)}>
-                            <div className="grid lg:grid-cols-3 gap-8">
-                                <div className="lg:col-span-2 space-y-6">
-                                    <ActivityParticipantManager
-                                        activity={a}
-                                        registrationCloseAt={event.registrationCloseAt}
-                                        eventName={event.name}
-                                        onRefetch={() => fetchEventDetails(id, true)}
-                                    />
-                                </div>
-
-                                <div className="space-y-6">
-                                    <Card className="border-border shadow-xs overflow-hidden">
-                                        <div className="p-6 space-y-6">
-                                            <h3 className="font-semibold text-lg text-fg">ข้อมูลกิจกรรมย่อย</h3>
-                                            <div className="space-y-4">
-                                                <div className="flex gap-3">
-                                                    <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 shrink-0"><Calendar className="w-5 h-5" aria-hidden="true" /></div>
-                                                    <div><div className="text-xs text-fg-muted">วันที่</div><div className="font-medium text-fg">{formatEventDate(a.date)}</div></div>
-                                                </div>
-                                                <div className="flex gap-3">
-                                                    <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 shrink-0"><Clock className="w-5 h-5" aria-hidden="true" /></div>
-                                                    <div><div className="text-xs text-fg-muted">เวลา</div><div className="font-medium text-fg">{a.startTime} - {a.endTime}</div></div>
-                                                </div>
-                                                <div className="flex gap-3">
-                                                    <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 shrink-0"><MapPin className="w-5 h-5" aria-hidden="true" /></div>
-                                                    <div><div className="text-xs text-fg-muted">สถานที่</div><div className="font-medium text-fg">{a.location}</div></div>
-                                                </div>
-                                                <div className="pt-4 border-t border-border">
-                                                    <div className="flex justify-between items-center mb-2">
-                                                        <div className="flex items-center gap-2 text-sm font-medium text-fg"><Users className="w-4 h-4" aria-hidden="true" /> ผู้เข้าร่วม</div>
-                                                        <span className="text-sm text-fg-muted tabular-nums">{unlimited ? `${registered} คน (ไม่จำกัด)` : `${registered}/${capacity} คน`}</span>
-                                                    </div>
-                                                    {!unlimited && (
-                                                        <>
-                                                            <Progress value={fillPercent} className="h-2" />
-                                                            <p className="text-xs text-fg-subtle mt-2 text-right">เหลืออีก {seatsLeft} ที่นั่ง</p>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="space-y-3 pt-2">
-                                                <Button variant="outline" className="w-full" onClick={handleShare}><Share2 className="w-4 h-4 mr-2" /> แชร์งานนี้</Button>
-                                            </div>
-                                        </div>
-                                    </Card>
-                                </div>
-                            </div>
+                            <ActivityParticipantManager
+                                activity={a}
+                                registrationCloseAt={event.registrationCloseAt}
+                                eventName={event.name}
+                                onRefetch={() => fetchEventDetails(id, true)}
+                            />
                         </TabsContent>
-                        )
-                    })}
+                    ))}
                 </Tabs>
 
                 {/* แบบสำรวจเป็นข้อมูลระดับงาน ไม่ผูกกับกิจกรรมย่อยตัวใดตัวหนึ่ง จึงอยู่นอกแท็บ */}

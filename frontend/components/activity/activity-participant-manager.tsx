@@ -18,6 +18,7 @@ import { ActivityAboutPanel, ActivityRegistrationPanel, ActivityRewardsPanel } f
 import { ActivityBatchEvaluation } from "@/components/activity/activity-batch-evaluation"
 import { ActivityAssessmentMode } from "@/components/activity/activity-assessment-mode"
 import { ActivityApprovalDashboard } from "@/components/activity/activity-approval-dashboard"
+import { ActivityOverview } from "@/components/activity/activity-overview"
 
 interface RegistrationAnswerRow {
     question: { id: number; label: string }
@@ -109,6 +110,7 @@ interface ActivityParticipantManagerProps {
  * แสดง 3 แท็บ: รายละเอียด, ข้อมูลผู้เข้าร่วม (ค้นหา/กรอง/ยืนยันทั้งหมด/export CSV), คิวอาร์โค้ดลงทะเบียน (เช็คอิน)
  */
 export function ActivityParticipantManager({ activity, registrationCloseAt, eventName, onRefetch }: ActivityParticipantManagerProps) {
+    const [activeTab, setActiveTab] = useState("details")
     const [confirmAllIds, setConfirmAllIds] = useState<number[] | null>(null)
     const [confirmingAll, setConfirmingAll] = useState(false)
     const [participantSearch, setParticipantSearch] = useState("")
@@ -264,9 +266,28 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
     const checkinResults = checkinSearch.trim() ? filterRegistrations(allRegs, checkinSearch, INITIAL_PARTICIPANT_FILTERS) : []
     const checkInUrl = typeof window !== "undefined" ? `${window.location.origin}/student/checkin/${activity.id}` : ""
 
+    // ใช้โดยการ์ดภาพรวม (ลิงก์ "การจัดการ" ต่อแถว + ทางลัด BARS Step 1/2 เมื่อมี) เพื่อสลับแท็บด้านล่างจากภายนอก
+    // แล้วเลื่อนจอมาให้เห็นแท็บที่สลับไป เพราะการ์ดภาพรวมอยู่เหนือ Tabs
+    const jumpToTab = (tab: "participants" | "evaluation" | "approval") => {
+        setActiveTab(tab)
+        requestAnimationFrame(() => {
+            document.getElementById("activity-tabs")?.scrollIntoView({ behavior: "smooth", block: "start" })
+        })
+    }
+
     return (
         <>
-            <Tabs defaultValue="details" className="w-full">
+            <div className="mb-6">
+                <ActivityOverview
+                    activity={activity}
+                    registrations={allRegs}
+                    showBars={showBatchEvaluation}
+                    onJumpToTab={jumpToTab}
+                    onExportCSV={exportCSV}
+                />
+            </div>
+
+            <Tabs id="activity-tabs" value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="w-full justify-start bg-surface-2 p-1 rounded-lg mb-6">
                     <TabsTrigger value="details" className="flex-1">รายละเอียด</TabsTrigger>
                     <TabsTrigger value="participants" className="flex-1">ข้อมูลผู้เข้าร่วม ({allRegs.length})</TabsTrigger>
