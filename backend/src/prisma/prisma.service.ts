@@ -99,6 +99,10 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return this._client.siteContent;
   }
 
+  get skillTranscript() {
+    return this._client.skillTranscript;
+  }
+
   // ─── Prisma helpers ─────────────────────────────────────────────────────────
   $transaction: PrismaInstance['$transaction'] = (...args: any[]) => (this._client.$transaction as any)(...args);
 
