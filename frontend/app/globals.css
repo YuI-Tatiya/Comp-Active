@@ -222,3 +222,159 @@
     outline-offset: 2px;
   }
 }
+
+/* แถบหัวเรื่อง (components/ui/hero-banner.tsx) — ออโรราอ่อนๆ + หัวข้อเปิดทีละคำ + คำเด่นไล่สี + คำสลับ */
+.hero-aurora {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(64px);
+  animation: hero-drift 22s ease-in-out infinite;
+}
+
+.hero-aurora-a {
+  left: -6rem;
+  top: -7rem;
+  width: 26rem;
+  height: 20rem;
+  background: rgb(125 211 252 / 0.4);
+}
+
+.hero-aurora-b {
+  right: 6%;
+  top: -5rem;
+  width: 24rem;
+  height: 18rem;
+  background: rgb(196 181 253 / 0.4);
+  animation-duration: 28s;
+  animation-direction: reverse;
+}
+
+.hero-aurora-c {
+  right: -5rem;
+  bottom: -9rem;
+  width: 24rem;
+  height: 18rem;
+  background: rgb(249 168 212 / 0.32);
+  animation-duration: 25s;
+}
+
+.hero-aurora-d {
+  left: 38%;
+  bottom: -10rem;
+  width: 22rem;
+  height: 16rem;
+  background: rgb(253 230 138 / 0.4);
+  animation-duration: 31s;
+  animation-direction: reverse;
+}
+
+.hero-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgb(15 23 42 / 0.08) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: linear-gradient(to bottom, black, transparent 90%);
+  -webkit-mask-image: linear-gradient(to bottom, black, transparent 90%);
+}
+
+/* วงแสงตามเมาส์ — โชว์เฉพาะอุปกรณ์ที่ hover ได้จริง */
+.hero-glow {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  background: radial-gradient(340px circle at var(--hero-mx, 50%) var(--hero-my, 50%), rgb(99 102 241 / 0.14), transparent 65%);
+}
+
+@media (hover: hover) {
+  .hero-banner:hover .hero-glow {
+    opacity: 1;
+  }
+}
+
+.hero-rise {
+  opacity: 0;
+  animation: hero-rise 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.hero-gradient-text {
+  background-image: linear-gradient(90deg, #2563eb, #7c3aed, #db2777, #f97316, #2563eb);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: hero-shimmer 9s linear infinite;
+}
+
+/* คำสลับ: ทุกคำซ้อนในช่องเดียว (ความกว้าง = คำที่ยาวที่สุด) แล้วเลื่อนเข้า-ออกด้วย transform */
+.hero-words {
+  display: inline-grid;
+  overflow: hidden;
+  vertical-align: bottom;
+  line-height: 1.35;
+}
+
+.hero-word {
+  grid-area: 1 / 1;
+  transition:
+    transform 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.45s ease;
+}
+
+.hero-word.is-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.hero-word.is-prev {
+  opacity: 0;
+  transform: translateY(-110%);
+}
+
+.hero-word.is-next {
+  opacity: 0;
+  transform: translateY(110%);
+}
+
+@keyframes hero-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(48px, 28px, 0) scale(1.12);
+  }
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hero-shimmer {
+  to {
+    background-position: 300% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-aurora,
+  .hero-gradient-text {
+    animation: none;
+  }
+
+  .hero-rise {
+    opacity: 1;
+    animation: none;
+  }
+
+  .hero-word {
+    transition: none;
+  }
+}
