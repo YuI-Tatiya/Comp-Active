@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { X, Trophy, TrendingUp, CalendarCheck, Search } from "lucide-react"
+import { X, Trophy, TrendingUp, CalendarCheck, Search, BarChart3, UserRound } from "lucide-react"
 import { Toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -221,17 +221,20 @@ export default function StudentProfilePage() {
                     </div>
 
                     <Tabs defaultValue="softskills" className="w-full">
-                        <TabsList className="mb-8 grid w-full grid-cols-2 gap-1 rounded-full bg-surface-2 p-1.5">
+                        {/* h-auto: TabsList มี h-10 เป็นค่าเริ่มต้น เตี้ยกว่าปุ่ม (py-3) + padding กรอบ ปุ่มจึงโผล่พ้นกรอบ */}
+                        <TabsList className="mb-8 grid h-auto w-full grid-cols-2 gap-1 rounded-full bg-surface-2 p-1.5">
                             <TabsTrigger
                                 value="softskills"
-                                className="rounded-full py-3 text-sm font-semibold text-fg-muted data-[state=active]:bg-bg data-[state=active]:text-brand-600 data-[state=active]:shadow-xs"
+                                className="gap-2 rounded-full py-3 text-sm font-semibold text-fg-muted data-[state=active]:bg-bg data-[state=active]:text-brand-600 data-[state=active]:shadow-xs"
                             >
+                                <BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
                                 Soft Skills
                             </TabsTrigger>
                             <TabsTrigger
                                 value="edit"
-                                className="rounded-full py-3 text-sm font-semibold text-fg-muted data-[state=active]:bg-bg data-[state=active]:text-brand-600 data-[state=active]:shadow-xs"
+                                className="gap-2 rounded-full py-3 text-sm font-semibold text-fg-muted data-[state=active]:bg-bg data-[state=active]:text-brand-600 data-[state=active]:shadow-xs"
                             >
+                                <UserRound className="h-4 w-4 shrink-0" aria-hidden="true" />
                                 แก้ไขข้อมูลส่วนตัว
                             </TabsTrigger>
                         </TabsList>
