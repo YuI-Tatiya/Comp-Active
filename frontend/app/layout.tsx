@@ -32,7 +32,9 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <AuthProvider>
           {children}
-          <MascotWidget />
+          <div className="print:hidden">
+            <MascotWidget />
+          </div>
         </AuthProvider>
       </body>
     </html>

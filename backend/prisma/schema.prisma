@@ -166,6 +166,7 @@ model User {
   updatedSiteContents       SiteContent[]
   evaluationExceptionsMade  EvaluationException[]
   evaluationApprovalsMade   EvaluationApproval[]
+  skillTranscripts          SkillTranscript[]
 
   @@map("users")
 }
@@ -617,4 +618,20 @@ model EvaluationApproval {
   approvedBy User?      @relation(fields: [approvedById], references: [id], onDelete: SetNull)
 
   @@map("evaluation_approvals")
+}
+
+/// เอกสารรับรองผล Soft Skills ที่นักศึกษาออกเอง — snapshot คือสำเนาคะแนน ณ วันออก (แช่แข็ง ไม่เปลี่ยนตามคะแนนปัจจุบัน)
+model SkillTranscript {
+  id        Int       @id @default(autoincrement())
+  studentId Int       @map("student_id")
+  /// รหัสเอกสาร 16 ตัว Crockford base32 พิมพ์ใหญ่ ไม่มีขีด
+  code      String    @unique @db.VarChar(16)
+  snapshot  Json
+  issuedAt  DateTime  @default(now()) @map("issued_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, issuedAt])
+  @@map("skill_transcripts")
 }

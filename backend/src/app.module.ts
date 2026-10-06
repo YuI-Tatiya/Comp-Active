@@ -25,6 +25,7 @@ import { SeedModule } from "./modules/shared/seed/seed.module";
 import { ActivitiesPublicModule } from "./modules/shared/activities/activities-public.module";
 import { EventsPublicModule } from "./modules/shared/events/events-public.module";
 import { VolunteerServicesPublicModule } from "./modules/shared/volunteer-services/volunteer-services-public.module";
+import { SkillTranscriptsPublicModule } from "./modules/shared/skill-transcripts/skill-transcripts-public.module";
 import { ChatbotModule } from "./modules/shared/chatbot/chatbot.module";
 
 @Module({
@@ -79,6 +80,7 @@ import { ChatbotModule } from "./modules/shared/chatbot/chatbot.module";
     ActivitiesPublicModule,
     EventsPublicModule,
     VolunteerServicesPublicModule,
+    SkillTranscriptsPublicModule,
     ChatbotModule,
   ],
 })

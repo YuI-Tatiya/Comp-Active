@@ -228,3 +228,15 @@
     animation: none;
   }
 }
+
+/* เอกสารรับรองผล Soft Skills — @page แบบมีชื่อ ใช้เฉพาะหน้าที่มี .transcript-doc ไม่กระทบการพิมพ์หน้าอื่น */
+@page transcript {
+  size: A4;
+  margin: 14mm;
+}
+
+@media print {
+  .transcript-doc {
+    page: transcript;
+  }
+}

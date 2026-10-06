@@ -836,3 +836,21 @@ export const chatbotAPI = {
   sendMessage: (message: string, history: ChatHistoryItem[]) =>
     fetchAPI<{ reply: string }>('/api/chatbot/message', { method: 'POST', body: JSON.stringify({ message, history }) }),
 };
+
+// ==================== SKILL TRANSCRIPTS (เอกสารรับรองผล Soft Skills) ====================
+
+import type { SkillTranscriptSnapshot, TranscriptListItem, VerifyResult } from '@/lib/transcript';
+
+export const skillTranscriptsAPI = {
+  issue: () =>
+    fetchAPI<{ code: string; issuedAt: string; snapshot: SkillTranscriptSnapshot }>('/api/skill-transcripts', {
+      method: 'POST',
+    }),
+  mine: () => fetchAPI<TranscriptListItem[]>('/api/skill-transcripts/mine'),
+  revoke: (code: string) =>
+    fetchAPI<{ code: string; revokedAt: string }>(`/api/skill-transcripts/${encodeURIComponent(code)}/revoke`, {
+      method: 'PATCH',
+    }),
+  /** สาธารณะ — not_found/revoked เป็นผลปกติ (200); throw เฉพาะเมื่อเครือข่าย/เซิร์ฟเวอร์ขัดข้อง */
+  verify: (code: string) => fetchAPI<VerifyResult>(`/api/skill-transcripts/verify/${encodeURIComponent(code)}`),
+};
