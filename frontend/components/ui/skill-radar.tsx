@@ -51,14 +51,14 @@ export function SkillRadar({ average, height = 280 }: SkillRadarProps) {
 }
 
 /** ตารางคะแนนแบบตัวเลข — คู่กับกราฟ เพื่อให้ screen reader อ่านได้ */
-export function SkillScoreList({ average }: { average?: SkillsData["average"] }) {
+export function SkillScoreList({ average, columns = 1 }: { average?: SkillsData["average"]; columns?: 1 | 2 }) {
     return (
-        <dl className="space-y-2">
+        <dl className={columns === 2 ? "grid gap-x-8 gap-y-3 sm:grid-cols-2" : "space-y-2"}>
             {SKILL_LABELS.map(({ key, label }) => {
                 const v = average?.[key] ?? 0
                 return (
                     <div key={key} className="flex items-center gap-3">
-                        <dt className="w-20 shrink-0 text-xs text-fg-muted">{label}</dt>
+                        <dt className={columns === 2 ? "w-28 shrink-0 text-xs text-fg-muted" : "w-20 shrink-0 text-xs text-fg-muted"}>{label}</dt>
                         <dd className="flex flex-1 items-center gap-2">
                             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
                                 <div

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
+import { PageHeader } from "@/components/ui/page-header"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { EventsFilterSidebar } from "@/components/ui/events-filter-sidebar"
 import { HorizontalScrollSection } from "@/components/ui/horizontal-scroll-section"
@@ -18,7 +19,7 @@ import {
     type EventsFilterValues,
     type FilterableItem,
 } from "@/lib/events-filter"
-import { Loader2, Search, SlidersHorizontal, Sparkles } from "lucide-react"
+import { CalendarDays, Compass, Loader2, Search, SlidersHorizontal, Users } from "lucide-react"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 
@@ -142,30 +143,14 @@ export default function EventsPage() {
         <div className="min-h-screen bg-surface font-sans flex flex-col">
             <SiteHeader />
 
-            <Container className="py-12 flex-1">
-                <div className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500 px-6 py-10 shadow-lg sm:px-10">
-                    <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-cat-volunteer/40 blur-3xl"
-                    />
-                    <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute -bottom-20 -left-10 size-56 rounded-full bg-cat-tech/40 blur-3xl"
-                    />
-                    <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute right-1/3 bottom-0 size-40 rounded-full bg-cat-art/30 blur-3xl"
-                    />
-                    <div className="relative z-10 max-w-2xl">
-                        <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-sm">
-                            <Sparkles className="size-3.5" aria-hidden="true" />
-                            พัฒนา Soft Skills ไปกับทุกกิจกรรม
-                        </span>
-                        <h1 className="mb-2 text-3xl font-black text-white sm:text-4xl">กิจกรรมทั้งหมด</h1>
-                        <p className="text-white/90">เลือกงานที่สนใจ กดเข้าไปดูรายละเอียดเพื่อลงทะเบียนเข้าร่วม</p>
-                    </div>
-                </div>
+            {/* หัวเรื่องแบบเดียวกับ /student/events — ข้อความสำหรับผู้เยี่ยมชมที่ยังไม่ได้เข้าสู่ระบบ */}
+            <PageHeader
+                title="กิจกรรมทั้งหมด"
+                subtitle="สำรวจกิจกรรมของวิทยาลัยการคอมพิวเตอร์ได้โดยไม่ต้องเข้าสู่ระบบ หากต้องการลงทะเบียนเข้าร่วมและสะสมคะแนน Soft Skills กรุณาเข้าสู่ระบบด้วยบัญชีนักศึกษา"
+                icons={[Compass, CalendarDays, Users]}
+            />
 
+            <Container className="py-12 flex-1">
                 <Button
                     variant="outline"
                     className="mb-6 gap-2 rounded-full lg:hidden"

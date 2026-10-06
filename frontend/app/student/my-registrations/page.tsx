@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Container } from "@/components/layout/container"
+import { PageHeader } from "@/components/ui/page-header"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Label } from "@/components/ui/label"
@@ -21,8 +22,8 @@ import { registrationsAPI, API_BASE_URL, isCancelledByOrganizer, isActiveRegistr
 import { getCategory, categoriesBadgeLabel } from "@/lib/categories"
 import { SOFT_SKILLS } from "@/lib/soft-skills"
 import {
-  Calendar, Clock, MapPin, Loader2, CalendarX, X, Star, Sparkles, Search,
-  CheckCircle2, HeartHandshake, TrendingUp, ChevronDown, Users,
+  Calendar, Clock, MapPin, Loader2, CalendarX, X, Star, Search,
+  CheckCircle2, HeartHandshake, TrendingUp, ChevronDown, Users, ClipboardCheck, CalendarDays, Award,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -306,30 +307,11 @@ export default function MyRegistrationsPage() {
     // ไม่ใส่ min-h-screen — app/student/layout.tsx จัดการให้แล้ว
     <div className="bg-surface pb-12">
       {/* หัวข้อ — ไม่ใส่ sticky เพราะ AppHeader ปักที่ top-0 z-50 อยู่แล้ว แถบนี้จะมุดหายไปใต้มัน */}
-      <div className="relative overflow-hidden border-b border-border bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -left-16 -top-24 size-72 animate-pulse rounded-full bg-cat-volunteer/30 blur-3xl [animation-duration:4s]"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-24 right-10 size-64 animate-pulse rounded-full bg-cat-art/30 blur-3xl [animation-duration:6s]"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute right-1/3 top-0 size-40 animate-pulse rounded-full bg-cat-tech/25 blur-3xl [animation-duration:5s]"
-        />
-        <Container className="relative z-10 py-8">
-          <div>
-            <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-sm">
-              <Sparkles className="size-3.5 animate-pulse" aria-hidden="true" />
-              เส้นทางการเติบโตของคุณ
-            </span>
-            <h1 className="mb-1 text-3xl font-black tracking-tight text-white">กิจกรรมของฉัน</h1>
-            <p className="text-white/85">ติดตามสถานะการเข้าร่วมและการประเมินผลของคุณ</p>
-          </div>
-        </Container>
-      </div>
+      <PageHeader
+        title="กิจกรรมของฉัน"
+        subtitle="ติดตามสถานะการเข้าร่วมและการประเมินผลของคุณ"
+        icons={[ClipboardCheck, CalendarDays, Award]}
+      />
 
       <Container className="py-8">
         {message && (
