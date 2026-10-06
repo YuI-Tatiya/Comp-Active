@@ -378,37 +378,3 @@
     transition: none;
   }
 }
-
-/* มาสคอตมุมขวาของแถบหัวเรื่อง (components/ui/hero-banner.tsx) — ลอยขึ้นลงเบาๆ + วงแสงด้านหลัง */
-.hero-mascot {
-  animation: hero-float 4.8s ease-in-out infinite;
-  transform-origin: 50% 100%;
-}
-
-.hero-mascot-glow {
-  position: absolute;
-  left: 50%;
-  bottom: 8%;
-  width: 135%;
-  aspect-ratio: 1;
-  transform: translateX(-50%);
-  border-radius: 9999px;
-  background: radial-gradient(circle, rgb(147 197 253 / 0.45), rgb(196 181 253 / 0.25) 45%, transparent 70%);
-  filter: blur(8px);
-}
-
-@keyframes hero-float {
-  0%,
-  100% {
-    transform: translateY(0) rotate(-1deg);
-  }
-  50% {
-    transform: translateY(-9px) rotate(1deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-mascot {
-    animation: none;
-  }
-}
