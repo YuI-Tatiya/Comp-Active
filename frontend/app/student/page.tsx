@@ -210,7 +210,7 @@ export default function StudentDashboardPage() {
                     <p className="text-sm text-fg-muted">ระดับปัจจุบัน</p>
                     <p className="text-xl font-semibold text-fg tabular-nums">
                       {points.toLocaleString("th-TH")}{" "}
-                      <span className="text-sm font-normal text-fg-muted">แต้ม</span>
+                      <span className="text-sm font-normal text-fg-muted">XP</span>
                     </p>
                   </div>
                 </div>
@@ -234,7 +234,7 @@ export default function StudentDashboardPage() {
                 </div>
 
                 <div className="mt-5 border-t border-border pt-4">
-                  <p className="mb-2 text-xs font-medium text-fg-muted">เหรียญรางวัล</p>
+                  <p className="mb-2 text-xs font-medium text-fg-muted">ตราความสำเร็จ</p>
                   {skills?.badges && skills.badges.length > 0 ? (
                     <div className="flex flex-wrap items-center gap-1.5">
                       {skills.badges.slice(0, 5).map((b) => (
@@ -249,7 +249,7 @@ export default function StudentDashboardPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-fg-subtle">เข้าร่วมกิจกรรมเพื่อสะสมเหรียญรางวัล</p>
+                    <p className="text-xs text-fg-subtle">เข้าร่วมกิจกรรมเพื่อสะสมตราความสำเร็จ</p>
                   )}
                 </div>
               </>
