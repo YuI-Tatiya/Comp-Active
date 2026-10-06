@@ -15,7 +15,9 @@ export class SkillTranscriptsPublicController {
    */
   @Get('verify/:code')
   @UseGuards(ThrottlerGuard)
-  @Throttle({ default: { limit: 30, ttl: 60_000 } }) // 30 ครั้ง/นาที ต่อ IP — กันการไล่เดารหัส
+  // 120 ครั้ง/นาที ต่อ IP — ทั้งวิทยาลัยใช้ IP เดียวกัน (NAT) และหน้าพิมพ์ของนักศึกษาก็เรียก endpoint นี้ จึงต้องไม่ต่ำเกินไป
+  // การไล่เดารหัสยังเป็นไปไม่ได้ในทางปฏิบัติ (รหัส 80 บิต) และ nginx จำกัดอัตราต่อ IP อีกชั้น
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
   @ApiOperation({ summary: 'ตรวจสอบเอกสารรับรองผล Soft Skills (Public)' })
   verify(@Param('code') code: string) {
     return this.transcriptsService.verify(code);

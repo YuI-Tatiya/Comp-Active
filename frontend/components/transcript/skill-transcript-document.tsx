@@ -38,7 +38,7 @@ export function SkillTranscriptDocument({ snapshot, code, issuedAt, verifyUrl }:
     const chartData = rows.map((r) => ({ n: String(r.n), A: r.average }))
 
     return (
-        <article className="transcript-doc relative mx-auto w-full max-w-[210mm] bg-white p-8 text-brand-900 shadow-sm print:max-w-none print:p-0 print:shadow-none [print-color-adjust:exact]">
+        <article className="transcript-doc relative mx-auto w-full max-w-[210mm] bg-white p-4 text-brand-900 shadow-sm sm:p-8 print:max-w-none print:p-0 print:shadow-none [print-color-adjust:exact]">
             {/* ลายน้ำ */}
             <p
                 aria-hidden="true"
@@ -49,7 +49,7 @@ export function SkillTranscriptDocument({ snapshot, code, issuedAt, verifyUrl }:
 
             <div className="relative">
                 {/* หัวเอกสาร */}
-                <header className="flex items-center gap-5 border-b-2 border-brand-900 pb-4">
+                <header className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b-2 border-brand-900 pb-4">
                     <Image src="/computing-logo.png" alt="วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น" width={305} height={89} className="h-12 w-auto" />
                     <div>
                         <p className="text-sm text-fg-muted">วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น</p>
@@ -59,7 +59,7 @@ export function SkillTranscriptDocument({ snapshot, code, issuedAt, verifyUrl }:
                 </header>
 
                 {/* ผู้ถือเอกสาร */}
-                <section className="mt-5 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                <section className="mt-5 grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2 print:grid-cols-2">
                     <p>
                         <span className="text-fg-muted">ชื่อ-สกุล: </span>
                         <span className="font-semibold">{snapshot.holder.name}</span>
@@ -79,14 +79,14 @@ export function SkillTranscriptDocument({ snapshot, code, issuedAt, verifyUrl }:
                 </section>
 
                 {/* สรุป */}
-                <section className="mt-5 grid grid-cols-3 gap-3">
+                <section className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3 print:grid-cols-3">
                     <Summary label="แต้มสะสม" value={snapshot.summary.totalScore.toLocaleString("th-TH")} />
                     <Summary label="กิจกรรมที่เข้าร่วม" value={String(snapshot.summary.activityCount)} />
                     <Summary label="ค่าเฉลี่ยรวม (เต็ม 5)" value={snapshot.summary.overallAverage.toFixed(2)} />
                 </section>
 
                 {/* กราฟ + ตารางทักษะ */}
-                <section className="mt-5 grid grid-cols-[300px_1fr] items-start gap-5">
+                <section className="mt-5 grid grid-cols-1 items-start gap-5 sm:grid-cols-[300px_1fr] print:grid-cols-[300px_1fr]">
                     <div className="flex justify-center">
                         <RadarChart width={300} height={300} cx="50%" cy="50%" outerRadius="75%" data={chartData}>
                             <PolarGrid stroke="#cbd5e1" />
@@ -128,7 +128,8 @@ export function SkillTranscriptDocument({ snapshot, code, issuedAt, verifyUrl }:
                 {/* ประวัติกิจกรรม */}
                 <section className="mt-6">
                     <h2 className="mb-2 text-base font-bold">ประวัติกิจกรรมที่ได้รับการประเมิน</h2>
-                    <table className="w-full text-sm">
+                    <div className="overflow-x-auto print:overflow-visible">
+                    <table className="w-full min-w-[480px] text-sm print:min-w-0">
                         <thead>
                             <tr className="border-b border-brand-900 text-left">
                                 <th className="w-10 py-1.5">ลำดับ</th>
@@ -148,10 +149,11 @@ export function SkillTranscriptDocument({ snapshot, code, issuedAt, verifyUrl }:
                             ))}
                         </tbody>
                     </table>
+                </div>
                 </section>
 
                 {/* ส่วนท้าย: QR */}
-                <footer className="mt-8 flex items-center gap-5 border-t-2 border-brand-900 pt-4 print:break-inside-avoid">
+                <footer className="mt-8 flex flex-col gap-4 border-t-2 border-brand-900 pt-4 sm:flex-row sm:items-center sm:gap-5 print:flex-row print:items-center print:gap-5 print:break-inside-avoid">
                     <QRCodeSVG value={verifyUrl} size={96} level="M" />
                     <div className="text-xs leading-relaxed text-fg-muted">
                         <p className="text-sm font-semibold text-brand-900">ตรวจสอบความถูกต้องของเอกสาร</p>
