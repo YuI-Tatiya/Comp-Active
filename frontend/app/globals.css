@@ -222,3 +222,81 @@
     outline-offset: 2px;
   }
 }
+
+/* ตัวการ์ตูนเดินไปมาบนแถบหัวเรื่อง (components/ui/walking-cartoon.tsx)
+   walker-track เลื่อนซ้าย→ขวา→ซ้ายด้วย left, walker-face กลับด้านเมื่อถึงกึ่งทาง (steps = พลิกทันที) */
+.walker-track {
+  --walker-w: 2.75rem;
+  width: var(--walker-w);
+  animation: walker-pace 18s linear infinite;
+}
+
+@media (min-width: 640px) {
+  .walker-track {
+    --walker-w: 3.5rem;
+  }
+}
+
+.walker-face {
+  animation: walker-face 18s steps(1, end) infinite;
+}
+
+.walker-bob {
+  animation: walker-bob 0.6s ease-in-out infinite;
+}
+
+.walker-limb {
+  transform-box: view-box;
+  animation: walker-swing 0.6s ease-in-out infinite alternate;
+}
+
+.walker-limb-b {
+  animation-direction: alternate-reverse;
+}
+
+@keyframes walker-pace {
+  0%,
+  100% {
+    left: 0;
+  }
+  50% {
+    left: calc(100% - var(--walker-w));
+  }
+}
+
+@keyframes walker-face {
+  0% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(-1);
+  }
+}
+
+@keyframes walker-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes walker-swing {
+  from {
+    transform: rotate(-26deg);
+  }
+  to {
+    transform: rotate(26deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .walker-track,
+  .walker-face,
+  .walker-bob,
+  .walker-limb {
+    animation: none;
+  }
+}
