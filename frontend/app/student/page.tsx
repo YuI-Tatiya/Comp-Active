@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
-import { HeroBanner } from "@/components/ui/hero-banner"
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
 import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { ActivityCardSkeleton, Skeleton } from "@/components/ui/skeleton"
@@ -100,13 +99,21 @@ export default function StudentDashboardPage() {
   return (
     <>
       {/* ── แถบทักทาย ────────────────────────────────────────────────────── */}
-      <HeroBanner
-        eyebrow={loadingMine ? "กำลังโหลดข้อมูล..." : `ระดับ ${level}`}
-        title="สวัสดี"
-        highlight={user?.name || "นักศึกษา"}
-        tagline={{ before: "พร้อมสะสม", words: ["ทักษะ", "ประสบการณ์", "คะแนน", "โอกาส"], after: "ไปกับทุกกิจกรรม" }}
-        subtitle="เลือกกิจกรรมที่สนใจ สะสมคะแนน Soft Skills และติดตามการเติบโตของคุณ"
-      />
+      <div className="border-b border-border bg-bg">
+        <Container className="py-8">
+          <div className="max-w-2xl">
+            <p className="mb-1 text-sm font-medium text-fg-muted">
+              {loadingMine ? "กำลังโหลดข้อมูล..." : `ระดับ ${level}`}
+            </p>
+            <h1 className="mb-1 text-2xl font-semibold tracking-tight text-fg sm:text-3xl">
+              สวัสดี {user?.name || "นักศึกษา"}
+            </h1>
+            <p className="text-fg-muted">
+              เลือกกิจกรรมที่สนใจ สะสมคะแนน Soft Skills และติดตามการเติบโตของคุณ
+            </p>
+          </div>
+        </Container>
+      </div>
 
       {/* ── สถิติของฉัน ───────────────────────────────────────────────────── */}
       <section className="border-b border-border">

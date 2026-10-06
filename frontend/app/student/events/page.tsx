@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
-import { HeroBanner } from "@/components/ui/hero-banner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { EventsFilterSidebar } from "@/components/ui/events-filter-sidebar"
 import { HorizontalScrollSection } from "@/components/ui/horizontal-scroll-section"
@@ -140,13 +139,14 @@ export default function StudentEventsPage() {
     return (
         // ไม่ใส่ min-h-screen / SiteHeader / SiteFooter — app/student/layout.tsx จัดการให้แล้ว
         <div className="bg-surface font-sans">
-            <HeroBanner
-                eyebrow="Soft Skills"
-                title="กิจกรรม"
-                highlight="ทั้งหมด"
-                tagline={{ before: "ค้นหา", words: ["ทักษะ", "ประสบการณ์", "เพื่อนใหม่", "โอกาส"], after: "ที่ใช่สำหรับคุณ" }}
-                subtitle="เลือกงานที่สนใจ กดเข้าไปดูรายละเอียดเพื่อลงทะเบียนเข้าร่วม"
-            />
+            <div className="border-b border-border bg-bg">
+                <Container className="py-8">
+                    <div className="max-w-2xl">
+                        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-fg sm:text-3xl">กิจกรรมทั้งหมด</h1>
+                        <p className="text-fg-muted">เลือกงานที่สนใจ กดเข้าไปดูรายละเอียดเพื่อลงทะเบียนเข้าร่วม</p>
+                    </div>
+                </Container>
+            </div>
 
             <Container className="py-12">
                 <Button
