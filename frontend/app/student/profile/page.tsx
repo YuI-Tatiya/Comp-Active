@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { X, Trophy, TrendingUp, CalendarCheck, Search, BarChart3, UserRound } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { X, Trophy, TrendingUp, CalendarCheck, Search, BarChart3, UserRound, FileDown, Loader2 } from "lucide-react"
 import { Toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,6 +19,10 @@ import { registrationsAPI, evaluationsAPI, SkillsData, Activity, usersAPI } from
 import { SOFT_SKILLS, softSkillLabelByField } from "@/lib/soft-skills"
 import { Select } from "@/components/ui/select"
 import { EDUCATION_LEVELS, getProgramsByLevel } from "@/lib/programs"
+import { skillTranscriptsAPI } from "@/lib/api"
+import { formatTranscriptCode, type TranscriptListItem } from "@/lib/transcript"
+import { IssuedTranscriptsList } from "@/components/transcript/issued-transcripts-list"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface Registration {
     id: number;
@@ -39,9 +44,16 @@ const EMPTY_FORM = {
 
 export default function StudentProfilePage() {
     const { user, refreshUser } = useAuth()
+    const router = useRouter()
     const [, setRegistrations] = useState<Registration[]>([])
     const [skillsData, setSkillsData] = useState<SkillsData | null>(null)
     const [loading, setLoading] = useState(true)
+
+    // เอกสารรับรองผล Soft Skills
+    const [transcripts, setTranscripts] = useState<TranscriptListItem[]>([])
+    const [exporting, setExporting] = useState(false)
+    const [revokeTarget, setRevokeTarget] = useState<string | null>(null)
+    const [revoking, setRevoking] = useState(false)
 
     // ตัวกรอง "ผลการประเมิน Soft Skills ต่อกิจกรรม"
     const [historySearch, setHistorySearch] = useState("")
@@ -110,6 +122,58 @@ export default function StudentProfilePage() {
             setLoading(false)
         }
     }
+
+    const loadTranscripts = async () => {
+        try {
+            setTranscripts(await skillTranscriptsAPI.mine())
+        } catch (error) {
+            console.error("Error fetching transcripts:", error)
+        }
+    }
+
+    useEffect(() => {
+        loadTranscripts()
+    }, [])
+
+    const openTranscript = (code: string) => {
+        const url = `/verify/${formatTranscriptCode(code)}/print`
+        const tab = window.open(url, "_blank")
+        if (!tab) router.push(url) // popup ถูกบล็อก → นำทางในแท็บเดิม
+    }
+
+    const handleExport = async () => {
+        // เปิดแท็บก่อน await — ถ้าเปิดหลังรอ API เบราว์เซอร์จะมองว่าไม่ได้มาจากการคลิกแล้วบล็อก popup
+        const popup = window.open("", "_blank")
+        setExporting(true)
+        try {
+            const { code } = await skillTranscriptsAPI.issue()
+            if (popup) popup.location.href = `/verify/${formatTranscriptCode(code)}/print`
+            else router.push(`/verify/${formatTranscriptCode(code)}/print`)
+            loadTranscripts()
+        } catch (error) {
+            popup?.close()
+            showToast("ออกเอกสารไม่สำเร็จ", error instanceof Error ? error.message : undefined)
+        } finally {
+            setExporting(false)
+        }
+    }
+
+    const handleRevoke = async () => {
+        if (!revokeTarget) return
+        setRevoking(true)
+        try {
+            await skillTranscriptsAPI.revoke(revokeTarget)
+            showToast("ยกเลิกเอกสารแล้ว", "เอกสารฉบับนี้จะตรวจสอบไม่ผ่านอีกต่อไป")
+            setRevokeTarget(null)
+            loadTranscripts()
+        } catch (error) {
+            showToast("ยกเลิกเอกสารไม่สำเร็จ", error instanceof Error ? error.message : undefined)
+        } finally {
+            setRevoking(false)
+        }
+    }
+
+    const canExport = !loading && (skillsData?.count ?? 0) > 0
 
     const chartData = SOFT_SKILLS.map((s) => ({
         subject: s.label,
@@ -242,10 +306,25 @@ export default function StudentProfilePage() {
                         {/* ── แท็บ Soft Skills ───────────────────────────────── */}
                         <TabsContent value="softskills" className="space-y-6">
                             <div className="rounded-2xl border border-border bg-bg p-8 shadow-xs lg:p-12">
-                                <h3 className="text-2xl font-bold text-fg">Soft Skills Dashboard</h3>
-                                <p className="mb-10 mt-1 text-sm text-fg-muted">
-                                    ติดตามและพัฒนาทักษะของคุณผ่านการเข้าร่วมกิจกรรม
-                                </p>
+                                <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <h3 className="text-2xl font-bold text-fg">Soft Skills Dashboard</h3>
+                                        <p className="mt-1 text-sm text-fg-muted">
+                                            ติดตามและพัฒนาทักษะของคุณผ่านการเข้าร่วมกิจกรรม
+                                        </p>
+                                    </div>
+                                    <div className="sm:text-right">
+                                        <Button type="button" onClick={handleExport} disabled={!canExport || exporting}>
+                                            {exporting ? <Loader2 className="animate-spin" aria-hidden="true" /> : <FileDown aria-hidden="true" />}
+                                            ส่งออกเอกสารรับรอง (PDF)
+                                        </Button>
+                                        {!loading && !canExport && (
+                                            <p className="mt-2 max-w-[16rem] text-xs text-fg-subtle sm:ml-auto">
+                                                ต้องมีผลประเมินที่อนุมัติแล้วอย่างน้อย 1 กิจกรรมจึงจะออกเอกสารได้
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
 
                                 <div className="mb-10 grid grid-cols-1 gap-6 md:grid-cols-3">
                                     <StatTile
@@ -388,6 +467,7 @@ export default function StudentProfilePage() {
                                     </div>
                                 </div>
                             </div>
+                            <IssuedTranscriptsList items={transcripts} onOpen={(code) => openTranscript(code)} onRevoke={setRevokeTarget} />
                         </TabsContent>
 
                         {/* ── แท็บแก้ไขข้อมูล ────────────────────────────────── */}
@@ -623,6 +703,17 @@ export default function StudentProfilePage() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmDialog
+                open={revokeTarget !== null}
+                onOpenChange={(open) => !open && !revoking && setRevokeTarget(null)}
+                title="ยกเลิกเอกสารฉบับนี้?"
+                description={`เลขที่ ${revokeTarget ? formatTranscriptCode(revokeTarget) : ""} จะตรวจสอบไม่ผ่านทันที และไม่สามารถกู้คืนได้ (ออกเอกสารใหม่ได้ภายหลัง)`}
+                confirmLabel="ยกเลิกเอกสาร"
+                tone="danger"
+                loading={revoking}
+                onConfirm={handleRevoke}
+            />
 
             <Toast open={toast.open} message={toast.message} description={toast.description} />
         </div>
