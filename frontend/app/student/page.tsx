@@ -25,7 +25,7 @@ import {
 } from "@/lib/api"
 import { buildFeaturedCards, type FeaturedCardItem } from "@/lib/events-filter"
 import { useAuth } from "@/lib/auth-context"
-import { ArrowRight, CalendarCheck, CalendarX, Clock, Sparkles, Trophy, TrendingUp } from "lucide-react"
+import { ArrowRight, CalendarCheck, CalendarX, Clock, Trophy, TrendingUp } from "lucide-react"
 
 interface MyRegistration {
   id: number
@@ -99,30 +99,16 @@ export default function StudentDashboardPage() {
   return (
     <>
       {/* ── แถบทักทาย ────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden border-b border-border bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -left-16 -top-24 size-72 animate-pulse rounded-full bg-cat-volunteer/30 blur-3xl [animation-duration:4s]"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-24 right-10 size-64 animate-pulse rounded-full bg-cat-art/30 blur-3xl [animation-duration:6s]"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute right-1/3 top-0 size-40 animate-pulse rounded-full bg-cat-tech/25 blur-3xl [animation-duration:5s]"
-        />
-        <Container className="relative z-10 py-8">
+      <div className="border-b border-border bg-bg">
+        <Container className="py-8">
           <div className="max-w-2xl">
-            <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-sm">
-              <Sparkles className="size-3.5 animate-pulse" aria-hidden="true" />
+            <p className="mb-1 text-sm font-medium text-fg-muted">
               {loadingMine ? "กำลังโหลดข้อมูล..." : `ระดับ ${level}`}
-            </span>
-
-            <h1 className="mb-1 text-3xl font-black tracking-tight text-white sm:text-4xl">
+            </p>
+            <h1 className="mb-1 text-2xl font-semibold tracking-tight text-fg sm:text-3xl">
               สวัสดี {user?.name || "นักศึกษา"}
             </h1>
-            <p className="text-white/85">
+            <p className="text-fg-muted">
               เลือกกิจกรรมที่สนใจ สะสมคะแนน Soft Skills และติดตามการเติบโตของคุณ
             </p>
           </div>

@@ -18,7 +18,7 @@ import {
     type EventsFilterValues,
     type FilterableItem,
 } from "@/lib/events-filter"
-import { Loader2, Search, SlidersHorizontal, Sparkles } from "lucide-react"
+import { Loader2, Search, SlidersHorizontal } from "lucide-react"
 
 function nearestUpcomingActivity(ev: EventSummary) {
     return [...ev.activities].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
@@ -139,27 +139,11 @@ export default function StudentEventsPage() {
     return (
         // ไม่ใส่ min-h-screen / SiteHeader / SiteFooter — app/student/layout.tsx จัดการให้แล้ว
         <div className="bg-surface font-sans">
-            <div className="relative overflow-hidden border-b border-border bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500">
-                <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -right-16 -top-16 size-56 animate-pulse rounded-full bg-cat-volunteer/40 blur-3xl [animation-duration:4s]"
-                />
-                <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -bottom-20 -left-10 size-56 animate-pulse rounded-full bg-cat-tech/40 blur-3xl [animation-duration:6s]"
-                />
-                <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute right-1/3 bottom-0 size-40 animate-pulse rounded-full bg-cat-art/30 blur-3xl [animation-duration:5s]"
-                />
-                <Container className="relative z-10 py-8">
+            <div className="border-b border-border bg-bg">
+                <Container className="py-8">
                     <div className="max-w-2xl">
-                        <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-sm">
-                            <Sparkles className="size-3.5 animate-pulse" aria-hidden="true" />
-                            พัฒนา Soft Skills ไปกับทุกกิจกรรม
-                        </span>
-                        <h1 className="mb-1 text-3xl font-black tracking-tight text-white sm:text-4xl">กิจกรรมทั้งหมด</h1>
-                        <p className="text-white/85">เลือกงานที่สนใจ กดเข้าไปดูรายละเอียดเพื่อลงทะเบียนเข้าร่วม</p>
+                        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-fg sm:text-3xl">กิจกรรมทั้งหมด</h1>
+                        <p className="text-fg-muted">เลือกงานที่สนใจ กดเข้าไปดูรายละเอียดเพื่อลงทะเบียนเข้าร่วม</p>
                     </div>
                 </Container>
             </div>
