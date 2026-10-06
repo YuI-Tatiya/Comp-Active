@@ -5,14 +5,17 @@ import { RegistrationsStudentController } from './registrations-student.controll
 import { AssessmentsStudentController } from './assessments-student.controller';
 import { EvaluationsStudentController } from './evaluations-student.controller';
 import { CertificatesStudentController } from './certificates-student.controller';
+import { SkillTranscriptsModule } from '../shared/skill-transcripts/skill-transcripts.module';
+import { SkillTranscriptsStudentController } from './skill-transcripts-student.controller';
 
 @Module({
-  imports: [RegistrationsModule, VolunteerServicesModule],
+  imports: [RegistrationsModule, VolunteerServicesModule, SkillTranscriptsModule],
   controllers: [
     RegistrationsStudentController,
     EvaluationsStudentController,
     CertificatesStudentController,
     AssessmentsStudentController,
+    SkillTranscriptsStudentController,
   ],
 })
 export class StudentModule {}
