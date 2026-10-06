@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
-import { Users, Share2, ArrowLeft, Edit, CheckSquare, Loader2 } from "lucide-react"
+import { Users, Share2, ArrowLeft, Edit, CheckSquare, Loader2, XCircle, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { eventsAPI, activitiesAPI, isCancelledByOrganizer, EventSummary } from "@/lib/api"
 import { resolveEventImageUrl } from "@/lib/event-image"
@@ -160,8 +160,13 @@ export default function OrganizerEventDetailsPage() {
                             )}
                             <Button variant="outline" size="sm" onClick={handleShare}><Share2 className="w-4 h-4 mr-2" /> แชร์งานนี้</Button>
                             {activeActivity && !isCancelledByOrganizer(activeActivity.approvalStatus) && (
-                                <Button variant="destructive" size="sm" onClick={() => setIsCancelOpen(true)}>
-                                    ยกเลิกกิจกรรมนี้
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-danger-fg hover:border-danger/40 hover:bg-danger-bg hover:text-danger-fg"
+                                    onClick={() => setIsCancelOpen(true)}
+                                >
+                                    <XCircle className="w-4 h-4 mr-2" /> ยกเลิกกิจกรรม
                                 </Button>
                             )}
                         </>
@@ -234,21 +239,36 @@ export default function OrganizerEventDetailsPage() {
             <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
-                        <DialogTitle className="text-danger flex items-center gap-2">⚠️ ยืนยันการยกเลิกกิจกรรม &quot;{activeActivity?.name}&quot;</DialogTitle>
+                        <div className="flex items-start gap-3">
+                            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-danger-bg text-danger" aria-hidden="true">
+                                <AlertTriangle className="size-5" />
+                            </span>
+                            <div>
+                                <DialogTitle className="text-fg">ยกเลิกกิจกรรม &quot;{activeActivity?.name}&quot;?</DialogTitle>
+                                <p className="mt-1 text-sm text-fg-muted">
+                                    การยกเลิกมีผลทันทีและย้อนกลับไม่ได้ ระบบจะแจ้งเหตุผลทางอีเมลไปยังผู้ที่ลงทะเบียนไว้
+                                </p>
+                            </div>
+                        </div>
                     </DialogHeader>
-                    <div className="py-4 space-y-4">
-                        <div className="p-4 bg-warning-bg rounded-lg border border-border text-sm text-warning">
-                            <strong>หมายเหตุ:</strong> กิจกรรมย่อยนี้จะถูกยกเลิกทันที ผู้เข้าร่วมที่ลงทะเบียนไว้แล้วจะได้รับผลกระทบและไม่สามารถย้อนกลับได้
-                        </div>
-                        <div className="space-y-2">
-                            <Label>เหตุผลการยกเลิก <span className="text-danger">*</span></Label>
-                            <Input placeholder="เช่น ติดภารกิจด่วน, จำนวนผู้สมัครไม่เพียงพอ..." value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} required />
-                        </div>
+                    <div className="space-y-2 py-2">
+                        <Label htmlFor="cancel-reason">
+                            เหตุผลการยกเลิก <span className="text-danger">*</span>
+                        </Label>
+                        <Input
+                            id="cancel-reason"
+                            placeholder="เช่น ติดภารกิจด่วน, จำนวนผู้สมัครไม่เพียงพอ..."
+                            value={cancelReason}
+                            onChange={(e) => setCancelReason(e.target.value)}
+                            required
+                        />
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsCancelOpen(false)}>ยกเลิก</Button>
+                        <Button variant="outline" onClick={() => setIsCancelOpen(false)} disabled={submitting}>
+                            ไม่ยกเลิก
+                        </Button>
                         <Button variant="destructive" onClick={handleRequestCancel} disabled={submitting || !cancelReason.trim()}>
-                            {submitting ? "กำลังส่งคำขอ..." : "ยืนยันการยกเลิก"}
+                            {submitting ? "กำลังยกเลิก..." : "ยืนยันยกเลิกกิจกรรม"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
