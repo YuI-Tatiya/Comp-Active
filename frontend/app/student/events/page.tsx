@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
+import { PageHeader } from "@/components/ui/page-header"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { EventsFilterSidebar } from "@/components/ui/events-filter-sidebar"
 import { HorizontalScrollSection } from "@/components/ui/horizontal-scroll-section"
@@ -18,7 +19,7 @@ import {
     type EventsFilterValues,
     type FilterableItem,
 } from "@/lib/events-filter"
-import { Loader2, Search, SlidersHorizontal } from "lucide-react"
+import { Loader2, Search, SlidersHorizontal, Compass, CalendarDays, Users } from "lucide-react"
 
 function nearestUpcomingActivity(ev: EventSummary) {
     return [...ev.activities].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
@@ -139,14 +140,11 @@ export default function StudentEventsPage() {
     return (
         // ไม่ใส่ min-h-screen / SiteHeader / SiteFooter — app/student/layout.tsx จัดการให้แล้ว
         <div className="bg-surface font-sans">
-            <div className="border-b border-border bg-bg">
-                <Container className="py-8">
-                    <div className="max-w-2xl">
-                        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-fg sm:text-3xl">กิจกรรมทั้งหมด</h1>
-                        <p className="text-fg-muted">เลือกงานที่สนใจ กดเข้าไปดูรายละเอียดเพื่อลงทะเบียนเข้าร่วม</p>
-                    </div>
-                </Container>
-            </div>
+            <PageHeader
+                title="กิจกรรมทั้งหมด"
+                subtitle="เลือกงานที่สนใจ กดเข้าไปดูรายละเอียดเพื่อลงทะเบียนเข้าร่วม"
+                icons={[Compass, CalendarDays, Users]}
+            />
 
             <Container className="py-12">
                 <Button

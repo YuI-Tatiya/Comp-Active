@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Container } from "@/components/layout/container"
+import { PageHeader } from "@/components/ui/page-header"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Label } from "@/components/ui/label"
@@ -22,7 +23,7 @@ import { getCategory, categoriesBadgeLabel } from "@/lib/categories"
 import { SOFT_SKILLS } from "@/lib/soft-skills"
 import {
   Calendar, Clock, MapPin, Loader2, CalendarX, X, Star, Search,
-  CheckCircle2, HeartHandshake, TrendingUp, ChevronDown, Users,
+  CheckCircle2, HeartHandshake, TrendingUp, ChevronDown, Users, ClipboardCheck, CalendarDays, Award,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -306,12 +307,12 @@ export default function MyRegistrationsPage() {
     // ไม่ใส่ min-h-screen — app/student/layout.tsx จัดการให้แล้ว
     <div className="bg-surface pb-12">
       {/* หัวข้อ — ไม่ใส่ sticky เพราะ AppHeader ปักที่ top-0 z-50 อยู่แล้ว แถบนี้จะมุดหายไปใต้มัน */}
-      <div className="border-b border-border bg-bg">
-        <Container className="py-8">
-          <h1 className="mb-1 text-2xl font-semibold tracking-tight text-fg sm:text-3xl">กิจกรรมของฉัน</h1>
-          <p className="text-fg-muted">ติดตามสถานะการเข้าร่วมและการประเมินผลของคุณ</p>
-        </Container>
-      </div>
+      <PageHeader
+        title="กิจกรรมของฉัน"
+        subtitle="ติดตามสถานะการเข้าร่วมและการประเมินผลของคุณ"
+        action={{ label: "ค้นหากิจกรรมเพิ่ม", href: "/student/events" }}
+        icons={[ClipboardCheck, CalendarDays, Award]}
+      />
 
       <Container className="py-8">
         {message && (

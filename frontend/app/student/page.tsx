@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
+import { PageHeader } from "@/components/ui/page-header"
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
 import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { ActivityCardSkeleton, Skeleton } from "@/components/ui/skeleton"
@@ -25,7 +26,7 @@ import {
 } from "@/lib/api"
 import { buildFeaturedCards, type FeaturedCardItem } from "@/lib/events-filter"
 import { useAuth } from "@/lib/auth-context"
-import { ArrowRight, CalendarCheck, CalendarX, Clock, Trophy, TrendingUp } from "lucide-react"
+import { ArrowRight, CalendarCheck, CalendarX, Clock, Trophy, TrendingUp, Star } from "lucide-react"
 
 interface MyRegistration {
   id: number
@@ -99,21 +100,13 @@ export default function StudentDashboardPage() {
   return (
     <>
       {/* ── แถบทักทาย ────────────────────────────────────────────────────── */}
-      <div className="border-b border-border bg-bg">
-        <Container className="py-8">
-          <div className="max-w-2xl">
-            <p className="mb-1 text-sm font-medium text-fg-muted">
-              {loadingMine ? "กำลังโหลดข้อมูล..." : `ระดับ ${level}`}
-            </p>
-            <h1 className="mb-1 text-2xl font-semibold tracking-tight text-fg sm:text-3xl">
-              สวัสดี {user?.name || "นักศึกษา"}
-            </h1>
-            <p className="text-fg-muted">
-              เลือกกิจกรรมที่สนใจ สะสมคะแนน Soft Skills และติดตามการเติบโตของคุณ
-            </p>
-          </div>
-        </Container>
-      </div>
+      <PageHeader
+        badge={loadingMine ? "กำลังโหลดข้อมูล..." : `ระดับ ${level}`}
+        title={`สวัสดี ${user?.name || "นักศึกษา"}`}
+        subtitle="เลือกกิจกรรมที่สนใจ สะสมคะแนน Soft Skills และติดตามการเติบโตของคุณ"
+        action={{ label: "ดูกิจกรรมทั้งหมด", href: "/student/events" }}
+        icons={[Trophy, Star, CalendarCheck]}
+      />
 
       {/* ── สถิติของฉัน ───────────────────────────────────────────────────── */}
       <section className="border-b border-border">

@@ -222,3 +222,43 @@
     outline-offset: 2px;
   }
 }
+
+/* หัวเรื่องการ์ดฟ้า (components/ui/page-header.tsx) — ไอคอนกระจกลอยช้า + วงโคจรเส้นประหมุนช้ามาก */
+.ph-float {
+  animation: ph-float 6s ease-in-out infinite;
+}
+
+.ph-delay-1 {
+  animation-delay: -2s;
+}
+
+.ph-delay-2 {
+  animation-delay: -4s;
+}
+
+.ph-orbit {
+  animation: ph-orbit 60s linear infinite;
+}
+
+@keyframes ph-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes ph-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ph-float,
+  .ph-orbit {
+    animation: none;
+  }
+}
