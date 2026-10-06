@@ -232,26 +232,6 @@ export default function StudentDashboardPage() {
                     อีก {(XP_PER_LEVEL - xpInLevel).toLocaleString("th-TH")} XP ถึงระดับ {level + 1}
                   </p>
                 </div>
-
-                <div className="mt-5 border-t border-border pt-4">
-                  <p className="mb-2 text-xs font-medium text-fg-muted">ตราความสำเร็จ</p>
-                  {skills?.badges && skills.badges.length > 0 ? (
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {skills.badges.slice(0, 5).map((b) => (
-                        <span
-                          key={b.name}
-                          title={b.description}
-                          className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs text-fg-muted"
-                        >
-                          <span aria-hidden="true">{b.icon}</span>
-                          {b.name}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-fg-subtle">เข้าร่วมกิจกรรมเพื่อสะสมตราความสำเร็จ</p>
-                  )}
-                </div>
               </>
             )}
           </div>
