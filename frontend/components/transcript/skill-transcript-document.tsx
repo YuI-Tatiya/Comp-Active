@@ -50,7 +50,17 @@ export function SkillTranscriptDocument({ snapshot, code, issuedAt, verifyUrl }:
             <div className="relative">
                 {/* หัวเอกสาร */}
                 <header className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b-2 border-brand-900 pb-4">
-                    <Image src="/computing-logo.png" alt="วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น" width={305} height={89} className="h-12 w-auto" />
+                    {/* computing-logo-dark.png = ตัวอักษรสีเข้มสำหรับพื้นสว่าง (ไฟล์ computing-logo.png ตัวอักษรขาว มองไม่เห็นบนกระดาษ)
+                        priority = โหลดทันทีไม่ lazy, unoptimized = เสิร์ฟไฟล์ตรง ไม่ผ่านตัวย่อภาพ → พร้อมก่อนสั่งพิมพ์ */}
+                    <Image
+                        src="/computing-logo-dark.png"
+                        alt="วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น"
+                        width={305}
+                        height={89}
+                        priority
+                        unoptimized
+                        className="h-12 w-auto"
+                    />
                     <div>
                         <p className="text-sm text-fg-muted">วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น</p>
                         <h1 className="text-2xl font-bold leading-tight">เอกสารรับรองผลการพัฒนาทักษะ</h1>

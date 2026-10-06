@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { SkillTranscriptDocument } from "@/components/transcript/skill-transcript-document"
 import { useTranscriptVerification } from "@/components/transcript/use-transcript-verification"
 import { formatTranscriptCode } from "@/lib/transcript"
+import { waitForImages } from "@/lib/print-ready"
 
 /**
  * หน้าพิมพ์เอกสาร — เอกสารล้วน (ไม่มี header/footer ของพอร์ทัล) เรียก window.print() อัตโนมัติครั้งเดียวเมื่อพร้อม
@@ -30,7 +31,11 @@ export default function PrintTranscriptPage() {
         if (!ready || printed.current) return
         printed.current = true
         // รอฟอนต์ + เฟรมที่วาดกราฟ/QR เสร็จ ก่อนเปิดหน้าต่างพิมพ์
-        document.fonts.ready.then(() => requestAnimationFrame(() => requestAnimationFrame(() => window.print())))
+        // รอทั้งฟอนต์และรูปในเอกสาร (โลโก้) ก่อนเปิดหน้าต่างพิมพ์ — ไม่งั้น PDF ที่บันทึกจะไม่มีโลโก้
+        const images = Array.from(document.querySelectorAll<HTMLImageElement>(".transcript-doc img"))
+        Promise.all([document.fonts.ready, waitForImages(images, 5000)]).then(() =>
+            requestAnimationFrame(() => requestAnimationFrame(() => window.print())),
+        )
     }, [ready])
 
     if (phase === "loading" || (phase === "valid" && !ready)) {
