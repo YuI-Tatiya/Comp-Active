@@ -157,3 +157,64 @@ describe('EvaluationsService.override — ownership', () => {
     await expect(service.override(OWNER_ID, UserRole.ORGANIZER, 1, {} as any)).rejects.toThrow(NotFoundException);
   });
 });
+
+describe('EvaluationsService.getMySkills (characterization)', () => {
+  const FIELDS = [
+    'communication', 'timeManagement', 'flexibilityAdaptability', 'teamworkCollaboration',
+    'analyticCriticalThinking', 'decisionMaking', 'creativity', 'complexProblemSolving',
+    'curiosityLifelongLearning', 'negotiationPersuasion', 'leadership', 'positiveAttitude',
+  ];
+  const scores = (n: number) => Object.fromEntries(FIELDS.map((f) => [f, n]));
+
+  function makeService(rows: unknown[], allScores: unknown[], totalStudents: number) {
+    const repo = {
+      findByStudentWithActivity: jest.fn().mockResolvedValue(rows),
+      findAllScoresWithStudent: jest.fn().mockResolvedValue(allScores),
+      countStudents: jest.fn().mockResolvedValue(totalStudents),
+    };
+    return new EvaluationsService(repo as unknown as EvaluationsRepository);
+  }
+
+  it('รวมคะแนน ค่าเฉลี่ย แต้ม เลเวล อันดับ และ history ตามเดิม', async () => {
+    const createdA = new Date('2026-01-10T00:00:00Z');
+    const createdB = new Date('2026-02-10T00:00:00Z');
+    const service = makeService(
+      [
+        { id: 1, createdAt: createdA, ...scores(2), registration: { activity: { name: 'A', date: new Date() } } },
+        { id: 2, createdAt: createdB, ...scores(4), registration: { activity: { name: 'B', date: new Date() } } },
+      ],
+      [
+        { ...scores(2), registration: { studentId: 1 } },
+        { ...scores(4), registration: { studentId: 1 } },
+        { ...scores(10), registration: { studentId: 2 } }, // รวม 120 > 72 ของนักศึกษา 1
+      ],
+      5,
+    );
+
+    // return type เป็น union (เคสไม่มีผลประเมินไม่มี history) จึงใช้ any เพื่ออ่าน history ได้
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result: any = await service.getMySkills(1);
+
+    expect(result.count).toBe(2);
+    expect(result.average).toEqual(scores(3));
+    expect(result.totalScore).toBe(72); // (2+4) x 12 ทักษะ
+    expect(result.points).toBe(1440); // totalScore x 20
+    expect(result.level).toBe(1);
+    expect(result.rank).toBe(2);
+    expect(result.totalStudents).toBe(5);
+    expect(result.badges.map((b: { name: string }) => b.name)).toEqual(['First Step']);
+    expect(result.history).toEqual([
+      { id: 1, activityName: 'A', date: createdA, scores: scores(2) },
+      { id: 2, activityName: 'B', date: createdB, scores: scores(4) },
+    ]);
+  });
+
+  it('ยังไม่มีผลประเมิน → ค่าศูนย์ทั้งหมด เลเวล 1', async () => {
+    const service = makeService([], [], 3);
+
+    const result = await service.getMySkills(1);
+
+    expect(result).toMatchObject({ count: 0, totalScore: 0, points: 0, level: 1, rank: 1, totalStudents: 3, badges: [] });
+    expect(result.average).toEqual(scores(0));
+  });
+});
