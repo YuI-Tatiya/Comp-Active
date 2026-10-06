@@ -141,11 +141,11 @@ export default function StudentDashboardPage() {
         </Container>
       </section>
 
-      {/* ── กำลังจะถึง + ทักษะ ───────────────────────────────────────────── */}
+      {/* ── กำลังจะถึง + ระดับของคุณ ─────────────────────────────────────── */}
       <section>
-        <Container className="grid gap-6 py-10 lg:grid-cols-3">
+        <Container className="grid gap-6 pt-10 lg:grid-cols-5">
           {/* กำลังจะถึง */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
             <SectionHeading
               title="กำลังจะถึง"
               description={
@@ -194,14 +194,77 @@ export default function StudentDashboardPage() {
             </div>
           </div>
 
-          {/* ทักษะของคุณ */}
-          <div className="rounded-xl border border-border bg-bg p-5 shadow-xs">
+          {/* ระดับของคุณ */}
+          <div className="flex flex-col rounded-xl border border-border bg-bg p-5 shadow-xs sm:p-6 lg:col-span-2">
+            <h2 className="text-base font-semibold text-fg">ระดับของคุณ</h2>
+
+            {loadingMine ? (
+              <Skeleton className="mt-4 h-44 w-full rounded-lg" />
+            ) : (
+              <>
+                <div className="mt-4 flex items-center gap-4">
+                  <span className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-600 to-brand-500 text-2xl font-bold text-white shadow-md shadow-brand-600/25">
+                    {level}
+                  </span>
+                  <div>
+                    <p className="text-sm text-fg-muted">ระดับปัจจุบัน</p>
+                    <p className="text-xl font-semibold text-fg tabular-nums">
+                      {points.toLocaleString("th-TH")}{" "}
+                      <span className="text-sm font-normal text-fg-muted">แต้ม</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <div className="mb-2 flex items-center justify-between text-xs text-fg-muted">
+                    <span>สู่ระดับ {level + 1}</span>
+                    <span className="tabular-nums">
+                      {xpInLevel.toLocaleString("th-TH")} / {XP_PER_LEVEL.toLocaleString("th-TH")} XP
+                    </span>
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-surface-2">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-500 transition-all"
+                      style={{ width: `${xpPercent}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-fg-subtle">
+                    อีก {(XP_PER_LEVEL - xpInLevel).toLocaleString("th-TH")} XP ถึงระดับ {level + 1}
+                  </p>
+                </div>
+
+                <div className="mt-5 border-t border-border pt-4">
+                  <p className="mb-2 text-xs font-medium text-fg-muted">เหรียญรางวัล</p>
+                  {skills?.badges && skills.badges.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {skills.badges.slice(0, 5).map((b) => (
+                        <span
+                          key={b.name}
+                          title={b.description}
+                          className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs text-fg-muted"
+                        >
+                          <span aria-hidden="true">{b.icon}</span>
+                          {b.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-fg-subtle">เข้าร่วมกิจกรรมเพื่อสะสมเหรียญรางวัล</p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </Container>
+      </section>
+
+      {/* ── ทักษะของคุณ ──────────────────────────────────────────────────── */}
+      <section>
+        <Container className="pb-10 pt-6">
+          <div className="rounded-xl border border-border bg-bg p-5 shadow-xs sm:p-6">
             <div className="flex items-baseline justify-between">
               <h2 className="text-base font-semibold text-fg">ทักษะของคุณ</h2>
-              <Link
-                href="/student/profile"
-                className="text-sm text-brand-600 hover:underline"
-              >
+              <Link href="/student/profile" className="text-sm text-brand-600 hover:underline">
                 ดูรายละเอียด
               </Link>
             </div>
@@ -209,43 +272,10 @@ export default function StudentDashboardPage() {
             {loadingMine ? (
               <Skeleton className="mt-4 h-56 w-full rounded-lg" />
             ) : skills && skills.count > 0 ? (
-              <>
-                <SkillRadar average={skills.average} />
-                <div className="mt-2 border-t border-border pt-4">
-                  <SkillScoreList average={skills.average} />
-                </div>
-
-                {/* ความคืบหน้าระดับ */}
-                <div className="mt-5 border-t border-border pt-4">
-                  <div className="mb-2 flex items-center justify-between text-xs">
-                    <span className="font-medium text-fg">ระดับ {level}</span>
-                    <span className="text-fg-muted tabular-nums">
-                      {xpInLevel} / {XP_PER_LEVEL} XP
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-surface-2">
-                    <div
-                      className="h-full rounded-full bg-brand-600 transition-all"
-                      style={{ width: `${xpPercent}%` }}
-                    />
-                  </div>
-                </div>
-
-                {skills.badges && skills.badges.length > 0 && (
-                  <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-border pt-4">
-                    {skills.badges.slice(0, 5).map((b) => (
-                      <span
-                        key={b.name}
-                        title={b.description}
-                        className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs text-fg-muted"
-                      >
-                        <span aria-hidden="true">{b.icon}</span>
-                        {b.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </>
+              <div className="mt-4 grid items-center gap-6 lg:grid-cols-2 lg:gap-10">
+                <SkillRadar average={skills.average} height={360} />
+                <SkillScoreList average={skills.average} columns={2} />
+              </div>
             ) : (
               <p className="mt-4 text-sm leading-relaxed text-fg-muted">
                 ยังไม่มีคะแนนทักษะ — เข้าร่วมกิจกรรมและรอผู้จัดประเมิน
