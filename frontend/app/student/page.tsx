@@ -104,7 +104,6 @@ export default function StudentDashboardPage() {
         badge={loadingMine ? "กำลังโหลดข้อมูล..." : `ระดับ ${level}`}
         title={`สวัสดี ${user?.name || "นักศึกษา"}`}
         subtitle="เลือกกิจกรรมที่สนใจ สะสมคะแนน Soft Skills และติดตามการเติบโตของคุณ"
-        action={{ label: "ดูกิจกรรมทั้งหมด", href: "/student/events" }}
         icons={[Trophy, Star, CalendarCheck]}
       />
 

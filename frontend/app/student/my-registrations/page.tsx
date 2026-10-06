@@ -310,7 +310,6 @@ export default function MyRegistrationsPage() {
       <PageHeader
         title="กิจกรรมของฉัน"
         subtitle="ติดตามสถานะการเข้าร่วมและการประเมินผลของคุณ"
-        action={{ label: "ค้นหากิจกรรมเพิ่ม", href: "/student/events" }}
         icons={[ClipboardCheck, CalendarDays, Award]}
       />
 

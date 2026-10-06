@@ -61,7 +61,7 @@ export function PageHeader({ title, subtitle, badge, action, icons, className }:
                             </span>
                         )}
                         <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl">{title}</h1>
-                        {subtitle && <p className="mt-1 max-w-xl text-sm text-white/85 sm:text-base">{subtitle}</p>}
+                        {subtitle && <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-white/85 sm:text-base">{subtitle}</p>}
                         {action && (
                             <Link
                                 href={action.href}
