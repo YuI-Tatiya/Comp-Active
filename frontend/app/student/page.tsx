@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
-import { WalkingCartoon } from "@/components/ui/walking-cartoon"
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
 import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { ActivityCardSkeleton, Skeleton } from "@/components/ui/skeleton"
@@ -113,7 +112,6 @@ export default function StudentDashboardPage() {
               เลือกกิจกรรมที่สนใจ สะสมคะแนน Soft Skills และติดตามการเติบโตของคุณ
             </p>
           </div>
-          <WalkingCartoon className="-mb-8 mt-3" />
         </Container>
       </div>
 

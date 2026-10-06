@@ -5,7 +5,6 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Container } from "@/components/layout/container"
-import { WalkingCartoon } from "@/components/ui/walking-cartoon"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Label } from "@/components/ui/label"
@@ -311,7 +310,6 @@ export default function MyRegistrationsPage() {
         <Container className="py-8">
           <h1 className="mb-1 text-2xl font-semibold tracking-tight text-fg sm:text-3xl">กิจกรรมของฉัน</h1>
           <p className="text-fg-muted">ติดตามสถานะการเข้าร่วมและการประเมินผลของคุณ</p>
-          <WalkingCartoon className="-mb-8 mt-3" />
         </Container>
       </div>
 
