@@ -3,10 +3,15 @@
 import * as React from "react"
 import { usePathname } from "next/navigation"
 import Image from "next/image"
-import { X } from "lucide-react"
+import { X, Send, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { chatbotAPI, type ChatHistoryItem } from "@/lib/api"
 
 type Corner = "br" | "bl" | "tr" | "tl"
+
+const GREETING = "สวัสดีค่ะ หนูคือผู้ช่วย Comp Active 🙋‍♂️ มีคำถามเกี่ยวกับการใช้งานเว็บไซต์ ถามได้เลยนะคะ"
+/** ส่งให้ backend ไม่เกินนี้ต่อครั้ง (ต้องไม่เกิน ArrayMaxSize(20) ฝั่ง DTO) กันบทสนทนายาวจนกิน token/ค่าใช้จ่ายเกินจำเป็น */
+const MAX_HISTORY_SENT = 20
 
 const EDGE_GAP = 20
 const HEADER_CLEARANCE = 84
@@ -49,7 +54,9 @@ const CORNER_NOTCH: Record<Corner, string> = {
 
 /**
  * มาสคอตลอยที่ลากไปวางมุมไหนของจอก็ได้ — ตอนนี้ยังไม่มีระบบถาม-ตอบจริง
- * มีแค่ข้อความต้อนรับเด้งขึ้นเมื่อกดหรือเข้าเว็บครั้งแรก
+ * มีบับเบิลแชทจริง (ไม่ใช่แค่ข้อความต้อนรับ) คุยกับ Gemini API ผ่าน backend proxy (ดู chatbotAPI ใน lib/api.ts
+ * — ไม่เรียก Gemini ตรงจาก browser เด็ดขาด ไม่งั้น API key หลุด) ประวัติสนทนาเก็บแค่ใน state หน้านี้
+ * (รีเฟรชหน้าแล้วหาย ไม่มี backend เก็บ session แชทให้)
  *
  * กดปุ่มปิดที่บับเบิลแล้วซ่อนทั้งตัว (ไม่ใช่แค่บับเบิล) และจำไว้ไม่ให้โผล่ซ้ำอีก — เดิมปุ่มนี้ปิดแค่บับเบิล
  * ส่วนตัวมาสคอตยังลอยค้างอยู่เสมอไม่มีทางซ่อนได้เลย ซ่อนแล้วไม่ได้หายเกลี้ยง เหลือปุ่มเล็กๆ มุมเดิมไว้กดเรียกกลับมา
@@ -61,13 +68,44 @@ export function MascotWidget() {
     const [dragPos, setDragPos] = React.useState<{ x: number; y: number } | null>(null)
     const [mounted, setMounted] = React.useState(false)
     const [hidden, setHidden] = React.useState(false)
+    const [messages, setMessages] = React.useState<ChatHistoryItem[]>([{ role: "model", text: GREETING }])
+    const [input, setInput] = React.useState("")
+    const [sending, setSending] = React.useState(false)
     const draggingRef = React.useRef(false)
     const movedRef = React.useRef(false)
     const startRef = React.useRef({ x: 0, y: 0 })
+    const messagesEndRef = React.useRef<HTMLDivElement>(null)
 
     React.useEffect(() => {
         setMounted(true)
     }, [])
+
+    React.useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+    }, [messages, sending])
+
+    async function handleSend(e: React.FormEvent) {
+        e.preventDefault()
+        const text = input.trim()
+        if (!text || sending) return
+
+        const historyToSend = messages.slice(-MAX_HISTORY_SENT)
+        setMessages((prev) => [...prev, { role: "user", text }])
+        setInput("")
+        setSending(true)
+        try {
+            const { reply } = await chatbotAPI.sendMessage(text, historyToSend)
+            setMessages((prev) => [...prev, { role: "model", text: reply }])
+        } catch {
+            // เงียบไว้ไม่ต้องแจ้ง error แยก — แสดงเป็นข้อความของบอทในบทสนทนาเลย อ่านง่ายกว่าแบนเนอร์ error แยกต่างหาก
+            setMessages((prev) => [
+                ...prev,
+                { role: "model", text: "ขออภัยค่ะ เกิดข้อผิดพลาดชั่วคราว ลองส่งข้อความอีกครั้งนะคะ" },
+            ])
+        } finally {
+            setSending(false)
+        }
+    }
 
     React.useEffect(() => {
         try {
@@ -175,7 +213,7 @@ export function MascotWidget() {
         >
             <div
                 className={cn(
-                    "relative w-64 rounded-2xl border border-border bg-bg p-4 shadow-lg transition-all duration-300",
+                    "relative flex w-80 flex-col rounded-2xl border border-border bg-bg shadow-lg transition-all duration-300 sm:w-96",
                     CORNER_ORIGIN[corner],
                     CORNER_NOTCH[corner],
                     open && !isDragging
@@ -187,13 +225,57 @@ export function MascotWidget() {
                     type="button"
                     onClick={hideMascot}
                     aria-label="ซ่อนมาสคอต"
-                    className="absolute -right-2 -top-2 flex size-6 items-center justify-center rounded-full border border-border bg-bg text-fg-subtle shadow-sm transition-colors hover:text-fg"
+                    className="absolute -right-2 -top-2 z-10 flex size-6 items-center justify-center rounded-full border border-border bg-bg text-fg-subtle shadow-sm transition-colors hover:text-fg"
                 >
                     <X className="size-3.5" />
                 </button>
-                <p className="text-sm font-medium leading-relaxed text-fg">
-                    ยินดีต้อนรับเข้าสู่ Comp Active
-                </p>
+
+                <div className="shrink-0 border-b border-border px-4 py-3 pr-9">
+                    <p className="text-sm font-bold text-fg">ผู้ช่วย Comp Active</p>
+                    <p className="text-xs text-fg-subtle">ตอบโดย AI อัตโนมัติ — คำถามเฉพาะบัญชีให้ติดต่อผู้จัด/ผู้ดูแลระบบแทน</p>
+                </div>
+
+                <div className="flex max-h-80 flex-col gap-2.5 overflow-y-auto px-4 py-3">
+                    {messages.map((m, i) => (
+                        <div
+                            key={i}
+                            className={cn(
+                                "max-w-[85%] whitespace-pre-line rounded-xl px-3 py-2 text-sm leading-relaxed",
+                                m.role === "user"
+                                    ? "self-end bg-brand-600 text-white"
+                                    : "self-start bg-surface text-fg"
+                            )}
+                        >
+                            {m.text}
+                        </div>
+                    ))}
+                    {sending && (
+                        <div className="flex size-8 items-center justify-center self-start rounded-xl bg-surface text-fg-subtle">
+                            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                        </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                </div>
+
+                <form onSubmit={handleSend} className="flex shrink-0 gap-2 border-t border-border p-3">
+                    <input
+                        type="text"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="พิมพ์คำถาม..."
+                        maxLength={2000}
+                        disabled={sending}
+                        className="h-9 flex-1 rounded-lg border border-border bg-bg px-3 text-sm text-fg placeholder:text-fg-subtle focus:border-brand-500 focus:outline-none disabled:opacity-60"
+                    />
+                    <button
+                        type="submit"
+                        disabled={sending || !input.trim()}
+                        aria-label="ส่งข้อความ"
+                        className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        <Send className="size-4" aria-hidden="true" />
+                    </button>
+                </form>
             </div>
 
             <button
@@ -202,7 +284,7 @@ export function MascotWidget() {
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerCancel}
-                aria-label={open ? "ซ่อนข้อความต้อนรับ (ลากเพื่อย้ายตำแหน่ง)" : "แสดงข้อความต้อนรับ (ลากเพื่อย้ายตำแหน่ง)"}
+                aria-label={open ? "ปิดแชทผู้ช่วย (ลากเพื่อย้ายตำแหน่ง)" : "เปิดแชทผู้ช่วย (ลากเพื่อย้ายตำแหน่ง)"}
                 className="relative h-[12.5rem] w-40 shrink-0 cursor-grab touch-none transition-transform active:scale-95 active:cursor-grabbing sm:h-60 sm:w-48"
             >
                 <Image

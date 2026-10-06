@@ -25,6 +25,7 @@ import { SeedModule } from "./modules/shared/seed/seed.module";
 import { ActivitiesPublicModule } from "./modules/shared/activities/activities-public.module";
 import { EventsPublicModule } from "./modules/shared/events/events-public.module";
 import { VolunteerServicesPublicModule } from "./modules/shared/volunteer-services/volunteer-services-public.module";
+import { ChatbotModule } from "./modules/shared/chatbot/chatbot.module";
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { VolunteerServicesPublicModule } from "./modules/shared/volunteer-servic
     ActivitiesPublicModule,
     EventsPublicModule,
     VolunteerServicesPublicModule,
+    ChatbotModule,
   ],
 })
 export class AppModule {}

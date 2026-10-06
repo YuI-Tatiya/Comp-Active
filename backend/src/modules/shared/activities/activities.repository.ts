@@ -369,4 +369,19 @@ export class ActivitiesRepository {
       select: ActivitiesRepository.NEWSFEED_SELECT,
     });
   }
+
+  /** กิจกรรมที่เปิดรับสมัครอยู่ตอนนี้แบบย่อ (ต่างจาก newsfeed ที่คืนทุกสถานะ) — ใช้เป็นข้อมูลอ้างอิงให้
+   *  แชทบอทตอบคำถามแบบ "ตอนนี้มีกิจกรรมอะไรเปิดรับสมัครบ้าง" จำกัดจำนวนไว้กันพรอมต์ยาวเกินจำเป็นถ้ามีเปิดพร้อมกันเยอะ */
+  findOpenForChatbot() {
+    return this.prisma.activity.findMany({
+      where: {
+        approvalStatus: ApprovalStatus.APPROVED as any,
+        status: ActivityStatus.OPEN as any,
+        ...ActivitiesRepository.EXCLUDE_RESTRICTED,
+      },
+      select: ActivitiesRepository.NEWSFEED_SELECT,
+      orderBy: { date: 'asc' },
+      take: 10,
+    });
+  }
 }

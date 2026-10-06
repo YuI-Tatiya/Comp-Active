@@ -122,6 +122,11 @@ export class ActivitiesService {
     return this.activitiesRepository.findAllForNewsfeed();
   }
 
+  /** กิจกรรมที่เปิดรับสมัครอยู่ตอนนี้แบบย่อ — ให้ ChatbotService ใช้เป็นข้อมูลอ้างอิงจริงแทนการให้โมเดลเดา/ปฏิเสธเฉยๆ */
+  findOpenForChatbot() {
+    return this.activitiesRepository.findOpenForChatbot();
+  }
+
   async findByIdForNewsfeed(id: number) {
     const activity = await this.activitiesRepository.findByIdForNewsfeed(id);
 
