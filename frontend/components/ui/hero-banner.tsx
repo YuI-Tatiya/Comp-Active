@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import Image from "next/image"
 import { Container } from "@/components/layout/container"
 import { cn } from "@/lib/utils"
 import { nextWordIndex, splitHeadline } from "@/lib/hero-text"
@@ -68,8 +69,25 @@ export function HeroBanner({ eyebrow, title, highlight, tagline, subtitle, class
                 <div className="hero-glow" />
             </div>
 
-            <Container className="py-10 sm:py-14">
-                <div className="max-w-3xl">
+            <Container className="relative py-10 sm:py-14">
+                {/* มาสคอตยืนมุมขวา เท้าอยู่บนเส้นขอบล่างของแถบ (bottom-0 ของ Container = ขอบล่างแถบ)
+                    ซ่อนต่ำกว่า md เพื่อไม่บังข้อความ; ลอยขึ้นลงเบาๆ และมีวงแสงอยู่ข้างหลัง (ตกแต่งล้วน) */}
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute bottom-0 right-4 hidden md:block sm:right-6 lg:right-8"
+                >
+                    <div className="hero-mascot-glow" />
+                    <Image
+                        src="/mascot-student.png"
+                        alt=""
+                        width={1200}
+                        height={1320}
+                        sizes="(min-width: 1024px) 260px, 200px"
+                        className="hero-mascot relative h-48 w-auto lg:h-60"
+                    />
+                </div>
+
+                <div className="max-w-3xl md:pr-52 lg:pr-64">
                     {eyebrow && (
                         <p
                             className="hero-rise mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-3 py-1 text-xs font-medium text-fg-muted backdrop-blur"
