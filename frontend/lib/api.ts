@@ -823,3 +823,16 @@ export const adminInvitesAPI = {
   getAll: () => fetchAPI<AdminInvite[]>('/api/admin/invites'),
   revoke: (id: number) => fetchAPI(`/api/admin/invites/${id}/revoke`, { method: 'PATCH' }),
 };
+
+// ==================== CHATBOT (มาสคอต) ====================
+
+export interface ChatHistoryItem {
+  role: 'user' | 'model';
+  text: string;
+}
+
+export const chatbotAPI = {
+  /** Public — ไม่ต้อง login ก็ถามได้ (credentials: include ใน fetchAPI ยังแนบ cookie ไปด้วยถ้า login อยู่ ให้คำตอบปรับตามบทบาทได้) */
+  sendMessage: (message: string, history: ChatHistoryItem[]) =>
+    fetchAPI<{ reply: string }>('/api/chatbot/message', { method: 'POST', body: JSON.stringify({ message, history }) }),
+};
