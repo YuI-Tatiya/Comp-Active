@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { ServeStaticModule } from "@nestjs/serve-static";
 import { ThrottlerModule } from "@nestjs/throttler";
+import { ScheduleModule } from "@nestjs/schedule";
 import { join } from "path";
 import { PrismaModule } from "./prisma/prisma.module";
 import jwtConfig from "./config/jwt.config";
@@ -68,6 +69,9 @@ import { ChatbotModule } from "./modules/shared/chatbot/chatbot.module";
     // ถังนับ rate limit กลาง — ใช้ทั้งกับ external developer API (ApiKeyThrottlerGuard)
     // และ endpoint กลุ่ม auth ที่ override ค่าเองด้วย @Throttle ราย route
     ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 300 }]),
+
+    // เปิดใช้ @Cron(...) ทั่วแอป — ตอนนี้มีงานเดียวคือปิดกิจกรรมที่เลยเวลาอัตโนมัติ (ดู ActivitiesService)
+    ScheduleModule.forRoot(),
 
     AuthModule,
     SeedModule,

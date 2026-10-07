@@ -118,6 +118,109 @@ describe('ActivitiesService.markCompleted', () => {
   });
 });
 
+describe('ActivitiesService.autoCompleteOverdueActivities', () => {
+  let service: ActivitiesService;
+  let repo: { findOpenPastEnd: jest.Mock; markCompleted: jest.Mock };
+  let registrationsRepo: { findByActivity: jest.Mock };
+
+  function makeCandidate(overrides: Partial<any> = {}) {
+    return { id: 5, name: 'Workshop', endAt: PAST, date: PAST, endTime: '12:00', ...overrides } as any;
+  }
+
+  beforeEach(async () => {
+    repo = {
+      findOpenPastEnd: jest.fn().mockResolvedValue([]),
+      markCompleted: jest.fn().mockResolvedValue({ id: 5, status: ActivityStatus.COMPLETED }),
+    };
+    registrationsRepo = { findByActivity: jest.fn().mockResolvedValue([]) };
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: repo },
+        { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
+        { provide: RegistrationsRepository, useValue: registrationsRepo },
+        { provide: MailService, useValue: { sendActivityCompleted: jest.fn(), sendActivityCancelled: jest.fn() } },
+        { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+  });
+
+  it('completes every candidate the repository already filtered as past its end time', async () => {
+    repo.findOpenPastEnd.mockResolvedValue([makeCandidate({ id: 5 }), makeCandidate({ id: 6, name: 'Camp' })]);
+
+    const count = await service.autoCompleteOverdueActivities();
+
+    expect(repo.markCompleted).toHaveBeenCalledWith(5);
+    expect(repo.markCompleted).toHaveBeenCalledWith(6);
+    expect(count).toBe(2);
+  });
+
+  it('re-checks the real end time itself — does not complete a legacy (endAt: null) candidate whose derived end time is still upcoming', async () => {
+    // findOpenPastEnd คัดคร่าวๆ ระดับ DB (endAt ผ่านแล้ว หรือไม่มีค่า) — เคส endAt: null ต้องคำนวณ
+    // จาก date+endTime ซ้ำที่ชั้น service เพราะ DB กรองแบบนี้ไม่ได้ตรงๆ
+    repo.findOpenPastEnd.mockResolvedValue([makeCandidate({ endAt: null, date: FUTURE, endTime: '12:00' })]);
+
+    const count = await service.autoCompleteOverdueActivities();
+
+    expect(repo.markCompleted).not.toHaveBeenCalled();
+    expect(count).toBe(0);
+  });
+
+  it('completes a legacy (endAt: null) candidate whose derived end time has actually passed', async () => {
+    repo.findOpenPastEnd.mockResolvedValue([makeCandidate({ endAt: null, date: PAST, endTime: '12:00' })]);
+
+    const count = await service.autoCompleteOverdueActivities();
+
+    expect(repo.markCompleted).toHaveBeenCalledWith(5);
+    expect(count).toBe(1);
+  });
+
+  it('no candidates — no-op, returns 0', async () => {
+    const count = await service.autoCompleteOverdueActivities();
+
+    expect(repo.markCompleted).not.toHaveBeenCalled();
+    expect(count).toBe(0);
+  });
+
+  it('one activity failing does not stop the others in the same run', async () => {
+    repo.findOpenPastEnd.mockResolvedValue([makeCandidate({ id: 5 }), makeCandidate({ id: 6 })]);
+    repo.markCompleted.mockImplementation((id: number) =>
+      id === 5 ? Promise.reject(new Error('db hiccup')) : Promise.resolve({ id, status: ActivityStatus.COMPLETED }),
+    );
+
+    await expect(service.autoCompleteOverdueActivities()).resolves.toBe(1);
+    expect(repo.markCompleted).toHaveBeenCalledWith(5);
+    expect(repo.markCompleted).toHaveBeenCalledWith(6);
+  });
+
+  it('sends the same "activity completed" email as the manual flow, to attendees only', async () => {
+    registrationsRepo.findByActivity.mockResolvedValue([
+      { id: 1, attendance: 'attended', student: { email: 'a@kku.ac.th', name: 'A' } },
+      { id: 2, attendance: 'absent', student: { email: 'b@kku.ac.th', name: 'B' } },
+    ]);
+    repo.findOpenPastEnd.mockResolvedValue([makeCandidate()]);
+    const mailService = { sendActivityCompleted: jest.fn(), sendActivityCancelled: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: repo },
+        { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
+        { provide: RegistrationsRepository, useValue: registrationsRepo },
+        { provide: MailService, useValue: mailService },
+        { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+
+    await service.autoCompleteOverdueActivities();
+    await new Promise((resolve) => setImmediate(resolve)); // flush the fire-and-forget notifyActivityCompleted
+
+    expect(mailService.sendActivityCompleted).toHaveBeenCalledTimes(1);
+    expect(mailService.sendActivityCompleted).toHaveBeenCalledWith('a@kku.ac.th', 'A', 'Workshop');
+  });
+});
+
 /** ปล่อยให้ microtask ของ `void this.notifyX(...)` (fire-and-forget) รันจนจบก่อน assert */
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
