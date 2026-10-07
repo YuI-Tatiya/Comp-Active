@@ -507,3 +507,84 @@ describe('RegistrationsService.create — registration deadline (Event.registrat
   });
 });
 
+describe('RegistrationsService.create — registration open date (Event.registrationOpenAt)', () => {
+  let service: RegistrationsService;
+  let repo: { findActivityWithActiveCount: jest.Mock; findActiveByStudentAndActivity: jest.Mock; create: jest.Mock };
+
+  const NOW = new Date('2027-01-20T10:00:00.000Z');
+
+  const activityWithWindow = (registrationOpenAt: Date | null, registrationCloseAt: Date | null = null) => ({
+    id: 1,
+    event: { visibility: 'everyone', registrationOpenAt, registrationCloseAt },
+    approvalStatus: 'approved',
+    status: 'open',
+    capacity: null,
+    volunteerRole: null,
+    questions: [],
+    _count: { registrations: 0 },
+    registrationType: RegistrationType.PARTICIPANT,
+    dutyRoleOptions: [] as string[],
+    dutyShiftOptions: [] as string[],
+    teamSizeMin: null,
+    teamSizeMax: null,
+    competitionCategoryOptions: [] as string[],
+  });
+
+  beforeEach(async () => {
+    jest.useFakeTimers().setSystemTime(NOW);
+    repo = {
+      findActivityWithActiveCount: jest.fn(),
+      findActiveByStudentAndActivity: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 99 }),
+    };
+    const module = await Test.createTestingModule({
+      providers: [
+        RegistrationsService,
+        { provide: RegistrationsRepository, useValue: repo },
+        { provide: EvaluationsService, useValue: {} },
+        { provide: PrismaService, useValue: {} },
+        { provide: MailService, useValue: {} },
+      ],
+    }).compile();
+    service = module.get(RegistrationsService);
+  });
+
+  afterEach(() => jest.useRealTimers());
+
+  const register = () => service.create(5, 1, {} as any, [], {}, {});
+
+  it('rejects a registration one millisecond before the open instant, without creating anything', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithWindow(new Date(NOW.getTime() + 1)));
+
+    await expect(register()).rejects.toThrow(BadRequestException);
+    await expect(register()).rejects.toThrow('ยังไม่อยู่ในเวลาเปิดรับสมัคร');
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('accepts at the exact open instant (the open time itself already counts as open)', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithWindow(NOW));
+
+    await expect(register()).resolves.toEqual({ id: 99 });
+  });
+
+  it('accepts one millisecond after the open instant', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithWindow(new Date(NOW.getTime() - 1)));
+
+    await expect(register()).resolves.toEqual({ id: 99 });
+  });
+
+  it('accepts when the event has no open date set', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithWindow(null));
+
+    await expect(register()).resolves.toEqual({ id: 99 });
+  });
+
+  it('checks the open date before the close date — still-not-open wins over already-closed when both are set', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(
+      activityWithWindow(new Date(NOW.getTime() + 1), new Date(NOW.getTime() - 1)),
+    );
+
+    await expect(register()).rejects.toThrow('ยังไม่อยู่ในเวลาเปิดรับสมัคร');
+  });
+});
+

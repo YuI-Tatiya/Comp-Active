@@ -214,6 +214,7 @@ export default function OrganizerEventDetailsPage() {
                         <TabsContent key={a.id} value={String(a.id)}>
                             <ActivityParticipantManager
                                 activity={a}
+                                registrationOpenAt={event.registrationOpenAt}
                                 registrationCloseAt={event.registrationCloseAt}
                                 eventName={event.name}
                                 onRefetch={() => fetchEventDetails(id, true)}

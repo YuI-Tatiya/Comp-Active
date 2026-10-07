@@ -48,6 +48,7 @@ function eventToFormState(event: EventSummary): EventFormState {
         imageFile: null,
         imagePreview: event.imageUrl ? `${API_BASE_URL}${event.imageUrl}` : null,
         isPublic: event.isPublic,
+        registrationOpenAt: event.registrationOpenAt ? toLocalDatetimeValue(event.registrationOpenAt) : "",
         registrationCloseAt: event.registrationCloseAt ? toLocalDatetimeValue(event.registrationCloseAt) : "",
         surveyQuestions: (event.surveyQuestions ?? []).map((q) => ({
             label: q.label,
@@ -362,6 +363,7 @@ export default function EditEventPage() {
                 description: event.description,
                 imageUrl: eventImageUrl,
                 isPublic: event.isPublic,
+                registrationOpenAt: event.registrationOpenAt ? new Date(event.registrationOpenAt).toISOString() : undefined,
                 registrationCloseAt: event.registrationCloseAt ? new Date(event.registrationCloseAt).toISOString() : undefined,
                 activities: activityBodies,
                 surveyQuestions,
@@ -466,7 +468,15 @@ export default function EditEventPage() {
                                 />
                             )}
                             {step === 3 && <SectionSurvey event={event} onChange={patchEvent} />}
-                            {step === 4 && <SectionPublish event={event} activities={activities} onChangeEvent={patchEvent} />}
+                            {step === 4 && (
+                                <SectionPublish
+                                    event={event}
+                                    activities={activities}
+                                    errors={eventErrors}
+                                    onChangeEvent={patchEvent}
+                                    onFieldBlur={handleEventFieldBlur}
+                                />
+                            )}
                         </div>
 
                         <div className="mt-6 flex justify-between">

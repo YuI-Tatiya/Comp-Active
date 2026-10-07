@@ -187,6 +187,8 @@ export function ActivityRewardsPanel({ activity }: { activity: Activity }) {
 
 interface RegistrationPanelProps {
     activity: Activity
+    /** วันเปิดรับสมัครระดับงาน (Event) — กิจกรรมเดี่ยวรุ่นเก่าไม่มีค่านี้ */
+    registrationOpenAt?: string | null
     /** วันปิดรับสมัครระดับงาน (Event) — กิจกรรมเดี่ยวรุ่นเก่าไม่มีค่านี้ */
     registrationCloseAt?: string | null
     /**
@@ -217,7 +219,12 @@ function typeRequirements(activity: Activity): { label: string; value: string }[
 }
 
 /** แผง "การลงทะเบียน" — จำนวนที่รับ, วันปิดรับสมัคร, คำถามที่ต้องตอบ */
-export function ActivityRegistrationPanel({ activity, registrationCloseAt, hideLogistics = false }: RegistrationPanelProps) {
+export function ActivityRegistrationPanel({
+    activity,
+    registrationOpenAt,
+    registrationCloseAt,
+    hideLogistics = false,
+}: RegistrationPanelProps) {
     const questions = activity.questions ?? []
     const requirements = typeRequirements(activity)
 
@@ -234,6 +241,17 @@ export function ActivityRegistrationPanel({ activity, registrationCloseAt, hideL
                     <div>
                         <div className="text-xs text-fg-muted">จำนวนที่รับ</div>
                         <div className="font-medium text-fg">{capacityLabel(activity.capacity)}</div>
+                    </div>
+                </div>
+                <div className="flex gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                        <CalendarClock className="w-5 h-5" aria-hidden="true" />
+                    </div>
+                    <div>
+                        <div className="text-xs text-fg-muted">เปิดรับสมัคร</div>
+                        <div className="font-medium text-fg">
+                            {registrationOpenAt ? formatDateTime(registrationOpenAt) : "เปิดทันที"}
+                        </div>
                     </div>
                 </div>
                 <div className="flex gap-3">

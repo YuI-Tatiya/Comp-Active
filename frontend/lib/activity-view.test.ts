@@ -5,6 +5,7 @@ import {
     formatScheduleShort,
     formatDeadline,
     closeCountdown,
+    openCountdown,
     seatInfo,
     closedReason,
     pickMyRegistration,
@@ -94,6 +95,12 @@ describe("formatDeadline / closeCountdown", () => {
         assert.equal(closeCountdown("2027-01-05T02:00:00.000Z", NOW), null)
         assert.equal(closeCountdown(null, NOW), null)
     })
+
+    test("openCountdown ใช้สูตรเดียวกัน (ระยะเวลาเหมือนกัน แค่ความหมายคนละด้าน — เปิด ไม่ใช่ปิด)", () => {
+        assert.equal(openCountdown("2027-01-08T03:00:00.000Z", NOW), "อีก 3 วัน")
+        assert.equal(openCountdown("2027-01-05T02:00:00.000Z", NOW), null)
+        assert.equal(openCountdown(null, NOW), null)
+    })
 })
 
 describe("seatInfo", () => {
@@ -122,18 +129,32 @@ describe("seatInfo", () => {
 })
 
 describe("closedReason", () => {
-    const open = { status: "open", approvalStatus: "approved", registrationCloseAt: null }
+    const open = { status: "open", approvalStatus: "approved", registrationOpenAt: null, registrationCloseAt: null }
 
     test("เปิดอยู่ = ไม่มีเหตุผลปิด", () => {
         assert.equal(closedReason(open, NOW), null)
         assert.equal(closedReason({ ...open, registrationCloseAt: "2027-01-20T10:00:00.000Z" }, NOW), null)
+        assert.equal(closedReason({ ...open, registrationOpenAt: "2027-01-01T00:00:00.000Z" }, NOW), null)
     })
 
-    test("เรียงความสำคัญ: ยกเลิก > จบแล้ว > ปิดรับ > หมดเขต", () => {
+    test("เรียงความสำคัญ: ยกเลิก > จบแล้ว > ปิดรับ > ยังไม่เปิด > หมดเขต", () => {
         assert.equal(closedReason({ ...open, approvalStatus: "cancelled", status: "completed" }, NOW), "cancelled")
         assert.equal(closedReason({ ...open, status: "completed" }, NOW), "completed")
         assert.equal(closedReason({ ...open, status: "closed" }, NOW), "closed")
+        assert.equal(closedReason({ ...open, registrationOpenAt: "2027-01-08T03:00:00.000Z" }, NOW), "not_yet_open")
         assert.equal(closedReason({ ...open, registrationCloseAt: "2027-01-01T00:00:00.000Z" }, NOW), "deadline_passed")
+        // ยังไม่เปิดมาก่อนหมดเขตเสมอ แม้ตั้งค่าสลับกันผิดพลาดมา (backend กันไว้แล้วไม่ให้เกิดจริง)
+        assert.equal(
+            closedReason(
+                { ...open, registrationOpenAt: "2027-01-08T03:00:00.000Z", registrationCloseAt: "2027-01-01T00:00:00.000Z" },
+                NOW,
+            ),
+            "not_yet_open",
+        )
+    })
+
+    test("ถึงเวลาเปิดพอดี = เปิดแล้ว (ไม่ใช่ยังไม่เปิด) — สมมาตรกับหมดเขตที่ถึงเวลาปิดพอดีถือว่าปิดแล้ว", () => {
+        assert.equal(closedReason({ ...open, registrationOpenAt: NOW.toISOString() }, NOW), null)
     })
 })
 
@@ -257,12 +278,13 @@ describe("describeAction — ทุกสถานะของการ์ดส
     })
 
     test("ปิดรับ: บอกเหตุผลตรงๆ ตามสาเหตุ", () => {
-        const label = (closed: "cancelled" | "completed" | "closed" | "deadline_passed") =>
+        const label = (closed: "cancelled" | "completed" | "closed" | "not_yet_open" | "deadline_passed") =>
             describeAction({ ...base, closed }).primary?.label
         assert.equal(label("deadline_passed"), "หมดเขตรับสมัคร")
         assert.equal(label("completed"), "กิจกรรมจบแล้ว")
         assert.equal(label("cancelled"), "กิจกรรมถูกยกเลิก")
         assert.equal(label("closed"), "ปิดรับสมัคร")
+        assert.equal(label("not_yet_open"), "ยังไม่เปิดรับสมัคร")
         assert.equal(describeAction({ ...base, closed: "deadline_passed" }).primary?.disabled, true)
         assert.equal(describeAction({ ...base, closed: "deadline_passed" }).kind, "closed")
         assert.equal(describeAction({ ...base, closed: "deadline_passed" }).headline, null)
@@ -270,6 +292,15 @@ describe("describeAction — ทุกสถานะของการ์ดส
 
     test("ปิดรับสมัครทับเต็ม: ถ้าปิดแล้วให้บอกว่าปิด ไม่ใช่เต็ม", () => {
         assert.equal(describeAction({ ...base, seat: seatInfo(40, 40), closed: "closed" }).kind, "closed")
+    })
+
+    test("ยังไม่เปิดรับสมัคร: ปุ่มปิดใช้งาน + บอกวันเวลาที่จะเปิดพร้อมนับถอยหลัง (ต่างจากเหตุผลปิดอื่นที่ไม่มี detail)", () => {
+        const openAt = "2027-01-08T03:00:00.000Z"
+        const v = describeAction({ ...base, closed: "not_yet_open", openAt })
+        assert.deepEqual(v.primary, { label: "ยังไม่เปิดรับสมัคร", disabled: true })
+        assert.equal(v.detail, "เปิดรับสมัคร 8 ม.ค. 2570 10:00 น. (อีก 3 วัน)")
+        // ไม่มี openAt ส่งมา (เช่น ข้อมูลเก่า) — ไม่พัง แค่ไม่มี detail ให้
+        assert.equal(describeAction({ ...base, closed: "not_yet_open" }).detail, null)
     })
 })
 

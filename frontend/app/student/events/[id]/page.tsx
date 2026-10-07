@@ -280,6 +280,7 @@ export default function StudentEventDetailsPage() {
             activities={event.activities}
             activeId={activeActivityId}
             onSelectActivity={setActiveActivityId}
+            registrationOpenAt={event.registrationOpenAt}
             registrationCloseAt={event.registrationCloseAt}
             myRegistrations={myRegistrations}
             onRegister={openRegisterDialog}

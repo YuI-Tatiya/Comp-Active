@@ -44,6 +44,13 @@ export class EventsService {
     }
   }
 
+  /** ถ้าตั้งไว้ทั้งสองวัน วันเปิดรับสมัครต้องมาก่อนวันปิดเสมอ — กันตั้งค่าสลับกันจนไม่เหลือช่วงเวลาที่สมัครได้เลย */
+  private validateRegistrationWindow(openAt?: Date, closeAt?: Date) {
+    if (openAt && closeAt && openAt.getTime() >= closeAt.getTime()) {
+      throw new BadRequestException('วันเปิดรับสมัครต้องอยู่ก่อนวันปิดรับสมัคร');
+    }
+  }
+
   async create(organizerId: number, dto: CreateEventDto) {
     const isProject = dto.activities.length > 1;
     const activities: PreparedActivityData[] = dto.activities.map((a, index) => {
@@ -117,13 +124,17 @@ export class EventsService {
     });
 
     const visibility = dto.visibility ?? EventVisibility.EVERYONE;
+    const registrationOpenAt = dto.registrationOpenAt ? new Date(dto.registrationOpenAt) : undefined;
+    const registrationCloseAt = dto.registrationCloseAt ? new Date(dto.registrationCloseAt) : undefined;
+    this.validateRegistrationWindow(registrationOpenAt, registrationCloseAt);
 
     const event = await this.eventsRepository.create(organizerId, {
       name: dto.name,
       description: dto.description,
       imageUrl: dto.imageUrl,
       isPublic: dto.isPublic ?? true,
-      registrationCloseAt: dto.registrationCloseAt ? new Date(dto.registrationCloseAt) : undefined,
+      registrationOpenAt,
+      registrationCloseAt,
       activities,
       surveyQuestions,
       visibility,
@@ -224,6 +235,9 @@ export class EventsService {
     });
 
     const visibility = dto.visibility ?? EventVisibility.EVERYONE;
+    const registrationOpenAt = dto.registrationOpenAt ? new Date(dto.registrationOpenAt) : undefined;
+    const registrationCloseAt = dto.registrationCloseAt ? new Date(dto.registrationCloseAt) : undefined;
+    this.validateRegistrationWindow(registrationOpenAt, registrationCloseAt);
 
     const updated = await this.eventsRepository.update(
       eventId,
@@ -232,7 +246,8 @@ export class EventsService {
         description: dto.description,
         imageUrl: dto.imageUrl,
         isPublic: dto.isPublic ?? true,
-        registrationCloseAt: dto.registrationCloseAt ? new Date(dto.registrationCloseAt) : undefined,
+        registrationOpenAt,
+        registrationCloseAt,
         activities,
         surveyQuestions,
         visibility,

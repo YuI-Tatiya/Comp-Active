@@ -57,6 +57,7 @@ export interface ActivityRegistrationViewProps {
     activities: Activity[]
     activeId: number | null
     onSelectActivity: (id: number) => void
+    registrationOpenAt?: string | null
     registrationCloseAt?: string | null
     myRegistrations: MyRegistrationLike[]
     onRegister: () => void
@@ -87,6 +88,7 @@ export function ActivityRegistrationView({
     activities,
     activeId,
     onSelectActivity,
+    registrationOpenAt,
     registrationCloseAt,
     myRegistrations,
     onRegister,
@@ -103,7 +105,7 @@ export function ActivityRegistrationView({
     const rows = activities.map((activity) => {
         const seat = seatInfo(activity.capacity, activity.registeredCount)
         const closed = closedReason(
-            { status: activity.status, approvalStatus: activity.approvalStatus, registrationCloseAt },
+            { status: activity.status, approvalStatus: activity.approvalStatus, registrationOpenAt, registrationCloseAt },
             now
         )
         const mine = pickMyRegistration(myRegistrations, activity.id)
@@ -126,6 +128,7 @@ export function ActivityRegistrationView({
               seat: active.seat,
               closed: active.closed,
               mine: active.mine,
+              openAt: registrationOpenAt,
               closeAt: registrationCloseAt,
               now,
               openAlternatives: countOpenAlternatives(

@@ -332,7 +332,15 @@ export default function OrganizerManagePage() {
      */
     function eventStatus(ev: EventSummary, now: Date): StatusBucket {
         const buckets = ev.activities.map((a) =>
-            statusBucket({ status: a.status, approvalStatus: a.approvalStatus, registrationCloseAt: ev.registrationCloseAt }, now)
+            statusBucket(
+                {
+                    status: a.status,
+                    approvalStatus: a.approvalStatus,
+                    registrationOpenAt: ev.registrationOpenAt,
+                    registrationCloseAt: ev.registrationCloseAt,
+                },
+                now
+            )
         )
         if (buckets.length === 0) return "closed"
         if (buckets.every((b) => b === "cancelled")) return "cancelled"

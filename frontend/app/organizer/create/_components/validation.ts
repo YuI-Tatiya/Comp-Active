@@ -6,6 +6,13 @@ export function validateEventField(event: EventFormState, field: keyof EventForm
             return event.name.trim() ? undefined : "กรุณากรอกชื่องาน"
         case "description":
             return event.description.trim() ? undefined : "กรุณากรอกรายละเอียดงาน"
+        case "registrationCloseAt": {
+            // เช็คเฉพาะตอนตั้งไว้ทั้งสองวัน — ไม่บังคับให้ต้องตั้งวันใดเลย (ทั้งคู่เป็น "ถ้ามี")
+            if (!event.registrationOpenAt || !event.registrationCloseAt) return undefined
+            return new Date(event.registrationCloseAt) > new Date(event.registrationOpenAt)
+                ? undefined
+                : "วันปิดรับสมัครต้องอยู่หลังวันเปิดรับสมัคร"
+        }
     }
 }
 
@@ -15,6 +22,8 @@ export function validateEventFields(event: EventFormState): EventFormErrors {
     if (nameErr) errors.name = nameErr
     const descErr = validateEventField(event, "description")
     if (descErr) errors.description = descErr
+    const closeErr = validateEventField(event, "registrationCloseAt")
+    if (closeErr) errors.registrationCloseAt = closeErr
     return errors
 }
 

@@ -345,6 +345,7 @@ export interface CreateEventBody {
   description: string;
   imageUrl?: string;
   isPublic?: boolean;
+  registrationOpenAt?: string;
   registrationCloseAt?: string;
   activities: CreateEventActivityBody[];
   surveyQuestions?: SurveyQuestionBody[];
@@ -405,6 +406,7 @@ export interface EventSummary {
   description: string;
   imageUrl?: string | null;
   isPublic: boolean;
+  registrationOpenAt?: string | null;
   registrationCloseAt?: string | null;
   visibility: string;
   visibilityStudentIdFilter?: string | null;

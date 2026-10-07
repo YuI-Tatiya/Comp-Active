@@ -96,6 +96,8 @@ function filterRegistrations(
 interface ActivityParticipantManagerProps {
     /** กิจกรรม (กิจกรรมย่อยของงาน หรือกิจกรรมเดี่ยว) — ต้องมี registrations แนบมาด้วยแล้ว */
     activity: Activity
+    /** วันเปิดรับสมัคร — มีเฉพาะกิจกรรมที่อยู่ในงาน (Event) กิจกรรมเดี่ยวไม่มีแนวคิดนี้ */
+    registrationOpenAt?: string | null
     /** วันปิดรับสมัคร — มีเฉพาะกิจกรรมที่อยู่ในงาน (Event) กิจกรรมเดี่ยวไม่มีแนวคิดนี้ */
     registrationCloseAt?: string | null
     /** ชื่องานแม่ — ใส่เฉพาะกิจกรรมย่อยของงาน เพื่อระบุในหัว CSV */
@@ -109,7 +111,13 @@ interface ActivityParticipantManagerProps {
  * และ /organizer/activities/[id] (กิจกรรมเดี่ยว) กันสองหน้านี้มีชุดฟีเจอร์เพี้ยนออกจากกัน
  * แสดง 3 แท็บ: รายละเอียด, ข้อมูลผู้เข้าร่วม (ค้นหา/กรอง/ยืนยันทั้งหมด/export CSV), คิวอาร์โค้ดลงทะเบียน (เช็คอิน)
  */
-export function ActivityParticipantManager({ activity, registrationCloseAt, eventName, onRefetch }: ActivityParticipantManagerProps) {
+export function ActivityParticipantManager({
+    activity,
+    registrationOpenAt,
+    registrationCloseAt,
+    eventName,
+    onRefetch,
+}: ActivityParticipantManagerProps) {
     const [activeTab, setActiveTab] = useState("details")
     const [confirmAllIds, setConfirmAllIds] = useState<number[] | null>(null)
     const [confirmingAll, setConfirmingAll] = useState(false)
@@ -588,7 +596,11 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
                         )}
                     </Card>
 
-                    <ActivityRegistrationPanel activity={activity} registrationCloseAt={registrationCloseAt} />
+                    <ActivityRegistrationPanel
+                        activity={activity}
+                        registrationOpenAt={registrationOpenAt}
+                        registrationCloseAt={registrationCloseAt}
+                    />
                 </TabsContent>
 
                 {showBatchEvaluation && (
