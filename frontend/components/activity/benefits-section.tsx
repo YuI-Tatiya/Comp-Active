@@ -23,13 +23,15 @@ export function LevelDots({ dots }: { dots: number }) {
 
 interface BenefitsSectionProps {
     activity: Pick<Activity, "softSkills" | "volunteerRole" | "volunteerHours" | "peerAssessmentEnabled">
+    /** false = ไม่แสดงการ์ดชั่วโมงจิตอาสา (หน้าลงทะเบียนของนักศึกษาไม่แสดงเรื่องจิตอาสา) */
+    showVolunteer?: boolean
 }
 
 /**
  * "สิ่งที่คุณจะได้รับ" — ทักษะ (เป็นระดับที่เข้าใจได้ ไม่ใช่ "น้ำหนัก 5/5") และชั่วโมงจิตอาสา (บอกเงื่อนไขชัดทั้งกรณีแจกและไม่แจก)
  * ข้อความและตรรกะทั้งหมดอยู่ใน lib/activity-view.ts (มีเทสต์) คอมโพเนนต์นี้แค่แสดงผล
  */
-export function BenefitsSection({ activity }: BenefitsSectionProps) {
+export function BenefitsSection({ activity, showVolunteer = true }: BenefitsSectionProps) {
     const skills = describeSkillBenefits(activity.softSkills)
     const volunteer = describeVolunteer(activity)
     const threeSixty = !!activity.peerAssessmentEnabled
@@ -40,7 +42,7 @@ export function BenefitsSection({ activity }: BenefitsSectionProps) {
                 <Sparkles className="size-5 text-brand-600" aria-hidden="true" /> สิ่งที่คุณจะได้รับ
             </h3>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className={cn("grid gap-4", showVolunteer && "sm:grid-cols-2")}>
                 <div className="rounded-2xl border border-border bg-bg p-5 shadow-xs">
                     <div className="flex items-center gap-1.5 text-sm font-semibold text-fg">
                         ทักษะที่จะได้พัฒนา
@@ -79,7 +81,7 @@ export function BenefitsSection({ activity }: BenefitsSectionProps) {
                     )}
                 </div>
 
-                {volunteer.gives ? (
+                {!showVolunteer ? null : volunteer.gives ? (
                     <div className="rounded-2xl border border-success/30 bg-success-bg p-5 shadow-xs">
                         <div className="flex items-center gap-1.5 text-sm font-semibold text-success-fg">
                             <Award className="size-4" aria-hidden="true" /> ชั่วโมงจิตอาสา
