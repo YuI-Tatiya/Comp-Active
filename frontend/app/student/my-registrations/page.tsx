@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, Fragment } from "react"
+import { useState, useEffect, useRef, useSyncExternalStore, Fragment } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -139,21 +139,38 @@ const GUIDE_STEPS = [
  * ซ่อนได้และจำค่าไว้ใน localStorage (ห่อ try/catch เผื่อเบราว์เซอร์ปิดการเก็บข้อมูล)
  * เริ่มต้นเป็นกางไว้เสมอ เพื่อให้ผู้ใช้ใหม่เห็นก่อน และไม่ให้ SSR กับ client ไม่ตรงกัน
  */
-function StatusGuide() {
-  const [open, setOpen] = useState(true)
+// สำรองไว้ในหน่วยความจำ เผื่อเบราว์เซอร์บล็อก localStorage — ปุ่มพับจะยังใช้ได้ในหน้านั้น
+let guideHiddenFallback = false
+const guideListeners = new Set<() => void>()
 
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(GUIDE_STORAGE_KEY) === "1") setOpen(false)
-    } catch {}
-  }, [])
+function subscribeGuide(cb: () => void) {
+  guideListeners.add(cb)
+  return () => {
+    guideListeners.delete(cb)
+  }
+}
+
+function readGuideHidden(): boolean {
+  try {
+    return localStorage.getItem(GUIDE_STORAGE_KEY) === "1"
+  } catch {
+    return guideHiddenFallback
+  }
+}
+
+function StatusGuide() {
+  // อ่านจาก localStorage ผ่าน useSyncExternalStore — snapshot ฝั่งเซิร์ฟเวอร์เป็น "ไม่ซ่อน" เสมอ
+  // ตรงกับ HTML ที่เรนเดอร์ครั้งแรก จึงไม่เกิด hydration mismatch และไม่ต้อง setState ใน effect
+  const hidden = useSyncExternalStore(subscribeGuide, readGuideHidden, () => false)
+  const open = !hidden
 
   function toggle() {
-    const next = !open
-    setOpen(next)
     try {
-      localStorage.setItem(GUIDE_STORAGE_KEY, next ? "0" : "1")
-    } catch {}
+      localStorage.setItem(GUIDE_STORAGE_KEY, open ? "1" : "0")
+    } catch {
+      guideHiddenFallback = open
+    }
+    guideListeners.forEach((cb) => cb())
   }
 
   return (
