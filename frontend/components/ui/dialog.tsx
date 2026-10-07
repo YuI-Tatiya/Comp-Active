@@ -31,7 +31,9 @@ const Dialog = ({
                 onClick={() => onOpenChange?.(false)}
             />
             {/* Content */}
-            <div className="relative z-50 w-full max-w-lg animate-dialog-pop rounded-2xl border border-border bg-bg p-6 shadow-lg">
+            {/* ฟอร์มยาวกว่าจอได้ (เช่น ลงทะเบียนกิจกรรมที่มีแบบสอบถาม) — จำกัดความสูงเท่าวิวพอร์ตแล้วเลื่อนในกล่อง
+                ไม่งั้นกล่อง fixed ล้นขอบบน/ล่าง ปุ่มยืนยันหลุดจอและเลื่อนไม่ได้ (dvh = ไม่โดนแถบ URL ของมือถือบัง) */}
+            <div className="relative z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg animate-dialog-pop overflow-y-auto overscroll-contain rounded-2xl border border-border bg-bg p-6 shadow-lg">
                 {children}
             </div>
         </div>,
