@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, Fragment } from "react"
+import { useState, useEffect, useRef, useSyncExternalStore, Fragment } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -23,7 +23,7 @@ import { getCategory, categoriesBadgeLabel } from "@/lib/categories"
 import { SOFT_SKILLS } from "@/lib/soft-skills"
 import {
   Calendar, Clock, MapPin, Loader2, CalendarX, X, Star, Search,
-  CheckCircle2, HeartHandshake, TrendingUp, ChevronDown, ChevronRight, Check, Users, ClipboardCheck, CalendarDays, Award,
+  CheckCircle2, HeartHandshake, TrendingUp, ChevronDown, ChevronRight, Check, Info, Users, ClipboardCheck, CalendarDays, Award,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -114,13 +114,144 @@ const EMPTY_STATE_TEXT: Record<"pending" | "confirmed" | "evaluated" | "cancelle
   cancelled: { title: "ไม่มีรายการที่ถูกยกเลิก", body: "รายการที่คุณยกเลิกเอง หรือกิจกรรมที่ผู้จัดยกเลิกทั้งงาน จะแสดงที่นี่" },
 }
 
+const GUIDE_STORAGE_KEY = "my-registrations-guide-hidden"
+
+const GUIDE_STEPS = [
+  {
+    title: "รอยืนยัน",
+    body: "คุณกดลงทะเบียนแล้ว กำลังรอผู้จัดกิจกรรมยืนยันที่นั่งให้",
+    note: "ยกเลิกได้",
+  },
+  {
+    title: "ยืนยันแล้ว",
+    body: "ผู้จัดยืนยันที่นั่งแล้ว ให้ไปเช็คอินหน้างานในวันจัดกิจกรรม",
+    note: "ยกเลิกได้จนกว่าจะเช็คอิน",
+  },
+  {
+    title: "ประเมินแล้ว",
+    body: "เช็คอินสำเร็จ ระบบบันทึกคะแนน Soft Skills และชั่วโมงจิตอาสาให้คุณ",
+    note: "ยกเลิกไม่ได้แล้ว",
+  },
+]
+
+/**
+ * คำอธิบายหน้า — บอกว่าสถานะเปลี่ยนจากอะไรไปอะไรและเกิดจากอะไร
+ * ซ่อนได้และจำค่าไว้ใน localStorage (ห่อ try/catch เผื่อเบราว์เซอร์ปิดการเก็บข้อมูล)
+ * เริ่มต้นเป็นกางไว้เสมอ เพื่อให้ผู้ใช้ใหม่เห็นก่อน และไม่ให้ SSR กับ client ไม่ตรงกัน
+ */
+// สำรองไว้ในหน่วยความจำ เผื่อเบราว์เซอร์บล็อก localStorage — ปุ่มพับจะยังใช้ได้ในหน้านั้น
+let guideHiddenFallback = false
+const guideListeners = new Set<() => void>()
+
+function subscribeGuide(cb: () => void) {
+  guideListeners.add(cb)
+  return () => {
+    guideListeners.delete(cb)
+  }
+}
+
+function readGuideHidden(): boolean {
+  try {
+    return localStorage.getItem(GUIDE_STORAGE_KEY) === "1"
+  } catch {
+    return guideHiddenFallback
+  }
+}
+
+function StatusGuide() {
+  // อ่านจาก localStorage ผ่าน useSyncExternalStore — snapshot ฝั่งเซิร์ฟเวอร์เป็น "ไม่ซ่อน" เสมอ
+  // ตรงกับ HTML ที่เรนเดอร์ครั้งแรก จึงไม่เกิด hydration mismatch และไม่ต้อง setState ใน effect
+  const hidden = useSyncExternalStore(subscribeGuide, readGuideHidden, () => false)
+  const open = !hidden
+
+  function toggle() {
+    try {
+      localStorage.setItem(GUIDE_STORAGE_KEY, open ? "1" : "0")
+    } catch {
+      guideHiddenFallback = open
+    }
+    guideListeners.forEach((cb) => cb())
+  }
+
+  return (
+    <section className="mb-5 overflow-hidden rounded-2xl border border-border bg-bg shadow-xs" aria-label="คำอธิบายหน้านี้">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface/60"
+      >
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-50">
+          <Info className="size-5 text-brand-600" aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold text-fg">หน้านี้ใช้ทำอะไร และสถานะเปลี่ยนอย่างไร</span>
+          {!open && (
+            <span className="block text-xs text-fg-muted">กดเพื่อดูความหมายของแต่ละสถานะ</span>
+          )}
+        </span>
+        <ChevronDown
+          className={cn("size-5 shrink-0 text-fg-muted transition-transform", open && "rotate-180")}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open && (
+        <div className="border-t border-border px-4 pb-4 pt-3">
+          <p className="mb-3 text-sm leading-relaxed text-fg-muted">
+            ทุกกิจกรรมที่คุณลงทะเบียนจะมาแสดงที่นี่ และสถานะจะเปลี่ยนไปเองตามลำดับด้านล่าง
+            คุณสามารถกดแท็บด้านบนเพื่อดูกิจกรรมในแต่ละสถานะได้
+          </p>
+
+          <ol className="grid grid-cols-1 gap-2.5 md:grid-cols-3">
+            {GUIDE_STEPS.map((step, i) => (
+              <li key={step.title} className="relative rounded-xl border border-border bg-surface p-3">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className="flex size-6 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
+                    {i + 1}
+                  </span>
+                  <span className="text-sm font-bold text-fg">{step.title}</span>
+                </div>
+                <p className="text-sm leading-relaxed text-fg-muted">{step.body}</p>
+                <p className="mt-2 text-xs font-semibold text-brand-700">{step.note}</p>
+                {i < GUIDE_STEPS.length - 1 && (
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="absolute -right-3.5 top-1/2 z-10 hidden size-5 -translate-y-1/2 rounded-full bg-bg text-fg-subtle md:block"
+                  />
+                )}
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-2.5 grid grid-cols-1 gap-2.5 md:grid-cols-2">
+            <div className="rounded-xl border border-danger bg-danger-bg p-3">
+              <p className="text-sm font-bold text-danger">ยกเลิกแล้ว</p>
+              <p className="mt-1 text-sm leading-relaxed text-fg-muted">
+                เกิดเมื่อคุณยกเลิกเอง หรือผู้จัดยกเลิกกิจกรรมทั้งงาน (จะมีเหตุผลแสดงในการ์ด) ที่นั่งจะถูกปล่อยคืน
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-warning-bg p-3">
+              <p className="text-sm font-bold text-fg">กิจกรรมประเมินรอบด้าน</p>
+              <p className="mt-1 text-sm leading-relaxed text-fg-muted">
+                บางกิจกรรมต้องประเมินตนเองและเพื่อน คะแนนจะแสดงเมื่อผู้จัดอนุมัติแล้ว
+                ระหว่างนั้นการ์ดจะมีป้าย &quot;รออนุมัติผล&quot;
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
 /** ตัวบอกลำดับสถานะบนการ์ด: รอยืนยัน → ยืนยันแล้ว → ประเมินแล้ว (ยกเลิกแล้วแสดงเป็นแถบเดียว) */
 const PROGRESS_STEPS = ["รอยืนยัน", "ยืนยันแล้ว", "ประเมินแล้ว"]
 
 function StatusSteps({ reg }: { reg: Registration }) {
   if (reg.status === "cancelled") {
     return (
-      <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-danger">
+      <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-danger">
         <span className="flex size-5 items-center justify-center rounded-full bg-danger text-white">
           <X className="size-3" aria-hidden="true" />
         </span>
@@ -130,7 +261,7 @@ function StatusSteps({ reg }: { reg: Registration }) {
   }
   const current = reg.evaluation ? 2 : reg.status === "confirmed" ? 1 : 0
   return (
-    <ol className="mb-4 flex items-center gap-1.5" aria-label="ลำดับสถานะ">
+    <ol className="mb-3 flex items-center gap-1.5" aria-label="ลำดับสถานะ">
       {PROGRESS_STEPS.map((label, i) => (
         <li
           key={label}
@@ -175,7 +306,7 @@ function InfoItem({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2.5 rounded-xl bg-surface px-3 py-2 text-sm font-medium text-fg-muted">
+    <div className="flex min-w-0 items-center gap-2.5 rounded-lg bg-surface px-3 py-1.5 text-sm font-medium text-fg-muted">
       <Icon className={cn("size-4 shrink-0", tone)} aria-hidden="true" />
       <span className="min-w-0 truncate">{children}</span>
     </div>
@@ -384,7 +515,7 @@ export default function MyRegistrationsPage() {
         icons={[ClipboardCheck, CalendarDays, Award]}
       />
 
-      <Container className="py-8">
+      <Container className="py-6">
         {message && (
           <div
             role="alert"
@@ -405,21 +536,23 @@ export default function MyRegistrationsPage() {
           </div>
         )}
 
+        <StatusGuide />
+
         {/* สรุปผลสะสม — ซ่อนตอนยังโหลดอยู่และตอนที่ยังไม่เคยเข้าร่วมกิจกรรมไหนเลย */}
         {!loading && counts.evaluated > 0 && (
-          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {SUMMARY.map((stat) => (
               <div
                 key={stat.label}
-                className="relative flex items-center gap-4 overflow-hidden rounded-2xl border border-border bg-bg p-5 shadow-xs"
+                className="relative flex items-center gap-4 overflow-hidden rounded-2xl border border-border bg-bg p-4 shadow-xs"
               >
-                <div className={cn("flex size-12 shrink-0 items-center justify-center rounded-2xl ring-1 ring-inset ring-border", stat.bgTone)}>
-                  <stat.icon className={cn("size-6", stat.tone)} aria-hidden="true" />
+                <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset ring-border", stat.bgTone)}>
+                  <stat.icon className={cn("size-5", stat.tone)} aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-fg-muted">{stat.label}</p>
                   <p className="mt-0.5 flex items-baseline gap-1.5 text-fg">
-                    <span className="text-3xl font-black tabular-nums leading-none">{stat.value}</span>
+                    <span className="text-2xl font-black tabular-nums leading-none">{stat.value}</span>
                     <span className="text-xs text-fg-muted">{stat.unit}</span>
                   </p>
                 </div>
@@ -429,7 +562,7 @@ export default function MyRegistrationsPage() {
         )}
 
         {/* แท็บ + ค้นหา + เรียงลำดับ — รวมอยู่ในแผงเดียว */}
-        <div className="mb-6 rounded-2xl border border-border bg-bg p-3 shadow-xs">
+        <div className="mb-5 rounded-2xl border border-border bg-bg p-2.5 shadow-xs">
           {/* แท็บ = ลำดับสถานะ: รอยืนยัน → ยืนยันแล้ว → ประเมินแล้ว ส่วนยกเลิกแล้วแยกออกมาเป็นอีกทาง */}
           <div className="flex items-stretch gap-1 rounded-xl bg-surface-2 p-1">
             {TABS.map((tab, i) => {
@@ -471,7 +604,7 @@ export default function MyRegistrationsPage() {
             })}
           </div>
 
-          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-2.5 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative w-full sm:max-w-sm">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden="true" />
               <Input
@@ -502,12 +635,12 @@ export default function MyRegistrationsPage() {
         </div>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-32">
+          <div className="flex flex-col items-center justify-center py-20">
             <Loader2 className="mb-4 size-12 animate-spin text-brand-600" />
             <p className="text-lg font-medium text-fg-muted">กำลังโหลดกิจกรรมของคุณ...</p>
           </div>
         ) : filteredRegs.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-bg p-16 text-center shadow-xs">
+          <div className="rounded-2xl border border-border bg-bg p-10 text-center shadow-xs">
             <div className="mx-auto mb-6 flex size-20 items-center justify-center rounded-full bg-surface">
               <CalendarX className="size-8 text-fg-subtle" aria-hidden="true" />
             </div>
@@ -530,7 +663,7 @@ export default function MyRegistrationsPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-5">
+          <div className="grid grid-cols-1 gap-4">
             {filteredRegs.map((reg) => {
               const st = STATUS_BADGE[reg.status] ?? STATUS_BADGE.pending
               const catDot = getCategory(reg.activity.categories?.[0])?.dot ?? "bg-fg-subtle"
@@ -545,7 +678,7 @@ export default function MyRegistrationsPage() {
                   <span aria-hidden="true" className={cn("absolute inset-y-0 left-0 z-10 w-1.5", catDot)} />
                   <div className="flex flex-col md:flex-row">
                     {/* รูปกิจกรรม */}
-                    <div className="relative h-48 w-full shrink-0 overflow-hidden bg-surface-2 md:h-auto md:w-64">
+                    <div className="relative h-40 w-full shrink-0 overflow-hidden bg-surface-2 md:h-auto md:w-56">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={
@@ -566,7 +699,7 @@ export default function MyRegistrationsPage() {
                       )}
                     </div>
 
-                    <div className="flex min-w-0 flex-1 flex-col p-5 md:p-6">
+                    <div className="flex min-w-0 flex-1 flex-col p-4 md:p-5">
                       <StatusSteps reg={reg} />
 
                       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -593,11 +726,11 @@ export default function MyRegistrationsPage() {
                         )}
                       </div>
 
-                      <h3 className="mb-4 text-xl font-bold leading-snug text-fg">{reg.activity.name}</h3>
+                      <h3 className="mb-3 text-lg font-bold leading-snug text-fg">{reg.activity.name}</h3>
 
                       {/* เหตุผลที่ผู้จัดยกเลิก — เดิมเก็บลง DB แล้วไม่เคยแสดงให้นักศึกษาเห็น */}
                       {isCancelledByOrganizer(reg.activity.approvalStatus) && (
-                        <div className="mb-4 rounded-xl border border-danger bg-danger-bg px-4 py-3">
+                        <div className="mb-3 rounded-xl border border-danger bg-danger-bg px-4 py-2.5">
                           <p className="text-sm font-semibold text-danger">ผู้จัดยกเลิกกิจกรรมนี้</p>
                           <p className="mt-1 text-sm text-fg-muted">
                             {reg.activity.cancellationReason
@@ -607,7 +740,7 @@ export default function MyRegistrationsPage() {
                         </div>
                       )}
 
-                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <InfoItem icon={Calendar} tone="text-brand-500">
                           {formatEventDate(reg.activity.date)}
                         </InfoItem>
@@ -636,7 +769,7 @@ export default function MyRegistrationsPage() {
 
                       {/* ผลประเมินของกิจกรรมนี้ — กางในการ์ด ไม่ใช่กระโดดไปหน้าโปรไฟล์ที่แสดงค่าเฉลี่ยรวม */}
                       {reg.evaluation && isExpanded && (
-                        <div className="mt-5">
+                        <div className="mt-4">
                           <RegistrationEvaluation
                             scores={reg.evaluation}
                             comment={reg.evaluation.comment}
@@ -648,7 +781,7 @@ export default function MyRegistrationsPage() {
                   </div>
 
                   {/* แถบปุ่มด้านล่าง — แยกจากเนื้อหาด้วยเส้นคั่น */}
-                  <div className="flex flex-wrap items-center gap-2.5 border-t border-border bg-surface/60 px-5 py-3 pl-6 md:px-6">
+                  <div className="flex flex-wrap items-center gap-2 border-t border-border bg-surface/60 px-4 py-2.5 pl-5 md:px-5">
                     <Button size="sm" className="rounded-xl font-bold shadow-sm" asChild>
                       <Link href={`/student/activities/${reg.activity.id}`}>ดูรายละเอียดกิจกรรม</Link>
                     </Button>

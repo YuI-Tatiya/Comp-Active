@@ -88,7 +88,7 @@ export function InfoTooltip({ text, label = "คำอธิบาย", classNam
                     role="tooltip"
                     onClick={(e) => e.stopPropagation()}
                     style={{ top: pos.top, left: pos.left, width: PANEL_WIDTH }}
-                    className="fixed z-50 rounded-lg border border-border bg-bg p-3 text-left text-xs font-normal normal-case leading-relaxed text-fg-muted shadow-md"
+                    className="fixed z-50 whitespace-normal break-words rounded-lg border border-border bg-bg p-3 text-left text-xs font-normal normal-case leading-relaxed text-fg-muted shadow-md"
                 >
                     {text}
                 </div>
