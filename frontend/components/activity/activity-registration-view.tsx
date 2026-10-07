@@ -77,7 +77,7 @@ export interface ActivityRegistrationViewProps {
  *
  * Layout: ซ้าย 70% (เนื้อหา) / ขวา 30% (การ์ดสมัคร sticky) — Hero อยู่ในคอลัมน์ซ้ายเพื่อให้การ์ดสมัครเริ่มที่ระดับเดียวกัน
  * (ปุ่มสมัครอยู่ในจอแรก) บนจอเล็กเรียงเป็นคอลัมน์เดียวโดยการ์ดสมัครอยู่ต่อจากตัวเลือกกิจกรรม + แถบสมัครติดขอบล่าง
- * ข้อมูลแต่ละอย่างอยู่ที่เดียว: ที่นั่ง/วัน-เวลา/สถานที่ → Key Details, วันปิดรับสมัคร → การ์ดสมัคร, ทักษะ/ชั่วโมงจิตอาสา → Benefits
+ * ข้อมูลแต่ละอย่างอยู่ที่เดียว: ที่นั่ง/วัน-เวลา/สถานที่ → Key Details, วันปิดรับสมัคร → การ์ดสมัคร, ทักษะ → Benefits
  */
 export function ActivityRegistrationView({
     title,
@@ -239,7 +239,7 @@ export function ActivityRegistrationView({
                                 location={active.activity.location}
                                 seat={active.seat}
                             />
-                            <BenefitsSection activity={active.activity} />
+                            <BenefitsSection activity={active.activity} showVolunteer={false} />
                             <ActivityAboutPanel activity={active.activity} showActivityImage={showActivityImage} hideMeta />
                             <ActivityRegistrationPanel activity={active.activity} hideLogistics />
                         </div>

@@ -4,7 +4,9 @@ import { useRef, useState, type ChangeEvent } from "react"
 import { useRouter } from "next/navigation"
 import jsQR from "jsqr"
 import { Button } from "@/components/ui/button"
-import { QrCode, Loader2 } from "lucide-react"
+import { QrCode, Loader2, Smartphone } from "lucide-react"
+import { SCAN_MOBILE_ONLY_MESSAGE } from "@/lib/device"
+import { useScanCapable } from "@/lib/use-scan-capable"
 
 interface Props {
     activityId: number
@@ -53,11 +55,13 @@ export function QrCheckInButton({ activityId, activityName }: Props) {
     const inputRef = useRef<HTMLInputElement>(null)
     const [decoding, setDecoding] = useState(false)
     const [error, setError] = useState("")
+    // สแกนได้เฉพาะมือถือ/iPad — notebook, MacBook และคอมพิวเตอร์ตั้งโต๊ะใช้ไม่ได้ (ดู lib/device.ts)
+    const capable = useScanCapable()
 
     async function handleFile(e: ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0]
         e.target.value = ""
-        if (!file) return
+        if (!file || capable !== true) return
 
         setError("")
         setDecoding(true)
@@ -84,13 +88,22 @@ export function QrCheckInButton({ activityId, activityName }: Props) {
         }
     }
 
+    if (capable === false) {
+        return (
+            <div className="flex max-w-xs items-start gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-xs text-fg-muted">
+                <Smartphone className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <span>{SCAN_MOBILE_ONLY_MESSAGE}</span>
+            </div>
+        )
+    }
+
     return (
         <div className="flex flex-col items-start gap-1.5">
             <Button
                 type="button"
                 size="sm"
                 className="rounded-xl font-bold shadow-sm"
-                disabled={decoding}
+                disabled={decoding || capable === null}
                 onClick={() => inputRef.current?.click()}
             >
                 {decoding ? (

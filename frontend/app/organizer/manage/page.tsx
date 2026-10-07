@@ -11,7 +11,8 @@ import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Toast } from "@/components/ui/toast"
-import { eventsAPI, activitiesAPI, API_BASE_URL, EventSummary, Activity, type EventDraftResponse } from "@/lib/api"
+import { eventsAPI, activitiesAPI, EventSummary, Activity, type EventDraftResponse } from "@/lib/api"
+import { uploadPathFromPreview } from "@/lib/api-base"
 import { CATEGORIES } from "@/lib/categories"
 import { RANGE_OPTIONS, withinRange } from "@/lib/events-filter"
 import { closedReason, type RegistrationWindow } from "@/lib/activity-view"
@@ -34,6 +35,7 @@ import {
     ClipboardList,
     CalendarDays,
     User,
+    AlertTriangle,
 } from "lucide-react"
 
 /** ชื่อที่ใช้แสดงฉบับร่าง — payload เป็น JSON ล้วนๆ จาก lib/event-draft.ts ไม่มี type ร่วมกับหน้านี้ (คนละ bundle) */
@@ -46,11 +48,10 @@ function draftDisplayName(payload: unknown): string {
     return "ฉบับร่างยังไม่ตั้งชื่อ"
 }
 
-/** EventCard ต่อ API_BASE_URL ให้เองจาก path สัมพัทธ์ แต่ imagePreview ในฉบับร่างเก็บเป็น URL เต็มแล้ว (ดู handleSaveDraft) ต้องตัดคำนำหน้าออกก่อนส่งต่อ */
+/** EventCard ต่อ API_BASE_URL ให้เองจาก path สัมพัทธ์ แต่ imagePreview ในฉบับร่างอาจเก็บเป็น URL เต็ม (ดู handleSaveDraft) ต้องแปลงกลับเป็น path ก่อนส่งต่อ */
 function draftImageUrl(payload: unknown): string | undefined {
     if (payload && typeof payload === "object") {
-        const preview = (payload as { event?: { imagePreview?: string | null } }).event?.imagePreview
-        if (preview?.startsWith(API_BASE_URL)) return preview.slice(API_BASE_URL.length)
+        return uploadPathFromPreview((payload as { event?: { imagePreview?: string | null } }).event?.imagePreview)
     }
     return undefined
 }
@@ -284,6 +285,8 @@ export default function OrganizerManagePage() {
     const [standaloneActivities, setStandaloneActivities] = useState<Activity[]>([])
     const [draft, setDraft] = useState<EventDraftResponse | null>(null)
     const [loading, setLoading] = useState(true)
+    // โหลดไม่สำเร็จ ≠ ไม่มีงาน — เดิม catch แล้วตั้งรายการว่าง ผู้ใช้จึงเห็น "ยังไม่มีงาน" ทั้งที่งานยังอยู่
+    const [loadError, setLoadError] = useState<string | null>(null)
     const [searchQuery, setSearchQuery] = useState("")
     const [values, setValues] = useState<Record<string, string>>(INITIAL_VALUES)
     const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
@@ -298,6 +301,7 @@ export default function OrganizerManagePage() {
     async function loadData() {
         try {
             setLoading(true)
+            setLoadError(null)
             // ฉบับร่างดึงแยก catch ของตัวเอง — ดึงไม่ได้ก็แค่ไม่โชว์การ์ดฉบับร่าง ไม่ควรทำให้รายการงานจริงหายไปด้วย
             const [eventData, activityData, draftData] = await Promise.all([
                 eventsAPI.getMy(),
@@ -309,9 +313,7 @@ export default function OrganizerManagePage() {
             setDraft(draftData)
         } catch (err) {
             console.error(err)
-            setEvents([])
-            setStandaloneActivities([])
-            setDraft(null)
+            setLoadError(err instanceof Error ? err.message : "โหลดรายการกิจกรรมไม่สำเร็จ")
         } finally {
             setLoading(false)
         }
@@ -740,6 +742,17 @@ export default function OrganizerManagePage() {
                     <div className="py-32 flex flex-col items-center justify-center">
                         <Loader2 className="w-12 h-12 text-brand-600 animate-spin mb-4" />
                         <p className="text-lg text-fg-muted font-medium animate-pulse">กำลังดึงข้อมูลกิจกรรมของคุณ...</p>
+                    </div>
+                ) : loadError ? (
+                    <div role="alert" className="flex flex-col items-center justify-center rounded-2xl border border-border bg-bg px-6 py-20 text-center">
+                        <span className="mb-4 flex size-14 items-center justify-center rounded-full bg-danger-bg text-danger" aria-hidden="true">
+                            <AlertTriangle className="size-6" />
+                        </span>
+                        <h3 className="mb-1 text-lg font-semibold text-fg">โหลดรายการกิจกรรมไม่สำเร็จ</h3>
+                        <p className="mb-6 max-w-md text-sm text-fg-muted">{loadError}</p>
+                        <Button variant="outline" onClick={loadData}>
+                            ลองใหม่
+                        </Button>
                     </div>
                 ) : totalCount > 0 ? (
                     <div className="space-y-12">

@@ -1,6 +1,11 @@
 // lib/api.ts — API Client สำหรับเชื่อมกับ Backend (NestJS)
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { ApiError, classifyApiError, SESSION_CHECK_EVENT } from './api-error';
+export { ApiError } from './api-error';
+import { resolveApiBaseUrl } from './api-base';
+
+// "same-origin" → '' = ยิง path สัมพัทธ์ (/api/..., /uploads/...) ไปที่โดเมนของหน้าเว็บเอง ดู lib/api-base.ts
+export const API_BASE_URL = resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
 
 // ==================== TYPES ====================
 
@@ -169,10 +174,18 @@ async function fetchAPI<T = unknown>(endpoint: string, options: RequestInit = {}
     credentials: 'include',
   });
 
-  const data = await res.json();
+  // หน้า error ของ nginx (502/504/429) เป็น HTML ไม่ใช่ JSON — อย่าให้ res.json() ล้มจนเสียรหัสสถานะไป
+  const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(data.message?.[0] || data.message || 'เกิดข้อผิดพลาด');
+    const raw = Array.isArray(data.message) ? data.message[0] : data.message;
+    const { message, sessionCheck } = classifyApiError(res.status, typeof raw === 'string' ? raw : '');
+    // 401/403 จาก guard = บัญชีใน cookie ไม่ตรงกับที่หน้าเว็บจำไว้ (session หมด/สลับบัญชีในแท็บอื่น)
+    // ให้ AuthProvider ถาม backend ใหม่ — ยกเว้นตัว profile เองที่ AuthProvider เป็นคนเรียก (กันวนซ้ำ)
+    if (sessionCheck && endpoint !== '/api/auth/profile' && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(SESSION_CHECK_EVENT));
+    }
+    throw new ApiError(message, res.status);
   }
 
   // backend ห่อ response ด้วย TransformInterceptor เป็น { success, data, timestamp } เสมอ (ดู main.ts) —
