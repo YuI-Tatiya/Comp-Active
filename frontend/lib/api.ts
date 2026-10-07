@@ -2,8 +2,10 @@
 
 import { ApiError, classifyApiError, SESSION_CHECK_EVENT } from './api-error';
 export { ApiError } from './api-error';
+import { resolveApiBaseUrl } from './api-base';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// "same-origin" → '' = ยิง path สัมพัทธ์ (/api/..., /uploads/...) ไปที่โดเมนของหน้าเว็บเอง ดู lib/api-base.ts
+export const API_BASE_URL = resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
 
 // ==================== TYPES ====================
 

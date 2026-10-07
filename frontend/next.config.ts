@@ -7,11 +7,14 @@ const isDev = process.env.NODE_ENV !== "production";
 // พอวาง cert เสร็จเมื่อไร ตั้ง ENABLE_HTTPS=true ตอน build เพื่อเปิดสองอันนี้
 const httpsEnabled = process.env.ENABLE_HTTPS === "true";
 
-// Origin ของ backend — ต้องตรงกับ NEXT_PUBLIC_API_URL ที่ใช้ตอน build
-// (Docker ส่งมาเป็น build ARG = http://api.localhost, ส่วน `npm run dev` เปล่า ๆ ใช้ค่า default)
+// Origin ของ backend — ต้องตรงกับ NEXT_PUBLIC_API_URL ที่ใช้ตอน build (ตีความแบบเดียวกับ lib/api-base.ts)
+// Docker ส่งมาเป็น "same-origin" = API อยู่โดเมนเดียวกับหน้าเว็บ (nginx ส่ง /api, /uploads ต่อให้ backend)
+// จึงพอแค่ 'self' ไม่ต้องเพิ่ม origin อื่น; ส่วน `npm run dev` เปล่า ๆ ใช้ค่า default localhost:3001
 const apiOrigin = (() => {
+  const raw = (process.env.NEXT_PUBLIC_API_URL ?? "").trim();
+  if (raw === "same-origin") return "";
   try {
-    return new URL(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").origin;
+    return new URL(raw || "http://localhost:3001").origin;
   } catch {
     return "http://localhost:3001";
   }
@@ -25,10 +28,10 @@ const csp = [
   // Next ฝัง bootstrap script แบบ inline จึงต้องมี 'unsafe-inline'; 'unsafe-eval' จำเป็นเฉพาะ HMR ตอน dev
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   `style-src 'self' 'unsafe-inline'`,
-  `img-src 'self' data: blob: ${apiOrigin} ${externalImgHosts.join(" ")}`,
+  ["img-src 'self' data: blob:", apiOrigin, ...externalImgHosts].filter(Boolean).join(" "),
   `media-src 'self' blob:`,
   `font-src 'self' data:`,
-  `connect-src 'self' ${apiOrigin}${isDev ? " ws: wss:" : ""}`,
+  ["connect-src 'self'", apiOrigin, ...(isDev ? ["ws:", "wss:"] : [])].filter(Boolean).join(" "),
   `object-src 'none'`,
   `base-uri 'self'`,
   `form-action 'self'`,

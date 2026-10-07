@@ -11,7 +11,8 @@ import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Toast } from "@/components/ui/toast"
-import { eventsAPI, activitiesAPI, API_BASE_URL, EventSummary, Activity, type EventDraftResponse } from "@/lib/api"
+import { eventsAPI, activitiesAPI, EventSummary, Activity, type EventDraftResponse } from "@/lib/api"
+import { uploadPathFromPreview } from "@/lib/api-base"
 import { CATEGORIES } from "@/lib/categories"
 import { RANGE_OPTIONS, withinRange } from "@/lib/events-filter"
 import { closedReason, type RegistrationWindow } from "@/lib/activity-view"
@@ -47,11 +48,10 @@ function draftDisplayName(payload: unknown): string {
     return "ฉบับร่างยังไม่ตั้งชื่อ"
 }
 
-/** EventCard ต่อ API_BASE_URL ให้เองจาก path สัมพัทธ์ แต่ imagePreview ในฉบับร่างเก็บเป็น URL เต็มแล้ว (ดู handleSaveDraft) ต้องตัดคำนำหน้าออกก่อนส่งต่อ */
+/** EventCard ต่อ API_BASE_URL ให้เองจาก path สัมพัทธ์ แต่ imagePreview ในฉบับร่างอาจเก็บเป็น URL เต็ม (ดู handleSaveDraft) ต้องแปลงกลับเป็น path ก่อนส่งต่อ */
 function draftImageUrl(payload: unknown): string | undefined {
     if (payload && typeof payload === "object") {
-        const preview = (payload as { event?: { imagePreview?: string | null } }).event?.imagePreview
-        if (preview?.startsWith(API_BASE_URL)) return preview.slice(API_BASE_URL.length)
+        return uploadPathFromPreview((payload as { event?: { imagePreview?: string | null } }).event?.imagePreview)
     }
     return undefined
 }
