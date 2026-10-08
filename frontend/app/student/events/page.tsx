@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@
 import { EventsFilterSidebar } from "@/components/ui/events-filter-sidebar"
 import { HorizontalScrollSection } from "@/components/ui/horizontal-scroll-section"
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
-import { EVENT_CARD_SLOT } from "@/components/ui/event-card-layout"
 import { eventsAPI, activitiesAPI, EventSummary, Activity } from "@/lib/api"
 import {
     INITIAL_FILTERS,
@@ -202,9 +201,10 @@ export default function StudentEventsPage() {
                                             <Link
                                                 key={item.key}
                                                 href={item.href}
-                                                className={`block shrink-0 snap-start ${EVENT_CARD_SLOT}`}
+                                                className="block w-64 max-w-full shrink-0 snap-start"
                                             >
                                                 <EventCard
+                                                    compact
                                                     activity={{ name: item.name, imageUrl: item.imageUrl }}
                                                     description={item.description}
                                                     badgeLeft={

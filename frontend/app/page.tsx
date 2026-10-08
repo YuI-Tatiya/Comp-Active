@@ -8,8 +8,7 @@ import { Container } from "@/components/layout/container"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
-import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
-import { ActivityCardSkeleton } from "@/components/ui/skeleton"
+import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { activitiesAPI, eventsAPI, Activity } from "@/lib/api"
 import { CATEGORIES, categoriesBadgeLabel } from "@/lib/categories"
@@ -215,16 +214,17 @@ export default function RootPage() {
 
           <div className="mt-8">
             {loading ? (
-              <div className={EVENT_CARD_GRID}>
+              <div className="flex flex-wrap gap-5">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <ActivityCardSkeleton key={i} />
+                  <Skeleton key={i} className="h-[340px] w-64 max-w-full rounded-[28px]" />
                 ))}
               </div>
             ) : filteredItems.length > 0 ? (
-              <div className={EVENT_CARD_GRID}>
+              <div className="flex flex-wrap gap-5">
                 {filteredItems.map((item) => (
-                  <Link key={item.key} href={item.href} className="block">
+                  <Link key={item.key} href={item.href} className="block w-64 max-w-full">
                     <EventCard
+                      compact
                       activity={{ name: item.name, imageUrl: item.imageUrl }}
                       description={item.description}
                       badgeLeft={item.categories.length > 0 && <EventCardBadge variant="light">{categoriesBadgeLabel(item.categories)}</EventCardBadge>}
