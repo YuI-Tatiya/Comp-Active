@@ -109,6 +109,7 @@ export default function OrganizerEventViewPage() {
                     <ActivityPreviewHero
                         imageUrl={resolveEventImageUrl(event, activeActivity)}
                         title={event.name}
+                        description={event.description}
                         categories={activeActivity.categories ?? []}
                         organizerName={activeActivity.organizer?.name}
                         statusLabel={activeActivity.status === "open" ? "กำลังเปิดรับสมัคร" : "ปิดรับสมัคร"}
@@ -141,10 +142,6 @@ export default function OrganizerEventViewPage() {
                             </div>
                         )}
                     </div>
-                )}
-
-                {event.description && (
-                    <p className="max-w-3xl whitespace-pre-line leading-relaxed text-fg-muted">{event.description}</p>
                 )}
 
                 {activeActivity && (

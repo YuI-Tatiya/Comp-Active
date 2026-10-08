@@ -16,6 +16,8 @@ interface PreviewSession {
 interface ActivityPreviewHeroProps {
     imageUrl: string
     title: string
+    /** คำอธิบายงาน/กิจกรรม — แสดงใต้รูปภาพในคอลัมน์เดียวกัน (ความกว้างเท่ารูป) ไม่ใช่เต็มความกว้างการ์ด */
+    description?: string | null
     categories: string[]
     organizerName?: string | null
     statusLabel: string
@@ -43,6 +45,7 @@ interface ActivityPreviewHeroProps {
 export function ActivityPreviewHero({
     imageUrl,
     title,
+    description,
     categories,
     organizerName,
     statusLabel,
@@ -70,17 +73,22 @@ export function ActivityPreviewHero({
     return (
         <Card className="overflow-hidden border-border shadow-sm">
             <div className="flex flex-col gap-5 p-5 sm:flex-row sm:p-6">
-                <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl border border-border bg-surface-2 sm:w-80">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={imageUrl} alt={title} className="size-full object-cover" />
-                    <span
-                        className={cn(
-                            "absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-bold text-white",
-                            statusOpen ? "bg-success" : "bg-black/70"
-                        )}
-                    >
-                        {statusLabel}
-                    </span>
+                <div className="flex w-full shrink-0 flex-col gap-3 sm:w-80">
+                    <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-border bg-surface-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={imageUrl} alt={title} className="size-full object-cover" />
+                        <span
+                            className={cn(
+                                "absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-bold text-white",
+                                statusOpen ? "bg-success" : "bg-black/70"
+                            )}
+                        >
+                            {statusLabel}
+                        </span>
+                    </div>
+                    {description && (
+                        <p className="whitespace-pre-line text-sm leading-relaxed text-fg-muted">{description}</p>
+                    )}
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
