@@ -1,29 +1,28 @@
 "use client"
 
-import { useState, useEffect, useRef, useSyncExternalStore, Fragment } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Container } from "@/components/layout/container"
 import { PageHeader } from "@/components/ui/page-header"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import { formatEventDate } from "@/components/ui/event-card"
-import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { Toast } from "@/components/ui/toast"
 import { RegistrationEvaluation } from "@/components/student/registration-evaluation"
 import { QrCheckInButton } from "@/components/student/qr-checkin-button"
 import { AssessmentDialog } from "@/components/student/assessment-dialog"
 import { registrationsAPI, API_BASE_URL, isCancelledByOrganizer, isActiveRegistration, EventSurveyQuestion, SurveyAnswerBody, SkillScores } from "@/lib/api"
-import { getCategory, categoriesBadgeLabel } from "@/lib/categories"
+import { categoriesBadgeLabel } from "@/lib/categories"
 import { SOFT_SKILLS } from "@/lib/soft-skills"
 import {
-  Calendar, Clock, MapPin, Loader2, CalendarX, X, Star, Search,
-  CheckCircle2, HeartHandshake, TrendingUp, ChevronDown, ChevronRight, Check, Info, Users, ClipboardCheck, CalendarDays, Award,
+  Calendar, MapPin, Loader2, CalendarX, X, Star, Search,
+  CheckCircle2, HeartHandshake, TrendingUp, ChevronDown, Check, Info, Users, ClipboardCheck, CalendarDays, Award, Hourglass, CalendarCheck,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -114,188 +113,297 @@ const EMPTY_STATE_TEXT: Record<"pending" | "confirmed" | "evaluated" | "cancelle
   cancelled: { title: "ไม่มีรายการที่ถูกยกเลิก", body: "รายการที่คุณยกเลิกเอง หรือกิจกรรมที่ผู้จัดยกเลิกทั้งงาน จะแสดงที่นี่" },
 }
 
-const GUIDE_STORAGE_KEY = "my-registrations-guide-hidden"
+type TabKey = "pending" | "confirmed" | "evaluated" | "cancelled"
+
+interface SidebarTab {
+  key: TabKey
+  label: string
+  count: number
+}
 
 const GUIDE_STEPS = [
   {
     title: "รอยืนยัน",
     body: "คุณกดลงทะเบียนแล้ว กำลังรอผู้จัดกิจกรรมยืนยันที่นั่งให้",
     note: "ยกเลิกได้",
+    icon: Hourglass,
   },
   {
     title: "ยืนยันแล้ว",
     body: "ผู้จัดยืนยันที่นั่งแล้ว ให้ไปเช็คอินหน้างานในวันจัดกิจกรรม",
     note: "ยกเลิกได้จนกว่าจะเช็คอิน",
+    icon: CalendarCheck,
   },
   {
     title: "ประเมินแล้ว",
     body: "เช็คอินสำเร็จ ระบบบันทึกคะแนน Soft Skills และชั่วโมงจิตอาสาให้คุณ",
     note: "ยกเลิกไม่ได้แล้ว",
+    icon: Award,
   },
 ]
 
-/**
- * คำอธิบายหน้า — บอกว่าสถานะเปลี่ยนจากอะไรไปอะไรและเกิดจากอะไร
- * ซ่อนได้และจำค่าไว้ใน localStorage (ห่อ try/catch เผื่อเบราว์เซอร์ปิดการเก็บข้อมูล)
- * เริ่มต้นเป็นกางไว้เสมอ เพื่อให้ผู้ใช้ใหม่เห็นก่อน และไม่ให้ SSR กับ client ไม่ตรงกัน
- */
-// สำรองไว้ในหน่วยความจำ เผื่อเบราว์เซอร์บล็อก localStorage — ปุ่มพับจะยังใช้ได้ในหน้านั้น
-let guideHiddenFallback = false
-const guideListeners = new Set<() => void>()
-
-function subscribeGuide(cb: () => void) {
-  guideListeners.add(cb)
-  return () => {
-    guideListeners.delete(cb)
-  }
-}
-
-function readGuideHidden(): boolean {
-  try {
-    return localStorage.getItem(GUIDE_STORAGE_KEY) === "1"
-  } catch {
-    return guideHiddenFallback
-  }
-}
-
-function StatusGuide() {
-  // อ่านจาก localStorage ผ่าน useSyncExternalStore — snapshot ฝั่งเซิร์ฟเวอร์เป็น "ไม่ซ่อน" เสมอ
-  // ตรงกับ HTML ที่เรนเดอร์ครั้งแรก จึงไม่เกิด hydration mismatch และไม่ต้อง setState ใน effect
-  const hidden = useSyncExternalStore(subscribeGuide, readGuideHidden, () => false)
-  const open = !hidden
-
-  function toggle() {
-    try {
-      localStorage.setItem(GUIDE_STORAGE_KEY, open ? "1" : "0")
-    } catch {
-      guideHiddenFallback = open
-    }
-    guideListeners.forEach((cb) => cb())
-  }
-
+/** ปุ่ม "i" เล็กๆ — กดแล้วเปิด GuideDialog */
+function GuideButton({ onClick, className }: { onClick: () => void; className?: string }) {
   return (
-    <section className="mb-5 overflow-hidden rounded-2xl border border-border bg-bg shadow-xs" aria-label="คำอธิบายหน้านี้">
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={open}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface/60"
-      >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-50">
-          <Info className="size-5 text-brand-600" aria-hidden="true" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-bold text-fg">หน้านี้ใช้ทำอะไร และสถานะเปลี่ยนอย่างไร</span>
-          {!open && (
-            <span className="block text-xs text-fg-muted">กดเพื่อดูความหมายของแต่ละสถานะ</span>
-          )}
-        </span>
-        <ChevronDown
-          className={cn("size-5 shrink-0 text-fg-muted transition-transform", open && "rotate-180")}
-          aria-hidden="true"
-        />
-      </button>
-
-      {open && (
-        <div className="border-t border-border px-4 pb-4 pt-3">
-          <p className="mb-3 text-sm leading-relaxed text-fg-muted">
-            ทุกกิจกรรมที่คุณลงทะเบียนจะมาแสดงที่นี่ และสถานะจะเปลี่ยนไปเองตามลำดับด้านล่าง
-            คุณสามารถกดแท็บด้านบนเพื่อดูกิจกรรมในแต่ละสถานะได้
-          </p>
-
-          <ol className="grid grid-cols-1 gap-2.5 md:grid-cols-3">
-            {GUIDE_STEPS.map((step, i) => (
-              <li key={step.title} className="relative rounded-xl border border-border bg-surface p-3">
-                <div className="mb-1.5 flex items-center gap-2">
-                  <span className="flex size-6 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
-                    {i + 1}
-                  </span>
-                  <span className="text-sm font-bold text-fg">{step.title}</span>
-                </div>
-                <p className="text-sm leading-relaxed text-fg-muted">{step.body}</p>
-                <p className="mt-2 text-xs font-semibold text-brand-700">{step.note}</p>
-                {i < GUIDE_STEPS.length - 1 && (
-                  <ChevronRight
-                    aria-hidden="true"
-                    className="absolute -right-3.5 top-1/2 z-10 hidden size-5 -translate-y-1/2 rounded-full bg-bg text-fg-subtle md:block"
-                  />
-                )}
-              </li>
-            ))}
-          </ol>
-
-          <div className="mt-2.5 grid grid-cols-1 gap-2.5 md:grid-cols-2">
-            <div className="rounded-xl border border-danger bg-danger-bg p-3">
-              <p className="text-sm font-bold text-danger">ยกเลิกแล้ว</p>
-              <p className="mt-1 text-sm leading-relaxed text-fg-muted">
-                เกิดเมื่อคุณยกเลิกเอง หรือผู้จัดยกเลิกกิจกรรมทั้งงาน (จะมีเหตุผลแสดงในการ์ด) ที่นั่งจะถูกปล่อยคืน
-              </p>
-            </div>
-            <div className="rounded-xl border border-border bg-warning-bg p-3">
-              <p className="text-sm font-bold text-fg">กิจกรรมประเมินรอบด้าน</p>
-              <p className="mt-1 text-sm leading-relaxed text-fg-muted">
-                บางกิจกรรมต้องประเมินตนเองและเพื่อน คะแนนจะแสดงเมื่อผู้จัดอนุมัติแล้ว
-                ระหว่างนั้นการ์ดจะมีป้าย &quot;รออนุมัติผล&quot;
-              </p>
-            </div>
-          </div>
-        </div>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="หน้านี้ใช้ทำอะไร และสถานะเปลี่ยนอย่างไร"
+      className={cn(
+        "group/info relative inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100 transition-all duration-200 hover:scale-110 hover:bg-brand-600 hover:text-white hover:shadow-md active:scale-95",
+        className
       )}
-    </section>
+    >
+      <span aria-hidden="true" className="absolute inset-0 rounded-full bg-brand-400/40 motion-safe:animate-ping [animation-iteration-count:2]" />
+      <Info className="relative size-4 transition-transform duration-300 group-hover/info:rotate-[360deg]" aria-hidden="true" />
+    </button>
   )
 }
 
-/** ตัวบอกลำดับสถานะบนการ์ด: รอยืนยัน → ยืนยันแล้ว → ประเมินแล้ว (ยกเลิกแล้วแสดงเป็นแถบเดียว) */
-const PROGRESS_STEPS = ["รอยืนยัน", "ยืนยันแล้ว", "ประเมินแล้ว"]
-
-function StatusSteps({ reg }: { reg: Registration }) {
-  if (reg.status === "cancelled") {
-    return (
-      <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-danger">
-        <span className="flex size-5 items-center justify-center rounded-full bg-danger text-white">
-          <X className="size-3" aria-hidden="true" />
-        </span>
-        ยกเลิกแล้ว
-      </div>
-    )
-  }
-  const current = reg.evaluation ? 2 : reg.status === "confirmed" ? 1 : 0
+/** คำอธิบายหน้า — popup บอกว่าสถานะเปลี่ยนจากอะไรไปอะไรและเกิดจากอะไร */
+function GuideDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   return (
-    <ol className="mb-3 flex items-center gap-1.5" aria-label="ลำดับสถานะ">
-      {PROGRESS_STEPS.map((label, i) => (
-        <li
-          key={label}
-          aria-current={i === current ? "step" : undefined}
-          className="flex items-center gap-1.5"
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[560px]">
+        <DialogHeader>
+          <div className="mb-1 flex size-11 items-center justify-center rounded-2xl bg-brand-50 ring-1 ring-inset ring-brand-100 motion-safe:animate-icon-pop">
+            <Info className="size-6 text-brand-600" aria-hidden="true" />
+          </div>
+          <DialogTitle>หน้านี้ใช้ทำอะไร และสถานะเปลี่ยนอย่างไร</DialogTitle>
+          <DialogDescription>
+            ทุกกิจกรรมที่คุณลงทะเบียนจะมาแสดงที่นี่ และสถานะจะเปลี่ยนไปเองตามลำดับด้านล่าง
+            กดที่สถานะทางซ้ายเพื่อดูกิจกรรมในแต่ละขั้น
+          </DialogDescription>
+        </DialogHeader>
+
+        <ol className="py-2">
+          {GUIDE_STEPS.map((step, i) => {
+            const isLast = i === GUIDE_STEPS.length - 1
+            return (
+              <li
+                key={step.title}
+                className="flex gap-4 motion-safe:animate-rise-in"
+                style={{ animationDelay: `${100 + i * 110}ms` }}
+              >
+                <div className="flex flex-col items-center">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white shadow-sm">
+                    <step.icon className="size-5" aria-hidden="true" />
+                  </span>
+                  {!isLast && <span className="my-1 min-h-6 w-0.5 flex-1 rounded-full bg-brand-200" />}
+                </div>
+                <div className={cn("min-w-0 flex-1", !isLast && "pb-5")}>
+                  <p className="text-sm font-bold text-fg">
+                    <span className="mr-1.5 text-brand-600">{i + 1}.</span>
+                    {step.title}
+                  </p>
+                  <p className="mt-0.5 text-sm leading-relaxed text-fg-muted">{step.body}</p>
+                  <span className="mt-1.5 inline-block rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700">
+                    {step.note}
+                  </span>
+                </div>
+              </li>
+            )
+          })}
+        </ol>
+
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          <div
+            className="rounded-xl border border-danger bg-danger-bg p-3 motion-safe:animate-rise-in"
+            style={{ animationDelay: "460ms" }}
+          >
+            <p className="text-sm font-bold text-danger">ยกเลิกแล้ว</p>
+            <p className="mt-1 text-sm leading-relaxed text-fg-muted">
+              เกิดเมื่อคุณยกเลิกเอง หรือผู้จัดยกเลิกกิจกรรมทั้งงาน (จะมีเหตุผลแสดงในการ์ด) ที่นั่งจะถูกปล่อยคืน
+            </p>
+          </div>
+          <div
+            className="rounded-xl border border-border bg-warning-bg p-3 motion-safe:animate-rise-in"
+            style={{ animationDelay: "540ms" }}
+          >
+            <p className="text-sm font-bold text-fg">กิจกรรมประเมินรอบด้าน</p>
+            <p className="mt-1 text-sm leading-relaxed text-fg-muted">
+              บางกิจกรรมต้องประเมินตนเองและเพื่อน คะแนนจะแสดงเมื่อผู้จัดอนุมัติแล้ว
+              ระหว่างนั้นการ์ดจะมีป้าย &quot;รออนุมัติผล&quot;
+            </p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/**
+ * แถบสถานะด้านซ้าย — stepper แนวตั้งแบบเดียวกับ organizer/create (รอยืนยัน → ยืนยันแล้ว → ประเมินแล้ว)
+ * ส่วน "ยกเลิกแล้ว" แยกออกมาเป็นอีกทาง บนมือถือแสดงเป็นแถบเลื่อนแนวนอนแทน
+ */
+function StatusSidebar({
+  tabs,
+  active,
+  onSelect,
+  onOpenGuide,
+}: {
+  tabs: SidebarTab[]
+  active: TabKey
+  onSelect: (key: TabKey) => void
+  onOpenGuide: () => void
+}) {
+  const flow = tabs.filter((t) => t.key !== "cancelled")
+  const cancelTab = tabs.find((t) => t.key === "cancelled")!
+  const activeIndex = flow.findIndex((t) => t.key === active)
+
+  return (
+    <>
+      {/* มือถือ: แถบเลื่อนแนวนอน */}
+      <div className="flex items-center gap-2 md:hidden">
+        <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 py-1">
+          {tabs.map((tab) => {
+            const isActive = active === tab.key
+            const isCancel = tab.key === "cancelled"
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => onSelect(tab.key)}
+                aria-pressed={isActive}
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-all",
+                  isActive
+                    ? isCancel
+                      ? "border-danger bg-danger-bg text-danger shadow-xs"
+                      : "border-brand-600 bg-brand-600 text-white shadow-sm"
+                    : "border-border bg-bg text-fg-muted"
+                )}
+              >
+                {tab.label}
+                <span className="text-xs font-bold tabular-nums opacity-80">{tab.count}</span>
+              </button>
+            )
+          })}
+        </div>
+        <GuideButton onClick={onOpenGuide} />
+      </div>
+
+      {/* เดสก์ท็อป: stepper แนวตั้ง — top-24 เว้นระยะใต้ AppHeader */}
+      <nav
+        aria-label="สถานะการลงทะเบียน"
+        className="hidden md:sticky md:top-24 md:block md:rounded-2xl md:border md:border-border md:bg-bg md:p-4 md:shadow-xs"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-fg-subtle">สถานะ</span>
+          <GuideButton onClick={onOpenGuide} />
+        </div>
+
+        <div className="flex flex-col">
+          {flow.map((tab, i) => {
+            const isActive = active === tab.key
+            const isPassed = activeIndex >= 0 && i < activeIndex
+            const isLast = i === flow.length - 1
+            return (
+              <div key={tab.key} className="flex gap-3.5">
+                <div className="flex flex-col items-center">
+                  <span
+                    className={cn(
+                      "flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-bold transition-all duration-300",
+                      isActive
+                        ? "scale-110 bg-brand-600 text-white shadow-md ring-4 ring-brand-100"
+                        : isPassed
+                          ? "bg-brand-100 text-brand-600"
+                          : "border-2 border-border bg-bg text-fg-subtle"
+                    )}
+                  >
+                    {isPassed ? <Check className="size-4" aria-hidden="true" /> : i + 1}
+                  </span>
+                  {!isLast && (
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "my-1 min-h-6 w-0.5 flex-1 rounded-full transition-colors duration-500",
+                        isPassed ? "bg-brand-600" : "bg-border"
+                      )}
+                    />
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onSelect(tab.key)}
+                  aria-pressed={isActive}
+                  aria-current={isActive ? "step" : undefined}
+                  className={cn(
+                    "-mt-0.5 mb-2 min-w-0 flex-1 rounded-xl px-3 py-2 text-left transition-all duration-200",
+                    isActive ? "bg-brand-50" : "hover:bg-surface",
+                    isLast && "mb-0"
+                  )}
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className={cn("text-sm font-bold", isActive ? "text-brand-700" : "text-fg")}>{tab.label}</span>
+                    <span
+                      aria-label={`${tab.count} รายการ`}
+                      className={cn(
+                        "min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-bold tabular-nums transition-colors",
+                        isActive ? "bg-brand-600 text-white" : "bg-surface-2 text-fg-muted"
+                      )}
+                    >
+                      {tab.count}
+                    </span>
+                  </span>
+                  {/* คำอธิบายสถานะ — คลี่ออกเฉพาะขั้นที่เลือก */}
+                  <span
+                    className={cn(
+                      "grid transition-all duration-300 ease-out",
+                      isActive ? "mt-1.5 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                    )}
+                  >
+                    <span className="overflow-hidden text-xs leading-relaxed text-fg-muted">{TAB_INFO[tab.key]}</span>
+                  </span>
+                </button>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* ยกเลิกแล้ว — แยกจากลำดับหลัก */}
+        <div className="my-3 border-t border-dashed border-border-strong" />
+        <button
+          type="button"
+          onClick={() => onSelect(cancelTab.key)}
+          aria-pressed={active === "cancelled"}
+          className={cn(
+            "flex w-full items-center gap-3.5 rounded-xl px-1.5 py-1.5 text-left transition-all duration-200",
+            active === "cancelled" ? "bg-danger-bg" : "hover:bg-surface"
+          )}
         >
           <span
             className={cn(
-              "flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
-              i < current && "bg-success text-white",
-              i === current && "bg-brand-600 text-white",
-              i > current && "bg-surface-2 text-fg-subtle"
+              "flex size-9 shrink-0 items-center justify-center rounded-full transition-all duration-300",
+              active === "cancelled"
+                ? "scale-110 bg-danger text-white shadow-md ring-4 ring-danger-bg"
+                : "border-2 border-border bg-bg text-fg-subtle"
             )}
           >
-            {i < current ? <Check className="size-3" aria-hidden="true" /> : i + 1}
+            <X className="size-4" aria-hidden="true" />
           </span>
-          <span
-            className={cn(
-              "text-xs font-semibold",
-              i === current ? "text-fg" : i < current ? "text-success" : "text-fg-subtle"
-            )}
-          >
-            {label}
+          <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+            <span className={cn("text-sm font-bold", active === "cancelled" ? "text-danger" : "text-fg")}>
+              {cancelTab.label}
+            </span>
+            <span
+              aria-label={`${cancelTab.count} รายการ`}
+              className={cn(
+                "min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-bold tabular-nums",
+                active === "cancelled" ? "bg-danger text-white" : "bg-surface-2 text-fg-muted"
+              )}
+            >
+              {cancelTab.count}
+            </span>
           </span>
-          {i < PROGRESS_STEPS.length - 1 && (
-            <span aria-hidden="true" className={cn("mx-0.5 h-px w-4 sm:w-8", i < current ? "bg-success" : "bg-border")} />
-          )}
-        </li>
-      ))}
-    </ol>
+        </button>
+      </nav>
+    </>
   )
 }
 
-/** ช่องข้อมูลย่อยในการ์ด — ไอคอน + ข้อความ บนพื้นอ่อน */
+/** ช่องข้อมูลย่อยในการ์ด — ไอคอน + ข้อความบรรทัดเดียว */
 function InfoItem({
   icon: Icon,
   tone,
@@ -306,8 +414,8 @@ function InfoItem({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2.5 rounded-lg bg-surface px-3 py-1.5 text-sm font-medium text-fg-muted">
-      <Icon className={cn("size-4 shrink-0", tone)} aria-hidden="true" />
+    <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-fg-muted">
+      <Icon className={cn("size-3.5 shrink-0", tone)} aria-hidden="true" />
       <span className="min-w-0 truncate">{children}</span>
     </div>
   )
@@ -316,7 +424,8 @@ function InfoItem({
 export default function MyRegistrationsPage() {
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<"pending" | "confirmed" | "evaluated" | "cancelled">("pending")
+  const [activeTab, setActiveTab] = useState<TabKey>("pending")
+  const [guideOpen, setGuideOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"date_asc" | "date_desc" | "registered_desc" | "name_asc">("date_asc")
   const [message, setMessage] = useState("")
@@ -536,7 +645,14 @@ export default function MyRegistrationsPage() {
           </div>
         )}
 
-        <StatusGuide />
+        <GuideDialog open={guideOpen} onOpenChange={setGuideOpen} />
+
+        {/* ซ้าย = ลำดับสถานะ (แบบเดียวกับหน้า organizer/create) ขวา = เนื้อหา
+            md:items-start เพื่อให้ sticky ของแถบสถานะมีระยะขยับ */}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-[250px_1fr] md:items-start md:gap-8">
+          <StatusSidebar tabs={TABS} active={activeTab} onSelect={setActiveTab} onOpenGuide={() => setGuideOpen(true)} />
+
+          <div className="min-w-0">
 
         {/* สรุปผลสะสม — ซ่อนตอนยังโหลดอยู่และตอนที่ยังไม่เคยเข้าร่วมกิจกรรมไหนเลย */}
         {!loading && counts.evaluated > 0 && (
@@ -561,76 +677,33 @@ export default function MyRegistrationsPage() {
           </div>
         )}
 
-        {/* แท็บ + ค้นหา + เรียงลำดับ — รวมอยู่ในแผงเดียว */}
-        <div className="mb-5 rounded-2xl border border-border bg-bg p-2.5 shadow-xs">
-          {/* แท็บ = ลำดับสถานะ: รอยืนยัน → ยืนยันแล้ว → ประเมินแล้ว ส่วนยกเลิกแล้วแยกออกมาเป็นอีกทาง */}
-          <div className="flex items-stretch gap-1 rounded-xl bg-surface-2 p-1">
-            {TABS.map((tab, i) => {
-              const isCancelTab = tab.key === "cancelled"
-              return (
-                <Fragment key={tab.key}>
-                  {isCancelTab && <span aria-hidden="true" className="mx-1 my-2 w-px shrink-0 bg-border-strong" />}
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab(tab.key)}
-                    aria-pressed={activeTab === tab.key}
-                    className={cn(
-                      "inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2.5 text-xs font-semibold transition-all sm:gap-2 sm:px-4 sm:text-sm",
-                      activeTab === tab.key
-                        ? isCancelTab
-                          ? "bg-bg text-danger shadow-xs"
-                          : "bg-bg text-brand-600 shadow-xs"
-                        : "text-fg-muted hover:bg-bg/60 hover:text-fg"
-                    )}
-                  >
-                    {isCancelTab && <X className="size-4 shrink-0" aria-hidden="true" />}
-                    {tab.label}
-                    <span
-                      aria-label={`${tab.count} รายการ`}
-                      className={cn(
-                        "min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-bold tabular-nums",
-                        activeTab === tab.key ? "bg-surface-2 text-fg" : "bg-surface text-fg-muted"
-                      )}
-                    >
-                      {tab.count}
-                    </span>
-                    <InfoTooltip text={TAB_INFO[tab.key]} label={`คำอธิบายแท็บ ${tab.label}`} />
-                  </button>
-                  {i < 2 && (
-                    <ChevronRight aria-hidden="true" className="size-4 shrink-0 self-center text-fg-subtle" />
-                  )}
-                </Fragment>
-              )
-            })}
+        {/* ค้นหา + เรียงลำดับ */}
+        <div className="mb-5 flex flex-col gap-2.5 rounded-2xl border border-border bg-bg p-2.5 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden="true" />
+            <Input
+              type="text"
+              placeholder="ค้นหาชื่อกิจกรรม..."
+              className="h-10 rounded-lg pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-
-          <div className="mt-2.5 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative w-full sm:max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden="true" />
-              <Input
-                type="text"
-                placeholder="ค้นหาชื่อกิจกรรม..."
-                className="h-10 rounded-lg pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label htmlFor="my-reg-sort" className="shrink-0 text-xs font-semibold text-fg-muted">
-                เรียงลำดับ
-              </label>
-              <Select
-                id="my-reg-sort"
-                className="h-10 w-full rounded-lg sm:w-60"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              >
-                <option value="date_asc">วันจัดกิจกรรม: เก่า → ใหม่</option>
-                <option value="date_desc">วันจัดกิจกรรม: ใหม่ → เก่า</option>
-                <option value="registered_desc">วันที่ลงทะเบียน: ล่าสุดก่อน</option>
-                <option value="name_asc">ชื่อกิจกรรม: ก → ฮ</option>
-              </Select>
-            </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="my-reg-sort" className="shrink-0 text-xs font-semibold text-fg-muted">
+              เรียงลำดับ
+            </label>
+            <Select
+              id="my-reg-sort"
+              className="h-10 w-full rounded-lg sm:w-60"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            >
+              <option value="date_asc">วันจัดกิจกรรม: เก่า → ใหม่</option>
+              <option value="date_desc">วันจัดกิจกรรม: ใหม่ → เก่า</option>
+              <option value="registered_desc">วันที่ลงทะเบียน: ล่าสุดก่อน</option>
+              <option value="name_asc">ชื่อกิจกรรม: ก → ฮ</option>
+            </Select>
           </div>
         </div>
 
@@ -663,127 +736,121 @@ export default function MyRegistrationsPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
-            {filteredRegs.map((reg) => {
+          <div key={activeTab} className="grid grid-cols-1 gap-5 sm:grid-cols-2 2xl:grid-cols-3">
+            {filteredRegs.map((reg, idx) => {
               const st = STATUS_BADGE[reg.status] ?? STATUS_BADGE.pending
-              const catDot = getCategory(reg.activity.categories?.[0])?.dot ?? "bg-fg-subtle"
               const isExpanded = expandedEvaluations.includes(reg.id)
+              const cancelledByOrganizer = isCancelledByOrganizer(reg.activity.approvalStatus)
 
               return (
+                /* การ์ดทรง "ตั๋ว" — รูปด้านบน และรอยปรุตัดครึ่งก่อนถึงปุ่ม */
                 <article
                   key={reg.id}
-                  className="group relative overflow-hidden rounded-2xl border border-border bg-bg shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md"
+                  style={{ animationDelay: `${Math.min(idx, 8) * 60}ms` }}
+                  className="group relative flex flex-col overflow-hidden rounded-[28px] border border-border bg-bg shadow-xs transition-all duration-300 motion-safe:animate-rise-in hover:-translate-y-1 hover:shadow-md"
                 >
-                  {/* แถบสีคาดตามหมวดหมู่ — ช่วยกวาดสายตาหากิจกรรมเจอไวขึ้นเมื่อมีหลายใบ */}
-                  <span aria-hidden="true" className={cn("absolute inset-y-0 left-0 z-10 w-1.5", catDot)} />
-                  <div className="flex flex-col md:flex-row">
-                    {/* รูปกิจกรรม */}
-                    <div className="relative h-40 w-full shrink-0 overflow-hidden bg-surface-2 md:h-auto md:w-56">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={
-                          reg.activity?.imageUrl
-                            ? `${API_BASE_URL}${reg.activity.imageUrl}`
-                            : "/activity-placeholder.svg"
-                        }
-                        alt={reg.activity.name}
-                        className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                      <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
-                      {reg.activity.categories.length > 0 && (
-                        <div className="absolute left-4 top-3">
-                          <span className="rounded-lg bg-bg/95 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-700 shadow-sm">
-                            {categoriesBadgeLabel(reg.activity.categories)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex min-w-0 flex-1 flex-col p-4 md:p-5">
-                      <StatusSteps reg={reg} />
-
-                      <div className="mb-3 flex flex-wrap items-center gap-2">
-                        <Badge variant={st.variant}>{st.label}</Badge>
-
-                        {reg.status === "confirmed" && (
-                          <Badge variant={reg.attendance === "attended" ? "info" : "neutral"}>
-                            {reg.attendance === "attended" ? "✓ เข้าร่วมแล้ว" : "ยังไม่เข้างาน"}
-                          </Badge>
-                        )}
-
-                        {!!reg.evaluation &&
-                          (reg.evaluation.status === "pending_approval" ? (
-                            <Badge variant="warning">รออนุมัติผล</Badge>
-                          ) : (
-                            <Badge variant="default">ประเมินแล้ว</Badge>
-                          ))}
-
-                        {isCancelledByOrganizer(reg.activity.approvalStatus) && (
-                          <Badge variant="danger">กิจกรรมถูกยกเลิก</Badge>
-                        )}
-                        {reg.activity.status === "completed" && !isCancelledByOrganizer(reg.activity.approvalStatus) && (
-                          <Badge variant="neutral">กิจกรรมจบแล้ว</Badge>
-                        )}
-                      </div>
-
-                      <h3 className="mb-3 text-lg font-bold leading-snug text-fg">{reg.activity.name}</h3>
-
-                      {/* เหตุผลที่ผู้จัดยกเลิก — เดิมเก็บลง DB แล้วไม่เคยแสดงให้นักศึกษาเห็น */}
-                      {isCancelledByOrganizer(reg.activity.approvalStatus) && (
-                        <div className="mb-3 rounded-xl border border-danger bg-danger-bg px-4 py-2.5">
-                          <p className="text-sm font-semibold text-danger">ผู้จัดยกเลิกกิจกรรมนี้</p>
-                          <p className="mt-1 text-sm text-fg-muted">
-                            {reg.activity.cancellationReason
-                              ? `เหตุผล: ${reg.activity.cancellationReason}`
-                              : "ผู้จัดไม่ได้ระบุเหตุผล"}
-                          </p>
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <InfoItem icon={Calendar} tone="text-brand-500">
-                          {formatEventDate(reg.activity.date)}
-                        </InfoItem>
-                        <InfoItem icon={Clock} tone="text-info">
-                          {reg.activity.startTime} - {reg.activity.endTime}
-                        </InfoItem>
-                        <InfoItem icon={MapPin} tone="text-danger">
-                          {reg.activity.location}
-                        </InfoItem>
-
-                        {/* เวลาเช็คอินจริง — เดิม backend บันทึกไว้แต่ไม่เคยแสดงที่ไหนในระบบ */}
-                        {reg.checkInTime && (
-                          <InfoItem icon={CheckCircle2} tone="text-success">
-                            เช็คอิน {formatDateTime(reg.checkInTime)}
-                          </InfoItem>
-                        )}
-
-                        {/* ชั่วโมงจิตอาสา — นับสะสมจริงเมื่อเช็คอินแล้วเท่านั้น */}
-                        {reg.activity.volunteerHours && (
-                          <InfoItem icon={HeartHandshake} tone="text-brand-500">
-                            จิตอาสา {Number(reg.activity.volunteerHours)} ชม.
-                            {reg.activity.volunteerRole ? ` · ${reg.activity.volunteerRole}` : ""}
-                          </InfoItem>
-                        )}
-                      </div>
-
-                      {/* ผลประเมินของกิจกรรมนี้ — กางในการ์ด ไม่ใช่กระโดดไปหน้าโปรไฟล์ที่แสดงค่าเฉลี่ยรวม */}
-                      {reg.evaluation && isExpanded && (
-                        <div className="mt-4">
-                          <RegistrationEvaluation
-                            scores={reg.evaluation}
-                            comment={reg.evaluation.comment}
-                            status={reg.evaluation.status}
-                          />
-                        </div>
-                      )}
-                    </div>
+                  {/* รูปกิจกรรม — ภาพเต็มความกว้างสัดส่วนเตี้ย ไม่มีแถบสี */}
+                  <div className="relative h-36 shrink-0 overflow-hidden bg-surface-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={
+                        reg.activity?.imageUrl
+                          ? `${API_BASE_URL}${reg.activity.imageUrl}`
+                          : "/activity-placeholder.svg"
+                      }
+                      alt={reg.activity.name}
+                      className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
+                    {reg.activity.categories.length > 0 && (
+                      <span className="absolute left-3 top-3 max-w-[70%] truncate rounded-full bg-bg/95 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand-700 shadow-sm">
+                        {categoriesBadgeLabel(reg.activity.categories)}
+                      </span>
+                    )}
                   </div>
 
-                  {/* แถบปุ่มด้านล่าง — แยกจากเนื้อหาด้วยเส้นคั่น */}
-                  <div className="flex flex-wrap items-center gap-2 border-t border-border bg-surface/60 px-4 py-2.5 pl-5 md:px-5">
-                    <Button size="sm" className="rounded-xl font-bold shadow-sm" asChild>
-                      <Link href={`/student/activities/${reg.activity.id}`}>ดูรายละเอียดกิจกรรม</Link>
+                  <div className="relative flex min-w-0 flex-1 flex-col px-4 pb-1 pt-3">
+                    <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                      <Badge variant={st.variant}>{st.label}</Badge>
+
+                      {reg.status === "confirmed" && (
+                        <Badge variant={reg.attendance === "attended" ? "info" : "neutral"}>
+                          {reg.attendance === "attended" ? "✓ เข้าร่วมแล้ว" : "ยังไม่เข้างาน"}
+                        </Badge>
+                      )}
+
+                      {!!reg.evaluation &&
+                        (reg.evaluation.status === "pending_approval" ? (
+                          <Badge variant="warning">รออนุมัติผล</Badge>
+                        ) : (
+                          <Badge variant="default">ประเมินแล้ว</Badge>
+                        ))}
+
+                      {cancelledByOrganizer && <Badge variant="danger">กิจกรรมถูกยกเลิก</Badge>}
+                      {reg.activity.status === "completed" && !cancelledByOrganizer && (
+                        <Badge variant="neutral">กิจกรรมจบแล้ว</Badge>
+                      )}
+                    </div>
+
+                    <h3 className="mb-2.5 line-clamp-2 text-base font-bold leading-snug text-fg">{reg.activity.name}</h3>
+
+                    {/* เหตุผลที่ผู้จัดยกเลิก — เดิมเก็บลง DB แล้วไม่เคยแสดงให้นักศึกษาเห็น */}
+                    {cancelledByOrganizer && (
+                      <div className="mb-2.5 rounded-2xl border border-danger bg-danger-bg px-3 py-2">
+                        <p className="text-xs font-semibold text-danger">ผู้จัดยกเลิกกิจกรรมนี้</p>
+                        <p className="mt-0.5 text-xs text-fg-muted">
+                          {reg.activity.cancellationReason
+                            ? `เหตุผล: ${reg.activity.cancellationReason}`
+                            : "ผู้จัดไม่ได้ระบุเหตุผล"}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="mt-auto space-y-1.5 pb-1">
+                      <InfoItem icon={Calendar} tone="text-brand-500">
+                        {formatEventDate(reg.activity.date)} · {reg.activity.startTime}-{reg.activity.endTime}
+                      </InfoItem>
+                      <InfoItem icon={MapPin} tone="text-danger">
+                        {reg.activity.location}
+                      </InfoItem>
+
+                      {/* เวลาเช็คอินจริง — เดิม backend บันทึกไว้แต่ไม่เคยแสดงที่ไหนในระบบ */}
+                      {reg.checkInTime && (
+                        <InfoItem icon={CheckCircle2} tone="text-success">
+                          เช็คอิน {formatDateTime(reg.checkInTime)}
+                        </InfoItem>
+                      )}
+
+                      {/* ชั่วโมงจิตอาสา — นับสะสมจริงเมื่อเช็คอินแล้วเท่านั้น */}
+                      {reg.activity.volunteerHours && (
+                        <InfoItem icon={HeartHandshake} tone="text-brand-500">
+                          จิตอาสา {Number(reg.activity.volunteerHours)} ชม.
+                          {reg.activity.volunteerRole ? ` · ${reg.activity.volunteerRole}` : ""}
+                        </InfoItem>
+                      )}
+                    </div>
+
+                    {/* ผลประเมินของกิจกรรมนี้ — กางในการ์ด ไม่ใช่กระโดดไปหน้าโปรไฟล์ที่แสดงค่าเฉลี่ยรวม */}
+                    {reg.evaluation && isExpanded && (
+                      <div className="mt-3">
+                        <RegistrationEvaluation
+                          scores={reg.evaluation}
+                          comment={reg.evaluation.comment}
+                          status={reg.evaluation.status}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* รอยปรุตั๋ว — เส้นประ + รอยบากครึ่งวงกลมที่ขอบซ้าย-ขวา */}
+                  <div aria-hidden="true" className="relative my-2.5 h-0 border-t-2 border-dashed border-border">
+                    <span className="absolute -left-2.5 -top-2.5 size-5 rounded-full border border-border bg-surface" />
+                    <span className="absolute -right-2.5 -top-2.5 size-5 rounded-full border border-border bg-surface" />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5 px-4 pb-3.5">
+                    <Button size="sm" className="rounded-full px-4 font-bold shadow-sm" asChild>
+                      <Link href={`/student/activities/${reg.activity.id}?from=my-registrations`}>รายละเอียด</Link>
                     </Button>
 
                     {reg.status === "confirmed" && reg.attendance !== "attended" && (
@@ -794,10 +861,10 @@ export default function MyRegistrationsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="rounded-xl bg-bg font-bold"
+                        className="rounded-full bg-bg font-bold"
                         onClick={() => openSurvey(reg.id)}
                       >
-                        <Star className="size-4" aria-hidden="true" /> ให้คะแนนกิจกรรม
+                        <Star className="size-4" aria-hidden="true" /> ให้คะแนน
                       </Button>
                     )}
 
@@ -807,10 +874,10 @@ export default function MyRegistrationsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="rounded-xl bg-bg font-bold"
+                          className="rounded-full bg-bg font-bold"
                           onClick={() => setAssessmentRegId(reg.id)}
                         >
-                          <Users className="size-4" aria-hidden="true" /> ประเมินตนเองและเพื่อน
+                          <Users className="size-4" aria-hidden="true" /> ประเมินเพื่อน
                         </Button>
                       )}
 
@@ -818,7 +885,7 @@ export default function MyRegistrationsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="rounded-xl bg-bg font-bold"
+                        className="rounded-full bg-bg font-bold"
                         aria-expanded={isExpanded}
                         onClick={() =>
                           setExpandedEvaluations((prev) =>
@@ -830,13 +897,13 @@ export default function MyRegistrationsPage() {
                           className={cn("size-4 transition-transform", isExpanded && "rotate-180")}
                           aria-hidden="true"
                         />
-                        {isExpanded ? "ซ่อนผลประเมิน" : "ดูผลประเมินกิจกรรมนี้"}
+                        {isExpanded ? "ซ่อนผลประเมิน" : "ผลประเมิน"}
                       </Button>
                     )}
 
                     {!!reg.evaluation && (
-                      <Button variant="ghost" size="sm" className="rounded-xl font-bold" asChild>
-                        <Link href="/student/profile">ดูภาพรวมทักษะ</Link>
+                      <Button variant="ghost" size="sm" className="rounded-full font-bold" asChild>
+                        <Link href="/student/profile">ภาพรวมทักษะ</Link>
                       </Button>
                     )}
 
@@ -844,10 +911,10 @@ export default function MyRegistrationsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="ml-auto rounded-xl font-bold text-danger hover:bg-danger-bg hover:text-danger"
+                        className="ml-auto rounded-full font-bold text-danger hover:bg-danger-bg hover:text-danger"
                         onClick={() => setCancelTargetId(reg.id)}
                       >
-                        ยกเลิกกิจกรรม
+                        ยกเลิก
                       </Button>
                     )}
                   </div>
@@ -856,6 +923,8 @@ export default function MyRegistrationsPage() {
             })}
           </div>
         )}
+          </div>
+        </div>
       </Container>
 
       <AssessmentDialog registrationId={assessmentRegId} onClose={() => setAssessmentRegId(null)} />
