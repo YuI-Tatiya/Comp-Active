@@ -144,15 +144,20 @@ export default function OrganizerEventViewPage() {
                     </div>
                 )}
 
+                {/* 2 คอลัมน์เหมือนหน้าลงทะเบียนนักศึกษา — เดิมเรียง 1 คอลัมน์ยาวดิ่งลงมา ทำให้ต้องเลื่อนดูมากเกินจำเป็น */}
                 {activeActivity && (
-                    <div className="max-w-3xl space-y-8">
-                        <ActivityAboutPanel activity={activeActivity} showActivityImage hideMeta />
-                        <ActivityRewardsPanel activity={activeActivity} />
-                        <ActivityRegistrationPanel
-                            activity={activeActivity}
-                            registrationOpenAt={event.registrationOpenAt}
-                            registrationCloseAt={event.registrationCloseAt}
-                        />
+                    <div className="grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
+                        <div className="min-w-0 space-y-8">
+                            <ActivityAboutPanel activity={activeActivity} showActivityImage hideMeta />
+                            <ActivityRegistrationPanel
+                                activity={activeActivity}
+                                registrationOpenAt={event.registrationOpenAt}
+                                registrationCloseAt={event.registrationCloseAt}
+                            />
+                        </div>
+                        <div>
+                            <ActivityRewardsPanel activity={activeActivity} />
+                        </div>
                     </div>
                 )}
             </Container>

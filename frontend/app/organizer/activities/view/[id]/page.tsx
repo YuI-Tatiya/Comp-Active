@@ -116,10 +116,15 @@ export default function OrganizerActivityViewPage() {
                     onShare={handleShare}
                 />
 
-                <div className="max-w-3xl space-y-8">
-                    <ActivityAboutPanel activity={activity} hideMeta />
-                    <ActivityRewardsPanel activity={activity} />
-                    <ActivityRegistrationPanel activity={activity} />
+                {/* 2 คอลัมน์เหมือนหน้าลงทะเบียนนักศึกษา — เดิมเรียง 1 คอลัมน์ยาวดิ่งลงมา ทำให้ต้องเลื่อนดูมากเกินจำเป็น */}
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
+                    <div className="min-w-0 space-y-8">
+                        <ActivityAboutPanel activity={activity} hideMeta />
+                        <ActivityRegistrationPanel activity={activity} />
+                    </div>
+                    <div>
+                        <ActivityRewardsPanel activity={activity} />
+                    </div>
                 </div>
             </Container>
         </div>
