@@ -66,7 +66,9 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://api.localhost
+        # เรียก API ผ่านโดเมนของหน้าเว็บเอง (app.localhost/api → nginx → backend)
+        # ให้ cookie ของ session เป็น first-party — ดู frontend/lib/api-base.ts
+        NEXT_PUBLIC_API_URL: same-origin
     container_name: compactive_frontend
     environment:
       # โฮสต์ที่ proxy.ts ยอมให้เข้าโซนแอดมิน (allowlist เทียบตรงตัว)

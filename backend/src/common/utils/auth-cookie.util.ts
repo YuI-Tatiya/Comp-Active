@@ -11,20 +11,18 @@ import type { Response } from 'express';
  * ในหน้าเว็บอ่านค่าไม่ได้ ต่อให้มี XSS ก็ดึง token ออกไปใช้นอกเบราว์เซอร์ไม่ได้
  *
  * ทำไมไม่ตั้ง Domain:
- * cookie ถูกตั้งโดย api.localhost และถูกส่งกลับไปที่ api.localhost เท่านั้น
- * frontend ไม่เคยต้องอ่านมัน (อ่านไม่ได้อยู่แล้ว) จึงเป็น host-only cookie ได้
- * ไม่ต้องยุ่งกับการแชร์ cookie ข้าม subdomain ซึ่งพฤติกรรมต่างกันในแต่ละ browser
+ * หน้าเว็บเรียก API ผ่านโฮสต์ของตัวเอง (app.localhost/api, admin.localhost/api → nginx → backend)
+ * cookie จึงถูกตั้งและส่งกลับที่โฮสต์ของพอร์ทัลนั้นเท่านั้น — เป็น host-only + first-party
+ * พอร์ทัลแอดมินกับพอร์ทัลนักศึกษา/ผู้จัดได้ cookie แยกกันโดยอัตโนมัติ
  *
  * เรื่อง SameSite (สำคัญ — อ่านก่อนแก้):
- * บน production จริง app.compactive.com กับ api.compactive.com มี registrable domain
- * เดียวกันคือ compactive.com จึงนับเป็น same-site — SameSite=Lax ส่ง cookie ให้ตามปกติ
+ * ใช้ Lax (ค่า default) — ส่ง cookie ให้คำขอจากหน้าเว็บของเราเองตามปกติ
  * และปิดช่อง CSRF ไปในตัว (เว็บของผู้โจมตีสั่ง POST มาแล้ว cookie ไม่ถูกแนบ)
  *
- * แต่ตอน dev ที่ใช้ *.localhost นั้นต่างออกไป: "localhost" เป็น TLD ในตัวมันเอง
- * ทำให้ app.localhost กับ api.localhost อาจถูกเบราว์เซอร์นับเป็นคนละ site
- * แล้ว Lax จะบล็อก cookie ใน XHR — อาการคือ "ล็อกอินผ่านแต่เด้งกลับหน้า login ทันที"
- * ถ้าเจออาการนี้ ให้ตั้ง AUTH_COOKIE_SAMESITE=none ใน .env ของ backend
- * (Chrome ยอมให้ cookie ที่มี Secure ทำงานบน http://*.localhost เพราะถือเป็น loopback)
+ * อย่ากลับไปให้หน้าเว็บยิงข้ามไป api.localhost: "localhost" เป็น TLD ในตัวมันเอง
+ * app.localhost กับ api.localhost จึงเป็นคนละ site และ cookie กลายเป็น third-party —
+ * Brave/Safari บล็อกหรือแยกเก็บ และ cookie เก่าค้างจนล็อกอินบัญชีใหม่แล้วยังได้บัญชีเดิม
+ * (ดู frontend/lib/api-base.ts) ค่า none มีไว้เฉพาะกรณีจำเป็นต้องเรียกข้าม site จริง ๆ เท่านั้น
  */
 export const AUTH_COOKIE_NAME = 'access_token';
 

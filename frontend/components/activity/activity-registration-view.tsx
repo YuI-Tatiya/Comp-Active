@@ -75,6 +75,7 @@ export interface ActivityRegistrationViewProps {
  *
  * โครงหน้า: การ์ดเดียวด้านบนรวมรูป/ชื่อ/วันเวลา-สถานที่/เลือกกิจกรรม/สถานะ+ปุ่มสมัครไว้ด้วยกัน
  * (ดู ActivityRegistrationHero) ตามด้วย 2 คอลัมน์ด้านล่าง: รายละเอียดกิจกรรม (ซ้าย) + สิ่งที่จะได้รับ (ขวา)
+ * ไม่แสดงการ์ดชั่วโมงจิตอาสาในส่วน "สิ่งที่จะได้รับ" ที่นี่ (showVolunteer={false}) — หน้าลงทะเบียนไม่ใช่ที่ที่ควรบอกเรื่องนี้
  */
 export function ActivityRegistrationView({
     title,
@@ -196,7 +197,7 @@ export function ActivityRegistrationView({
                             </div>
 
                             <div className="min-w-0">
-                                <BenefitsSection activity={active.activity} />
+                                <BenefitsSection activity={active.activity} showVolunteer={false} />
                             </div>
                         </div>
                     )}

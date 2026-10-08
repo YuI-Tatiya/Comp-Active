@@ -1,6 +1,11 @@
 // lib/api.ts — API Client สำหรับเชื่อมกับ Backend (NestJS)
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { ApiError, classifyApiError, SESSION_CHECK_EVENT } from './api-error';
+export { ApiError } from './api-error';
+import { resolveApiBaseUrl } from './api-base';
+
+// "same-origin" → '' = ยิง path สัมพัทธ์ (/api/..., /uploads/...) ไปที่โดเมนของหน้าเว็บเอง ดู lib/api-base.ts
+export const API_BASE_URL = resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
 
 // ==================== TYPES ====================
 
@@ -169,10 +174,18 @@ async function fetchAPI<T = unknown>(endpoint: string, options: RequestInit = {}
     credentials: 'include',
   });
 
-  const data = await res.json();
+  // หน้า error ของ nginx (502/504/429) เป็น HTML ไม่ใช่ JSON — อย่าให้ res.json() ล้มจนเสียรหัสสถานะไป
+  const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(data.message?.[0] || data.message || 'เกิดข้อผิดพลาด');
+    const raw = Array.isArray(data.message) ? data.message[0] : data.message;
+    const { message, sessionCheck } = classifyApiError(res.status, typeof raw === 'string' ? raw : '');
+    // 401/403 จาก guard = บัญชีใน cookie ไม่ตรงกับที่หน้าเว็บจำไว้ (session หมด/สลับบัญชีในแท็บอื่น)
+    // ให้ AuthProvider ถาม backend ใหม่ — ยกเว้นตัว profile เองที่ AuthProvider เป็นคนเรียก (กันวนซ้ำ)
+    if (sessionCheck && endpoint !== '/api/auth/profile' && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(SESSION_CHECK_EVENT));
+    }
+    throw new ApiError(message, res.status);
   }
 
   // backend ห่อ response ด้วย TransformInterceptor เป็น { success, data, timestamp } เสมอ (ดู main.ts) —
@@ -837,4 +850,22 @@ export const chatbotAPI = {
   /** Public — ไม่ต้อง login ก็ถามได้ (credentials: include ใน fetchAPI ยังแนบ cookie ไปด้วยถ้า login อยู่ ให้คำตอบปรับตามบทบาทได้) */
   sendMessage: (message: string, history: ChatHistoryItem[]) =>
     fetchAPI<{ reply: string }>('/api/chatbot/message', { method: 'POST', body: JSON.stringify({ message, history }) }),
+};
+
+// ==================== SKILL TRANSCRIPTS (เอกสารรับรองผล Soft Skills) ====================
+
+import type { SkillTranscriptSnapshot, TranscriptListItem, VerifyResult } from '@/lib/transcript';
+
+export const skillTranscriptsAPI = {
+  issue: () =>
+    fetchAPI<{ code: string; issuedAt: string; snapshot: SkillTranscriptSnapshot }>('/api/skill-transcripts', {
+      method: 'POST',
+    }),
+  mine: () => fetchAPI<TranscriptListItem[]>('/api/skill-transcripts/mine'),
+  revoke: (code: string) =>
+    fetchAPI<{ code: string; revokedAt: string }>(`/api/skill-transcripts/${encodeURIComponent(code)}/revoke`, {
+      method: 'PATCH',
+    }),
+  /** สาธารณะ — not_found/revoked เป็นผลปกติ (200); throw เฉพาะเมื่อเครือข่าย/เซิร์ฟเวอร์ขัดข้อง */
+  verify: (code: string) => fetchAPI<VerifyResult>(`/api/skill-transcripts/verify/${encodeURIComponent(code)}`),
 };

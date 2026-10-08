@@ -108,6 +108,8 @@ Enums (`UserRole`, `ActivityStatus`, `ApprovalStatus`, `RegistrationStatus`, `At
 
 All backend calls go through `frontend/lib/api.ts`, a single typed client keyed off `NEXT_PUBLIC_API_URL` (routed through Nginx Gateway).
 
+In Docker, `NEXT_PUBLIC_API_URL=same-origin`: `API_BASE_URL` becomes `''`, so the portals call `/api/...` and load `/uploads/...` on their **own host** (`app.*`, `admin.*`), and Nginx forwards those paths to the backend. This keeps the auth cookie first-party. Do not point the portals back at `api.*`: on `*.localhost` that is cross-site, so Brave and Safari block or partition the cookie, and a stale cookie survives logout and makes a new login act as the old account. `api.*` remains the external Developer API host, and `/api/v1/` is 404 on the portal hosts. Image previews are converted back to stored paths with `uploadPathFromPreview` (`lib/api-base.ts`), never with `startsWith(API_BASE_URL)`, because `''` prefixes everything.
+
 Every request sends `credentials: 'include'`; there is no `Authorization` header and **nothing auth-related is kept in `localStorage`**.
 
 Auth state is a React context in `frontend/lib/auth-context.tsx` (`AuthProvider`/`useAuth`). Because the JWT lives in an httpOnly cookie the client cannot read, session state is established by calling `authAPI.getProfile()` on mount — a successful call means the cookie is valid. `useAuth()` exposes no token.
@@ -178,14 +180,14 @@ Services start in order: `postgres` (healthcheck) → `migrate` (runs to complet
 Requires `PORT`, `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `FRONTEND_URL`, `ADMIN_FRONTEND_URL`, and SMTP parameters (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`). Seeding additionally requires `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
 
 - **`JWT_SECRET`** must be at least 32 characters and must not be one of the known placeholder values. `config/jwt.config.ts` throws at boot otherwise — the app fails to start rather than signing tokens with a guessable key.
-- **`AUTH_COOKIE_SAMESITE`** (default `lax`) — correct for real domains, where `app.` and `api.` share a registrable domain. On `*.localhost` browsers may treat the two subdomains as cross-site and drop the cookie; the symptom is "login succeeds, then bounces straight back to the login page". Set `none` there (`Secure` is then forced on automatically).
+- **`AUTH_COOKIE_SAMESITE`** (default `lax`) — keep `lax`. Portals call the API same-origin (see Frontend), so the cookie is first-party everywhere. `none` (which forces `Secure`) is only for a deliberately cross-site setup.
 - **`SMTP_ALLOW_SELF_SIGNED`** (default `false`) — disables SMTP TLS certificate verification. Local test mail servers only; enabling it in production exposes OTPs and generated organizer passwords to anyone on the path.
 - **`PRISMA_ACCEPT_DATA_LOSS`** (default `false`) — used by the `migrate` service, see Docker above.
 - `ADMIN_IP_ALLOWLIST_ENABLED` / `ADMIN_IP_ALLOWLIST` / `TRUST_PROXY_HOPS` gate `AdminIpGuard`.
 
 ### Frontend `.env`
 
-Requires `NEXT_PUBLIC_API_URL` pointing to the Nginx Gateway domain or backend endpoint. It is baked in at build time and also feeds the CSP `connect-src`/`img-src` in `next.config.ts`, so it must be set for the Docker build, not just at runtime.
+Requires `NEXT_PUBLIC_API_URL`: `same-origin` behind Nginx (Docker), or a full URL such as `http://localhost:3001` for bare `npm run dev`. It is baked in at build time and also feeds the CSP `connect-src`/`img-src` in `next.config.ts`, so it must be set for the Docker build, not just at runtime.
 
 - **`ADMIN_HOSTS`** (default `admin.localhost,admin.compactive.com`) — exact-match allowlist used by `proxy.ts`.
 - **`ENABLE_HTTPS`** (default `false`) — turns on HSTS and `upgrade-insecure-requests`. Only set it once TLS actually terminates at Nginx; enabling it over plain HTTP makes browsers rewrite API calls to `https://` and the app stops working.
@@ -200,6 +202,7 @@ Requires `NEXT_PUBLIC_API_URL` pointing to the Nginx Gateway domain or backend e
 - **Ownership checks belong in the service:** Controllers pass `callerId` and `callerRole` down; the service decides. The established shape is `if (callerRole !== UserRole.ADMIN && resource.organizerId !== callerId) throw new ForbiddenException(...)`. Keep it — a role check alone does not stop one organizer from editing another's activity.
 - **Evaluation visibility (360° mode):** an activity with `peerAssessmentEnabled` creates its `Evaluation` rows as `pending_approval` and students must not see those scores until the organizer approves them. Every student/public/admin reader of `Evaluation` filters with `APPROVED_ONLY` (`modules/shared/registrations/evaluation-visibility.util.ts`), and student-facing payloads that carry an `evaluation` object pass it through `maskUnapprovedEvaluation` (the row stays because the frontend treats "has an evaluation" as "checked in"; only the scores are zeroed). Organizer-facing readers deliberately do not filter. A row with an `EvaluationApproval` is locked — Batch Evaluation and `PATCH /evaluations/:registrationId` must not overwrite it; only the approval flow may.
 - **Never `include: { student: true }` (or any bare `true` on a User relation):** it ships the whole User row, password hash and OTP included. Use `STUDENT_BASIC_SELECT` / `STUDENT_CONTACT_SELECT` from `common/constants/user-select.ts`; `user-select.spec.ts` fails the build if a bare include comes back.
+- **Skill transcript = snapshot (`modules/shared/skill-transcripts/`):** the public `GET /api/skill-transcripts/verify/:code` returns the score snapshot frozen at issue time, never live scores, and only `name` + `studentId` of the holder (no email/phone/rank). A revoked transcript returns no snapshot. Build snapshots only from `findByStudentWithActivity` (already `APPROVED_ONLY`) and the shared `summarizeEvaluations`, so PDF numbers always match the dashboard.
 
 ## Security Conventions
 

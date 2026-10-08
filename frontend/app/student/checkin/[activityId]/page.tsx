@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Container } from "@/components/layout/container"
 import { registrationsAPI, activitiesAPI, CheckInSelfResult } from "@/lib/api"
-import { CheckCircle2, XCircle, Loader2, Clock } from "lucide-react"
+import { CheckCircle2, XCircle, Loader2, Clock, Smartphone } from "lucide-react"
+import { SCAN_MOBILE_ONLY_MESSAGE } from "@/lib/device"
+import { useScanCapable } from "@/lib/use-scan-capable"
 
 type Status = "loading" | "success" | "error"
 
@@ -21,9 +23,11 @@ export default function StudentSelfCheckInPage() {
     const [result, setResult] = useState<CheckInSelfResult | null>(null)
     const [errorMessage, setErrorMessage] = useState("")
     const [activityName, setActivityName] = useState("")
+    // เช็คอินด้วย QR ทำได้เฉพาะมือถือ/iPad — เปิดลิงก์นี้บนคอมแล้วต้องไม่เช็คอินให้ (ดู lib/device.ts)
+    const capable = useScanCapable()
 
     useEffect(() => {
-        if (!activityId) return
+        if (!activityId || capable !== true) return
         let cancelled = false
 
         activitiesAPI
@@ -46,21 +50,31 @@ export default function StudentSelfCheckInPage() {
             })
 
         return () => { cancelled = true }
-    }, [activityId])
+    }, [activityId, capable])
 
     return (
         <div className="flex min-h-[70vh] items-center bg-surface">
             <Container className="mx-auto max-w-lg py-12">
                 <Card className="overflow-hidden border-border shadow-xs">
                     <div className="space-y-4 p-8 text-center">
-                        {status === "loading" && (
+                        {capable === false && (
+                            <>
+                                <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-surface-2">
+                                    <Smartphone className="size-9 text-fg-muted" aria-hidden="true" />
+                                </div>
+                                <h1 className="text-xl font-bold text-fg">เช็คอินบนอุปกรณ์นี้ไม่ได้</h1>
+                                <p className="text-fg-muted">{SCAN_MOBILE_ONLY_MESSAGE}</p>
+                            </>
+                        )}
+
+                        {capable !== false && status === "loading" && (
                             <>
                                 <Loader2 className="mx-auto size-12 animate-spin text-brand-600" aria-hidden="true" />
                                 <p className="text-lg font-medium text-fg">กำลังเช็คอิน...</p>
                             </>
                         )}
 
-                        {status === "success" && result && (
+                        {capable !== false && status === "success" && result && (
                             <>
                                 <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-success-bg">
                                     <CheckCircle2 className="size-9 text-success" aria-hidden="true" />
@@ -82,7 +96,7 @@ export default function StudentSelfCheckInPage() {
                             </>
                         )}
 
-                        {status === "error" && (
+                        {capable !== false && status === "error" && (
                             <>
                                 <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-danger-bg">
                                     <XCircle className="size-9 text-danger" aria-hidden="true" />

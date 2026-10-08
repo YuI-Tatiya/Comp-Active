@@ -1,8 +1,9 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { authAPI, User } from "./api"
+import { ApiError, authAPI, User } from "./api"
+import { SESSION_CHECK_EVENT } from "./api-error"
 
 // ==================== TYPES ====================
 
@@ -64,6 +65,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loadUser()
     }, [])
 
+    // ตรวจ session กับ backend ใหม่ — cookie ใช้ร่วมกันทั้งเบราว์เซอร์ ถ้าอีกแท็บล็อกอินบัญชีอื่นหรือ session หมดอายุ
+    // แท็บนี้ต้องรู้ตัว: ได้ผู้ใช้คนใหม่ → RoleGuard พาไปพอร์ทัลของ role นั้นเอง, หมดอายุ (401) → RoleGuard พาไป /auth
+    // เครือข่ายล่มหรือ 5xx ไม่ถือว่าออกจากระบบ (คงผู้ใช้เดิมไว้)
+    const lastCheck = useRef(0)
+    const inFlight = useRef(false)
+    useEffect(() => {
+        async function revalidate(minIntervalMs: number) {
+            const now = Date.now()
+            if (inFlight.current || now - lastCheck.current < minIntervalMs) return
+            inFlight.current = true
+            lastCheck.current = now
+            try {
+                const profile = await authAPI.getProfile()
+                setUser((prev) => (prev && prev.id === profile.id && prev.role === profile.role ? prev : profile))
+            } catch (err) {
+                if (err instanceof ApiError && err.status === 401) setUser(null)
+            } finally {
+                inFlight.current = false
+            }
+        }
+
+        // API ตอบ 401/403 จาก guard (ส่งมาจาก fetchAPI) → ตรวจทันที (กันยิงซ้อนภายใน 2 วินาที)
+        const onSessionCheck = () => revalidate(2000)
+        // กลับมาที่แท็บ/หน้าต่าง → ตรวจ แต่ไม่ถี่กว่า 15 วินาที
+        const onVisible = () => {
+            if (document.visibilityState === "visible") revalidate(15000)
+        }
+
+        window.addEventListener(SESSION_CHECK_EVENT, onSessionCheck)
+        window.addEventListener("focus", onVisible)
+        document.addEventListener("visibilitychange", onVisible)
+        return () => {
+            window.removeEventListener(SESSION_CHECK_EVENT, onSessionCheck)
+            window.removeEventListener("focus", onVisible)
+            document.removeEventListener("visibilitychange", onVisible)
+        }
+    }, [])
+
     function redirectByRole(role: string) {
         switch (role) {
             case "admin":
@@ -119,7 +158,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             setUser(await authAPI.getProfile())
         } catch (err) {
-            console.error(err)
+            if (err instanceof ApiError && err.status === 401) setUser(null)
+            else console.error(err)
         }
     }
 

@@ -3,6 +3,7 @@ import { EvaluationsRepository } from './evaluation.repository';
 import { UpdateEvaluationDto } from './dto/update-evaluation.dto';
 import { UserRole } from '../../../common/enums/role.enum';
 import { EvaluationStatus } from '../../../common/enums/status.enum';
+import { summarizeEvaluations } from './evaluation-summary.util';
 
 /** SoftSkillType (snake_case, ตรงกับ ActivitySoftSkill.skillType) -> field บน Evaluation (camelCase) */
 export const SKILL_TYPE_TO_FIELD: Record<string, string> = {
@@ -160,67 +161,7 @@ export class EvaluationsService {
       };
     }
 
-    const total = evaluations.reduce(
-      (acc, curr) => {
-        acc.communication += curr.communication;
-        acc.timeManagement += curr.timeManagement;
-        acc.flexibilityAdaptability += curr.flexibilityAdaptability;
-        acc.teamworkCollaboration += curr.teamworkCollaboration;
-        acc.analyticCriticalThinking += curr.analyticCriticalThinking;
-        acc.decisionMaking += curr.decisionMaking;
-        acc.creativity += curr.creativity;
-        acc.complexProblemSolving += curr.complexProblemSolving;
-        acc.curiosityLifelongLearning += curr.curiosityLifelongLearning;
-        acc.negotiationPersuasion += curr.negotiationPersuasion;
-        acc.leadership += curr.leadership;
-        acc.positiveAttitude += curr.positiveAttitude;
-        return acc;
-      },
-      {
-        communication: 0,
-        timeManagement: 0,
-        flexibilityAdaptability: 0,
-        teamworkCollaboration: 0,
-        analyticCriticalThinking: 0,
-        decisionMaking: 0,
-        creativity: 0,
-        complexProblemSolving: 0,
-        curiosityLifelongLearning: 0,
-        negotiationPersuasion: 0,
-        leadership: 0,
-        positiveAttitude: 0,
-      },
-    );
-
-    const count = evaluations.length;
-    const average = {
-      communication: Number((total.communication / count).toFixed(2)),
-      timeManagement: Number((total.timeManagement / count).toFixed(2)),
-      flexibilityAdaptability: Number((total.flexibilityAdaptability / count).toFixed(2)),
-      teamworkCollaboration: Number((total.teamworkCollaboration / count).toFixed(2)),
-      analyticCriticalThinking: Number((total.analyticCriticalThinking / count).toFixed(2)),
-      decisionMaking: Number((total.decisionMaking / count).toFixed(2)),
-      creativity: Number((total.creativity / count).toFixed(2)),
-      complexProblemSolving: Number((total.complexProblemSolving / count).toFixed(2)),
-      curiosityLifelongLearning: Number((total.curiosityLifelongLearning / count).toFixed(2)),
-      negotiationPersuasion: Number((total.negotiationPersuasion / count).toFixed(2)),
-      leadership: Number((total.leadership / count).toFixed(2)),
-      positiveAttitude: Number((total.positiveAttitude / count).toFixed(2)),
-    };
-
-    const totalScore =
-      total.communication +
-      total.timeManagement +
-      total.flexibilityAdaptability +
-      total.teamworkCollaboration +
-      total.analyticCriticalThinking +
-      total.decisionMaking +
-      total.creativity +
-      total.complexProblemSolving +
-      total.curiosityLifelongLearning +
-      total.negotiationPersuasion +
-      total.leadership +
-      total.positiveAttitude;
+    const { count, average, totalScore } = summarizeEvaluations(evaluations);
     // สเกลคะแนนต่อทักษะเปลี่ยนจาก 0-10 เป็น 0-5 (x20 แทน x10) เพื่อคงจังหวะเลเวลอัพเท่าเดิม
     const points = totalScore * 20;
     const level = Math.floor(points / 5000) + 1;

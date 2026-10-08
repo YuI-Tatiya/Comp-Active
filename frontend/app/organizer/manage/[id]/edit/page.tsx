@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { ArrowLeft, Loader2, Edit } from "lucide-react"
 import { activitiesAPI, eventsAPI, API_BASE_URL, type CreateEventActivityBody, type QuestionBody, type SurveyQuestionBody, type EventSummary } from "@/lib/api"
+import { uploadPathFromPreview } from "@/lib/api-base"
 import { buildDutyShiftOptions, deriveVolunteerRole, parseDutyShiftOptions, resolveDutyRoleOptions } from "@/lib/duty-shift"
 import { scrollToFirstError } from "@/components/ui/form-field"
 import { StepperSidebar, type StepMeta } from "../../../create/_components/stepper-sidebar"
@@ -286,9 +287,7 @@ export default function EditEventPage() {
         setSubmitting(true)
         setError("")
         try {
-            let eventImageUrl: string | undefined = event.imagePreview?.startsWith(API_BASE_URL)
-                ? event.imagePreview.slice(API_BASE_URL.length)
-                : undefined
+            let eventImageUrl: string | undefined = uploadPathFromPreview(event.imagePreview)
             if (event.imageFile) {
                 const uploadRes = await activitiesAPI.uploadImage(event.imageFile)
                 eventImageUrl = uploadRes?.imageUrl
@@ -296,9 +295,7 @@ export default function EditEventPage() {
 
             const activityBodies: (CreateEventActivityBody & { id?: number })[] = []
             for (const a of activities) {
-                let imageUrl: string | undefined = a.imagePreview?.startsWith(API_BASE_URL)
-                    ? a.imagePreview.slice(API_BASE_URL.length)
-                    : undefined
+                let imageUrl: string | undefined = uploadPathFromPreview(a.imagePreview)
                 if (a.imageFile) {
                     const uploadRes = await activitiesAPI.uploadImage(a.imageFile)
                     imageUrl = uploadRes?.imageUrl

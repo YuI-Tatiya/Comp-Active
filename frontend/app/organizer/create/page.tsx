@@ -13,6 +13,7 @@ import {
     type QuestionBody,
     type SurveyQuestionBody,
 } from "@/lib/api"
+import { uploadPathFromPreview } from "@/lib/api-base"
 import { buildDutyShiftOptions, deriveVolunteerRole, resolveDutyRoleOptions } from "@/lib/duty-shift"
 import { scrollToFirstError } from "@/components/ui/form-field"
 import { StepperSidebar, type StepMeta } from "./_components/stepper-sidebar"
@@ -269,9 +270,7 @@ export default function CreateEventPage() {
         try {
             // fallback ไปที่ imagePreview/attachmentUrl ที่อัปโหลดไว้แล้ว — เกิดขึ้นได้เมื่อดำเนินการต่อจากฉบับร่าง
             // ที่เคยกด "บันทึกฉบับร่าง" ไปแล้วรอบหนึ่ง (อัปโหลดไฟล์เสร็จไปแล้ว ไม่มี File ให้เลือกอัปโหลดซ้ำอีกรอบ)
-            let eventImageUrl: string | undefined = event.imagePreview?.startsWith(API_BASE_URL)
-                ? event.imagePreview.slice(API_BASE_URL.length)
-                : undefined
+            let eventImageUrl: string | undefined = uploadPathFromPreview(event.imagePreview)
             if (event.imageFile) {
                 const uploadRes = await activitiesAPI.uploadImage(event.imageFile)
                 eventImageUrl = uploadRes?.imageUrl
@@ -279,9 +278,7 @@ export default function CreateEventPage() {
 
             const activityBodies: CreateEventActivityBody[] = []
             for (const a of activities) {
-                let imageUrl: string | undefined = a.imagePreview?.startsWith(API_BASE_URL)
-                    ? a.imagePreview.slice(API_BASE_URL.length)
-                    : undefined
+                let imageUrl: string | undefined = uploadPathFromPreview(a.imagePreview)
                 if (a.imageFile) {
                     const uploadRes = await activitiesAPI.uploadImage(a.imageFile)
                     imageUrl = uploadRes?.imageUrl

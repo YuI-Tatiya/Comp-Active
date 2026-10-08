@@ -81,7 +81,8 @@ Everything is reached through the Nginx gateway on port **80** — the frontend 
 |------|-----|
 | Student & Organizer portal | http://app.localhost |
 | Admin portal | http://admin.localhost |
-| Backend API | http://api.localhost |
+| Backend API (used by the portals) | `/api` and `/uploads` on the portal's own host, e.g. http://app.localhost/api |
+| Developer API (external) | http://api.localhost |
 | PostgreSQL | `127.0.0.1:5433` (local tools only, not exposed to the network) |
 
 > **Swagger is off in Docker.** The compose file runs the backend with `NODE_ENV=production`, which disables the docs. Use Option B below if you need Swagger.
@@ -189,7 +190,7 @@ SMTP_PASS=your-app-password
 SMTP_FROM=no-reply@cpc.kku.ac.th
 ```
 
-> **If login succeeds but immediately bounces back to the login page**, the session cookie is being dropped. Add `AUTH_COOKIE_SAMESITE=none` to `backend/.env`. This happens because `app.localhost` and `api.localhost` can be treated as different sites by the browser; real domains do not have this problem.
+> **Keep `AUTH_COOKIE_SAMESITE=lax`.** The Docker build sets `NEXT_PUBLIC_API_URL=same-origin`, so the portals call the API on their own host and the session cookie is first-party. Pointing the frontend at `http://api.localhost` instead makes the cookie third-party: Brave and Safari block or partition it, and a stale cookie can survive logout so a new login still acts as the previous account.
 
 > See `backend/.env.example` for the full list of optional settings and what each one does.
 
