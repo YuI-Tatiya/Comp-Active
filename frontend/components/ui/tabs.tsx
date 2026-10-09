@@ -65,9 +65,9 @@ const TabsTrigger = React.forwardRef<
             onClick={() => setActiveTab?.(value)}
             className={cn(
                 "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-bg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-                // เดิม bg-white text-gray-950 ไม่มีสีแบรนด์เลย ทำให้แท็บที่กำลังเลือกอยู่ดูไม่เด่นจากแท็บอื่น
-                // (โดยเฉพาะตอนมีแท็บเดียว) — ใช้โทนเดียวกับที่ student/profile/page.tsx override เองอยู่แล้ว
-                activeTab === value ? "bg-bg text-brand-600 shadow-xs" : "text-fg-muted hover:text-fg",
+                // แท็บที่เลือกอยู่เป็นปุ่มสีน้ำเงินทึบ — โทนเดียวกับปุ่มหลัก (Button variant="default") ของทั้งแอป
+                // ไม่ใช่แค่ตัวหนังสือสีน้ำเงินบนพื้นขาวจางๆ ให้เด่นชัดจากแท็บอื่นจริงๆ โดยเฉพาะตอนมีแท็บเดียว
+                activeTab === value ? "bg-brand-600 text-white shadow-xs" : "text-fg-muted hover:text-fg",
                 className
             )}
             {...props}
