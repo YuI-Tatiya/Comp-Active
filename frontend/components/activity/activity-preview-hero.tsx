@@ -72,9 +72,9 @@ export function ActivityPreviewHero({
 
     return (
         <Card className="overflow-hidden border-border shadow-sm">
-            <div className="flex flex-col gap-5 p-5 sm:flex-row sm:p-6">
-                <div className="flex w-full shrink-0 flex-col gap-3 sm:w-80">
-                    <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-border bg-surface-2">
+            <div className="flex flex-col gap-4 p-4 md:flex-row">
+                <div className="flex w-full shrink-0 flex-col gap-3 md:w-80">
+                    <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-border bg-surface-2">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={imageUrl} alt={title} className="size-full object-cover" />
                         <span
@@ -91,17 +91,18 @@ export function ActivityPreviewHero({
                     )}
                 </div>
 
-                <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
+                <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
                     {byline && <p className="text-sm font-medium text-brand-600">{byline}</p>}
-                    <h1 className="text-2xl font-black leading-tight text-fg md:text-3xl">{title}</h1>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-fg-muted">
-                        <span className="inline-flex items-center gap-1.5">
-                            <Calendar className="size-4 shrink-0" aria-hidden="true" />
+                    {/* pt-1 pb-0.5 + leading-snug กันสระ/วรรณยุกต์ไทยโดนตัดขอบบน-ล่าง (leading-tight แน่นเกินไปสำหรับฟอนต์ไทย) */}
+                    <h1 className="pb-0.5 pt-1 text-xl font-black leading-snug text-fg md:text-2xl">{title}</h1>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-fg-muted">
+                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1.5">
+                            <Calendar className="size-3.5 shrink-0" aria-hidden="true" />
                             {schedule.dateLabel}
                             {schedule.timeLabel && ` (${schedule.timeLabel})`}
                         </span>
-                        <span className="inline-flex items-center gap-1.5">
-                            <MapPin className="size-4 shrink-0" aria-hidden="true" /> {location || "-"}
+                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1.5">
+                            <MapPin className="size-3.5 shrink-0" aria-hidden="true" /> {location || "-"}
                         </span>
                     </div>
 
@@ -135,7 +136,7 @@ export function ActivityPreviewHero({
                 </div>
             </div>
 
-            <div className="border-t border-border p-5 sm:p-6">
+            <div className="border-t border-border p-4">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="min-w-[220px] flex-1">
                         <div className="mb-1.5 flex items-center justify-between text-sm">

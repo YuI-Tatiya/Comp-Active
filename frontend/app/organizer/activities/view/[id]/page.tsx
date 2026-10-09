@@ -13,6 +13,7 @@ import {
     ActivityAboutPanel,
     ActivityRegistrationPanel,
     ActivityRewardsPanel,
+    PANEL_CLASS,
 } from "@/components/activity/activity-info-panels"
 
 /**
@@ -90,7 +91,7 @@ export default function OrganizerActivityViewPage() {
 
     return (
         <div className="bg-surface pb-12">
-            <Container className="space-y-8 py-8">
+            <Container className="space-y-4 py-6">
                 <div>
                     <Link href="/organizer" className="inline-flex items-center text-fg-muted hover:text-fg transition-colors">
                         <ArrowLeft className="mr-2 size-4" aria-hidden="true" /> กลับ
@@ -116,13 +117,16 @@ export default function OrganizerActivityViewPage() {
                     onShare={handleShare}
                 />
 
-                {/* 2 คอลัมน์เหมือนหน้าลงทะเบียนนักศึกษา — เดิมเรียง 1 คอลัมน์ยาวดิ่งลงมา ทำให้ต้องเลื่อนดูมากเกินจำเป็น */}
-                <div className="grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
-                    <div className="min-w-0 space-y-8">
-                        <ActivityAboutPanel activity={activity} hideMeta />
-                        <ActivityRegistrationPanel activity={activity} />
+                {/* 2 คอลัมน์เหมือนหน้าลงทะเบียนนักศึกษา — ซ้ายรวมรายละเอียด+การลงทะเบียนเป็นการ์ดเดียว
+                    (เดิมแยกเป็นการ์ดละอัน เรียง 1 คอลัมน์ยาวดิ่งลงมา ทำให้ต้องเลื่อนดูมากเกินจำเป็น)
+                    ไม่มี ActivityAgendaPanel ที่นี่ — กิจกรรมเดี่ยวไม่มีกิจกรรมย่อยให้ทำกำหนดการ */}
+                <div className="grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
+                    <div className={PANEL_CLASS}>
+                        <ActivityAboutPanel activity={activity} hideMeta bare />
+                        <hr className="border-border" />
+                        <ActivityRegistrationPanel activity={activity} bare />
                     </div>
-                    <div>
+                    <div className={PANEL_CLASS}>
                         <ActivityRewardsPanel activity={activity} />
                     </div>
                 </div>

@@ -12,8 +12,11 @@ import { formatActivitySchedule } from "@/lib/activity-view"
 import { ActivityPreviewHero } from "@/components/activity/activity-preview-hero"
 import {
     ActivityAboutPanel,
+    ActivityAgendaPanel,
     ActivityRegistrationPanel,
     ActivityRewardsPanel,
+    PANEL_CLASS,
+    type AgendaSession,
 } from "@/components/activity/activity-info-panels"
 
 type EventActivity = EventSummary["activities"][number]
@@ -95,10 +98,16 @@ export default function OrganizerEventViewPage() {
     const capacity = activeActivity?.capacity ?? null
     const registeredCount = activeActivity?.registeredCount ?? 0
     const unlimited = isUnlimitedCapacity(capacity)
+    // กำหนดการกิจกรรมย่อย — เฉพาะงานที่มีหลายกิจกรรมย่อย ดู ActivityAgendaPanel
+    const agendaSessions: AgendaSession[] = event.activities.map((a) => ({
+        id: a.id,
+        name: a.name,
+        schedule: formatActivitySchedule(a),
+    }))
 
     return (
         <div className="bg-surface pb-12">
-            <Container className="space-y-8 py-8">
+            <Container className="space-y-4 py-6">
                 <div>
                     <Link href="/organizer" className="inline-flex items-center text-fg-muted hover:text-fg transition-colors">
                         <ArrowLeft className="w-4 h-4 mr-2" /> กลับ
@@ -144,18 +153,27 @@ export default function OrganizerEventViewPage() {
                     </div>
                 )}
 
-                {/* 2 คอลัมน์เหมือนหน้าลงทะเบียนนักศึกษา — เดิมเรียง 1 คอลัมน์ยาวดิ่งลงมา ทำให้ต้องเลื่อนดูมากเกินจำเป็น */}
+                {/* 2 คอลัมน์เหมือนหน้าลงทะเบียนนักศึกษา — ซ้ายรวมรายละเอียด+กำหนดการ+การลงทะเบียนเป็นการ์ดเดียว
+                    (เดิมแยกเป็นการ์ดละอัน เรียง 1 คอลัมน์ยาวดิ่งลงมา ทำให้ต้องเลื่อนดูมากเกินจำเป็น) */}
                 {activeActivity && (
-                    <div className="grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
-                        <div className="min-w-0 space-y-8">
-                            <ActivityAboutPanel activity={activeActivity} showActivityImage hideMeta />
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
+                        <div className={PANEL_CLASS}>
+                            <ActivityAboutPanel activity={activeActivity} showActivityImage hideMeta bare />
+                            {agendaSessions.length > 1 && (
+                                <>
+                                    <hr className="border-border" />
+                                    <ActivityAgendaPanel sessions={agendaSessions} />
+                                </>
+                            )}
+                            <hr className="border-border" />
                             <ActivityRegistrationPanel
                                 activity={activeActivity}
                                 registrationOpenAt={event.registrationOpenAt}
                                 registrationCloseAt={event.registrationCloseAt}
+                                bare
                             />
                         </div>
-                        <div>
+                        <div className={PANEL_CLASS}>
                             <ActivityRewardsPanel activity={activeActivity} />
                         </div>
                     </div>

@@ -4,7 +4,13 @@ import { useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, ChevronRight, Layers } from "lucide-react"
 import { Container } from "@/components/layout/container"
-import { ActivityAboutPanel, ActivityRegistrationPanel } from "@/components/activity/activity-info-panels"
+import {
+    ActivityAboutPanel,
+    ActivityAgendaPanel,
+    ActivityRegistrationPanel,
+    PANEL_CLASS,
+    type AgendaSession,
+} from "@/components/activity/activity-info-panels"
 import { ActivityRegistrationHero } from "@/components/activity/activity-registration-hero"
 import { BenefitsSection } from "@/components/activity/benefits-section"
 import { MobileActionBar } from "@/components/activity/mobile-action-bar"
@@ -119,6 +125,13 @@ export function ActivityRegistrationView({
         seats: r.seat.shortLabel,
     }))
 
+    // กำหนดการกิจกรรมย่อย — เฉพาะงานที่มีหลายกิจกรรมย่อย ดู ActivityAgendaPanel
+    const agendaSessions: AgendaSession[] = rows.map((r) => ({
+        id: r.activity.id,
+        name: r.activity.name,
+        schedule: formatActivitySchedule(r.activity),
+    }))
+
     const view = active
         ? describeAction({
               registrationType: active.activity.registrationType,
@@ -148,7 +161,7 @@ export function ActivityRegistrationView({
                     </Link>
                 </div>
 
-                <div className="space-y-8">
+                <div className="space-y-4">
                     {view && active && (
                         <ActivityRegistrationHero
                             id="registration-card"
@@ -176,8 +189,8 @@ export function ActivityRegistrationView({
                     {intro && <ExpandableText text={intro} />}
 
                     {active && (
-                        <div className="grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
-                            <div className="min-w-0 space-y-8">
+                        <div className="grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
+                            <div className="min-w-0 space-y-4">
                                 {/* ชื่อกิจกรรมต้องแสดงเสมอเมื่อต่างจากชื่องาน แม้งานมีกิจกรรมเดียว (เดิมชื่อกิจกรรมหายไปทั้งหน้าในกรณีนี้) */}
                                 {(isProject || active.activity.name.trim() !== title.trim()) && (
                                     <div>
@@ -192,12 +205,25 @@ export function ActivityRegistrationView({
                                     </div>
                                 )}
 
-                                <ActivityAboutPanel activity={active.activity} showActivityImage={showActivityImage} hideMeta />
-                                <ActivityRegistrationPanel activity={active.activity} hideLogistics />
+                                {/* การ์ดเดียวรวมรายละเอียด+กำหนดการ+ต้องเตรียมอะไรบ้าง แทนที่เดิมแยกเป็นการ์ดละอัน
+                                    ให้เนื้อหาซ้ายทั้งหมดอยู่ในกรอบเดียวกัน ลดพื้นที่ว่างระหว่างการ์ด */}
+                                <div className={PANEL_CLASS}>
+                                    <ActivityAboutPanel activity={active.activity} showActivityImage={showActivityImage} hideMeta bare />
+                                    {agendaSessions.length > 1 && (
+                                        <>
+                                            <hr className="border-border" />
+                                            <ActivityAgendaPanel sessions={agendaSessions} />
+                                        </>
+                                    )}
+                                    <hr className="border-border" />
+                                    <ActivityRegistrationPanel activity={active.activity} hideLogistics bare />
+                                </div>
                             </div>
 
                             <div className="min-w-0">
-                                <BenefitsSection activity={active.activity} showVolunteer={false} />
+                                <div className={PANEL_CLASS}>
+                                    <BenefitsSection activity={active.activity} showVolunteer={false} />
+                                </div>
                             </div>
                         </div>
                     )}
