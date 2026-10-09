@@ -126,7 +126,7 @@ export default function OrganizerEventDetailsPage() {
 
     return (
         <div className="bg-surface pb-12">
-            <Container className="space-y-6 py-8">
+            <Container className="space-y-4 py-6">
                 <Link href="/organizer/manage" className="inline-flex items-center text-sm text-fg-muted transition-colors hover:text-fg">
                     <ArrowLeft className="w-4 h-4 mr-2" /> กลับสู่หน้าจัดการ
                 </Link>

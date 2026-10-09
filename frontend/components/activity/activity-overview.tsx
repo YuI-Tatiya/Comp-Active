@@ -180,7 +180,7 @@ export function ActivityOverview({ activity, registrations, showBars, onJumpToTa
     const statusOptions = showBars ? BARS_STATUS_OPTIONS : REGISTRATION_STATUS_OPTIONS
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <StatTile
                     label="จำนวนผู้ลงทะเบียนทั้งหมด"
@@ -212,7 +212,7 @@ export function ActivityOverview({ activity, registrations, showBars, onJumpToTa
             </div>
 
             {showBars && (
-                <div className="rounded-2xl border border-brand-100 bg-brand-50 p-5">
+                <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <h3 className="flex items-center gap-2 text-sm font-bold text-fg">
                             <Rocket className="size-4 text-brand-600" aria-hidden="true" /> ทางลัดประเมินทักษะ BARS 2 ขั้นตอน

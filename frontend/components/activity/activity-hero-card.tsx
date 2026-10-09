@@ -26,15 +26,16 @@ interface ActivityHeroCardProps {
 export function ActivityHeroCard({ imageUrl, imageAlt, badges, title, byline, date, startTime, endTime, location, actions }: ActivityHeroCardProps) {
     return (
         <Card className="overflow-hidden border-border shadow-xs">
-            <div className="flex flex-col gap-5 p-5 sm:flex-row">
-                <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl border border-border bg-surface-2 sm:w-72">
+            <div className="flex flex-col gap-4 p-4 md:flex-row">
+                <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-xl border border-border bg-surface-2 md:w-80">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={imageUrl} alt={imageAlt} className="size-full object-cover" />
                     {badges && <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">{badges}</div>}
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
                     {byline && <p className="text-sm font-medium text-brand-600">{byline}</p>}
-                    <h1 className="text-2xl font-bold leading-tight text-fg md:text-3xl">{title}</h1>
+                    {/* pt-1 pb-0.5 + leading-snug กันสระ/วรรณยุกต์ไทยโดนตัดขอบบน-ล่าง (leading-tight แน่นเกินไปสำหรับฟอนต์ไทย) */}
+                    <h1 className="pb-0.5 pt-1 text-xl font-bold leading-snug text-fg md:text-2xl">{title}</h1>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-fg-muted">
                         <span className="inline-flex items-center gap-1.5">
                             <Calendar className="size-4" aria-hidden="true" /> {date} ({startTime} - {endTime} น.)
@@ -45,7 +46,7 @@ export function ActivityHeroCard({ imageUrl, imageAlt, badges, title, byline, da
                     </div>
                 </div>
             </div>
-            <div className="flex flex-wrap gap-2 border-t border-border px-5 py-4">{actions}</div>
+            <div className="flex flex-wrap gap-2 border-t border-border p-4">{actions}</div>
         </Card>
     )
 }
