@@ -1,8 +1,10 @@
 "use client"
 
-import { Calendar, Layers, MapPin, Share2, Users } from "lucide-react"
+import { useState } from "react"
+import { Calendar, Layers, Maximize2, MapPin, Share2, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { ImageLightbox } from "@/components/ui/image-lightbox"
 import { Progress } from "@/components/ui/progress"
 import { categoryLabel } from "@/lib/categories"
 import { cn } from "@/lib/utils"
@@ -70,7 +72,10 @@ export function ActivityPreviewHero({
     const urgencyBar = { ok: "bg-success", low: "bg-warning", full: "bg-danger" }[urgency]
     const urgencyText = { ok: "text-fg-muted", low: "text-warning", full: "text-danger-fg" }[urgency]
 
+    const [lightboxOpen, setLightboxOpen] = useState(false)
+
     return (
+        <>
         <Card className="overflow-hidden border-border shadow-sm">
             <div className="flex flex-col gap-4 p-4 md:flex-row">
                 <div className="flex w-full shrink-0 flex-col gap-3 md:w-80">
@@ -85,6 +90,14 @@ export function ActivityPreviewHero({
                         >
                             {statusLabel}
                         </span>
+                        <button
+                            type="button"
+                            onClick={() => setLightboxOpen(true)}
+                            aria-label="ดูภาพขนาดใหญ่"
+                            className="absolute bottom-2 right-2 flex size-8 items-center justify-center rounded-lg bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
+                        >
+                            <Maximize2 className="size-4" aria-hidden="true" />
+                        </button>
                     </div>
                     {description && (
                         <p className="whitespace-pre-line text-sm leading-relaxed text-fg-muted">{description}</p>
@@ -158,5 +171,7 @@ export function ActivityPreviewHero({
                 </div>
             </div>
         </Card>
+        <ImageLightbox src={imageUrl} alt={title} open={lightboxOpen} onOpenChange={setLightboxOpen} />
+        </>
     )
 }

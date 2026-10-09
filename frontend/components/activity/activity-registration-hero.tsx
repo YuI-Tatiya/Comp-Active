@@ -1,10 +1,12 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
-import { Ban, Calendar, CalendarClock, CheckCheck, CheckCircle2, Clock, Layers, MapPin, Share2, Users } from "lucide-react"
+import { Ban, Calendar, CalendarClock, CheckCheck, CheckCircle2, Clock, Layers, Maximize2, MapPin, Share2, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { ImageLightbox } from "@/components/ui/image-lightbox"
 import { SessionSelector, type SessionItem } from "@/components/activity/session-selector"
 import { categoryLabel } from "@/lib/categories"
 import { cn } from "@/lib/utils"
@@ -102,7 +104,10 @@ export function ActivityRegistrationHero({
 
     const seatToneClass = seat.level === "full" ? "text-danger-fg" : seat.level === "low" ? "text-warning" : "text-fg-muted"
 
+    const [lightboxOpen, setLightboxOpen] = useState(false)
+
     return (
+        <>
         <Card id={id} className="overflow-hidden border-border shadow-sm">
             <div className="flex flex-col gap-4 p-4 md:flex-row">
                 <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-xl border border-border bg-surface-2 md:w-80">
@@ -113,6 +118,14 @@ export function ActivityRegistrationHero({
                             {statusText}
                         </span>
                     )}
+                    <button
+                        type="button"
+                        onClick={() => setLightboxOpen(true)}
+                        aria-label="ดูภาพขนาดใหญ่"
+                        className="absolute bottom-2 right-2 flex size-8 items-center justify-center rounded-lg bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
+                    >
+                        <Maximize2 className="size-4" aria-hidden="true" />
+                    </button>
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
@@ -234,5 +247,7 @@ export function ActivityRegistrationHero({
                 )}
             </div>
         </Card>
+        <ImageLightbox src={imageUrl} alt={title} open={lightboxOpen} onOpenChange={setLightboxOpen} />
+        </>
     )
 }
