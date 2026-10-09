@@ -8,7 +8,7 @@ import { Container } from "@/components/layout/container"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
-import { EVENT_CARD_GRID, EVENT_CARD_SECTION_WIDTH } from "@/components/ui/event-card-layout"
+import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { ActivityCardSkeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { activitiesAPI, eventsAPI, Activity } from "@/lib/api"
@@ -165,7 +165,7 @@ export default function RootPage() {
 
       {/* ── 02 กิจกรรมแนะนำ ─────────────────────────────────────────────── */}
       <section>
-        <Container className={cn("py-16", EVENT_CARD_SECTION_WIDTH)}>
+        <Container className="py-16">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-3xl font-semibold tracking-tight text-fg">

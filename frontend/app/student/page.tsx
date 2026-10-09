@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { PageHeader } from "@/components/ui/page-header"
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
-import { EVENT_CARD_GRID, EVENT_CARD_SECTION_WIDTH } from "@/components/ui/event-card-layout"
-import { cn } from "@/lib/utils"
+import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { ActivityCardSkeleton, Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { SectionHeading } from "@/components/ui/section-heading"
@@ -269,7 +268,7 @@ export default function StudentDashboardPage() {
 
       {/* ── แนะนำสำหรับคุณ ───────────────────────────────────────────────── */}
       <section className="border-t border-border bg-surface">
-        <Container className={cn("py-12", EVENT_CARD_SECTION_WIDTH)}>
+        <Container className="py-12">
           <SectionHeading
             title="แนะนำสำหรับคุณ"
             description="กิจกรรมที่กำลังเปิดรับสมัคร"
