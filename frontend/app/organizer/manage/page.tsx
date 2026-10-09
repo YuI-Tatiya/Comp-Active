@@ -19,7 +19,6 @@ import {
     Search,
     Plus,
     CalendarPlus,
-    Layers,
     Pencil,
     Eye,
     EyeOff,
@@ -721,21 +720,13 @@ export default function OrganizerManagePage() {
                                             activity={{ name: ev.name, imageUrl: ev.imageUrl ?? fa?.imageUrl }}
                                             description={ev.description}
                                             badgeLeft={
-                                                <div className="flex flex-col items-start gap-1.5">
-                                                    <EventCardBadge
-                                                        variant="glass"
-                                                        className={ev.isPublic ? "bg-success/75" : "bg-fg/60"}
-                                                        dotClassName={ev.isPublic ? "bg-success" : "bg-fg-subtle"}
-                                                    >
-                                                        {ev.isPublic ? "เผยแพร่แล้ว" : "ไม่เผยแพร่"}
-                                                    </EventCardBadge>
-                                                    {ev.activities.length > 1 && (
-                                                        <EventCardBadge variant="light">
-                                                            <Layers className="mr-1 inline size-3" aria-hidden="true" />
-                                                            {ev.activities.length} กิจกรรมย่อย
-                                                        </EventCardBadge>
-                                                    )}
-                                                </div>
+                                                <EventCardBadge
+                                                    variant="glass"
+                                                    className={ev.isPublic ? "bg-success/75" : "bg-fg/60"}
+                                                    dotClassName={ev.isPublic ? "bg-success" : "bg-fg-subtle"}
+                                                >
+                                                    {ev.isPublic ? "เผยแพร่แล้ว" : "ไม่เผยแพร่"}
+                                                </EventCardBadge>
                                             }
                                             actions={
                                                 <>
