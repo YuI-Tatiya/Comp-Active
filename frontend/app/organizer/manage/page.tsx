@@ -184,6 +184,7 @@ function compareBySort(sort: string, a: SortableFields, b: SortableFields): numb
  * เป็นก้อนเดียว ไม่แยกเป็น "สิ้นสุดไปแล้ว"/"จบไปแล้ว" สองแท็บเหมือนที่เคยลองทำ — ดู matchesStatusFilter
  */
 const STATUS_TABS: { value: string; label: string }[] = [
+    { value: "", label: "ทั้งหมด" },
     { value: "open", label: "กำลังเปิดรับสมัคร" },
     { value: "closed", label: "ปิดรับสมัคร" },
     { value: "completed", label: "กิจกรรมจบแล้ว" },
@@ -197,9 +198,9 @@ function matchesStatusFilter(bucket: StatusBucket, filterValue: string): boolean
     return bucket === filterValue
 }
 
-// ไม่มีแท็บ "ทั้งหมด" แล้ว (ดู STATUS_TABS) ค่าเริ่มต้นจึงต้องเป็นแท็บแรกจริงๆ ไม่ใช่ "" เฉยๆ
-// ไม่งั้นตอนโหลดหน้าครั้งแรก/กดกลับไปแท็บเริ่มต้น จะไม่มีแท็บไหนถูกไฮไลต์ว่าเลือกอยู่เลย
-const DEFAULT_STATUS = "open"
+// แท็บเริ่มต้นคือ "ทั้งหมด" — เดิมเริ่มที่ "open" ตรงๆ (ตอนนั้นไม่มีแท็บ "ทั้งหมด") ทำให้ผู้จัดที่ไม่มี
+// กิจกรรมเปิดรับสมัครอยู่ตอนนี้เปิดหน้ามาแล้วเจอ "ไม่พบกิจกรรมในแท็บนี้" ทั้งที่มีกิจกรรมอยู่จริงในแท็บอื่น
+const DEFAULT_STATUS = ""
 
 type DeleteTarget =
     | { kind: "event"; id: number; name: string }
