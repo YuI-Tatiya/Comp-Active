@@ -298,7 +298,7 @@ export default function OrganizerDashboard() {
                 {!loading && activities.length > 0 && (
                     <>
                         <div className="overflow-x-auto">
-                            <div className="inline-flex items-center gap-1 rounded-full bg-surface p-1">
+                            <div className="flex w-fit items-center gap-1 rounded-full bg-surface p-1 mx-auto">
                                 {STATUS_TABS.map((tab) => {
                                     const active = values.status === tab.value
                                     return (

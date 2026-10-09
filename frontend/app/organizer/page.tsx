@@ -318,7 +318,7 @@ export default function OrganizerDashboardPage() {
             <div className="mt-5">
               {/* แท็บสถานะทรงแคปซูล — หน้าตาเดียวกับ /organizer/manage ให้สองหน้านี้ดูเป็นชุดเดียวกัน */}
               <div className="mb-4 overflow-x-auto">
-                <div className="inline-flex items-center gap-1 rounded-full bg-surface p-1">
+                <div className="flex w-fit items-center gap-1 rounded-full bg-surface p-1 mx-auto">
                   {STATUS_TABS.map((tab) => {
                     const active = values.status === tab.value
                     return (
