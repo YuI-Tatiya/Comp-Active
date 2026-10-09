@@ -145,6 +145,7 @@ export default function OrganizerActivityDetailsPage() {
                     }
                     title={event.name}
                     byline="จัดโดยคุณ"
+                    description={event.description}
                     date={formatEventDate(event.date)}
                     startTime={event.startTime}
                     endTime={event.endTime}
@@ -176,8 +177,6 @@ export default function OrganizerActivityDetailsPage() {
                         </>
                     }
                 />
-
-                <p className="text-fg-muted whitespace-pre-line">{event.description || "ไม่มีรายละเอียด"}</p>
 
                 <ActivityParticipantManager
                     activity={event}
