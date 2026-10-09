@@ -617,7 +617,7 @@ export default function OrganizerManagePage() {
 
                 {/* แท็บสถานะทรงแคปซูล — กดสลับได้ทันทีโดยไม่ต้องเปิด dropdown เหมือนเมนู pill บน AppHeader */}
                 <div className="mb-6 overflow-x-auto">
-                    <div className="flex w-fit items-center gap-1 rounded-full bg-surface p-1 mx-auto">
+                    <div className="inline-flex items-center gap-1 rounded-full bg-surface p-1">
                         {STATUS_TABS.map((tab) => {
                             const active = status === tab.value
                             return (
