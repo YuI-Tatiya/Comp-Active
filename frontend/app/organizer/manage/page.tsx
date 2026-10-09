@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { EventCard, EventCardBadge, formatEventDate } from "@/components/ui/event-card"
-import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
+import { EVENT_CARD_GRID, EVENT_CARD_SECTION_WIDTH } from "@/components/ui/event-card-layout"
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Toast } from "@/components/ui/toast"
@@ -596,7 +596,7 @@ export default function OrganizerManagePage() {
     return (
         // ไม่ใส่ min-h-screen — app/organizer/layout.tsx จัดการให้แล้ว
         <div className="bg-surface font-sans">
-            <Container className="py-12">
+            <Container className={cn("py-12", EVENT_CARD_SECTION_WIDTH)}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
                     <div>
                         <h1 className="text-3xl font-black text-fg mb-2">จัดการกิจกรรม</h1>

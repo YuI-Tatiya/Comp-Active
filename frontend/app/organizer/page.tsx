@@ -10,7 +10,7 @@ import { SectionHeading } from "@/components/ui/section-heading"
 import { StatTile } from "@/components/ui/stat-tile"
 import { FilterBar, type FilterSpec } from "@/components/ui/filter-bar"
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
-import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
+import { EVENT_CARD_GRID, EVENT_CARD_SECTION_WIDTH } from "@/components/ui/event-card-layout"
 import { activitiesAPI, eventsAPI, isCancelledByOrganizer, Activity, EventSummary, OrganizerStats } from "@/lib/api"
 import { CATEGORIES, categoriesBadgeLabel } from "@/lib/categories"
 import { RANGE_OPTIONS, withinRange } from "@/lib/events-filter"
@@ -300,7 +300,7 @@ export default function OrganizerDashboardPage() {
 
       {/* ── กิจกรรมทั้งหมดในระบบ ────────────────────────────────────────── */}
       <section>
-        <Container className="py-10">
+        <Container className={cn("py-10", EVENT_CARD_SECTION_WIDTH)}>
           <div>
             <SectionHeading
               title="กิจกรรมทั้งหมด"

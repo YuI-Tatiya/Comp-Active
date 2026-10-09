@@ -22,3 +22,15 @@ export const EVENT_CARD_HEIGHT = "h-[420px]"
  */
 export const EVENT_CARD_GRID =
     "grid justify-center gap-5 sm:justify-start grid-cols-[repeat(auto-fill,minmax(min(100%,20rem),20rem))]"
+
+/**
+ * ความกว้างสูงสุดของ <Container> ที่ครอบ section กริดการ์ด — กว้างกว่า max-w-7xl เริ่มต้นของ Container
+ * (80rem/1280px) เพราะค่านั้นแคบเกินไปจนกริด auto-fill ด้านบนใส่ได้แค่ 3 คอลัมน์บนจอทั่วไป (วัดจริงที่
+ * วิวพอร์ต 1512px: คอนเทนเนอร์ 1280px เหลือพื้นที่กริด 1216px = พอดี 3 การ์ด x 320px + ช่องไฟ ยังเหลือพื้นที่
+ * ว่างอีก ~216px ไม่พอให้การ์ดที่ 4 เข้า) ทำให้ด้านขวาดูโล่งทั้งที่ยังมีที่
+ *
+ * ใช้เป็น className override ของ <Container> เฉพาะ section ที่เป็นกริดการ์ดล้วนๆ (ไม่มีพารากราฟเนื้อหายาว
+ * ที่จะอ่านยากถ้ากว้างเกิน) อย่าใช้เป็นค่า default ของ Container ทั้งเว็บ — หน้า/ส่วนที่มีข้อความยาว
+ * (เช่น คำอธิบายงานในหน้ารายละเอียด) ยังต้องใช้ max-w-7xl เดิมเพื่อความกว้างบรรทัดที่อ่านง่าย
+ */
+export const EVENT_CARD_SECTION_WIDTH = "max-w-[1800px]"
