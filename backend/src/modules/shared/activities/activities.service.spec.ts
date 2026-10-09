@@ -528,3 +528,72 @@ describe('ActivitiesService.setStatus', () => {
     expect(activitiesRepo.updateStatus).not.toHaveBeenCalled();
   });
 });
+
+describe('ActivitiesService.getOrganizerStats', () => {
+  let service: ActivitiesService;
+  let activitiesRepo: { findManyByOrganizerWithCount: jest.Mock };
+  let usersRepo: { countActiveStudents: jest.Mock };
+  let registrationsRepo: { countPendingByOrganizer: jest.Mock };
+
+  beforeEach(async () => {
+    activitiesRepo = { findManyByOrganizerWithCount: jest.fn().mockResolvedValue([]) };
+    usersRepo = { countActiveStudents: jest.fn().mockResolvedValue(42) };
+    registrationsRepo = { countPendingByOrganizer: jest.fn().mockResolvedValue(3) };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: activitiesRepo },
+        { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
+        { provide: RegistrationsRepository, useValue: registrationsRepo },
+        { provide: MailService, useValue: {} },
+        { provide: UsersRepository, useValue: usersRepo },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+  });
+
+  // บั๊กเดิม: นับจาก approvalStatus === APPROVED ทำให้ "กำลังเปิดรับ" บนการ์ดสถิติไม่ตรงกับ
+  // แท็บสถานะ "เปิดรับสมัคร" ของหน้าเดียวกัน (ซึ่งนับจาก status ไม่ใช่ approvalStatus)
+  it('counts activeActivities from registration status (open), not approval status', async () => {
+    activitiesRepo.findManyByOrganizerWithCount.mockResolvedValue([
+      makeActivity({ id: 1, status: ActivityStatus.OPEN, approvalStatus: ApprovalStatus.APPROVED }),
+      // อนุมัติแล้วแต่ปิดรับสมัคร/จบไปแล้ว — เคยถูกนับเป็น active ทั้งที่ไม่ได้เปิดรับสมัครจริง
+      makeActivity({ id: 2, status: ActivityStatus.CLOSED, approvalStatus: ApprovalStatus.APPROVED }),
+      makeActivity({ id: 3, status: ActivityStatus.COMPLETED, approvalStatus: ApprovalStatus.APPROVED }),
+      // รออนุมัติอยู่แต่ status ดิบยังเป็น open — ไม่ควรนับ (ยังไม่เผยแพร่ให้ใครเห็น)
+      makeActivity({ id: 4, status: ActivityStatus.OPEN, approvalStatus: ApprovalStatus.PENDING }),
+    ]);
+
+    const stats = await service.getOrganizerStats(7);
+
+    expect(stats.totalActivities).toBe(4);
+    expect(stats.activeActivities).toBe(1);
+  });
+
+  it('excludes cancelled/rejected activities from activeActivities even if status is still open', async () => {
+    activitiesRepo.findManyByOrganizerWithCount.mockResolvedValue([
+      makeActivity({ id: 1, status: ActivityStatus.OPEN, approvalStatus: ApprovalStatus.CANCELLED }),
+      makeActivity({ id: 2, status: ActivityStatus.OPEN, approvalStatus: ApprovalStatus.REJECTED }),
+    ]);
+
+    const stats = await service.getOrganizerStats(7);
+
+    expect(stats.totalActivities).toBe(2);
+    expect(stats.activeActivities).toBe(0);
+  });
+
+  it('sums registrations across all activities and passes through student/pending counts unchanged', async () => {
+    activitiesRepo.findManyByOrganizerWithCount.mockResolvedValue([
+      makeActivity({ id: 1, _count: { registrations: 5 } }),
+      makeActivity({ id: 2, _count: { registrations: 2 } }),
+    ]);
+
+    const stats = await service.getOrganizerStats(7);
+
+    expect(stats.totalRegistrations).toBe(7);
+    expect(stats.totalStudents).toBe(42);
+    expect(stats.pendingRegistrations).toBe(3);
+    expect(registrationsRepo.countPendingByOrganizer).toHaveBeenCalledWith(7);
+  });
+});

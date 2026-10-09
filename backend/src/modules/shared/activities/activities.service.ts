@@ -389,7 +389,14 @@ export class ActivitiesService {
     ]);
 
     const totalActivities = activities.length;
-    const activeActivities = activities.filter((a) => a.approvalStatus === ApprovalStatus.APPROVED).length;
+    // "กำลังเปิดรับ" ต้องแปลว่าเปิดรับสมัครอยู่จริง (status) ไม่ใช่แค่ผ่านการอนุมัติ (approvalStatus) —
+    // เดิมนับจาก approvalStatus === APPROVED ทำให้ตัวเลขบนการ์ดสถิติไม่ตรงกับแท็บสถานะ "เปิดรับสมัคร"
+    // ของหน้าเดียวกัน (กิจกรรมที่อนุมัติแล้วแต่ถูกปิดรับสมัคร/จบไปแล้ว ก็ยังถูกนับว่า "active" อยู่)
+    // ต้อง === APPROVED ตรงๆ (ไม่ใช่แค่ !== CANCELLED/REJECTED) ให้ตรงกับเงื่อนไขเดียวกับที่
+    // findAllApproved/EXCLUDE_RESTRICTED ใช้ตัดสินว่ากิจกรรมนี้เปิดให้สาธารณะเห็น-สมัครได้จริงหรือไม่
+    const activeActivities = activities.filter(
+      (a) => a.status === ActivityStatus.OPEN && a.approvalStatus === ApprovalStatus.APPROVED,
+    ).length;
     const totalRegistrations = activities.reduce((sum, a) => sum + a._count.registrations, 0);
 
     return { totalActivities, activeActivities, totalRegistrations, totalStudents, pendingRegistrations };
