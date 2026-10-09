@@ -1,11 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { usePathname } from "next/navigation"
 import Image from "next/image"
 import { X, Send, Loader2, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { chatbotAPI, type ChatHistoryItem } from "@/lib/api"
+import { PUBLIC_ADMIN_HOSTS, isAdminHostname } from "@/lib/admin-host"
 
 type Corner = "br" | "bl" | "tr" | "tl"
 
@@ -76,7 +76,6 @@ const CORNER_NOTCH: Record<Corner, string> = {
  *   และจำไว้ใน localStorage ไม่ให้โผล่ซ้ำอีกจนกว่าจะกดปุ่มวงกลมนั้นเรียกคืน
  */
 export function MascotWidget() {
-    const pathname = usePathname()
     const [open, setOpen] = React.useState(false)
     const [corner, setCorner] = React.useState<Corner>("br")
     const [dragPos, setDragPos] = React.useState<{ x: number; y: number } | null>(null)
@@ -236,9 +235,16 @@ export function MascotWidget() {
 
     const isDragging = dragPos !== null
 
-    // แอดมินมีธีม/ระบบ auth แยกต่างหาก ไม่ให้มาสคอตไปโผล่ในโซนนั้น
-    // !mounted กันไม่ให้เช็ค localStorage (hidden) ต่างกันระหว่าง SSR กับไคลเอนต์จนขึ้น hydration mismatch
-    if (!mounted || pathname?.startsWith("/admin")) return null
+    // !mounted กันไม่ให้เช็ค localStorage (hidden)/hostname ต่างกันระหว่าง SSR กับไคลเอนต์จนขึ้น
+    // hydration mismatch (SSR ไม่มี window ให้เช็ค hostname เลย ต้องรอ client เท่านั้น)
+    //
+    // แอดมินไม่ต้องมี AI chatbot — เช็คจาก window.location.hostname (โฮสต์จริงที่ browser กำลังคุยด้วย
+    // ปลอมไม่ได้) ไม่ใช่ usePathname() แบบที่เคยเป็น เพราะ proxy.ts ใช้ rewrite (ไม่ใช่ redirect) พา
+    // "admin.localhost/login" ไป serve จาก app/admin/login แบบโปร่งใสฝั่ง server — usePathname()
+    // ฝั่ง client จึงเห็นแค่ "/login" เดิม ไม่มี "/admin" ติดมาด้วยเลย เช็ค startsWith("/admin") แบบเดิม
+    // จึงไม่เคยเป็นจริงได้จริงบนโดเมนแอดมินจริง (ดูหมายเหตุที่ lib/admin-host.ts ว่าทำไมเช็คที่นี่
+    // แทนที่จะเช็คฝั่ง server ใน app/layout.tsx — เรื่อง static prerendering)
+    if (!mounted || isAdminHostname(window.location.hostname.toLowerCase(), PUBLIC_ADMIN_HOSTS)) return null
 
     // ซ่อนแล้วไม่ใช่หายเกลี้ยงไม่มีทางเรียกคืน — เหลือปุ่มเล็กๆ มุมเดิมไว้กดเรียกกลับมา
     if (hidden) {
