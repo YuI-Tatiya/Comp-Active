@@ -141,6 +141,14 @@ export interface FeaturedCardItem extends FilterableItem {
     imageUrl?: string | null
     description?: string | null
     href: string
+    /** วันจัดกิจกรรมวันสุดท้าย (epoch ms) — ต่างจาก sortDate (วันแรก) เฉพาะงานที่มีกิจกรรมย่อยคนละวัน */
+    endDate: number
+    /**
+     * ช่วงเปิด-ปิดรับสมัคร — มีความหมายเฉพาะ Event (ตั้งค่าระดับงาน คลุมทุกกิจกรรมย่อย)
+     * กิจกรรมเดี่ยวไม่มีแนวคิดนี้เลยในสคีมา (Activity ไม่มีฟิลด์นี้) จึงเป็น null เสมอ
+     */
+    registrationOpenAt: string | null
+    registrationCloseAt: string | null
 }
 
 function nearestUpcomingActivity(ev: EventSummary) {
@@ -150,6 +158,11 @@ function nearestUpcomingActivity(ev: EventSummary) {
 function earliestEventDate(ev: EventSummary): number {
     const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
     return times.length ? Math.min(...times) : Number.POSITIVE_INFINITY
+}
+
+function latestEventDate(ev: EventSummary): number {
+    const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
+    return times.length ? Math.max(...times) : Number.NEGATIVE_INFINITY
 }
 
 /**
@@ -173,22 +186,32 @@ export function buildFeaturedCards(
             status: ev.activities.some((a) => a.status === "open") ? "open" : "closed",
             searchText: [ev.name, ...ev.activities.map((a) => a.name)].join(" ").toLowerCase(),
             sortDate: earliestEventDate(ev),
+            endDate: latestEventDate(ev),
             createdAt: new Date(ev.createdAt).getTime(),
             seats: null,
             hasCert: ev.activities.some((a) => !!a.volunteerRole),
             href: hrefFor.event(ev.id),
+            registrationOpenAt: ev.registrationOpenAt ?? null,
+            registrationCloseAt: ev.registrationCloseAt ?? null,
         }
     })
 
     const fromStandalone = standalone
         .filter((a) => !a.eventId)
-        .map((a): FeaturedCardItem => ({
-            ...activityFilterFields(a),
-            key: `activity-${a.id}`,
-            imageUrl: a.imageUrl,
-            description: a.description,
-            href: hrefFor.activity(a.id),
-        }))
+        .map((a): FeaturedCardItem => {
+            const fields = activityFilterFields(a)
+            return {
+                ...fields,
+                key: `activity-${a.id}`,
+                imageUrl: a.imageUrl,
+                description: a.description,
+                href: hrefFor.activity(a.id),
+                // กิจกรรมเดี่ยว = วันเดียว (endDate เท่ากับ sortDate) และไม่มีช่วงรับสมัครในสคีมา
+                endDate: fields.sortDate,
+                registrationOpenAt: null,
+                registrationCloseAt: null,
+            }
+        })
 
     return [...fromEvents, ...fromStandalone]
 }

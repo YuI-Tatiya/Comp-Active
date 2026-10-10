@@ -9,17 +9,66 @@ import { EVENT_CARD_HEIGHT } from "./event-card-layout"
 const FALLBACK_IMAGE =
     "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop"
 
-/** แปลงวันที่จาก API เป็นรูปแบบไทย — เดิมโค้ดนี้ถูกก๊อปไว้ 3 หน้า */
+/**
+ * แปลงวันที่จาก API เป็นรูปแบบไทย — เดิมโค้ดนี้ถูกก๊อปไว้ 3 หน้า
+ * ปักเขตเวลาไทยเสมอ (เหมือน lib/transcript.ts formatThaiDate) — ไม่งั้นคนดูแต่ละคนเห็นวันไม่ตรงกัน
+ * ตามเขตเวลาเครื่อง/เบราว์เซอร์ของตัวเอง ทั้งที่ควรเห็นวันเดียวกันตามเวลาไทย (ยืนยันแล้วด้วย CDP
+ * Emulation.setTimezoneOverride: เบราว์เซอร์ที่ตั้งเป็น UTC กับ Asia/Bangkok ต้องแสดงวันเดียวกันเป๊ะ)
+ */
 export function formatEventDate(dateString: string) {
     try {
         return new Intl.DateTimeFormat("th-TH", {
             day: "numeric",
             month: "short",
             year: "numeric",
+            timeZone: "Asia/Bangkok",
         }).format(new Date(dateString))
     } catch {
         return dateString
     }
+}
+
+/** เหมือน formatEventDate แต่ไม่ใส่ปี — ใช้กับวันแรกของช่วงวันที่ปีเดียวกัน กันข้อความยาวจนถูกตัดจบ (…) */
+function formatEventDateNoYear(dateString: string) {
+    try {
+        return new Intl.DateTimeFormat("th-TH", {
+            day: "numeric",
+            month: "short",
+            timeZone: "Asia/Bangkok",
+        }).format(new Date(dateString))
+    } catch {
+        return dateString
+    }
+}
+
+/**
+ * ช่วงวันจัดกิจกรรม (epoch ms) — วันเดียวแสดงวันเดียว, งานที่มีกิจกรรมย่อยคนละวันแสดงเป็นช่วง
+ * เทียบแค่ "วันตามปฏิทิน" ไม่ใช่ ms เป๊ะ เพราะกิจกรรมแรก/สุดท้ายอาจเป็นวันเดียวกันแต่คนละเวลา
+ * ปีเดียวกันตัดปีของวันแรกทิ้ง ("30 ต.ค. - 1 พ.ย. 2569" ไม่ใช่ "30 ต.ค. 2569 - 1 พ.ย. 2569")
+ * เพราะ EventCardRow บรรทัดเดียวตัดจบ ข้อความยาวเกินจะโดน "…" ตัดปีท้ายจนอ่านไม่ครบ
+ */
+export function formatEventDateRange(startMs: number, endMs: number): string {
+    if (!Number.isFinite(startMs)) return "ไม่ระบุวันที่"
+    const startIso = new Date(startMs).toISOString()
+    const start = formatEventDate(startIso)
+    if (!Number.isFinite(endMs) || new Date(startMs).toDateString() === new Date(endMs).toDateString()) {
+        return start
+    }
+    const endIso = new Date(endMs).toISOString()
+    // เทียบปีตามเขตเวลาไทย (ไม่ใช่ UTC) ให้สอดคล้องกับปีที่ formatEventDate แสดงจริง — ไม่งั้นกิจกรรม
+    // ที่คาบเกี่ยวเที่ยงคืนส่งท้ายปี (เช่น 31 ธ.ค. 23:00 UTC = 1 ม.ค. ตามเวลาไทย) จะเทียบปีผิดฝั่ง
+    const yearOf = (iso: string) =>
+        new Intl.DateTimeFormat("en-CA", { year: "numeric", timeZone: "Asia/Bangkok" }).format(new Date(iso))
+    const sameYear = yearOf(startIso) === yearOf(endIso)
+    return `${sameYear ? formatEventDateNoYear(startIso) : start} - ${formatEventDate(endIso)}`
+}
+
+/** ช่วงเปิด-ปิดรับสมัคร — ไม่มีทั้งคู่คืน null (ให้ผู้เรียกซ่อนแถวนี้ไปเลย เช่น กิจกรรมเดี่ยวที่ไม่มีแนวคิดนี้) */
+export function formatRegistrationWindow(openAt?: string | null, closeAt?: string | null): string | null {
+    if (openAt && closeAt) return `เปิดรับสมัคร ${formatEventDate(openAt)} - ${formatEventDate(closeAt)}`
+    if (openAt) return `เปิดรับสมัครตั้งแต่ ${formatEventDate(openAt)}`
+    if (closeAt) return `เปิดรับสมัครถึง ${formatEventDate(closeAt)}`
+    return null
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

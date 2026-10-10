@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
-import { EventCard, EventCardBadge } from "@/components/ui/event-card"
+import { EventCard, EventCardBadge, EventCardRow, formatEventDateRange, formatRegistrationWindow } from "@/components/ui/event-card"
 import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { ActivityCardSkeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -17,6 +17,8 @@ import { buildFeaturedCards, type FeaturedCardItem } from "@/lib/events-filter"
 import { SOFT_SKILLS } from "@/lib/soft-skills"
 import {
   ArrowRight,
+  Calendar,
+  CalendarClock,
   CalendarX,
   ChevronLeft,
   ChevronRight,
@@ -222,20 +224,33 @@ export default function RootPage() {
               </div>
             ) : filteredItems.length > 0 ? (
               <div className={EVENT_CARD_GRID}>
-                {filteredItems.map((item) => (
-                  <Link key={item.key} href={item.href} className="block">
-                    <EventCard
-                      activity={{ name: item.name, imageUrl: item.imageUrl }}
-                      description={item.description}
-                      badgeLeft={item.categories.length > 0 && <EventCardBadge variant="light">{categoriesBadgeLabel(item.categories)}</EventCardBadge>}
-                      badgeRight={
-                        <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
-                          {item.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}
-                        </EventCardBadge>
-                      }
-                    />
-                  </Link>
-                ))}
+                {filteredItems.map((item) => {
+                  const registrationWindow = formatRegistrationWindow(item.registrationOpenAt, item.registrationCloseAt)
+                  return (
+                    <Link key={item.key} href={item.href} className="block">
+                      <EventCard
+                        activity={{ name: item.name, imageUrl: item.imageUrl }}
+                        description={item.description}
+                        badgeLeft={item.categories.length > 0 && <EventCardBadge variant="light">{categoriesBadgeLabel(item.categories)}</EventCardBadge>}
+                        badgeRight={
+                          <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
+                            {item.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}
+                          </EventCardBadge>
+                        }
+                      >
+                        <EventCardRow icon={Calendar}>
+                          จัดกิจกรรม {formatEventDateRange(item.sortDate, item.endDate)}
+                        </EventCardRow>
+                        {/* กิจกรรมเดี่ยวไม่มีช่วงรับสมัครในสคีมา (ไม่มีฟิลด์นี้เลย) — ซ่อนแถวนี้แทนที่จะโชว์ค่าว่าง */}
+                        {registrationWindow && (
+                          <EventCardRow icon={CalendarClock} tone="brand">
+                            {registrationWindow}
+                          </EventCardRow>
+                        )}
+                      </EventCard>
+                    </Link>
+                  )
+                })}
               </div>
             ) : (
               <EmptyState
