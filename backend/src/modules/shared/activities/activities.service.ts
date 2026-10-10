@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { ConfigService } from '@nestjs/config';
+import { generateCheckinToken } from '../../../common/utils/checkin-token.util';
 import { ActivitiesRepository } from './activities.repository';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
@@ -26,6 +28,7 @@ export class ActivitiesService {
     private readonly registrationsRepository: RegistrationsRepository,
     private readonly mailService: MailService,
     private readonly usersRepository: UsersRepository,
+    private readonly config: ConfigService,
   ) {}
 
   /** เกณฑ์เดียวกับ EventsService — คะแนนเต็มของคำถามแบบ rating ต้องมีอย่างน้อย 2 */
@@ -256,6 +259,39 @@ export class ActivitiesService {
     this.logger.log(`Activity status set to ${status}: "${activity.name}" (ID: ${activityId})`);
     const { _count, ...rest } = updated as any;
     return { ...rest, registeredCount: _count.registrations };
+  }
+
+  /** โทเค็นปัจจุบันสำหรับ QR เช็คอิน — คำนวณสดทุกครั้ง ไม่ผูกกับว่าเปิดสวิตช์ไว้หรือไม่ (ฝั่งแสดงผลเป็นผู้ตัดสินว่าจะโชว์ QR ไหม) */
+  async getCheckInSession(activityId: number, userId: number, userRole: UserRole) {
+    const activity = await this.findById(activityId);
+    if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์ดูการเช็คอินของกิจกรรมนี้');
+    }
+
+    const secret = this.config.get<string>('jwt.secret')!;
+    const { token, expiresAt } = generateCheckinToken(secret, activityId);
+    return { enabled: activity.selfCheckInEnabled, token, expiresAt };
+  }
+
+  /**
+   * เปิด/ปิดการเช็คอินด้วยตัวเองผ่าน QR — ปิดแล้ว QR ที่หน้างานใช้เช็คอินไม่ได้ทันที (เช็คที่ checkInSelf)
+   * ไม่ให้เปิดถ้ากิจกรรมจบไปแล้ว (เปิดเช็คอินกิจกรรมที่จบแล้วไม่มีความหมาย)
+   */
+  async setSelfCheckIn(activityId: number, userId: number, userRole: UserRole, enabled: boolean) {
+    const activity = await this.findById(activityId);
+    if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์แก้ไขการเช็คอินของกิจกรรมนี้');
+    }
+    if (enabled && activity.status === ActivityStatus.COMPLETED) {
+      throw new BadRequestException('กิจกรรมนี้จบไปแล้ว ไม่สามารถเปิดการเช็คอินได้');
+    }
+
+    await this.activitiesRepository.updateSelfCheckIn(activityId, enabled);
+    this.logger.log(`Self check-in ${enabled ? 'เปิด' : 'ปิด'}: "${activity.name}" (ID: ${activityId})`);
+
+    const secret = this.config.get<string>('jwt.secret')!;
+    const { token, expiresAt } = generateCheckinToken(secret, activityId);
+    return { enabled, token, expiresAt };
   }
 
   countAll() {

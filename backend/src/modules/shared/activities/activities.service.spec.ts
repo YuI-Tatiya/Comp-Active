@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ActivitiesService } from './activities.service';
 import { ActivitiesRepository } from './activities.repository';
@@ -53,6 +54,7 @@ describe('ActivitiesService.markCompleted', () => {
         { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn().mockResolvedValue([]) } },
         { provide: MailService, useValue: { sendActivityCompleted: jest.fn(), sendActivityCancelled: jest.fn() } },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -141,6 +143,7 @@ describe('ActivitiesService.autoCompleteOverdueActivities', () => {
         { provide: RegistrationsRepository, useValue: registrationsRepo },
         { provide: MailService, useValue: { sendActivityCompleted: jest.fn(), sendActivityCancelled: jest.fn() } },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -209,6 +212,7 @@ describe('ActivitiesService.autoCompleteOverdueActivities', () => {
         { provide: RegistrationsRepository, useValue: registrationsRepo },
         { provide: MailService, useValue: mailService },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -256,6 +260,7 @@ describe('ActivitiesService student-notification side effects', () => {
         { provide: RegistrationsRepository, useValue: registrationsRepo },
         { provide: MailService, useValue: mail },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -320,6 +325,7 @@ describe('ActivitiesService.delete', () => {
         { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
         { provide: MailService, useValue: {} },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -360,6 +366,7 @@ describe('ActivitiesService.findByIdForOrganizer', () => {
         { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
         { provide: MailService, useValue: {} },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -403,6 +410,7 @@ describe('ActivitiesService.getSurveyResults — ownership', () => {
         { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
         { provide: MailService, useValue: {} },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -444,6 +452,7 @@ describe('ActivitiesService.duplicate', () => {
         { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
         { provide: MailService, useValue: {} },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -499,6 +508,7 @@ describe('ActivitiesService.setStatus', () => {
         { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
         { provide: MailService, useValue: {} },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -529,6 +539,91 @@ describe('ActivitiesService.setStatus', () => {
   });
 });
 
+describe('ActivitiesService.getCheckInSession / setSelfCheckIn — QR เช็คอินหมุนรหัส', () => {
+  let service: ActivitiesService;
+  let activitiesRepo: { findById: jest.Mock; updateSelfCheckIn: jest.Mock };
+  const SECRET = 'test-secret-at-least-32-characters-long';
+
+  beforeEach(async () => {
+    activitiesRepo = {
+      findById: jest.fn().mockResolvedValue(makeActivity({ selfCheckInEnabled: false })),
+      updateSelfCheckIn: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: activitiesRepo },
+        { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
+        { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
+        { provide: MailService, useValue: {} },
+        { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => SECRET } },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+  });
+
+  describe('getCheckInSession', () => {
+    it("returns the activity's current enabled flag plus a freshly computed token", async () => {
+      activitiesRepo.findById.mockResolvedValue(makeActivity({ selfCheckInEnabled: true }));
+      const result = await service.getCheckInSession(5, 7, UserRole.ORGANIZER);
+      expect(result.enabled).toBe(true);
+      expect(typeof result.token).toBe('string');
+      expect(result.expiresAt).toBeInstanceOf(Date);
+    });
+
+    it('reports enabled:false without error when the organizer has not opened check-in', async () => {
+      const result = await service.getCheckInSession(5, 7, UserRole.ORGANIZER);
+      expect(result.enabled).toBe(false);
+    });
+
+    it('throws ForbiddenException for a non-owning organizer', async () => {
+      await expect(service.getCheckInSession(5, 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('allows an admin who does not own the activity', async () => {
+      await expect(service.getCheckInSession(5, 999, UserRole.ADMIN)).resolves.toBeDefined();
+    });
+  });
+
+  describe('setSelfCheckIn', () => {
+    it('enables check-in for the owning organizer and returns a usable token', async () => {
+      const result = await service.setSelfCheckIn(5, 7, UserRole.ORGANIZER, true);
+      expect(activitiesRepo.updateSelfCheckIn).toHaveBeenCalledWith(5, true);
+      expect(result).toMatchObject({ enabled: true });
+      expect(typeof result.token).toBe('string');
+    });
+
+    it('disables check-in for the owning organizer', async () => {
+      await service.setSelfCheckIn(5, 7, UserRole.ORGANIZER, false);
+      expect(activitiesRepo.updateSelfCheckIn).toHaveBeenCalledWith(5, false);
+    });
+
+    it('throws ForbiddenException for a non-owning organizer', async () => {
+      await expect(service.setSelfCheckIn(5, 999, UserRole.ORGANIZER, true)).rejects.toThrow(ForbiddenException);
+      expect(activitiesRepo.updateSelfCheckIn).not.toHaveBeenCalled();
+    });
+
+    it('allows an admin to toggle an activity they do not own', async () => {
+      await expect(service.setSelfCheckIn(5, 999, UserRole.ADMIN, true)).resolves.toBeDefined();
+    });
+
+    // เปิดเช็คอินกิจกรรมที่จบไปแล้วไม่มีความหมาย — กันผู้จัดกดเปิดหลงจากกิจกรรมจบแล้ว
+    it('refuses to enable check-in once the activity is already completed', async () => {
+      activitiesRepo.findById.mockResolvedValue(makeActivity({ status: ActivityStatus.COMPLETED }));
+      await expect(service.setSelfCheckIn(5, 7, UserRole.ORGANIZER, true)).rejects.toThrow(BadRequestException);
+      expect(activitiesRepo.updateSelfCheckIn).not.toHaveBeenCalled();
+    });
+
+    it('still allows disabling check-in on a completed activity (closing down is always safe)', async () => {
+      activitiesRepo.findById.mockResolvedValue(makeActivity({ status: ActivityStatus.COMPLETED, selfCheckInEnabled: true }));
+      await expect(service.setSelfCheckIn(5, 7, UserRole.ORGANIZER, false)).resolves.toMatchObject({ enabled: false });
+      expect(activitiesRepo.updateSelfCheckIn).toHaveBeenCalledWith(5, false);
+    });
+  });
+});
+
 describe('ActivitiesService.getOrganizerStats', () => {
   let service: ActivitiesService;
   let activitiesRepo: { findManyByOrganizerWithCount: jest.Mock };
@@ -548,6 +643,7 @@ describe('ActivitiesService.getOrganizerStats', () => {
         { provide: RegistrationsRepository, useValue: registrationsRepo },
         { provide: MailService, useValue: {} },
         { provide: UsersRepository, useValue: usersRepo },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);

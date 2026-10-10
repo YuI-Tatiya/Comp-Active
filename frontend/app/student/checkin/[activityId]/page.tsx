@@ -2,7 +2,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -17,7 +17,12 @@ type Status = "loading" | "success" | "error"
 /** สแกน QR code ที่ผู้จัดแสดงหน้างานแล้วมาเปิดหน้านี้ — เช็คอินตัวเองทันทีเมื่อโหลดหน้า ไม่ต้องกดอะไรเพิ่ม */
 export default function StudentSelfCheckInPage() {
     const params = useParams()
+    const searchParams = useSearchParams()
     const activityId = Number(params?.activityId)
+    // QR หมุนรหัสทุก 5 นาที (ดู ActivityCheckinQr ฝั่งผู้จัด) — token มาจากลิงก์ที่สแกนเท่านั้น ไม่มี fallback
+    const token = searchParams?.get("token") ?? ""
+    // รู้ได้จากลิงก์ตรงๆ ตั้งแต่ render แรก ไม่ต้องรอ effect/เรียก API เลยถ้าไม่มี token มาด้วย
+    const tokenMissing = !token
 
     const [status, setStatus] = useState<Status>("loading")
     const [result, setResult] = useState<CheckInSelfResult | null>(null)
@@ -26,8 +31,16 @@ export default function StudentSelfCheckInPage() {
     // เช็คอินด้วย QR ทำได้เฉพาะมือถือ/iPad — เปิดลิงก์นี้บนคอมแล้วต้องไม่เช็คอินให้ (ดู lib/device.ts)
     const capable = useScanCapable()
 
+    // ไม่มี token ต้องขึ้น error ทันทีโดยไม่ผ่าน "loading" เลย — รวมเป็นค่าเดียวให้ JSX ด้านล่างใช้เส้นทางเดิม
+    const effectiveStatus: Status = tokenMissing ? "error" : status
+    const effectiveErrorMessage = tokenMissing
+        ? "ลิงก์นี้ไม่สมบูรณ์ กรุณาสแกน QR code ที่หน้างานใหม่อีกครั้ง"
+        : errorMessage
+
     useEffect(() => {
-        if (!activityId || capable !== true) return
+        // ไม่มี token แนบมา (ลิงก์พิมพ์มือ/เก่า/แชร์ภาพหน้าจอ QR แทนตัวจริง) — ฟันธงได้จาก tokenMissing ตรงๆ
+        // ไม่ต้องยิง API เลย (เช็คที่ JSX ด้านล่างแทน ไม่ใช่ที่นี่ เพราะรู้ผลตั้งแต่ render แรกแล้ว)
+        if (!activityId || capable !== true || tokenMissing) return
         let cancelled = false
 
         activitiesAPI
@@ -36,7 +49,7 @@ export default function StudentSelfCheckInPage() {
             .catch(() => {})
 
         registrationsAPI
-            .checkInSelf(activityId)
+            .checkInSelf(activityId, token)
             .then((res) => {
                 if (cancelled) return
                 setResult(res)
@@ -50,7 +63,7 @@ export default function StudentSelfCheckInPage() {
             })
 
         return () => { cancelled = true }
-    }, [activityId, capable])
+    }, [activityId, capable, tokenMissing, token])
 
     return (
         <div className="flex min-h-[70vh] items-center bg-surface">
@@ -67,14 +80,14 @@ export default function StudentSelfCheckInPage() {
                             </>
                         )}
 
-                        {capable !== false && status === "loading" && (
+                        {capable !== false && effectiveStatus === "loading" && (
                             <>
                                 <Loader2 className="mx-auto size-12 animate-spin text-brand-600" aria-hidden="true" />
                                 <p className="text-lg font-medium text-fg">กำลังเช็คอิน...</p>
                             </>
                         )}
 
-                        {capable !== false && status === "success" && result && (
+                        {capable !== false && effectiveStatus === "success" && result && (
                             <>
                                 <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-success-bg">
                                     <CheckCircle2 className="size-9 text-success" aria-hidden="true" />
@@ -96,13 +109,13 @@ export default function StudentSelfCheckInPage() {
                             </>
                         )}
 
-                        {capable !== false && status === "error" && (
+                        {capable !== false && effectiveStatus === "error" && (
                             <>
                                 <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-danger-bg">
                                     <XCircle className="size-9 text-danger" aria-hidden="true" />
                                 </div>
                                 <h1 className="text-xl font-bold text-fg">เช็คอินไม่สำเร็จ</h1>
-                                <p className="text-fg-muted">{errorMessage}</p>
+                                <p className="text-fg-muted">{effectiveErrorMessage}</p>
                             </>
                         )}
 

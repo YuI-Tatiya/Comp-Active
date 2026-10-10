@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { verifyCheckinToken } from '../../../common/utils/checkin-token.util';
 import { RegistrationsRepository } from './registrations.repository';
 import { EvaluationsService } from './evaluation.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -51,6 +53,7 @@ export class RegistrationsService {
     private readonly evaluationsService: EvaluationsService,
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
+    private readonly config: ConfigService,
   ) {}
 
   async create(
@@ -319,7 +322,7 @@ export class RegistrationsService {
    * เช็คอินด้วยตัวเอง — นักศึกษาสแกน QR code ที่ organizer แสดงหน้างาน แล้วเช็คอินเข้ากิจกรรมของตัวเองทันที
    * ไม่ต้องมี organizer คอยกดให้ ต่างจาก checkIn() ที่เป็นฝั่ง organizer กดแทน
    */
-  async checkInSelf(studentId: number, activityId: number) {
+  async checkInSelf(studentId: number, activityId: number, token: string) {
     const registration = await this.registrationsRepository.findActiveByStudentAndActivityWithSoftSkills(
       studentId,
       activityId,
@@ -329,9 +332,20 @@ export class RegistrationsService {
       throw new NotFoundException('ไม่พบการลงทะเบียนของคุณสำหรับกิจกรรมนี้ หรือถูกยกเลิกไปแล้ว');
     }
 
-    // สแกนซ้ำ (เช่น เน็ตหลุดตอนกดครั้งแรก) ต้องไม่ error — ถือว่าเช็คอินสำเร็จอยู่แล้ว ไม่ว่ากิจกรรมจะจบไปแล้วหรือยัง
+    // สแกนซ้ำ (เช่น เน็ตหลุดตอนกดครั้งแรก) ต้องไม่ error — ถือว่าเช็คอินสำเร็จอยู่แล้ว ไม่ว่ากิจกรรมจะปิดเช็คอิน/จบไปแล้วหรือยัง
     if (registration.attendance === AttendanceStatus.ATTENDED) {
       return { ...registration, alreadyCheckedIn: true as const };
+    }
+
+    // ผู้จัดต้องกด "เปิดการเช็คอิน" ไว้ก่อนเสมอ — ปิดสวิตช์นี้เมื่อไร สแกนไม่ติดทันทีไม่ว่า token จะถูกหรือไม่
+    if (!registration.activity.selfCheckInEnabled) {
+      throw new BadRequestException('ผู้จัดยังไม่เปิดให้เช็คอินในขณะนี้ กรุณาติดต่อผู้จัดกิจกรรม');
+    }
+
+    // QR หมุนรหัสใหม่ทุก 5 นาที (ดู checkin-token.util.ts) — กันแคปภาพ/ส่งลิงก์ต่อให้คนที่ไม่ได้มาหน้างาน
+    const secret = this.config.get<string>('jwt.secret')!;
+    if (!verifyCheckinToken(secret, activityId, token)) {
+      throw new BadRequestException('QR code หมดอายุหรือไม่ถูกต้อง กรุณาสแกนใหม่อีกครั้ง');
     }
 
     // กัน QR/ลิงก์เก่าของกิจกรรมที่จบไปแล้ว (auto-complete ปิดให้อัตโนมัติเมื่อเลยเวลา หรือผู้จัดกดจบเอง) —

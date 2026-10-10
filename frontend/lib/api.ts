@@ -96,6 +96,8 @@ export interface Activity<T = unknown> {
   cancellationReason?: string | null;
   /** เปิดโหมดประเมินรอบด้าน (นักศึกษาประเมินตนเอง + เพื่อน) — เฉพาะกิจกรรม Tier 3 */
   peerAssessmentEnabled?: boolean;
+  /** เปิดให้เช็คอินเองผ่าน QR ที่หมุนรหัสทุก 5 นาที — ปิดเป็นค่าเริ่มต้นเสมอ ดู activitiesAPI.getCheckInSession */
+  selfCheckInEnabled?: boolean;
   tags: Tag[];
   conditions: Condition[];
   benefits: Benefit[];
@@ -286,6 +288,18 @@ export const activitiesAPI = {
   /** เปิด/ปิดรับสมัครชั่วคราว — ย้อนกลับได้ คนละอย่างกับ markCompleted/requestCancel ที่เป็นถาวร */
   setStatus: (id: number, status: 'open' | 'closed') =>
     fetchAPI<Activity>(`/api/activities/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  /**
+   * โทเค็น QR เช็คอินปัจจุบัน + สถานะเปิด/ปิด — เรียกตอนเปิดแท็บคิวอาร์โค้ด และเรียกซ้ำเมื่อ token ใกล้หมดอายุ
+   * (คืน token ใหม่แม้ตอนนี้ปิดอยู่ ไว้แสดงพร้อมทันทีถ้าเปิดสวิตช์)
+   */
+  getCheckInSession: (id: number) =>
+    fetchAPI<CheckInSessionResult>(`/api/activities/${id}/self-checkin`),
+  /** เปิด/ปิดการเช็คอินด้วยตนเองผ่าน QR — ปิดแล้วนักศึกษาสแกนไม่ติดจนกว่าจะเปิดใหม่ */
+  setSelfCheckIn: (id: number, enabled: boolean) =>
+    fetchAPI<CheckInSessionResult>(`/api/activities/${id}/self-checkin`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled }),
+    }),
   getPlatformStats: () => fetchAPI<PlatformStats>('/api/activities/stats/platform'),
   getOrganizerStats: () => fetchAPI<OrganizerStats>('/api/activities/stats/organizer'),
   /** ผลสรุปแบบสำรวจของกิจกรรมเดี่ยว — โครงสร้างตรงกับ eventsAPI.getSurveyResults */
@@ -518,6 +532,13 @@ export interface CheckInSelfResult {
   alreadyCheckedIn: boolean;
 }
 
+/** โทเค็น QR เช็คอินปัจจุบันของกิจกรรมหนึ่งรายการ — หมุนรหัสใหม่ทุก 5 นาที (checkin-token.util.ts ฝั่ง backend) */
+export interface CheckInSessionResult {
+  enabled: boolean;
+  token: string;
+  expiresAt: string;
+}
+
 export const registrationsAPI = {
   create: (
     activityId: number,
@@ -534,11 +555,15 @@ export const registrationsAPI = {
   getByActivity: (activityId: number) => fetchAPI(`/api/registrations/activity/${activityId}`),
   confirm: (id: number) => fetchAPI(`/api/registrations/${id}/confirm`, { method: 'PATCH' }),
   checkIn: (id: number) => fetchAPI(`/api/registrations/${id}/check-in`, { method: 'PATCH' }),
-  /** เช็คอินด้วยตัวเอง — นักศึกษาสแกน QR code ที่ organizer แสดงหน้างาน (ต้อง login เป็น student อยู่แล้ว) */
-  checkInSelf: (activityId: number) =>
+  /**
+   * เช็คอินด้วยตัวเอง — นักศึกษาสแกน QR code ที่ organizer แสดงหน้างาน (ต้อง login เป็น student อยู่แล้ว)
+   * token มาจาก query string ของลิงก์ที่สแกน (หมุนรหัสทุก 5 นาที) — ไม่ใช่ตัวเลือก เพราะ QR ที่ไม่มี token
+   * ที่ยังไม่หมดอายุไม่ควรเช็คอินผ่านได้เลย (ดู checkin-token.util.ts ฝั่ง backend)
+   */
+  checkInSelf: (activityId: number, token: string) =>
     fetchAPI<CheckInSelfResult>('/api/registrations/check-in-self', {
       method: 'PATCH',
-      body: JSON.stringify({ activityId }),
+      body: JSON.stringify({ activityId, token }),
     }),
   getSurveyQuestions: (id: number) => fetchAPI<EventSurveyQuestion[]>(`/api/registrations/${id}/survey-questions`),
   submitSurvey: (id: number, answers: SurveyAnswerBody[]) =>

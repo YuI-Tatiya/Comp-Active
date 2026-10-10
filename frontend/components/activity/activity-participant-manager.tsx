@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { QRCodeSVG } from "qrcode.react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -18,6 +17,7 @@ import { ActivityAboutPanel, ActivityRegistrationPanel, ActivityRewardsPanel } f
 import { ActivityBatchEvaluation } from "@/components/activity/activity-batch-evaluation"
 import { ActivityAssessmentMode } from "@/components/activity/activity-assessment-mode"
 import { ActivityApprovalDashboard } from "@/components/activity/activity-approval-dashboard"
+import { ActivityCheckinQr } from "@/components/activity/activity-checkin-qr"
 import { ActivityOverview } from "@/components/activity/activity-overview"
 
 interface RegistrationAnswerRow {
@@ -272,7 +272,6 @@ export function ActivityParticipantManager({
         .slice()
         .sort((x, y) => new Date(y.checkInTime ?? 0).getTime() - new Date(x.checkInTime ?? 0).getTime())
     const checkinResults = checkinSearch.trim() ? filterRegistrations(allRegs, checkinSearch, INITIAL_PARTICIPANT_FILTERS) : []
-    const checkInUrl = typeof window !== "undefined" ? `${window.location.origin}/student/checkin/${activity.id}` : ""
 
     // ใช้โดยการ์ดภาพรวม (ลิงก์ "การจัดการ" ต่อแถว + ทางลัด BARS Step 1/2 เมื่อมี) เพื่อสลับแท็บด้านล่างจากภายนอก
     // แล้วเลื่อนจอมาให้เห็นแท็บที่สลับไป เพราะการ์ดภาพรวมอยู่เหนือ Tabs
@@ -510,17 +509,7 @@ export function ActivityParticipantManager({
                 <TabsContent value="registration" className="space-y-6">
                     <div className="grid gap-6 sm:grid-cols-2">
                         <Card className="border-border shadow-xs">
-                            <div className="flex flex-col items-center gap-4 p-6 text-center">
-                                <h3 className="font-semibold text-fg">QR Code สำหรับเช็คอิน</h3>
-                                {checkInUrl && (
-                                    <div className="rounded-xl border border-border bg-white p-4">
-                                        <QRCodeSVG value={checkInUrl} size={168} />
-                                    </div>
-                                )}
-                                <p className="text-xs text-fg-subtle">
-                                    ให้ผู้เข้าร่วมสแกนด้วยมือถือของตัวเอง (ต้องเข้าสู่ระบบนักศึกษาไว้ก่อน) เพื่อเช็คอินได้ทันที
-                                </p>
-                            </div>
+                            <ActivityCheckinQr activityId={activity.id} completed={activity.status === "completed"} />
                         </Card>
                         <div className="grid grid-cols-2 gap-4 content-start">
                             <Card className="border-border p-5 shadow-xs">

@@ -301,6 +301,14 @@ export class ActivitiesRepository {
     });
   }
 
+  /** เปิด/ปิดสวิตช์เช็คอินด้วยตัวเองผ่าน QR */
+  updateSelfCheckIn(activityId: number, enabled: boolean) {
+    return this.prisma.activity.update({
+      where: { id: activityId },
+      data: { selfCheckInEnabled: enabled },
+    });
+  }
+
   /** ปิดกิจกรรมแบบ "จบแล้ว" — ต่างจาก cancelByOrganizer ตรงที่ไม่ใช่การยกเลิก */
   markCompleted(activityId: number) {
     return this.prisma.activity.update({
