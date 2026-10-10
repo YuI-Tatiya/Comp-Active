@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/page-header"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { EventsFilterSidebar } from "@/components/ui/events-filter-sidebar"
 import { HorizontalScrollSection } from "@/components/ui/horizontal-scroll-section"
-import { EventCard, EventCardBadge } from "@/components/ui/event-card"
+import { EventCard, EventCardBadge, EventCardRow, formatEventDateRange, formatRegistrationWindow } from "@/components/ui/event-card"
 import { EVENT_CARD_SLOT } from "@/components/ui/event-card-layout"
 import { eventsAPI, activitiesAPI, EventSummary, Activity } from "@/lib/api"
 import {
@@ -19,7 +19,7 @@ import {
     type EventsFilterValues,
     type FilterableItem,
 } from "@/lib/events-filter"
-import { Loader2, Search, SlidersHorizontal, Compass, CalendarDays, Users } from "lucide-react"
+import { Loader2, Search, SlidersHorizontal, Compass, CalendarCheck, CalendarDays, Users } from "lucide-react"
 
 function nearestUpcomingActivity(ev: EventSummary) {
     return [...ev.activities].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
@@ -60,12 +60,23 @@ function earliestDate(ev: EventSummary): number {
     return times.length ? Math.min(...times) : Number.POSITIVE_INFINITY
 }
 
+/** วันจัดกิจกรรมย่อยวันสุดท้ายของงาน — คู่กับ earliestDate ใช้แสดงช่วงวันที่บนการ์ด */
+function latestDate(ev: EventSummary): number {
+    const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
+    return times.length ? Math.max(...times) : Number.NEGATIVE_INFINITY
+}
+
 /** การ์ดข้อมูลรวมที่ใช้แสดงผล — งาน (หลายกิจกรรมย่อย) และกิจกรรมเดี่ยว normalize มาเป็นรูปแบบเดียวกัน */
 interface CardItem extends FilterableItem {
     key: string
     imageUrl?: string | null
     description?: string | null
     href: string
+    /** วันจัดกิจกรรมวันสุดท้าย (epoch ms) — ต่างจาก sortDate (วันแรก) เฉพาะงานที่มีกิจกรรมย่อยคนละวัน */
+    endDate: number
+    /** ช่วงเปิด-ปิดรับสมัคร — มีความหมายเฉพาะ Event เท่านั้น กิจกรรมเดี่ยวไม่มีฟิลด์นี้ในสคีมาเลยเป็น null เสมอ */
+    registrationOpenAt: string | null
+    registrationCloseAt: string | null
 }
 
 /** หน้ารายการงานฝั่งนักศึกษา — จัดกลุ่มตามหมวดหมู่ เลื่อนซ้าย-ขวาได้ในแต่ละแถว */
@@ -114,19 +125,29 @@ export default function StudentEventsPage() {
                 href: `/student/events/${ev.id}`,
                 searchText: [ev.name, ...ev.activities.map((a) => a.name)].join(" ").toLowerCase(),
                 sortDate: earliestDate(ev),
+                endDate: latestDate(ev),
                 createdAt: new Date(ev.createdAt).getTime(),
                 seats: seatsLeft(ev),
                 hasCert: hasVolunteerCert(ev),
+                registrationOpenAt: ev.registrationOpenAt ?? null,
+                registrationCloseAt: ev.registrationCloseAt ?? null,
             }
         })
 
-        const fromStandalone = standalone.map((a): CardItem => ({
-            ...activityFilterFields(a),
-            key: `activity-${a.id}`,
-            imageUrl: a.imageUrl,
-            description: a.description,
-            href: `/student/activities/${a.id}`,
-        }))
+        const fromStandalone = standalone.map((a): CardItem => {
+            const fields = activityFilterFields(a)
+            return {
+                ...fields,
+                key: `activity-${a.id}`,
+                imageUrl: a.imageUrl,
+                description: a.description,
+                href: `/student/activities/${a.id}`,
+                // กิจกรรมเดี่ยว = วันเดียว (endDate เท่ากับ sortDate) และไม่มีช่วงรับสมัครในสคีมา
+                endDate: fields.sortDate,
+                registrationOpenAt: null,
+                registrationCloseAt: null,
+            }
+        })
 
         return [...fromEvents, ...fromStandalone]
     }, [events, standalone])
@@ -198,28 +219,41 @@ export default function StudentEventsPage() {
                             <div className="space-y-12">
                                 {groupedByCategory.map(({ category, items }) => (
                                     <HorizontalScrollSection key={category.value} title={category.label} count={items.length}>
-                                        {items.map((item) => (
-                                            <Link
-                                                key={item.key}
-                                                href={item.href}
-                                                className={`block shrink-0 snap-start ${EVENT_CARD_SLOT}`}
-                                            >
-                                                <EventCard
-                                                    activity={{ name: item.name, imageUrl: item.imageUrl }}
-                                                    description={item.description}
-                                                    badgeLeft={
-                                                        // ใช้หมวดของ "กลุ่มที่กำลังแสดงอยู่" ไม่ใช่หมวดเดียวของการ์ด —
-                                                        // งานที่มีกิจกรรมย่อยหลายหมวดโผล่ซ้ำได้หลายกลุ่ม ป้ายต้องตรงกับกลุ่มนั้นๆ
-                                                        <EventCardBadge variant="light">{category.label}</EventCardBadge>
-                                                    }
-                                                    badgeRight={
-                                                        <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
-                                                            {item.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}
-                                                        </EventCardBadge>
-                                                    }
-                                                />
-                                            </Link>
-                                        ))}
+                                        {items.map((item) => {
+                                            const registrationWindow = formatRegistrationWindow(item.registrationOpenAt, item.registrationCloseAt)
+                                            return (
+                                                <Link
+                                                    key={item.key}
+                                                    href={item.href}
+                                                    className={`block shrink-0 snap-start ${EVENT_CARD_SLOT}`}
+                                                >
+                                                    <EventCard
+                                                        activity={{ name: item.name, imageUrl: item.imageUrl }}
+                                                        description={item.description}
+                                                        badgeLeft={
+                                                            // ใช้หมวดของ "กลุ่มที่กำลังแสดงอยู่" ไม่ใช่หมวดเดียวของการ์ด —
+                                                            // งานที่มีกิจกรรมย่อยหลายหมวดโผล่ซ้ำได้หลายกลุ่ม ป้ายต้องตรงกับกลุ่มนั้นๆ
+                                                            <EventCardBadge variant="light">{category.label}</EventCardBadge>
+                                                        }
+                                                        badgeRight={
+                                                            <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
+                                                                {item.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}
+                                                            </EventCardBadge>
+                                                        }
+                                                    >
+                                                        <EventCardRow icon={CalendarDays}>
+                                                            จัดกิจกรรม {formatEventDateRange(item.sortDate, item.endDate)}
+                                                        </EventCardRow>
+                                                        {/* กิจกรรมเดี่ยวไม่มีช่วงรับสมัครในสคีมา (ไม่มีฟิลด์นี้เลย) — ซ่อนแถวนี้แทนที่จะโชว์ค่าว่าง */}
+                                                        {registrationWindow && (
+                                                            <EventCardRow icon={CalendarCheck} tone="brand">
+                                                                {registrationWindow}
+                                                            </EventCardRow>
+                                                        )}
+                                                    </EventCard>
+                                                </Link>
+                                            )
+                                        })}
                                     </HorizontalScrollSection>
                                 ))}
                             </div>
