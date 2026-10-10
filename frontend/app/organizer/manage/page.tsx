@@ -617,7 +617,7 @@ export default function OrganizerManagePage() {
 
                 {/* แท็บสถานะทรงแคปซูล — กดสลับได้ทันทีโดยไม่ต้องเปิด dropdown เหมือนเมนู pill บน AppHeader */}
                 <div className="mb-6 overflow-x-auto">
-                    <div className="inline-flex items-center gap-1 rounded-full bg-surface p-1">
+                    <div className="inline-flex items-center gap-1 rounded-full border border-border bg-bg p-1 shadow-xs">
                         {STATUS_TABS.map((tab) => {
                             const active = status === tab.value
                             return (
@@ -628,14 +628,14 @@ export default function OrganizerManagePage() {
                                     aria-current={active ? "page" : undefined}
                                     className={cn(
                                         "flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm transition-colors",
-                                        active ? "bg-bg font-semibold text-brand-600 shadow-xs" : "text-fg-muted hover:text-fg"
+                                        active ? "bg-brand-600 font-semibold text-white shadow-xs" : "text-fg-muted hover:text-fg"
                                     )}
                                 >
                                     {tab.label}
                                     <span
                                         className={cn(
                                             "rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums",
-                                            active ? "bg-brand-50 text-brand-600" : "bg-border text-fg-subtle"
+                                            active ? "bg-white/20 text-white" : "bg-border text-fg-subtle"
                                         )}
                                     >
                                         {statusCounts[tab.value] ?? 0}
