@@ -13,7 +13,10 @@ interface AuthContextType {
     isLoading: boolean
     login: (identifier: string, password: string) => Promise<void>
     adminLogin: (email: string, password: string) => Promise<void>
+    /** สมัครสมาชิกยังไม่เข้าสู่ระบบ — พาไปหน้ากรอก OTP ต่อ (ดู verifyRegisterOtp) */
     register: (data: RegisterData) => Promise<void>
+    /** ยืนยัน OTP ที่ส่งไปตอนสมัคร — สำเร็จแล้วถึงเข้าสู่ระบบจริง */
+    verifyRegisterOtp: (email: string, otp: string) => Promise<void>
     logout: () => Promise<void>
     /** โหลดข้อมูลผู้ใช้ใหม่หลังแก้โปรไฟล์ — ให้ชื่อบน navbar อัปเดตตาม */
     refreshUser: () => Promise<void>
@@ -144,6 +147,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function register(data: RegisterData) {
         const res = await authAPI.register(data)
+        // ยังไม่มี session ให้ที่นี่ (ดู authAPI.register) — พาไปกรอก OTP ต่อแทนการล็อกอินทันที
+        router.push(`/auth/verify?email=${encodeURIComponent(res.email)}`)
+    }
+
+    async function verifyRegisterOtp(email: string, otp: string) {
+        const res = await authAPI.verifyRegisterOtp(email, otp)
         if (res.user) {
             setUser(res.user)
             redirectByRole(res.user.role)
@@ -176,7 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return (
-        <AuthContext.Provider value={{ user, isLoading, login, adminLogin, register, logout, refreshUser }}>
+        <AuthContext.Provider value={{ user, isLoading, login, adminLogin, register, verifyRegisterOtp, logout, refreshUser }}>
             {children}
         </AuthContext.Provider>
     )

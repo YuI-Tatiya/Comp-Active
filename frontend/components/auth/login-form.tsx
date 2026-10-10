@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import Link from "next/link"
 import { User, Lock, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 
@@ -34,12 +35,24 @@ export function LoginForm() {
         }
     }
 
+    // ⚠️ ข้อความต้องตรงกับ AUTH_ERRORS.ACCOUNT_NOT_VERIFIED ฝั่ง backend — ไม่มี error code
+    // แบบมีโครงสร้างให้เช็คในระบบนี้ จึงจับคู่ด้วยข้อความ (เหมือนที่อื่นในหน้านี้ทั้งหมด)
+    const needsVerification = error.includes("ยังไม่ได้ยืนยันอีเมล")
+
     return (
         // โครงเดียวกับ register-form เพื่อให้ปุ่มอยู่ตำแหน่งเดียวกันทั้ง 2 แท็บ
         <form onSubmit={handleSubmit} className="flex min-h-full flex-col gap-4">
             {error && (
                 <div className="bg-danger-bg border border-danger/20 text-danger text-sm rounded-lg p-3">
                     {error}
+                    {needsVerification && (
+                        <Link
+                            href={`/auth/verify?email=${encodeURIComponent(identifier)}`}
+                            className="mt-1.5 block font-medium underline underline-offset-4"
+                        >
+                            ไปหน้ายืนยัน OTP
+                        </Link>
+                    )}
                 </div>
             )}
 

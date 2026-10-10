@@ -19,11 +19,17 @@ import { AdminLoginDto } from "./dto/admin-login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { AcceptInviteDto } from "./dto/accept-invite.dto";
 import { VerifyOtpDto } from "./dto/verify-otp.dto";
+import { VerifyRegistrationOtpDto } from "./dto/verify-registration-otp.dto";
+import { ResendRegistrationOtpDto } from "./dto/resend-registration-otp.dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminIpGuard } from "../../../common/guards/admin-ip.guard";
 import { AuthThrottlerGuard } from "../../../common/guards/auth-throttler.guard";
 import { CurrentUser } from "../../../common/decorators/current-user.decorator";
-import { clearAuthCookie, resolveSameSite, setAuthCookie } from "../../../common/utils";
+import {
+  clearAuthCookie,
+  resolveSameSite,
+  setAuthCookie,
+} from "../../../common/utils";
 
 @ApiTags("Authentication")
 @Controller("api/auth")
@@ -42,24 +48,61 @@ export class AuthController {
     setAuthCookie(res, result.accessToken, {
       expiresIn: this.config.get<string>("jwt.expiresIn") ?? "7d",
       isProduction: this.config.get<string>("NODE_ENV") === "production",
-      sameSite: resolveSameSite(this.config.get<string>("AUTH_COOKIE_SAMESITE")),
+      sameSite: resolveSameSite(
+        this.config.get<string>("AUTH_COOKIE_SAMESITE"),
+      ),
     });
     return result;
   }
 
   /**
    * POST /api/auth/register - สมัครสมาชิก (นักศึกษาเท่านั้น)
+   *
+   * ยังไม่ออก session — ต้องยืนยัน OTP ที่ส่งไปอีเมลผ่าน /register/verify-otp ก่อน
+   * ถึงจะนับว่าสมัครสำเร็จและเข้าสู่ระบบได้จริง
    */
   @Post("register")
   @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 600_000 } }) // 5 ครั้ง / 10 นาที ต่อ IP — กันสร้างบัญชีถล่ม
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: "สมัครสมาชิก (นักศึกษาเท่านั้น)" })
-  async register(
-    @Body() registerDto: RegisterDto,
+  @ApiOperation({
+    summary:
+      "สมัครสมาชิก (นักศึกษาเท่านั้น) — ส่ง OTP ไปอีเมล ยังไม่เข้าสู่ระบบ",
+  })
+  async register(@Body() registerDto: RegisterDto) {
+    return this.authService.register(registerDto);
+  }
+
+  /**
+   * POST /api/auth/register/verify-otp - ยืนยัน OTP เพื่อเปิดใช้งานบัญชีที่เพิ่งสมัคร (สาธารณะ — ยังไม่มี session)
+   */
+  @Post("register/verify-otp")
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 300_000 } }) // ชั้นนอกของการจำกัดการเดา OTP
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "ยืนยัน OTP เพื่อเปิดใช้งานบัญชีที่เพิ่งสมัคร" })
+  async verifyRegistrationOtp(
+    @Body() dto: VerifyRegistrationOtpDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    return this.issueSession(res, await this.authService.register(registerDto));
+    return this.issueSession(
+      res,
+      await this.authService.verifyRegistrationOtp(dto.email, dto.otp),
+    );
+  }
+
+  /**
+   * POST /api/auth/register/resend-otp - ขอรหัส OTP สมัครสมาชิกใหม่ (สาธารณะ — ยังไม่มี session)
+   */
+  @Post("register/resend-otp")
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 300_000 } }) // 3 ครั้ง / 5 นาที — กัน mail bombing
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "ขอรหัส OTP สมัครสมาชิกใหม่ (สำหรับบัญชีที่ยังไม่ยืนยัน)",
+  })
+  async resendRegistrationOtp(@Body() dto: ResendRegistrationOtpDto) {
+    return this.authService.resendRegistrationOtp(dto.email);
   }
 
   /**
@@ -130,7 +173,9 @@ export class AuthController {
   logout(@Res({ passthrough: true }) res: Response) {
     clearAuthCookie(res, {
       isProduction: this.config.get<string>("NODE_ENV") === "production",
-      sameSite: resolveSameSite(this.config.get<string>("AUTH_COOKIE_SAMESITE")),
+      sameSite: resolveSameSite(
+        this.config.get<string>("AUTH_COOKIE_SAMESITE"),
+      ),
     });
     return { message: "ออกจากระบบเรียบร้อย" };
   }

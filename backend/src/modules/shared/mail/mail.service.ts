@@ -41,6 +41,36 @@ export class MailService {
     }
   }
 
+  // Intentionally does NOT catch-and-swallow — OTP คือช่องทางเดียวที่ทำให้สมัครสมาชิกสำเร็จได้
+  // ถ้าส่งไม่ออก ผู้สมัครต้องรู้ทันทีว่าต้องลองใหม่ ไม่ใช่รอเก้อเพราะเข้าใจว่าส่งไปแล้ว
+  async sendRegistrationOtp(email: string, name: string, otp: string) {
+    await this.mailerService.sendMail({
+      to: email,
+      subject: "ยืนยันการสมัครสมาชิก Comp Active",
+      html: `
+        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
+          <div style="background:linear-gradient(135deg,#4299e1,#2b6cb0);padding:36px 32px;border-radius:16px 16px 0 0;">
+            <p style="margin:0;font-size:26px;font-weight:800;letter-spacing:-0.02em;">
+              <span style="color:#ffffff;">Comp </span><span style="color:#dbeafe;">Active</span>
+            </p>
+            <p style="color:#e0f2fe;margin:8px 0 0;">ขั้นตอนสุดท้ายก่อนเริ่มใช้งาน</p>
+          </div>
+          <div style="background:#fff;padding:32px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 16px 16px;">
+            <p>สวัสดีคุณ <strong>${esc(name)}</strong>,</p>
+            <p>ขอบคุณที่สมัครสมาชิก Comp Active กรุณายืนยันอีเมลนี้เพื่อเปิดใช้งานบัญชีของคุณ:</p>
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin:24px 0;text-align:center;">
+              <span style="font-size:32px;font-weight:800;letter-spacing:.3em;color:#1e293b;">${esc(otp)}</span>
+            </div>
+            <p>รหัสนี้มีอายุการใช้งาน <b>15 นาที</b></p>
+            <p style="font-size:13px;color:#64748b;">หากคุณไม่ได้เป็นผู้สมัคร กรุณาเพิกเฉยต่ออีเมลฉบับนี้ — บัญชีจะไม่ถูกเปิดใช้งานจนกว่าจะมีการยืนยันรหัสนี้</p>
+            <p style="font-size:12px;color:#94a3b8;margin-top:32px;">ขอบคุณครับ<br/>ทีมงาน Comp Active · College of Computing</p>
+          </div>
+        </div>
+      `,
+    });
+    this.logger.log(`Registration OTP sent to ${email}`);
+  }
+
   // Intentionally does NOT catch-and-swallow — email is the only channel that delivers
   // the generated username/password, so the caller needs to know if delivery failed.
   async sendOrganizerApproved(
@@ -131,7 +161,7 @@ export class MailService {
                   </tr>
                 </table>
               </div>
-              <a href="${esc(this.config.get<string>('gateway.adminFrontendUrl'))}/admin/organizer-requests"
+              <a href="${esc(this.config.get<string>("gateway.adminFrontendUrl"))}/admin/organizer-requests"
                  style="display:inline-block;background:linear-gradient(135deg,#1f4066,#3a72ad);color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-size:14px;font-weight:600;">
                 ดูคำขอใน Admin Panel →
               </a>

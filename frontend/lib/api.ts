@@ -30,6 +30,12 @@ export interface AuthResponse {
   user?: User;
 }
 
+/** สมัครสมาชิกยังไม่เข้าสู่ระบบ — ต้องยืนยัน OTP ที่ส่งไปที่ email นี้ก่อน (authAPI.verifyRegisterOtp) */
+export interface PendingVerification {
+  pendingVerification: true;
+  email: string;
+}
+
 export interface Tag {
   tagName: string;
 }
@@ -199,6 +205,10 @@ async function fetchAPI<T = unknown>(endpoint: string, options: RequestInit = {}
 // ==================== AUTH ====================
 
 export const authAPI = {
+  /**
+   * สมัครสมาชิก — ไม่เข้าสู่ระบบทันทีอีกต่อไป ต้องยืนยัน OTP ที่ส่งไปอีเมลผ่าน verifyRegisterOtp ก่อน
+   * (ดู backend/src/modules/shared/auth/auth.service.ts register())
+   */
   register: (body: {
     name: string;
     email: string;
@@ -207,7 +217,25 @@ export const authAPI = {
     phone: string;
     educationLevel: string;
     program: string;
-  }) => fetchAPI<AuthResponse>('/api/auth/register', { method: 'POST', body: JSON.stringify(body) }),
+  }) =>
+    fetchAPI<PendingVerification>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /** ยืนยัน OTP ที่ได้จากการสมัครสมาชิก — สำเร็จแล้วถึงจะได้ session จริง (ออก cookie) */
+  verifyRegisterOtp: (email: string, otp: string) =>
+    fetchAPI<AuthResponse>('/api/auth/register/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    }),
+
+  /** ขอรหัส OTP สมัครสมาชิกใหม่ — รหัสเดิมหมดอายุ (15 นาที) หรือไม่ได้รับอีเมล */
+  resendRegisterOtp: (email: string) =>
+    fetchAPI<{ message: string }>('/api/auth/register/resend-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
 
   // identifier: email (student) or username (organizer)
   login: (body: { identifier: string; password: string }) =>

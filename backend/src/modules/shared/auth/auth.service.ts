@@ -57,13 +57,12 @@ export class AuthService {
     private readonly mailService: MailService,
   ) {}
 
-  async sendVerificationOtp(userId: number) {
-    const user = await this.authRepository.findUserById(userId);
-    if (!user) throw new UnauthorizedException("ไม่พบผู้ใช้งาน");
-
-    // A04 Cryptographic Failures: Math.random() ไม่ใช่ตัวสุ่มเชิงรหัสลับ
-    // ค่าที่ออกมาคาดเดาได้จากสถานะภายในของ engine — OTP ที่เดาได้ = ยืนยันตัวตนแทนคนอื่นได้
-    // randomInt ของ node ใช้ CSPRNG จริง
+  /** สุ่ม OTP 6 หลักใหม่ + ตั้งอายุ 15 นาที + เคลียร์ตัวนับครั้งผิดทิ้ง แล้วบันทึกลง user แถวนั้น — ใช้ร่วมกันทั้ง flow สมัครสมาชิกและ flow ยืนยันตัวตนหลังล็อกอิน
+   *
+   * A04 Cryptographic Failures: Math.random() ไม่ใช่ตัวสุ่มเชิงรหัสลับ ค่าที่ออกมาคาดเดาได้จากสถานะภายในของ engine
+   * — OTP ที่เดาได้ = ยืนยันตัวตนแทนคนอื่นได้ randomInt ของ node ใช้ CSPRNG จริง
+   */
+  private async issueOtp(userId: number): Promise<string> {
     const otp = randomInt(0, 1_000_000).toString().padStart(6, "0");
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 15);
@@ -74,16 +73,23 @@ export class AuthService {
       verificationOtpAttempts: 0,
     });
 
-    await this.mailService.sendVerificationOtp(user.email, otp);
-    this.logger.log(`Verification OTP requested for: ${user.email}`);
-
-    return { message: "ส่งรหัส OTP ไปยังอีเมลแล้ว" };
+    return otp;
   }
 
-  async verifyOtp(userId: number, otp: string) {
-    const user = await this.authRepository.findUserById(userId);
-    if (!user) throw new UnauthorizedException("ไม่พบผู้ใช้งาน");
-
+  /**
+   * ตรวจ OTP ที่กรอกกับที่เก็บไว้บนแถว user — throw ตามเงื่อนไขเดิมถ้าไม่ผ่าน (ไม่ตรง/หมดอายุ/เกินโควตา)
+   * ใช้ร่วมกันทั้ง verifyOtp (ต้องล็อกอินแล้ว) และ verifyRegistrationOtp (ยังไม่มี session เลย)
+   * รับ user ที่ query มาแล้วตรงๆ แทนที่จะ query ซ้ำในนี้ เพราะผู้เรียกแต่ละฝั่ง query ด้วยคนละ key (id/email)
+   */
+  private async consumeOtp(
+    user: {
+      id: number;
+      verificationOtp: string | null;
+      verificationOtpExpiresAt: Date | null;
+      verificationOtpAttempts: number;
+    },
+    otp: string,
+  ): Promise<void> {
     if (!user.verificationOtp) {
       throw new UnauthorizedException("รหัส OTP ไม่ถูกต้อง");
     }
@@ -102,40 +108,64 @@ export class AuthService {
       if (attempts >= MAX_OTP_ATTEMPTS) {
         // เผา OTP ทิ้งเมื่อผิดครบเพดาน — ผู้โจมตีต้องเริ่มใหม่ทุกรอบ
         // ทำให้การไล่เดารหัส 6 หลักไม่คุ้มค่าอีกต่อไป
-        await this.authRepository.updateUser(userId, {
+        await this.authRepository.updateUser(user.id, {
           verificationOtp: null,
           verificationOtpExpiresAt: null,
           verificationOtpAttempts: 0,
         });
         this.logger.warn(
-          `OTP attempts exceeded for user id=${userId} — รหัสถูกยกเลิก`,
+          `OTP attempts exceeded for user id=${user.id} — รหัสถูกยกเลิก`,
         );
         throw new UnauthorizedException(
           "กรอกรหัส OTP ผิดเกินกำหนด รหัสถูกยกเลิกแล้ว โปรดขอรหัสใหม่",
         );
       }
 
-      await this.authRepository.updateUser(userId, {
+      await this.authRepository.updateUser(user.id, {
         verificationOtpAttempts: attempts,
       });
       throw new UnauthorizedException("รหัส OTP ไม่ถูกต้อง");
     }
 
-    await this.authRepository.updateUser(userId, {
+    await this.authRepository.updateUser(user.id, {
       verificationOtp: null,
       verificationOtpExpiresAt: null,
       verificationOtpAttempts: 0,
     });
+  }
+
+  async sendVerificationOtp(userId: number) {
+    const user = await this.authRepository.findUserById(userId);
+    if (!user) throw new UnauthorizedException("ไม่พบผู้ใช้งาน");
+
+    const otp = await this.issueOtp(userId);
+    await this.mailService.sendVerificationOtp(user.email, otp);
+    this.logger.log(`Verification OTP requested for: ${user.email}`);
+
+    return { message: "ส่งรหัส OTP ไปยังอีเมลแล้ว" };
+  }
+
+  async verifyOtp(userId: number, otp: string) {
+    const user = await this.authRepository.findUserById(userId);
+    if (!user) throw new UnauthorizedException("ไม่พบผู้ใช้งาน");
+
+    await this.consumeOtp(user, otp);
 
     this.logger.log(`User ${user.email} successfully verified OTP`);
     return { message: "ยืนยันรหัส OTP สำเร็จ" };
   }
 
+  /**
+   * สมัครสมาชิก (นักศึกษา) — ไม่ออก session ทันทีอีกต่อไป สร้างแถวเป็น isVerified:false แล้วส่ง OTP
+   * ไปอีเมล ต้องยืนยันผ่าน verifyRegistrationOtp ก่อนถึงจะเข้าสู่ระบบได้จริง (ดูเหตุผลที่ CLAUDE.md
+   * ไม่มี — เป็นการตัดสินใจของผู้ใช้ตรงๆ ว่าอยากให้ "สมัครสำเร็จ" ต้องผ่านการยืนยันอีเมลก่อนเสมอ)
+   */
   async register(registerDto: RegisterDto) {
     const email = registerDto.email.trim().toLowerCase();
 
     const existingUser = await this.authRepository.findUserByEmail(email);
-    if (existingUser) {
+    // มีอยู่แล้วและยืนยันแล้วจริง = ชนกันแน่นอน ปฏิเสธตามเดิม
+    if (existingUser && existingUser.isVerified) {
       throw new ConflictException("อีเมลนี้ถูกใช้งานแล้ว");
     }
 
@@ -144,7 +174,7 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(registerDto.password, 12);
 
-    const user = await this.authRepository.createUser({
+    const data = {
       name: registerDto.name,
       email,
       password: hashedPassword,
@@ -153,10 +183,70 @@ export class AuthService {
       educationLevel: registerDto.educationLevel,
       program: registerDto.program,
       role: "student",
+      isVerified: false,
+    };
+
+    // อีเมลนี้เคยสมัครค้างไว้แต่ไม่เคยยืนยัน (พิมพ์อีเมลตัวเองผิด/ไม่ได้รับเมล/เปลี่ยนใจกรอกใหม่) —
+    // เขียนทับแถวเดิมแทนที่จะชน unique constraint ไม่งั้นอีเมลที่ "สมัครค้างไว้" แบบนี้จะกันคนจริง
+    // สมัครซ้ำไม่ได้ตลอดไป (ไม่มีใครมาล้างแถวที่ไม่เคยยืนยันทิ้งเอง)
+    const user = existingUser
+      ? await this.authRepository.updateUser(existingUser.id, data)
+      : await this.authRepository.createUser(data);
+
+    const otp = await this.issueOtp(user.id);
+    await this.mailService.sendRegistrationOtp(user.email, user.name, otp);
+
+    this.logger.log(
+      `New user registration pending verification: ${user.email}`,
+    );
+    return { pendingVerification: true as const, email: user.email };
+  }
+
+  /** ยืนยัน OTP ที่ได้จากการสมัครสมาชิก แล้วออก session จริงให้ทันที (ยังไม่เคยมี session มาก่อนตอนนี้) */
+  async verifyRegistrationOtp(email: string, otp: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await this.authRepository.findUserByEmail(normalizedEmail);
+
+    if (!user) {
+      throw new UnauthorizedException(
+        "ไม่พบคำขอสมัครสมาชิกนี้ หรือรหัส OTP ไม่ถูกต้อง",
+      );
+    }
+
+    // ยืนยันไปแล้วจริง (เช่น กดปุ่มซ้ำ/ย้อนกลับมาหน้าเดิมหลังยืนยันสำเร็จ) — ให้เข้าสู่ระบบได้เลย
+    // แทนที่จะโชว์ error ที่น่ากลัวทั้งที่บัญชีใช้งานได้ปกติอยู่แล้ว
+    if (user.isVerified) {
+      this.logger.log(
+        `Registration OTP re-verify on already-verified account: ${user.email}`,
+      );
+      return this.generateAuthResponse(user);
+    }
+
+    await this.consumeOtp(user, otp);
+    const verifiedUser = await this.authRepository.updateUser(user.id, {
+      isVerified: true,
     });
 
-    this.logger.log(`New user registered: ${user.email} (${user.role})`);
-    return this.generateAuthResponse(user);
+    this.logger.log(`User completed registration verification: ${user.email}`);
+    return this.generateAuthResponse(verifiedUser);
+  }
+
+  /** ขอ OTP สมัครสมาชิกใหม่ (OTP เดิมหมดอายุ/ไม่ได้รับเมล) — ยังไม่มี session จึงรับแค่อีเมล ไม่ใช่ userId จาก JWT */
+  async resendRegistrationOtp(email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await this.authRepository.findUserByEmail(normalizedEmail);
+
+    // ไม่พบ หรือยืนยันไปแล้ว — ตอบเหมือนสำเร็จเสมอ กันเดาว่าอีเมลไหนอยู่ในระบบ/ยังไม่ยืนยัน (เหมือน forgot-password ทั่วไป)
+    if (user && !user.isVerified) {
+      const otp = await this.issueOtp(user.id);
+      await this.mailService.sendRegistrationOtp(user.email, user.name, otp);
+      this.logger.log(`Registration OTP resent: ${user.email}`);
+    }
+
+    return {
+      message:
+        "หากอีเมลนี้มีคำขอสมัครสมาชิกที่ยังไม่ยืนยัน ระบบได้ส่งรหัส OTP ใหม่ไปแล้ว",
+    };
   }
 
   async login(loginDto: LoginDto) {
@@ -205,6 +295,12 @@ export class AuthService {
 
     if (user.isBlocked) {
       throw new UnauthorizedException(AUTH_ERRORS.ACCOUNT_BLOCKED);
+    }
+
+    // นักศึกษาสมัครใหม่ที่ยังไม่ยืนยัน OTP — organizer/admin ไม่มีทางมาถึงจุดนี้เป็น false
+    // เพราะถูกสร้างด้วยคนละ flow ที่ไม่เคยตั้งค่านี้ (default เป็น true เสมอ)
+    if (!user.isVerified) {
+      throw new UnauthorizedException(AUTH_ERRORS.ACCOUNT_NOT_VERIFIED);
     }
 
     this.logger.log(`User logged in: ${user.email} (${user.role})`);

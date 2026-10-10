@@ -150,6 +150,9 @@ model User {
   validUntil               DateTime? @map("valid_until")
   createdAt                DateTime  @default(now()) @map("created_at")
   isBlocked                Boolean   @default(false) @map("is_blocked")
+  // default true กันผู้ใช้เดิม/บัญชี organizer-admin ที่สร้างด้วย flow อื่นโดนล็อกย้อนหลัง —
+  // มีแค่ AuthService.register (นักศึกษาสมัครเอง) เท่านั้นที่ตั้งค่า false ตรงๆ ตอนสร้างแถว
+  isVerified               Boolean   @default(true) @map("is_verified")
   verificationOtp          String?   @map("verification_otp") @db.VarChar(10)
   verificationOtpExpiresAt DateTime? @map("verification_otp_expires_at")
   // นับครั้งที่กรอก OTP ผิด — เกินเพดานแล้วเผา OTP ทิ้ง กันการไล่เดารหัส 6 หลัก
