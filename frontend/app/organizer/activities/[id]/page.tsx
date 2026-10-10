@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
-import { Share2, ArrowLeft, Edit, CheckSquare, Loader2 } from "lucide-react"
+import { ShareMenu } from "@/components/ui/share-menu"
+import { ArrowLeft, Edit, CheckSquare, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { activitiesAPI, isCancelledByOrganizer, Activity, API_BASE_URL } from "@/lib/api"
 import { ActivityParticipantManager, type RegistrationRow } from "@/components/activity/activity-participant-manager"
@@ -28,13 +29,6 @@ export default function OrganizerActivityDetailsPage() {
 
     const [isCancelOpen, setIsCancelOpen] = useState(false)
     const [cancelReason, setCancelReason] = useState("")
-
-    const handleShare = () => {
-        if (!event) return
-        const publicUrl = `${window.location.origin}/events/activities/${event.id}`
-        navigator.clipboard.writeText(publicUrl)
-        alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")
-    }
 
     useEffect(() => {
         if (id) fetchEventDetails(id)
@@ -163,9 +157,14 @@ export default function OrganizerActivityDetailsPage() {
                                     <CheckSquare className="w-4 h-4 mr-2" /> จบกิจกรรม
                                 </Button>
                             )}
-                            <Button variant="outline" size="sm" onClick={handleShare}>
-                                <Share2 className="w-4 h-4 mr-2" /> แชร์กิจกรรม
-                            </Button>
+                            <ShareMenu
+                                url={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${event.id}`}
+                                title={event.name}
+                                onCopied={() => alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")}
+                                variant="outline"
+                                size="sm"
+                                label="แชร์กิจกรรม"
+                            />
                             <Button
                                 variant="destructive"
                                 size="sm"

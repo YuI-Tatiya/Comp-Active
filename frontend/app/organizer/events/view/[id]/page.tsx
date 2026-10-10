@@ -65,12 +65,6 @@ export default function OrganizerEventViewPage() {
 
     const activeActivity: EventActivity | undefined = event?.activities.find((a) => a.id === activeActivityId)
 
-    const handleShare = () => {
-        if (!event) return
-        navigator.clipboard.writeText(`${window.location.origin}/events/${event.id}`)
-        alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")
-    }
-
     if (loading) {
         return (
             <div className="bg-surface flex items-center justify-center">
@@ -132,7 +126,8 @@ export default function OrganizerEventViewPage() {
                         registeredCount={registeredCount}
                         capacity={capacity}
                         unlimited={unlimited}
-                        onShare={handleShare}
+                        shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.id}`}
+                        onShareCopied={() => alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")}
                     />
                 )}
 

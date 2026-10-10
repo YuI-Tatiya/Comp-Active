@@ -140,11 +140,6 @@ export default function StudentActivityDetailsPage() {
         }
     }
 
-    const handleShare = () => {
-        navigator.clipboard.writeText(`${window.location.origin}/student/activities/${event?.id}`)
-        showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")
-    }
-
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault()
         setFormError("")
@@ -279,7 +274,8 @@ export default function StudentActivityDetailsPage() {
             myRegistrations={myRegistrations}
             onRegister={openRegisterDialog}
             onCancel={() => setCancelConfirmOpen(true)}
-            onShare={handleShare}
+            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${event.id}`}
+            onShareCopied={() => showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")}
             backHref="/student/events"
         >
             <Dialog open={isRegisterOpen} onOpenChange={(open) => { setIsRegisterOpen(open); if (open) openRegisterDialog(); }}>

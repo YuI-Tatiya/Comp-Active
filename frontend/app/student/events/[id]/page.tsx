@@ -69,11 +69,6 @@ export default function StudentEventDetailsPage() {
         toastTimer.current = setTimeout(() => setToast((prev) => ({ ...prev, open: false })), 2500)
     }
 
-    const handleShare = () => {
-        navigator.clipboard.writeText(`${window.location.origin}/events/${event?.id}`)
-        showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")
-    }
-
     useEffect(() => {
         if (params.id) {
             fetchEventDetails(Number(params.id))
@@ -285,7 +280,8 @@ export default function StudentEventDetailsPage() {
             myRegistrations={myRegistrations}
             onRegister={openRegisterDialog}
             onCancel={() => setCancelConfirmOpen(true)}
-            onShare={handleShare}
+            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.id}`}
+            onShareCopied={() => showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")}
             backHref="/student/events"
             showActivityImage
         >

@@ -3,10 +3,11 @@
 import { useState } from "react"
 import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
-import { Ban, Calendar, CalendarClock, CheckCheck, CheckCircle2, Clock, Layers, Maximize2, MapPin, Share2, Users } from "lucide-react"
+import { Ban, Calendar, CalendarClock, CheckCheck, CheckCircle2, Clock, Layers, Maximize2, MapPin, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ImageLightbox } from "@/components/ui/image-lightbox"
+import { ShareMenu } from "@/components/ui/share-menu"
 import { SessionSelector, type SessionItem } from "@/components/activity/session-selector"
 import { categoryLabel } from "@/lib/categories"
 import { cn } from "@/lib/utils"
@@ -56,7 +57,10 @@ interface ActivityRegistrationHeroProps {
     sessionName?: string | null
     onRegister: () => void
     onCancel: () => void
-    onShare: () => void
+    /** ลิงก์สาธารณะของกิจกรรมนี้ — ส่งให้ ShareMenu แชร์ไปแพลตฟอร์มอื่น/คัดลอกลิงก์ (ต้องเป็นลิงก์ /events/... ไม่ใช่ /student/... หรือ /organizer/...) */
+    shareUrl: string
+    /** เรียกหลังผู้ใช้คัดลอกลิงก์สำเร็จจากเมนูแชร์ — ให้หน้าที่เรียกโชว์ Toast เอง */
+    onShareCopied?: () => void
     onSeeAlternatives?: () => void
     myRegistrationsHref: string
 }
@@ -89,7 +93,8 @@ export function ActivityRegistrationHero({
     sessionName,
     onRegister,
     onCancel,
-    onShare,
+    shareUrl,
+    onShareCopied,
     onSeeAlternatives,
     myRegistrationsHref,
 }: ActivityRegistrationHeroProps) {
@@ -169,9 +174,7 @@ export function ActivityRegistrationHero({
                             ที่นั่งคงเหลือ: {seat.label}
                         </span>
                         <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={onShare} aria-label="แชร์กิจกรรมนี้">
-                                <Share2 className="size-4" aria-hidden="true" />
-                            </Button>
+                            <ShareMenu url={shareUrl} title={title} onCopied={onShareCopied} variant="ghost" size="icon" className="rounded-xl" />
                             {view.primary && (
                                 <Button size="xl" className="rounded-xl font-bold" onClick={onRegister}>
                                     {view.primary.label}
@@ -239,9 +242,7 @@ export function ActivityRegistrationHero({
                                     {view.cancelLabel}
                                 </Button>
                             )}
-                            <Button variant="ghost" className="rounded-xl" onClick={onShare}>
-                                <Share2 className="size-4" aria-hidden="true" /> แชร์กิจกรรมนี้
-                            </Button>
+                            <ShareMenu url={shareUrl} title={title} onCopied={onShareCopied} variant="ghost" label="แชร์กิจกรรมนี้" className="rounded-xl" />
                         </div>
                     </div>
                 )}

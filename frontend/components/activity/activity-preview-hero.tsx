@@ -1,11 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { Calendar, Layers, Maximize2, MapPin, Share2, Users } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Calendar, Layers, Maximize2, MapPin, Users } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { ImageLightbox } from "@/components/ui/image-lightbox"
 import { Progress } from "@/components/ui/progress"
+import { ShareMenu } from "@/components/ui/share-menu"
 import { categoryLabel } from "@/lib/categories"
 import { cn } from "@/lib/utils"
 import type { ScheduleLabel } from "@/lib/activity-view"
@@ -33,7 +33,10 @@ interface ActivityPreviewHeroProps {
     registeredCount: number
     capacity: number | null
     unlimited: boolean
-    onShare: () => void
+    /** ลิงก์สาธารณะของกิจกรรมนี้ — ส่งให้ ShareMenu (ต้องเป็นลิงก์ /events/... ไม่ใช่ /organizer/... เพราะคนที่ได้ลิงก์อาจไม่ได้ล็อกอิน) */
+    shareUrl: string
+    /** เรียกหลังผู้ใช้คัดลอกลิงก์สำเร็จ — ให้หน้าที่เรียกโชว์ Toast/alert เอง */
+    onShareCopied?: () => void
 }
 
 /**
@@ -61,7 +64,8 @@ export function ActivityPreviewHero({
     registeredCount,
     capacity,
     unlimited,
-    onShare,
+    shareUrl,
+    onShareCopied,
 }: ActivityPreviewHeroProps) {
     const byline = [categories.map((c) => categoryLabel(c)).join(", "), organizerName && `จัดโดย ${organizerName}`]
         .filter(Boolean)
@@ -165,9 +169,7 @@ export function ActivityPreviewHero({
                             <Progress value={registeredCount} max={capacity} indicatorClassName={urgencyBar} />
                         )}
                     </div>
-                    <Button variant="outline" className="rounded-xl" onClick={onShare}>
-                        <Share2 className="size-4" aria-hidden="true" /> แชร์
-                    </Button>
+                    <ShareMenu url={shareUrl} title={title} onCopied={onShareCopied} variant="outline" label="แชร์" className="rounded-xl" />
                 </div>
             </div>
         </Card>

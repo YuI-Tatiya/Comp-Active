@@ -67,11 +67,6 @@ export default function PublicEventDetailsPage() {
         }
     }
 
-    const handleShare = () => {
-        navigator.clipboard.writeText(`${window.location.origin}/events/${event?.id}`)
-        showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")
-    }
-
     const handleRegisterClick = () => {
         alert("กรุณาเข้าสู่ระบบก่อนทำการลงทะเบียน")
         router.push("/auth")
@@ -125,7 +120,8 @@ export default function PublicEventDetailsPage() {
                 myRegistrations={[]}
                 onRegister={handleRegisterClick}
                 onCancel={() => {}}
-                onShare={handleShare}
+                shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.id}`}
+                onShareCopied={() => showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")}
                 backHref="/events"
                 showActivityImage
             >

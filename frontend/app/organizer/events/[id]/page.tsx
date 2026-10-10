@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
-import { Users, Share2, ArrowLeft, Edit, CheckSquare, Loader2, XCircle, AlertTriangle } from "lucide-react"
+import { ShareMenu } from "@/components/ui/share-menu"
+import { Users, ArrowLeft, Edit, CheckSquare, Loader2, XCircle, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { eventsAPI, activitiesAPI, isCancelledByOrganizer, EventSummary } from "@/lib/api"
 import { resolveEventImageUrl } from "@/lib/event-image"
@@ -56,13 +57,6 @@ export default function OrganizerEventDetailsPage() {
     }
 
     const activeActivity: EventActivity | undefined = event?.activities.find((a) => a.id === activeActivityId)
-
-    const handleShare = () => {
-        if (!event) return
-        const publicUrl = `${window.location.origin}/events/${event.id}`
-        navigator.clipboard.writeText(publicUrl)
-        alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")
-    }
 
     const handleRequestCancel = async () => {
         if (!activeActivity) return
@@ -159,7 +153,14 @@ export default function OrganizerEventDetailsPage() {
                                     <CheckSquare className="w-4 h-4 mr-2" /> จบกิจกรรม
                                 </Button>
                             )}
-                            <Button variant="outline" size="sm" onClick={handleShare}><Share2 className="w-4 h-4 mr-2" /> แชร์งานนี้</Button>
+                            <ShareMenu
+                                url={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.id}`}
+                                title={event.name}
+                                onCopied={() => alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")}
+                                variant="outline"
+                                size="sm"
+                                label="แชร์งานนี้"
+                            />
                             {activeActivity && !isCancelledByOrganizer(activeActivity.approvalStatus) && (
                                 <Button
                                     variant="outline"

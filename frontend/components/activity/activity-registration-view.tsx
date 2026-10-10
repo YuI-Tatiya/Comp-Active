@@ -65,7 +65,10 @@ export interface ActivityRegistrationViewProps {
     myRegistrations: MyRegistrationLike[]
     onRegister: () => void
     onCancel: () => void
-    onShare: () => void
+    /** ลิงก์สาธารณะของกิจกรรมนี้ — ส่งต่อให้ ShareMenu ใน ActivityRegistrationHero (ต้องเป็นลิงก์ /events/... เสมอ ไม่ว่าหน้านี้จะถูกเรียกจาก role ไหน) */
+    shareUrl: string
+    /** เรียกหลังผู้ใช้คัดลอกลิงก์สำเร็จ — ให้หน้าที่เรียกโชว์ Toast เอง */
+    onShareCopied?: () => void
     backHref: string
     /**
      * แสดงรูปของกิจกรรมที่เลือกในส่วนรายละเอียด — หน้า "งาน" เปิด (รูปด้านบนเป็นรูปปกงาน รูปของแต่ละกิจกรรมย่อยไม่เคยแสดงที่อื่น)
@@ -96,7 +99,8 @@ export function ActivityRegistrationView({
     myRegistrations,
     onRegister,
     onCancel,
-    onShare,
+    shareUrl,
+    onShareCopied,
     backHref,
     showActivityImage = false,
     children,
@@ -180,7 +184,8 @@ export function ActivityRegistrationView({
                             sessionName={isProject ? active.activity.name : null}
                             onRegister={onRegister}
                             onCancel={onCancel}
-                            onShare={onShare}
+                            shareUrl={shareUrl}
+                            onShareCopied={onShareCopied}
                             onSeeAlternatives={() => scrollTo("registration-card")}
                             myRegistrationsHref="/student/my-registrations"
                         />

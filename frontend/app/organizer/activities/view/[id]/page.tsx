@@ -54,13 +54,6 @@ export default function OrganizerActivityViewPage() {
         }
     }
 
-    const handleShare = () => {
-        if (!activity) return
-        const publicUrl = `${window.location.origin}/events/activities/${activity.id}`
-        navigator.clipboard.writeText(publicUrl)
-        alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")
-    }
-
     if (loading) {
         return (
             <div className="bg-surface">
@@ -114,7 +107,8 @@ export default function OrganizerActivityViewPage() {
                     registeredCount={registeredCount}
                     capacity={capacity}
                     unlimited={unlimited}
-                    onShare={handleShare}
+                    shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${activity.id}`}
+                    onShareCopied={() => alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")}
                 />
 
                 {/* 2 คอลัมน์เหมือนหน้าลงทะเบียนนักศึกษา — ซ้ายรวมรายละเอียด+การลงทะเบียนเป็นการ์ดเดียว
