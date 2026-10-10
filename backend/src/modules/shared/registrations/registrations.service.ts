@@ -329,9 +329,15 @@ export class RegistrationsService {
       throw new NotFoundException('ไม่พบการลงทะเบียนของคุณสำหรับกิจกรรมนี้ หรือถูกยกเลิกไปแล้ว');
     }
 
-    // สแกนซ้ำ (เช่น เน็ตหลุดตอนกดครั้งแรก) ต้องไม่ error — ถือว่าเช็คอินสำเร็จอยู่แล้ว
+    // สแกนซ้ำ (เช่น เน็ตหลุดตอนกดครั้งแรก) ต้องไม่ error — ถือว่าเช็คอินสำเร็จอยู่แล้ว ไม่ว่ากิจกรรมจะจบไปแล้วหรือยัง
     if (registration.attendance === AttendanceStatus.ATTENDED) {
       return { ...registration, alreadyCheckedIn: true as const };
+    }
+
+    // กัน QR/ลิงก์เก่าของกิจกรรมที่จบไปแล้ว (auto-complete ปิดให้อัตโนมัติเมื่อเลยเวลา หรือผู้จัดกดจบเอง) —
+    // เฉพาะทางนี้ (สแกนเอง ไม่มีผู้จัดยืนยันตัวตนคนเช็คอิน) เท่านั้น checkIn() ที่ผู้จัดกดแทนยังแก้ย้อนหลังได้ตามเดิม
+    if (registration.activity.status === ActivityStatus.COMPLETED) {
+      throw new BadRequestException('กิจกรรมนี้จบไปแล้ว ไม่สามารถเช็คอินได้');
     }
 
     const saved = await this.performCheckIn(registration);

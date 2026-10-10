@@ -5,7 +5,7 @@ import { RegistrationsRepository } from './registrations.repository';
 import { EvaluationsService } from './evaluation.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
-import { RegistrationStatus, RegistrationType } from '../../../common/enums/status.enum';
+import { RegistrationStatus, RegistrationType, ActivityStatus, AttendanceStatus } from '../../../common/enums/status.enum';
 import { UserRole } from '../../../common/enums/role.enum';
 
 /** ปล่อยให้ microtask ของ `void this.notifyRegistrationConfirmed(...)` (fire-and-forget) รันจนจบก่อน assert */
@@ -218,6 +218,101 @@ describe('RegistrationsService.checkIn', () => {
       ACTIVITY.softSkills,
       expect.objectContaining({ pendingApproval: true }),
     );
+  });
+
+  // ตรงข้ามกับ checkInSelf โดยตั้งใจ — ผู้จัดเป็นคนยืนยันเอง ไม่ใช่ลิงก์ที่ใครก็เปิดได้ จึงยังแก้ย้อนหลังได้แม้กิจกรรมจบแล้ว
+  it('allows the organizer to check someone in even after the activity is already completed', async () => {
+    repo.findByIdWithActivitySoftSkills.mockResolvedValue({
+      id: 1,
+      status: RegistrationStatus.PENDING,
+      activity: { ...ACTIVITY, status: ActivityStatus.COMPLETED },
+    });
+
+    await expect(service.checkIn(OWNER_ID, UserRole.ORGANIZER, 1)).resolves.toBeDefined();
+    expect(repo.updateTx).toHaveBeenCalled();
+  });
+});
+
+describe('RegistrationsService.checkInSelf — เช็คอินผ่าน QR ด้วยตัวเอง', () => {
+  let service: RegistrationsService;
+  let repo: { findActiveByStudentAndActivityWithSoftSkills: jest.Mock; updateTx: jest.Mock };
+  let evaluations: { autoCreateForCheckIn: jest.Mock };
+  let prisma: { $transaction: jest.Mock };
+
+  const STUDENT_ID = 50;
+  const ACTIVITY_ID = 3;
+  const ACTIVITY = { organizerId: OWNER_ID, status: ActivityStatus.OPEN, softSkills: [] };
+
+  function registration(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 1,
+      status: RegistrationStatus.PENDING,
+      activityId: ACTIVITY_ID,
+      attendance: AttendanceStatus.ABSENT,
+      activity: ACTIVITY,
+      ...overrides,
+    };
+  }
+
+  beforeEach(async () => {
+    repo = {
+      findActiveByStudentAndActivityWithSoftSkills: jest.fn().mockResolvedValue(registration()),
+      updateTx: jest.fn().mockResolvedValue({ id: 1, status: RegistrationStatus.CONFIRMED, attendance: 'attended' }),
+    };
+    evaluations = { autoCreateForCheckIn: jest.fn().mockResolvedValue(undefined) };
+    prisma = { $transaction: jest.fn((cb: any) => cb({})) };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        RegistrationsService,
+        { provide: RegistrationsRepository, useValue: repo },
+        { provide: EvaluationsService, useValue: evaluations },
+        { provide: PrismaService, useValue: prisma },
+        { provide: MailService, useValue: {} },
+      ],
+    }).compile();
+    service = module.get(RegistrationsService);
+  });
+
+  it('checks in and returns alreadyCheckedIn:false the first time', async () => {
+    const result = await service.checkInSelf(STUDENT_ID, ACTIVITY_ID);
+    expect(repo.updateTx).toHaveBeenCalled();
+    expect(result).toMatchObject({ alreadyCheckedIn: false });
+  });
+
+  it('throws NotFoundException when the student has no active registration for this activity', async () => {
+    repo.findActiveByStudentAndActivityWithSoftSkills.mockResolvedValue(null);
+    await expect(service.checkInSelf(STUDENT_ID, ACTIVITY_ID)).rejects.toThrow(NotFoundException);
+    expect(repo.updateTx).not.toHaveBeenCalled();
+  });
+
+  it('re-scanning after already checked in returns alreadyCheckedIn:true without error, no matter the activity status', async () => {
+    repo.findActiveByStudentAndActivityWithSoftSkills.mockResolvedValue(
+      registration({ attendance: AttendanceStatus.ATTENDED, activity: { ...ACTIVITY, status: ActivityStatus.COMPLETED } }),
+    );
+
+    const result = await service.checkInSelf(STUDENT_ID, ACTIVITY_ID);
+    expect(result).toMatchObject({ alreadyCheckedIn: true });
+    expect(repo.updateTx).not.toHaveBeenCalled();
+  });
+
+  // แกนของเรื่องนี้: กัน QR/ลิงก์เก่าของกิจกรรมอื่นที่ไม่ได้กำลังดำเนินอยู่ ณ ตอนนี้ (จบไปแล้วไม่ว่าจะปิดเองหรือ auto-complete)
+  it('refuses a first-time self check-in once the activity is already completed', async () => {
+    repo.findActiveByStudentAndActivityWithSoftSkills.mockResolvedValue(
+      registration({ activity: { ...ACTIVITY, status: ActivityStatus.COMPLETED } }),
+    );
+
+    await expect(service.checkInSelf(STUDENT_ID, ACTIVITY_ID)).rejects.toThrow(BadRequestException);
+    expect(repo.updateTx).not.toHaveBeenCalled();
+  });
+
+  it('still allows self check-in while the activity is merely closed to new registrations (not completed)', async () => {
+    repo.findActiveByStudentAndActivityWithSoftSkills.mockResolvedValue(
+      registration({ activity: { ...ACTIVITY, status: ActivityStatus.CLOSED } }),
+    );
+
+    await expect(service.checkInSelf(STUDENT_ID, ACTIVITY_ID)).resolves.toMatchObject({ alreadyCheckedIn: false });
+    expect(repo.updateTx).toHaveBeenCalled();
   });
 });
 
