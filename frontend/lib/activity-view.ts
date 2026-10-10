@@ -393,16 +393,16 @@ export function describeAction(input: ActionInput): ActionView {
 export interface SkillBenefit {
     skillType: string
     rate: number | null
-    /** "ผ่าน" / "ดี" / "ดีเยี่ยม" (ข้อมูลรุ่นเก่าที่ไม่ใช่ 2/3/5 = "ระดับ N", ไม่มี rate = "") */
+    /** "ผ่าน" / "ดี" / "ดีเยี่ยม" (ข้อมูลรุ่นเก่าที่ไม่ใช่ 1/2/3 = "ระดับ N", ไม่มี rate = "") */
     levelLabel: string
     /** จำนวนจุดที่เติม 0-3 */
     dots: 0 | 1 | 2 | 3
 }
 
-const TIER_DOTS: Record<number, 1 | 2 | 3> = { 2: 1, 3: 2, 5: 3 }
+const TIER_DOTS: Record<number, 1 | 2 | 3> = { 1: 1, 2: 2, 3: 3 }
 
 /**
- * แปลงระดับที่ผู้จัดตั้งไว้ (2/3/5) เป็นคำที่นักศึกษาเข้าใจ — เดิมแสดง "น้ำหนัก 5/5" ซึ่งผิดความหมาย
+ * แปลงระดับที่ผู้จัดตั้งไว้ (1/2/3) เป็นคำที่นักศึกษาเข้าใจ — เดิมแสดง "น้ำหนัก 5/5" ซึ่งผิดความหมาย
  * เพราะเลขนี้คือระดับพฤติกรรม ไม่ใช่น้ำหนักเต็ม 5
  */
 export function describeSkillBenefits(softSkills: { skillType: string; rate?: number | null }[] | undefined | null): SkillBenefit[] {

@@ -86,7 +86,7 @@ export const SOFT_SKILL_RUBRIC: Record<SoftSkillType, SkillRubric> = {
 export interface RubricLevel {
     key: keyof SkillRubric
     /** ค่าที่ระบบเก็บ (ActivitySoftSkill.rate / Evaluation) */
-    value: 2 | 3 | 5
+    value: 1 | 2 | 3
     label: string
     /** นิยามของระดับ (ใช้ข้อความเดียวกับ SOFT_SKILL_TIERS ที่แสดงในตัวเลือกระดับ) */
     meaning: string
@@ -97,28 +97,28 @@ export interface RubricLevel {
     whenAllowed: string
 }
 
-const tier = (value: 2 | 3 | 5) => SOFT_SKILL_TIERS.find((t) => t.value === value)!
+const tier = (value: 1 | 2 | 3) => SOFT_SKILL_TIERS.find((t) => t.value === value)!
 
 export const RUBRIC_LEVELS: RubricLevel[] = [
     {
         key: "pass",
-        value: 2,
-        label: tier(2).label,
-        meaning: tier(2).hint,
+        value: 1,
+        label: tier(1).label,
+        meaning: tier(1).hint,
         whenAllowed: "ทุกกิจกรรม — กิจกรรมที่ยาวไม่เกิน 4 ชั่วโมงให้ได้สูงสุดระดับนี้",
     },
     {
         key: "good",
-        value: 3,
-        label: tier(3).label,
-        meaning: tier(3).hint,
-        whenAllowed: "กิจกรรมที่ยาวกว่า 4 ชั่วโมง",
+        value: 2,
+        label: tier(2).label,
+        meaning: tier(2).hint,
+        whenAllowed: "กิจกรรมที่ยาวกว่า 4 ชั่วโมง แต่ไม่ถึง 2 วัน (48 ชั่วโมง)",
     },
     {
         key: "excellent",
-        value: 5,
-        label: tier(5).label,
-        meaning: tier(5).hint,
-        whenAllowed: "เฉพาะกิจกรรมสตาฟฟ์/จิตอาสาที่ยาวกว่า 3 วัน หรืออยู่ในโครงการที่มีหลายกิจกรรม",
+        value: 3,
+        label: tier(3).label,
+        meaning: tier(3).hint,
+        whenAllowed: "กิจกรรมที่ยาว 2 วันขึ้นไป (48 ชั่วโมงขึ้นไป) — ได้ทุกประเภทการรับสมัคร",
     },
 ]

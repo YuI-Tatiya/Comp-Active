@@ -56,7 +56,7 @@ export class EvaluationsOrganizerController {
   }
 
   /**
-   * GET /api/evaluations/activity/:id/batch - หน้าประเมินรายฝ่าย (กิจกรรมสตาฟฟ์ Tier 3 เท่านั้น)
+   * GET /api/evaluations/activity/:id/batch - หน้าประเมินรายฝ่าย (กิจกรรม Tier 3 เท่านั้น)
    */
   @Get('activity/:id/batch')
   @ApiOperation({ summary: 'ดูสถานะการประเมินรายฝ่าย: คะแนนฐาน + ข้อยกเว้นรายคน (Organizer / Admin)' })
@@ -96,7 +96,7 @@ export class EvaluationsOrganizerController {
   }
 
   /**
-   * PUT /api/evaluations/activity/:id/assessment - เปิด/ปิดโหมดประเมินรอบด้าน (เฉพาะกิจกรรมสตาฟฟ์ Tier 3)
+   * PUT /api/evaluations/activity/:id/assessment - เปิด/ปิดโหมดประเมินรอบด้าน (เฉพาะกิจกรรม Tier 3)
    */
   @Put('activity/:id/assessment')
   @ApiOperation({ summary: 'เปิด/ปิดโหมดประเมินรอบด้าน (เจ้าของกิจกรรม / Admin)' })

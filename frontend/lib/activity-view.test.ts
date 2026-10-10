@@ -305,17 +305,17 @@ describe("describeAction — ทุกสถานะของการ์ดส
 })
 
 describe("describeSkillBenefits — แปลงตัวเลขระดับเป็นภาษาที่นักศึกษาเข้าใจ", () => {
-    test("2/3/5 → ผ่าน/ดี/ดีเยี่ยม พร้อมจำนวนจุด 1/2/3 ไม่มีคำว่า น้ำหนัก", () => {
+    test("1/2/3 → ผ่าน/ดี/ดีเยี่ยม พร้อมจำนวนจุด 1/2/3 ไม่มีคำว่า น้ำหนัก", () => {
         const out = describeSkillBenefits([
-            { skillType: "communication", rate: 2 },
-            { skillType: "leadership", rate: 3 },
-            { skillType: "creativity", rate: 5 },
+            { skillType: "communication", rate: 1 },
+            { skillType: "leadership", rate: 2 },
+            { skillType: "creativity", rate: 3 },
         ])
         assert.deepEqual(out.map((s) => [s.levelLabel, s.dots]), [["ผ่าน", 1], ["ดี", 2], ["ดีเยี่ยม", 3]])
         assert.ok(out.every((s) => !/น้ำหนัก/.test(s.levelLabel)))
     })
 
-    test("ข้อมูลรุ่นเก่าที่ไม่ใช่ 2/3/5 ไม่พัง", () => {
+    test("ข้อมูลรุ่นเก่าที่ไม่ใช่ 1/2/3 ไม่พัง", () => {
         const [legacy] = describeSkillBenefits([{ skillType: "communication", rate: 4 }])
         assert.equal(legacy.levelLabel, "ระดับ 4")
         assert.ok(legacy.dots >= 1 && legacy.dots <= 3)

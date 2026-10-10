@@ -264,7 +264,7 @@ export function ActivityParticipantManager({
     const filteredRegs = filterRegistrations(allRegs, participantSearch, participantFilters)
     const questions = activity.questions ?? []
     const pendingIdsInView = filteredRegs.filter((r) => r.status === "pending").map((r) => r.id)
-    // แท็บประเมินรายฝ่ายมีเฉพาะกิจกรรมสตาฟฟ์ที่เลือกทักษะไว้ — ว่ากิจกรรมนั้นเข้าเงื่อนไข Tier 3 จริงหรือไม่ server เป็นผู้ตัดสิน
+    // แท็บประเมินรายฝ่ายมีเฉพาะกิจกรรมที่เลือกทักษะไว้ — ว่ากิจกรรมนั้นเข้าเงื่อนไข Tier 3 จริงหรือไม่ server เป็นผู้ตัดสิน
     const showBatchEvaluation = activity.registrationType === "staff_volunteer" && (activity.softSkills?.length ?? 0) > 0
 
     const checkedIn = allRegs

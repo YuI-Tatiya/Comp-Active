@@ -27,8 +27,6 @@ export class EventsService {
   private validateSoftSkillRates(
     rates: { skillType: string; rate: number }[],
     durationHours: number,
-    registrationType: string,
-    isProject: boolean,
     errorPrefix: string,
   ) {
     if (rates.length > MAX_SOFT_SKILLS_PER_ACTIVITY) {
@@ -36,7 +34,7 @@ export class EventsService {
         `${errorPrefix}เลือกประเมิน Soft Skills ได้ไม่เกิน ${MAX_SOFT_SKILLS_PER_ACTIVITY} ทักษะต่อกิจกรรม`,
       );
     }
-    const cap = maxSoftSkillLevel(durationHours, registrationType, isProject);
+    const cap = maxSoftSkillLevel(durationHours);
     if (rates.some((r) => r.rate > cap)) {
       throw new BadRequestException(
         `${errorPrefix}ให้คะแนน Soft Skills ได้ไม่เกินระดับ ${cap} ตามระยะเวลาของกิจกรรมนี้ (${durationHours} ชม.)`,
@@ -52,7 +50,6 @@ export class EventsService {
   }
 
   async create(organizerId: number, dto: CreateEventDto) {
-    const isProject = dto.activities.length > 1;
     const activities: PreparedActivityData[] = dto.activities.map((a, index) => {
       const startAt = new Date(a.startAt);
       const endAt = new Date(a.endAt);
@@ -85,13 +82,7 @@ export class EventsService {
 
       const durationHours = diffHours(startAt, endAt);
       const softSkillRates = (a.softSkillRates ?? []).map((s) => ({ skillType: s.skillType, rate: s.rate }));
-      this.validateSoftSkillRates(
-        softSkillRates,
-        durationHours,
-        registrationTypeFields.registrationType,
-        isProject,
-        `กิจกรรมลำดับที่ ${index + 1}: `,
-      );
+      this.validateSoftSkillRates(softSkillRates, durationHours, `กิจกรรมลำดับที่ ${index + 1}: `);
 
       return {
         name: a.name,
@@ -154,7 +145,6 @@ export class EventsService {
       throw new ForbiddenException('คุณไม่มีสิทธิ์แก้ไขงานนี้');
     }
 
-    const isProject = dto.activities.length > 1;
     const submittedIds = new Set(dto.activities.map((a) => a.id).filter((id): id is number => !!id));
     const removedActivities = event.activities.filter((a: any) => !submittedIds.has(a.id));
     for (const removed of removedActivities) {
@@ -195,13 +185,7 @@ export class EventsService {
 
       const durationHours = diffHours(startAt, endAt);
       const softSkillRates = (a.softSkillRates ?? []).map((s) => ({ skillType: s.skillType, rate: s.rate }));
-      this.validateSoftSkillRates(
-        softSkillRates,
-        durationHours,
-        registrationTypeFields.registrationType,
-        isProject,
-        `กิจกรรมลำดับที่ ${index + 1}: `,
-      );
+      this.validateSoftSkillRates(softSkillRates, durationHours, `กิจกรรมลำดับที่ ${index + 1}: `);
 
       return {
         id: a.id,

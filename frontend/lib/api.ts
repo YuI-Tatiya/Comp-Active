@@ -94,7 +94,7 @@ export interface Activity<T = unknown> {
   status: string;
   /** เหตุผลที่ผู้จัดยกเลิกกิจกรรม — แสดงให้นักศึกษาเห็นเมื่อกิจกรรมถูกยกเลิก */
   cancellationReason?: string | null;
-  /** เปิดโหมดประเมินรอบด้าน (นักศึกษาประเมินตนเอง + เพื่อน) — เฉพาะกิจกรรมสตาฟฟ์ Tier 3 */
+  /** เปิดโหมดประเมินรอบด้าน (นักศึกษาประเมินตนเอง + เพื่อน) — เฉพาะกิจกรรม Tier 3 */
   peerAssessmentEnabled?: boolean;
   tags: Tag[];
   conditions: Condition[];
@@ -585,7 +585,7 @@ export interface SkillsData {
   }[];
 }
 
-// ── Batch Evaluation (ประเมินรายฝ่าย — กิจกรรมสตาฟฟ์ Tier 3) ───────────────────────
+// ── Batch Evaluation (ประเมินรายฝ่าย — กิจกรรม Tier 3) ───────────────────────
 
 export interface EvaluationBatchMember {
   registrationId: number;
@@ -599,7 +599,7 @@ export interface EvaluationBatchMember {
 
 export interface EvaluationBatchGroup {
   dutyRole: string;
-  /** คะแนนฐานของฝ่ายต่อทักษะ (ถ้ายังไม่เคยตั้งจะเป็นค่าเริ่มต้นของกิจกรรม ซึ่งอาจไม่ใช่ 2/3/5) */
+  /** คะแนนฐานของฝ่ายต่อทักษะ (ถ้ายังไม่เคยตั้งจะเป็นค่าเริ่มต้นของกิจกรรม ซึ่งอาจไม่ใช่ 1/2/3) */
   baseline: Record<string, number>;
   members: EvaluationBatchMember[];
 }
@@ -608,7 +608,7 @@ export interface EvaluationBatch {
   /** false = กิจกรรมนี้ให้คะแนนอัตโนมัติตอนเช็คอิน ไม่ใช้หน้านี้ (server เป็นผู้ตัดสิน) */
   eligible: boolean;
   reason?: string;
-  cap: 2 | 3 | 5;
+  cap: 1 | 2 | 3;
   skills: string[];
   defaults: Record<string, number>;
   groups: EvaluationBatchGroup[];
