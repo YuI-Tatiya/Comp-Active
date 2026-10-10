@@ -237,6 +237,7 @@ export const usersAPI = {
   //    ห้ามเติม email — backend ไม่รับ และ forbidNonWhitelisted จะตีกลับเป็น 400
   updateMe: (body: {
     name?: string;
+    username?: string;
     studentId?: string;
     phone?: string;
     educationLevel?: string;
