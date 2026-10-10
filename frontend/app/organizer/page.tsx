@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { SectionHeading } from "@/components/ui/section-heading"
 import { StatTile } from "@/components/ui/stat-tile"
 import { FilterBar, type FilterSpec } from "@/components/ui/filter-bar"
-import { EventCard, EventCardBadge } from "@/components/ui/event-card"
+import { EventCard, EventCardBadge, EventCardRow, formatEventDateRange, formatRegistrationWindow } from "@/components/ui/event-card"
 import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { activitiesAPI, eventsAPI, isCancelledByOrganizer, Activity, EventSummary, OrganizerStats } from "@/lib/api"
 import { CATEGORIES, categoriesBadgeLabel } from "@/lib/categories"
@@ -58,6 +58,12 @@ function earliestDate(ev: EventSummary): number {
   return times.length ? Math.min(...times) : Number.POSITIVE_INFINITY
 }
 
+/** วันจัดกิจกรรมย่อยวันสุดท้ายของงาน — คู่กับ earliestDate ใช้แสดงช่วงวันที่บนการ์ด */
+function latestDate(ev: EventSummary): number {
+  const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
+  return times.length ? Math.max(...times) : Number.NEGATIVE_INFINITY
+}
+
 /** การ์ดข้อมูลรวมที่ใช้แสดงผล — งาน (หลายกิจกรรมย่อย) และกิจกรรมเดี่ยว normalize มาเป็นรูปแบบเดียวกัน */
 interface CardItem {
   key: string
@@ -72,6 +78,11 @@ interface CardItem {
   href: string
   searchText: string
   sortDate: number
+  /** วันจัดกิจกรรมวันสุดท้าย (epoch ms) — ต่างจาก sortDate (วันแรก) เฉพาะงานที่มีกิจกรรมย่อยคนละวัน */
+  endDate: number
+  /** ช่วงเปิด-ปิดรับสมัคร — มีความหมายเฉพาะ Event เท่านั้น กิจกรรมเดี่ยวไม่มีฟิลด์นี้ในสคีมาเลยเป็น null เสมอ */
+  registrationOpenAt: string | null
+  registrationCloseAt: string | null
   createdAtMs: number
   registeredCount: number
 }
@@ -196,8 +207,11 @@ export default function OrganizerDashboardPage() {
         href: `/organizer/events/view/${ev.id}`,
         searchText: [ev.name, ...ev.activities.map((a) => a.name)].join(" ").toLowerCase(),
         sortDate: earliestDate(ev),
+        endDate: latestDate(ev),
         createdAtMs: new Date(ev.createdAt).getTime(),
         registeredCount: eventRegisteredCount(ev),
+        registrationOpenAt: ev.registrationOpenAt ?? null,
+        registrationCloseAt: ev.registrationCloseAt ?? null,
       }
     })
 
@@ -214,6 +228,10 @@ export default function OrganizerDashboardPage() {
       href: `/organizer/activities/view/${a.id}`,
       searchText: a.name.toLowerCase(),
       sortDate: +new Date(a.date),
+      // กิจกรรมเดี่ยว = วันเดียว (endDate เท่ากับ sortDate) และไม่มีช่วงรับสมัครในสคีมา
+      endDate: +new Date(a.date),
+      registrationOpenAt: null,
+      registrationCloseAt: null,
       // Activity ไม่มี createdAt — ใช้วันจัดกิจกรรมแทน ยังอยู่ในสเกลเดียวกับ createdAt ของ Event
       createdAtMs: +new Date(a.date),
       registeredCount: a.registeredCount ?? 0,
@@ -367,20 +385,33 @@ export default function OrganizerDashboardPage() {
                 </div>
               ) : filteredActivities.length > 0 ? (
                 <div className={EVENT_CARD_GRID}>
-                  {filteredActivities.map((item) => (
-                    <Link key={item.key} href={item.href} className="block">
-                      <EventCard
-                        activity={{ name: item.name, imageUrl: item.imageUrl }}
-                        description={item.description}
-                        badgeLeft={<EventCardBadge variant="light">{categoriesBadgeLabel(item.categories)}</EventCardBadge>}
-                        badgeRight={
-                          <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
-                            {item.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}
-                          </EventCardBadge>
-                        }
-                      />
-                    </Link>
-                  ))}
+                  {filteredActivities.map((item) => {
+                    const registrationWindow = formatRegistrationWindow(item.registrationOpenAt, item.registrationCloseAt)
+                    return (
+                      <Link key={item.key} href={item.href} className="block">
+                        <EventCard
+                          activity={{ name: item.name, imageUrl: item.imageUrl }}
+                          description={item.description}
+                          badgeLeft={<EventCardBadge variant="light">{categoriesBadgeLabel(item.categories)}</EventCardBadge>}
+                          badgeRight={
+                            <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
+                              {item.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}
+                            </EventCardBadge>
+                          }
+                        >
+                          <EventCardRow icon={CalendarDays}>
+                            จัดกิจกรรม {formatEventDateRange(item.sortDate, item.endDate)}
+                          </EventCardRow>
+                          {/* กิจกรรมเดี่ยวไม่มีช่วงรับสมัครในสคีมา (ไม่มีฟิลด์นี้เลย) — ซ่อนแถวนี้แทนที่จะโชว์ค่าว่าง */}
+                          {registrationWindow && (
+                            <EventCardRow icon={CalendarCheck} tone="brand">
+                              {registrationWindow}
+                            </EventCardRow>
+                          )}
+                        </EventCard>
+                      </Link>
+                    )
+                  })}
                 </div>
               ) : allItems.length === 0 ? (
                 <EmptyState
