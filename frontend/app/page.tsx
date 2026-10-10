@@ -17,8 +17,8 @@ import { buildFeaturedCards, type FeaturedCardItem } from "@/lib/events-filter"
 import { SOFT_SKILLS } from "@/lib/soft-skills"
 import {
   ArrowRight,
-  Calendar,
-  CalendarClock,
+  CalendarDays,
+  CalendarCheck,
   CalendarX,
   ChevronLeft,
   ChevronRight,
@@ -238,12 +238,12 @@ export default function RootPage() {
                           </EventCardBadge>
                         }
                       >
-                        <EventCardRow icon={Calendar}>
+                        <EventCardRow icon={CalendarDays}>
                           จัดกิจกรรม {formatEventDateRange(item.sortDate, item.endDate)}
                         </EventCardRow>
                         {/* กิจกรรมเดี่ยวไม่มีช่วงรับสมัครในสคีมา (ไม่มีฟิลด์นี้เลย) — ซ่อนแถวนี้แทนที่จะโชว์ค่าว่าง */}
                         {registrationWindow && (
-                          <EventCardRow icon={CalendarClock} tone="brand">
+                          <EventCardRow icon={CalendarCheck} tone="brand">
                             {registrationWindow}
                           </EventCardRow>
                         )}
