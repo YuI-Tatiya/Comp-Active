@@ -114,8 +114,7 @@ export function formatDeadline(iso: string | null | undefined): string {
     return `${p.day} ${p.month} ${p.year} ${clock(d)} น.`
 }
 
-/** นับถอยหลังถึงเวลาปิดรับสมัคร — null ถ้าไม่ได้กำหนดหรือเลยเวลาแล้ว */
-export function closeCountdown(iso: string | null | undefined, now: Date): string | null {
+function countdownTo(iso: string | null | undefined, now: Date): string | null {
     const d = parseDate(iso)
     if (!d) return null
     const diff = d.getTime() - now.getTime()
@@ -124,6 +123,16 @@ export function closeCountdown(iso: string | null | undefined, now: Date): strin
     if (days >= 1) return `อีก ${days} วัน`
     const hours = Math.floor(diff / HOUR_MS)
     return hours >= 1 ? `อีก ${hours} ชั่วโมง` : "เหลือไม่ถึง 1 ชั่วโมง"
+}
+
+/** นับถอยหลังถึงเวลาปิดรับสมัคร — null ถ้าไม่ได้กำหนดหรือเลยเวลาแล้ว */
+export function closeCountdown(iso: string | null | undefined, now: Date): string | null {
+    return countdownTo(iso, now)
+}
+
+/** นับถอยหลังถึงเวลาเปิดรับสมัคร — null ถ้าไม่ได้กำหนดหรือถึงเวลาเปิดแล้ว */
+export function openCountdown(iso: string | null | undefined, now: Date): string | null {
+    return countdownTo(iso, now)
 }
 
 // ─── ที่นั่ง ──────────────────────────────────────────────────────────────────
@@ -173,20 +182,24 @@ export function seatInfo(capacity: number | null | undefined, registeredCount: n
 
 // ─── สถานะการรับสมัคร ───────────────────────────────────────────────────────────
 
-export type ClosedReason = "cancelled" | "completed" | "closed" | "deadline_passed"
+export type ClosedReason = "cancelled" | "completed" | "closed" | "not_yet_open" | "deadline_passed"
 
 export interface RegistrationWindow {
     status: string
     approvalStatus?: string | null
-    /** วันปิดรับสมัครระดับงาน — หมายเหตุ: backend ยังไม่บังคับค่านี้ตอนสมัคร (แสดงผลอย่างเดียว) */
+    /** วันเปิดรับสมัครระดับงาน — ก่อนถึงเวลานี้สมัครไม่ได้แม้งานเผยแพร่อยู่แล้ว (backend บังคับค่านี้ตอนสมัครจริงด้วย) */
+    registrationOpenAt?: string | null
+    /** วันปิดรับสมัครระดับงาน — backend บังคับค่านี้ตอนสมัครจริงด้วย (ไม่ใช่แค่แสดงผล) */
     registrationCloseAt?: string | null
 }
 
-/** สาเหตุที่สมัครไม่ได้ — เรียงความสำคัญ: ยกเลิก > จบแล้ว > ปิดรับ > หมดเขต; null = ยังเปิดรับ */
+/** สาเหตุที่สมัครไม่ได้ — เรียงความสำคัญ: ยกเลิก > จบแล้ว > ปิดรับ > ยังไม่เปิด > หมดเขต; null = ยังเปิดรับ */
 export function closedReason(w: RegistrationWindow, now: Date): ClosedReason | null {
     if (w.approvalStatus === "cancelled") return "cancelled"
     if (w.status === "completed") return "completed"
     if (w.status !== "open") return "closed"
+    const openAt = parseDate(w.registrationOpenAt)
+    if (openAt && openAt.getTime() > now.getTime()) return "not_yet_open"
     const deadline = parseDate(w.registrationCloseAt)
     if (deadline && deadline.getTime() <= now.getTime()) return "deadline_passed"
     return null
@@ -260,6 +273,7 @@ const CLOSED_LABEL: Record<ClosedReason, string> = {
     completed: "กิจกรรมจบแล้ว",
     cancelled: "กิจกรรมถูกยกเลิก",
     closed: "ปิดรับสมัคร",
+    not_yet_open: "ยังไม่เปิดรับสมัคร",
 }
 
 export interface ActionInput {
@@ -267,6 +281,7 @@ export interface ActionInput {
     seat: SeatInfo
     closed: ClosedReason | null
     mine?: MyRegState
+    openAt?: string | null
     closeAt?: string | null
     now: Date
     /** จำนวนกิจกรรมอื่นในงานเดียวกันที่ยังสมัครได้ */
@@ -336,12 +351,18 @@ export function describeAction(input: ActionInput): ActionView {
     const alternativesHint = input.openAlternatives > 0 ? `ดูกิจกรรมอื่นที่ยังว่าง (${input.openAlternatives})` : null
 
     if (closed) {
+        // เหตุผลอยู่บนป้ายของปุ่มที่ปิดใช้งานแล้ว — ไม่ทำแบนเนอร์ซ้ำอีกชั้น ยกเว้น "ยังไม่เปิด" ที่บอกเวลาเปิดเพิ่มให้มีประโยชน์
+        let detail: string | null = null
+        if (closed === "not_yet_open" && input.openAt) {
+            const countdown = openCountdown(input.openAt, now)
+            detail = `เปิดรับสมัคร ${formatDeadline(input.openAt)}${countdown ? ` (${countdown})` : ""}`
+        }
         return {
             ...empty,
             kind: "closed",
             tone: "neutral",
-            // เหตุผลอยู่บนป้ายของปุ่มที่ปิดใช้งานแล้ว — ไม่ทำแบนเนอร์ซ้ำอีกชั้น
             primary: { label: CLOSED_LABEL[closed], disabled: true },
+            detail,
             alternativesHint,
         }
     }
@@ -372,16 +393,16 @@ export function describeAction(input: ActionInput): ActionView {
 export interface SkillBenefit {
     skillType: string
     rate: number | null
-    /** "ผ่าน" / "ดี" / "ดีเยี่ยม" (ข้อมูลรุ่นเก่าที่ไม่ใช่ 2/3/5 = "ระดับ N", ไม่มี rate = "") */
+    /** "ผ่าน" / "ดี" / "ดีเยี่ยม" (ข้อมูลรุ่นเก่าที่ไม่ใช่ 1/2/3 = "ระดับ N", ไม่มี rate = "") */
     levelLabel: string
     /** จำนวนจุดที่เติม 0-3 */
     dots: 0 | 1 | 2 | 3
 }
 
-const TIER_DOTS: Record<number, 1 | 2 | 3> = { 2: 1, 3: 2, 5: 3 }
+const TIER_DOTS: Record<number, 1 | 2 | 3> = { 1: 1, 2: 2, 3: 3 }
 
 /**
- * แปลงระดับที่ผู้จัดตั้งไว้ (2/3/5) เป็นคำที่นักศึกษาเข้าใจ — เดิมแสดง "น้ำหนัก 5/5" ซึ่งผิดความหมาย
+ * แปลงระดับที่ผู้จัดตั้งไว้ (1/2/3) เป็นคำที่นักศึกษาเข้าใจ — เดิมแสดง "น้ำหนัก 5/5" ซึ่งผิดความหมาย
  * เพราะเลขนี้คือระดับพฤติกรรม ไม่ใช่น้ำหนักเต็ม 5
  */
 export function describeSkillBenefits(softSkills: { skillType: string; rate?: number | null }[] | undefined | null): SkillBenefit[] {

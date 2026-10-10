@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { ActivitiesRepository } from './activities.repository';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
@@ -278,11 +279,7 @@ export class ActivitiesService {
       throw new BadRequestException('กิจกรรมนี้ถูกยกเลิกไปแล้ว ไม่สามารถจบกิจกรรมได้');
     }
 
-    // endAt เป็น null สำหรับกิจกรรมรุ่นเก่า จึงถอยไปใช้ date + endTime แทน
-    const endsAt = activity.endAt
-      ? new Date(activity.endAt)
-      : new Date(`${new Date(activity.date).toISOString().slice(0, 10)}T${activity.endTime || '23:59'}:00`);
-
+    const endsAt = this.computeEndsAt(activity);
     if (!Number.isNaN(endsAt.getTime()) && endsAt.getTime() > Date.now()) {
       throw new BadRequestException('ยังไม่ถึงเวลาสิ้นสุดกิจกรรม ยังจบกิจกรรมไม่ได้');
     }
@@ -293,6 +290,53 @@ export class ActivitiesService {
     void this.notifyActivityCompleted(activityId, activity.name);
 
     return saved;
+  }
+
+  /** endAt เป็น null สำหรับกิจกรรมรุ่นเก่า จึงถอยไปใช้ date + endTime แทน — ใช้ร่วมกันทั้ง markCompleted
+   *  แบบกดเองและ autoCompleteOverdueActivities (งานอัตโนมัติ) กันสูตรเพี้ยนไม่ตรงกันระหว่างสองทาง */
+  private computeEndsAt(activity: { endAt: Date | null; date: Date; endTime: string | null }): Date {
+    return activity.endAt
+      ? new Date(activity.endAt)
+      : new Date(`${new Date(activity.date).toISOString().slice(0, 10)}T${activity.endTime || '23:59'}:00`);
+  }
+
+  /**
+   * งานอัตโนมัติ: ปิดกิจกรรมที่เลยเวลาสิ้นสุดแล้วแต่ผู้จัดยังไม่ได้กด "จบกิจกรรม" เอง — ใช้เงื่อนไขเดียวกับ
+   * markCompleted ทุกอย่าง (ยกเว้นเช็คเจ้าของ เพราะไม่มีผู้เรียกจริง) รวมถึงอีเมลแจ้งผู้เข้าร่วมที่เช็คอินแล้ว
+   * ชุดเดียวกัน ผู้ใช้ปลายทางไม่ควรรู้สึกต่างกันว่าใครเป็นคนกด — แค่ "กิจกรรมจบแล้ว" เหมือนกัน
+   *
+   * แต่ละกิจกรรมพังแยกจากกัน ไม่ throw ต่อ — ไม่งั้นกิจกรรมหนึ่งมีปัญหาจะพารายการอื่นในรอบเดียวกันไม่ถูกปิดไปด้วย
+   * รันทุก 10 นาที (ค่าคงที่ที่ละเอียดสุดที่ @nestjs/schedule มีให้คือระดับนี้): ถี่พอให้แบบสำรวจเปิดให้
+   * ผู้เข้าร่วมตอบได้โดยไม่รอนาน ไม่ถี่จนไม่จำเป็น
+   *
+   * หมายเหตุ: ตอนนี้ backend รันอินสแตนซ์เดียว (ดู docker-compose.yml) จึงไม่มีความเสี่ยงรันซ้ำซ้อนจนแจ้งอีเมล
+   * ผู้เข้าร่วมซ้ำ — ถ้าในอนาคตขยายเป็นหลายอินสแตนซ์ ต้องเพิ่ม lock กันชนกันก่อน
+   */
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async autoCompleteOverdueActivities(): Promise<number> {
+    const now = new Date();
+    const candidates = await this.activitiesRepository.findOpenPastEnd(now);
+    let completedCount = 0;
+
+    for (const activity of candidates) {
+      const endsAt = this.computeEndsAt(activity);
+      if (Number.isNaN(endsAt.getTime()) || endsAt.getTime() > now.getTime()) continue; // ยังไม่ถึงเวลาจริง (เคสรุ่นเก่าที่คำนวณจาก date+endTime)
+
+      try {
+        await this.activitiesRepository.markCompleted(activity.id);
+        this.logger.log(`Activity auto-completed (เลยเวลาสิ้นสุดแล้ว): "${activity.name}" (ID: ${activity.id})`);
+        void this.notifyActivityCompleted(activity.id, activity.name);
+        completedCount++;
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.error(`autoCompleteOverdueActivities failed for activity ${activity.id}: ${msg}`);
+      }
+    }
+
+    if (completedCount > 0) {
+      this.logger.log(`Auto-complete run: ปิดกิจกรรมที่เลยเวลาไปแล้ว ${completedCount} รายการ`);
+    }
+    return completedCount;
   }
 
   private async notifyActivityCompleted(activityId: number, activityName: string) {
@@ -345,7 +389,14 @@ export class ActivitiesService {
     ]);
 
     const totalActivities = activities.length;
-    const activeActivities = activities.filter((a) => a.approvalStatus === ApprovalStatus.APPROVED).length;
+    // "กำลังเปิดรับ" ต้องแปลว่าเปิดรับสมัครอยู่จริง (status) ไม่ใช่แค่ผ่านการอนุมัติ (approvalStatus) —
+    // เดิมนับจาก approvalStatus === APPROVED ทำให้ตัวเลขบนการ์ดสถิติไม่ตรงกับแท็บสถานะ "เปิดรับสมัคร"
+    // ของหน้าเดียวกัน (กิจกรรมที่อนุมัติแล้วแต่ถูกปิดรับสมัคร/จบไปแล้ว ก็ยังถูกนับว่า "active" อยู่)
+    // ต้อง === APPROVED ตรงๆ (ไม่ใช่แค่ !== CANCELLED/REJECTED) ให้ตรงกับเงื่อนไขเดียวกับที่
+    // findAllApproved/EXCLUDE_RESTRICTED ใช้ตัดสินว่ากิจกรรมนี้เปิดให้สาธารณะเห็น-สมัครได้จริงหรือไม่
+    const activeActivities = activities.filter(
+      (a) => a.status === ActivityStatus.OPEN && a.approvalStatus === ApprovalStatus.APPROVED,
+    ).length;
     const totalRegistrations = activities.reduce((sum, a) => sum + a._count.registrations, 0);
 
     return { totalActivities, activeActivities, totalRegistrations, totalStudents, pendingRegistrations };

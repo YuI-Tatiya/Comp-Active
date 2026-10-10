@@ -1,11 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { usePathname } from "next/navigation"
 import Image from "next/image"
-import { X, Send, Loader2 } from "lucide-react"
+import { X, Send, Loader2, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { chatbotAPI, type ChatHistoryItem } from "@/lib/api"
+import { PUBLIC_ADMIN_HOSTS, isAdminHostname } from "@/lib/admin-host"
 
 type Corner = "br" | "bl" | "tr" | "tl"
 
@@ -21,6 +21,14 @@ const DRAG_THRESHOLD = 6
 
 /** ซ่อนแล้วจำไว้ใน localStorage ของเบราว์เซอร์นี้ — ไม่โผล่ซ้ำอีกจนกว่าจะล้างข้อมูลเว็บไซต์ */
 const HIDDEN_KEY = "compactive:mascot-hidden"
+
+/**
+ * บทสนทนา+สถานะเปิด/ปิดกล่องแชท เก็บใน sessionStorage (ไม่ใช่ localStorage) — คงอยู่ตลอดแท็บนี้
+ * (สลับหน้าในแอป, กดรีเฟรช) แต่ไม่ค้างข้ามวันข้ามแท็บเหมือน "ซ่อนมาสคอต" ด้านบน เพราะนี่คือบทสนทนาจริง
+ * ไม่ใช่แค่ค่ากำหนดเล็กๆ — ปิดแท็บ/เปิดแท็บใหม่แล้วเริ่มทักทายใหม่ถือเป็นเรื่องที่คาดหวังได้ตามปกติ
+ */
+const MESSAGES_KEY = "compactive:mascot-messages"
+const OPEN_KEY = "compactive:mascot-open"
 
 const CORNER_POSITION: Record<Corner, React.CSSProperties> = {
     br: { bottom: EDGE_GAP, right: EDGE_GAP },
@@ -53,16 +61,21 @@ const CORNER_NOTCH: Record<Corner, string> = {
 }
 
 /**
- * มาสคอตลอยที่ลากไปวางมุมไหนของจอก็ได้ — ตอนนี้ยังไม่มีระบบถาม-ตอบจริง
- * มีบับเบิลแชทจริง (ไม่ใช่แค่ข้อความต้อนรับ) คุยกับ Gemini API ผ่าน backend proxy (ดู chatbotAPI ใน lib/api.ts
- * — ไม่เรียก Gemini ตรงจาก browser เด็ดขาด ไม่งั้น API key หลุด) ประวัติสนทนาเก็บแค่ใน state หน้านี้
- * (รีเฟรชหน้าแล้วหาย ไม่มี backend เก็บ session แชทให้)
+ * มาสคอตลอยที่ลากไปวางมุมไหนของจอก็ได้ มีบับเบิลแชทจริงคุยกับ Gemini API ผ่าน backend proxy
+ * (ดู chatbotAPI ใน lib/api.ts — ไม่เรียก Gemini ตรงจาก browser เด็ดขาด ไม่งั้น API key หลุด)
  *
- * กดปุ่มปิดที่บับเบิลแล้วซ่อนทั้งตัว (ไม่ใช่แค่บับเบิล) และจำไว้ไม่ให้โผล่ซ้ำอีก — เดิมปุ่มนี้ปิดแค่บับเบิล
- * ส่วนตัวมาสคอตยังลอยค้างอยู่เสมอไม่มีทางซ่อนได้เลย ซ่อนแล้วไม่ได้หายเกลี้ยง เหลือปุ่มเล็กๆ มุมเดิมไว้กดเรียกกลับมา
+ * mount ที่ app/layout.tsx จุดเดียว (ไม่ใช่ต่อหน้า) จึงเป็น instance เดียวกันทั้งแอปอยู่แล้วโดยธรรมชาติ
+ * ของ React — คลิกลิงก์ในแอปไปหน้าไหนก็ไม่ remount ไม่เสีย state (ยืนยันแล้วด้วย headless browser)
+ * บทสนทนา+สถานะเปิด/ปิดยังเก็บเพิ่มใน sessionStorage (ดู MESSAGES_KEY/OPEN_KEY) ให้ทนต่อการกดรีเฟรช/เปิด
+ * URL ตรงๆ ในแท็บเดิมด้วย ไม่ใช่แค่กรณีคลิกลิงก์ภายใน — หายแค่ตอนปิดแท็บ/เปิดแท็บใหม่ (ตั้งใจ ไม่ใช่ localStorage)
+ *
+ * หัวบับเบิลมี 2 ปุ่มแยกความหมายกันชัดเจน:
+ * - ย่อแชท (ChevronDown) = setOpenPersisted(false) เฉยๆ — ปิดกล่องคุย แต่ตัวมาสคอตยังยืนตัวใหญ่ลอยอยู่เหมือนเดิม
+ *   กดที่ตัวมาสคอตอีกทีเพื่อเปิดกล่องคุยกลับมา (ไม่ต้องรอ "เรียกคืน" จากไอคอนวงกลมเล็ก)
+ * - ซ่อนมาสคอต (X) = hideMascot() ซ่อนทั้งตัว (ทั้งบับเบิลและตัวมาสคอต) เหลือแค่ปุ่มวงกลมเล็กมุมเดิม
+ *   และจำไว้ใน localStorage ไม่ให้โผล่ซ้ำอีกจนกว่าจะกดปุ่มวงกลมนั้นเรียกคืน
  */
 export function MascotWidget() {
-    const pathname = usePathname()
     const [open, setOpen] = React.useState(false)
     const [corner, setCorner] = React.useState<Corner>("br")
     const [dragPos, setDragPos] = React.useState<{ x: number; y: number } | null>(null)
@@ -115,13 +128,57 @@ export function MascotWidget() {
         }
     }, [])
 
+    /**
+     * ตั้ง open พร้อมจำลง sessionStorage ในจังหวะเดียวกัน — ต้องเป็นฟังก์ชันนี้ทุกจุดที่ต้องการให้ค่า
+     * "คงอยู่" ข้ามรีเฟรช ห้ามใช้ setOpen ตรงๆ เด็ดขาดนอกจากตอนคืนค่าตัวเอง (ดู effect ด้านล่าง) เพราะถ้าเขียน
+     * sessionStorage ผ่าน useEffect(() => ..., [open]) เฉยๆ จะมี race: มันรันตั้งแต่ mount แรกด้วย
+     * ทั้งที่ open ตอนนั้นยังเป็น false ชั่วคราวก่อน timer auto-open จะทำงาน (ยังไม่ใช่ค่าที่ "ตัดสินใจแล้ว")
+     * ถ้าเผลอรีเฟรชในช่วง 700ms นั้นพอดี จะอ่านค่า false ชั่วคราวนั้นกลับมาเป็น "ผู้ใช้ปิดเอง" แล้วข้าม timer
+     * ไปเลย เปิดไม่ขึ้นอีกตลอดเซสชัน — ต้องเขียนเฉพาะจังหวะที่ "ตัดสินใจแล้วจริงๆ" เท่านั้น
+     */
+    function setOpenPersisted(value: boolean) {
+        setOpen(value)
+        try {
+            sessionStorage.setItem(OPEN_KEY, value ? "1" : "0")
+        } catch {
+            // เพิกเฉย — แค่จะไม่ถูกจำไว้ข้ามการรีเฟรชรอบนี้ ไม่กระทบการใช้งานรอบปัจจุบัน
+        }
+    }
+
+    // คืนค่าบทสนทนา+สถานะเปิด/ปิดจาก sessionStorage ถ้ามี (สลับหน้า/รีเฟรชมาในแท็บเดิม) — ถ้าไม่มีเลย
+    // ถือว่าเป็นแท็บใหม่จริงๆ ค่อยเข้า timer auto-open ตามเดิม (ไม่งั้นจะเด้งเปิดทับสถานะที่ผู้ใช้เพิ่งปิดไปเอง)
     React.useEffect(() => {
-        const timer = setTimeout(() => setOpen(true), 700)
-        return () => clearTimeout(timer)
+        let timer: ReturnType<typeof setTimeout> | undefined
+        try {
+            const savedMessages = sessionStorage.getItem(MESSAGES_KEY)
+            const parsed = savedMessages ? JSON.parse(savedMessages) : null
+            if (Array.isArray(parsed) && parsed.length > 0) setMessages(parsed)
+
+            const savedOpen = sessionStorage.getItem(OPEN_KEY)
+            if (savedOpen !== null) {
+                setOpen(savedOpen === "1") // แค่คืนค่าที่เพิ่งอ่านมา ไม่ต้องเขียนซ้ำกลับไปเฉยๆ
+            } else {
+                timer = setTimeout(() => setOpenPersisted(true), 700)
+            }
+        } catch {
+            // sessionStorage ใช้ไม่ได้ (private mode ฯลฯ) — ถือว่าไม่มีค่าบันทึกไว้ เปิดแบบแท็บใหม่ตามปกติ
+            timer = setTimeout(() => setOpenPersisted(true), 700)
+        }
+        return () => {
+            if (timer) clearTimeout(timer)
+        }
     }, [])
 
+    React.useEffect(() => {
+        try {
+            sessionStorage.setItem(MESSAGES_KEY, JSON.stringify(messages))
+        } catch {
+            // เพิกเฉย — แค่จะไม่ถูกจำไว้ข้ามการรีเฟรชรอบนี้ ไม่กระทบบทสนทนาปัจจุบัน
+        }
+    }, [messages])
+
     function hideMascot() {
-        setOpen(false)
+        setOpenPersisted(false)
         setHidden(true)
         try {
             localStorage.setItem(HIDDEN_KEY, "1")
@@ -167,7 +224,7 @@ export function MascotWidget() {
             const isTop = e.clientY < window.innerHeight / 2
             setCorner(isTop ? (isLeft ? "tl" : "tr") : isLeft ? "bl" : "br")
         } else {
-            setOpen((v) => !v)
+            setOpenPersisted(!open)
         }
     }
 
@@ -178,9 +235,16 @@ export function MascotWidget() {
 
     const isDragging = dragPos !== null
 
-    // แอดมินมีธีม/ระบบ auth แยกต่างหาก ไม่ให้มาสคอตไปโผล่ในโซนนั้น
-    // !mounted กันไม่ให้เช็ค localStorage (hidden) ต่างกันระหว่าง SSR กับไคลเอนต์จนขึ้น hydration mismatch
-    if (!mounted || pathname?.startsWith("/admin")) return null
+    // !mounted กันไม่ให้เช็ค localStorage (hidden)/hostname ต่างกันระหว่าง SSR กับไคลเอนต์จนขึ้น
+    // hydration mismatch (SSR ไม่มี window ให้เช็ค hostname เลย ต้องรอ client เท่านั้น)
+    //
+    // แอดมินไม่ต้องมี AI chatbot — เช็คจาก window.location.hostname (โฮสต์จริงที่ browser กำลังคุยด้วย
+    // ปลอมไม่ได้) ไม่ใช่ usePathname() แบบที่เคยเป็น เพราะ proxy.ts ใช้ rewrite (ไม่ใช่ redirect) พา
+    // "admin.localhost/login" ไป serve จาก app/admin/login แบบโปร่งใสฝั่ง server — usePathname()
+    // ฝั่ง client จึงเห็นแค่ "/login" เดิม ไม่มี "/admin" ติดมาด้วยเลย เช็ค startsWith("/admin") แบบเดิม
+    // จึงไม่เคยเป็นจริงได้จริงบนโดเมนแอดมินจริง (ดูหมายเหตุที่ lib/admin-host.ts ว่าทำไมเช็คที่นี่
+    // แทนที่จะเช็คฝั่ง server ใน app/layout.tsx — เรื่อง static prerendering)
+    if (!mounted || isAdminHostname(window.location.hostname.toLowerCase(), PUBLIC_ADMIN_HOSTS)) return null
 
     // ซ่อนแล้วไม่ใช่หายเกลี้ยงไม่มีทางเรียกคืน — เหลือปุ่มเล็กๆ มุมเดิมไว้กดเรียกกลับมา
     if (hidden) {
@@ -221,18 +285,31 @@ export function MascotWidget() {
                         : "pointer-events-none translate-y-2 scale-95 opacity-0"
                 )}
             >
-                <button
-                    type="button"
-                    onClick={hideMascot}
-                    aria-label="ซ่อนมาสคอต"
-                    className="absolute -right-2 -top-2 z-10 flex size-6 items-center justify-center rounded-full border border-border bg-bg text-fg-subtle shadow-sm transition-colors hover:text-fg"
-                >
-                    <X className="size-3.5" />
-                </button>
-
-                <div className="shrink-0 border-b border-border px-4 py-3 pr-9">
-                    <p className="text-sm font-bold text-fg">ผู้ช่วย Comp Active</p>
-                    <p className="text-xs text-fg-subtle">ตอบโดย AI อัตโนมัติ — คำถามเฉพาะบัญชีให้ติดต่อผู้จัด/ผู้ดูแลระบบแทน</p>
+                <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border px-4 py-3">
+                    <div className="min-w-0">
+                        <p className="text-sm font-bold text-fg">ผู้ช่วย Comp Active</p>
+                        <p className="text-xs text-fg-subtle">ตอบโดย AI อัตโนมัติ — คำถามเฉพาะบัญชีให้ติดต่อผู้จัด/ผู้ดูแลระบบแทน</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                        <button
+                            type="button"
+                            onClick={() => setOpenPersisted(false)}
+                            aria-label="ย่อแชท (มาสคอตยังอยู่)"
+                            title="ย่อแชท"
+                            className="flex size-7 items-center justify-center rounded-lg text-fg-subtle transition-colors hover:bg-surface hover:text-fg"
+                        >
+                            <ChevronDown className="size-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={hideMascot}
+                            aria-label="ซ่อนมาสคอต"
+                            title="ซ่อนมาสคอต"
+                            className="flex size-7 items-center justify-center rounded-lg text-fg-subtle transition-colors hover:bg-surface hover:text-fg"
+                        >
+                            <X className="size-4" />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex max-h-80 flex-col gap-2.5 overflow-y-auto px-4 py-3">

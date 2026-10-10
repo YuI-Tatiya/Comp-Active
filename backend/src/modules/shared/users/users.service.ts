@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { UsersRepository } from './users.repository';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserRole } from '../../../common/enums/role.enum';
 import { generateSecurePassword, validateAcademicInfo } from '../../../common/utils';
+import { PROFILE_ERRORS } from '../../../common/constants';
 
 @Injectable()
 export class UsersService {
@@ -46,6 +47,7 @@ export class UsersService {
 
     const data: Record<string, any> = {};
     if (updateDto.name !== undefined) data.name = updateDto.name;
+    if (updateDto.username !== undefined) data.username = updateDto.username;
     if (updateDto.studentId !== undefined) data.studentId = updateDto.studentId;
     if (updateDto.phone !== undefined) data.phone = updateDto.phone;
     if (updateDto.educationLevel !== undefined) data.educationLevel = updateDto.educationLevel;
@@ -54,7 +56,16 @@ export class UsersService {
       data.password = await bcrypt.hash(updateDto.newPassword, 12);
     }
 
-    const updated = await this.usersRepository.update(userId, data);
+    let updated;
+    try {
+      updated = await this.usersRepository.update(userId, data);
+    } catch (error: any) {
+      // username มี @unique ที่ schema — เป็นฟิลด์เดียวในนี้ที่ชนกันได้ (email ไม่รับจาก DTO นี้)
+      if (error?.code === 'P2002') {
+        throw new ConflictException(PROFILE_ERRORS.USERNAME_TAKEN);
+      }
+      throw error;
+    }
 
     this.logger.log(`User profile updated: ${updated.email}`);
     return updated;

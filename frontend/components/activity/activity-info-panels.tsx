@@ -4,14 +4,17 @@ import { Badge } from "@/components/ui/badge"
 import { API_BASE_URL, capacityLabel, isCancelledByOrganizer, type Activity } from "@/lib/api"
 import { categoryLabel } from "@/lib/categories"
 import { BenefitsSection } from "@/components/activity/benefits-section"
+import type { ScheduleLabel } from "@/lib/activity-view"
 import {
     AlertTriangle,
     CalendarClock,
+    CalendarDays,
     CheckSquare,
     FileDown,
     Info,
     ListChecks,
     Tag,
+    Target,
     UserCircle,
     Users,
 } from "lucide-react"
@@ -23,12 +26,19 @@ import {
  * กรอกตอนสร้าง (ไฟล์แนบ / ใบจิตอาสา / น้ำหนัก Soft Skill / วันปิดรับสมัคร)
  * ตกหล่นคนละชุด — รวมมาไว้ที่เดียวเพื่อไม่ให้หลุดอีก
  *
- * ไม่มีแผง "เงื่อนไข" และ "สิทธิประโยชน์" เพราะ wizard สร้างงานไม่เคยเก็บสองฟิลด์นี้
- * (ดู frontend/app/organizer/create/_components/activity-tab-form.tsx) — backend
- * ยังเก็บคอลัมน์ไว้เหมือนเดิม ถ้าวันหน้าเพิ่มช่องกรอกค่อยเพิ่มแผงกลับมาได้
+ * ไม่มีแผง "สิทธิประโยชน์" เพราะ wizard สร้างงานไม่เคยเก็บฟิลด์นี้ (ดู
+ * frontend/app/organizer/create/_components/activity-tab-form.tsx) — backend ยังเก็บ
+ * คอลัมน์ไว้เหมือนเดิม ถ้าวันหน้าเพิ่มช่องกรอกค่อยเพิ่มแผงกลับมาได้ "เงื่อนไข" (conditions)
+ * กลับมาแล้วที่ ActivityAboutPanel ด้านล่าง — wizard ปัจจุบันก็ไม่เก็บฟิลด์นี้เหมือนกัน แต่
+ * schema/backend ยังอ่าน-เขียนได้ปกติ (กิจกรรมเก่า/ที่กรอกผ่านช่องทางอื่นจึงมีข้อมูลแสดงได้จริง)
+ *
+ * `bare`: คอมโพเนนต์ปกติห่อการ์ดของตัวเอง (PANEL_CLASS) — แต่หน้ารายละเอียดกิจกรรมที่ merge
+ * เป็นการ์ดเดียว (รายละเอียด+กำหนดการ+การลงทะเบียน) ต้องการแค่เนื้อหาไม่มีการ์ดห่อซ้ำ จึงส่ง
+ * bare ผ่านมาข้ามการห่อการ์ดของตัวเอง ให้หน้าห่อการ์ดเดียวจากข้างนอกแทน
  */
 
-const PANEL_CLASS = "bg-bg p-6 sm:p-8 rounded-2xl border border-border shadow-xs space-y-6"
+/** ส่งออกให้หน้าที่ merge หลายแผง (bare) เป็นการ์ดเดียวใช้ class เดียวกันเป๊ะๆ ไม่พิมพ์ซ้ำเอง */
+export const PANEL_CLASS = "bg-bg p-5 rounded-2xl border border-border shadow-xs space-y-4"
 
 function EmptyNote({ children }: { children: React.ReactNode }) {
     return (
@@ -105,12 +115,15 @@ interface AboutPanelProps {
     showActivityImage?: boolean
     /** ซ่อนบรรทัดหมวดหมู่/ผู้จัด — หน้าลงทะเบียนของนักศึกษาแสดงสองอย่างนี้ใน Hero แล้ว ไม่ให้ซ้ำ */
     hideMeta?: boolean
+    /** ข้ามการห่อการ์ด PANEL_CLASS ของตัวเอง — ดูหมายเหตุ "bare" ด้านบนไฟล์ */
+    bare?: boolean
 }
 
-/** แผง "รายละเอียด" — รูปกิจกรรม, คำอธิบาย, หมวดหมู่, ผู้จัด, ไฟล์แนบ, tags */
-export function ActivityAboutPanel({ activity, showActivityImage = false, hideMeta = false }: AboutPanelProps) {
-    return (
-        <div className={PANEL_CLASS}>
+/** แผง "รายละเอียด" — รูปกิจกรรม, คำอธิบาย, คุณสมบัติผู้เข้าร่วม, หมวดหมู่, ผู้จัด, ไฟล์แนบ, tags */
+export function ActivityAboutPanel({ activity, showActivityImage = false, hideMeta = false, bare = false }: AboutPanelProps) {
+    const conditions = activity.conditions ?? []
+    const content = (
+        <>
             <ActivityStatusNotice activity={activity} />
 
             {showActivityImage && activity.imageUrl && (
@@ -130,6 +143,19 @@ export function ActivityAboutPanel({ activity, showActivityImage = false, hideMe
                     {activity.description || "ไม่มีรายละเอียด"}
                 </p>
             </div>
+
+            {/* คุณสมบัติผู้เข้าร่วม/สิ่งที่ต้องเตรียมมา — มาจาก activity.conditions (ฟิลด์เดิมที่ wizard ไม่ได้เก็บแล้ว
+                แต่ backend ยังอ่าน-เขียนได้ปกติ) แสดงเฉพาะกิจกรรมที่มีข้อมูลจริง ไม่ fallback เป็นข้อความเปล่า */}
+            {conditions.length > 0 && (
+                <div>
+                    <PanelHeading icon={Target} tone="text-brand-600">คุณสมบัติผู้เข้าร่วม / สิ่งที่ต้องเตรียมมา</PanelHeading>
+                    <ul className="mt-4 list-inside list-disc space-y-1.5 text-fg-muted">
+                        {conditions.map((c, i) => (
+                            <li key={i}>{c.conditionText}</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
 
             {!hideMeta && (
                 <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-fg-muted">
@@ -173,8 +199,10 @@ export function ActivityAboutPanel({ activity, showActivityImage = false, hideMe
                     </div>
                 </div>
             )}
-        </div>
+        </>
     )
+
+    return bare ? content : <div className={PANEL_CLASS}>{content}</div>
 }
 
 /**
@@ -187,6 +215,8 @@ export function ActivityRewardsPanel({ activity }: { activity: Activity }) {
 
 interface RegistrationPanelProps {
     activity: Activity
+    /** วันเปิดรับสมัครระดับงาน (Event) — กิจกรรมเดี่ยวรุ่นเก่าไม่มีค่านี้ */
+    registrationOpenAt?: string | null
     /** วันปิดรับสมัครระดับงาน (Event) — กิจกรรมเดี่ยวรุ่นเก่าไม่มีค่านี้ */
     registrationCloseAt?: string | null
     /**
@@ -194,6 +224,8 @@ interface RegistrationPanelProps {
      * (ที่นั่งในการ์ดรายละเอียด, วันปิดรับสมัครในการ์ดสมัคร) ไม่ให้ซ้ำ
      */
     hideLogistics?: boolean
+    /** ข้ามการห่อการ์ด PANEL_CLASS ของตัวเอง — ดูหมายเหตุ "bare" ที่ ActivityAboutPanel ด้านบน */
+    bare?: boolean
 }
 
 /** ข้อมูลที่ต้องกรอกเพิ่มตอนสมัคร ตามประเภทการรับสมัคร (สตาฟฟ์/แข่งขัน) — ผู้เข้าร่วมทั่วไปไม่มี */
@@ -217,12 +249,18 @@ function typeRequirements(activity: Activity): { label: string; value: string }[
 }
 
 /** แผง "การลงทะเบียน" — จำนวนที่รับ, วันปิดรับสมัคร, คำถามที่ต้องตอบ */
-export function ActivityRegistrationPanel({ activity, registrationCloseAt, hideLogistics = false }: RegistrationPanelProps) {
+export function ActivityRegistrationPanel({
+    activity,
+    registrationOpenAt,
+    registrationCloseAt,
+    hideLogistics = false,
+    bare = false,
+}: RegistrationPanelProps) {
     const questions = activity.questions ?? []
     const requirements = typeRequirements(activity)
 
-    return (
-        <div className={PANEL_CLASS}>
+    const content = (
+        <>
             <PanelHeading icon={ListChecks} tone="text-brand-600">{hideLogistics ? "ต้องเตรียมอะไรบ้าง" : "การลงทะเบียน"}</PanelHeading>
 
             {!hideLogistics && (
@@ -234,6 +272,17 @@ export function ActivityRegistrationPanel({ activity, registrationCloseAt, hideL
                     <div>
                         <div className="text-xs text-fg-muted">จำนวนที่รับ</div>
                         <div className="font-medium text-fg">{capacityLabel(activity.capacity)}</div>
+                    </div>
+                </div>
+                <div className="flex gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                        <CalendarClock className="w-5 h-5" aria-hidden="true" />
+                    </div>
+                    <div>
+                        <div className="text-xs text-fg-muted">เปิดรับสมัคร</div>
+                        <div className="font-medium text-fg">
+                            {registrationOpenAt ? formatDateTime(registrationOpenAt) : "เปิดทันที"}
+                        </div>
                     </div>
                 </div>
                 <div className="flex gap-3">
@@ -291,6 +340,40 @@ export function ActivityRegistrationPanel({ activity, registrationCloseAt, hideL
                     <EmptyNote>ไม่มีคำถามเพิ่มเติม — ลงทะเบียนได้ทันที</EmptyNote>
                 )}
             </div>
+        </>
+    )
+
+    return bare ? content : <div className={PANEL_CLASS}>{content}</div>
+}
+
+export interface AgendaSession {
+    id: number
+    name: string
+    schedule: ScheduleLabel
+}
+
+/**
+ * แผง "กำหนดการกิจกรรมย่อย" — เฉพาะงานที่มีมากกว่า 1 กิจกรรมย่อย (sessions.length <= 1 ไม่มีอะไรให้บอกเพิ่ม
+ * จากวันเวลาที่โชว์อยู่บน Hero แล้ว) ไม่มี field "วาระ/run-of-show" แยกต่างหากในระบบ จึงไม่ใส่ข้อมูลสมมติ —
+ * ใช้วัน-เวลาจริงของแต่ละกิจกรรมย่อย (เรียงตามลำดับที่ผู้จัดสร้างไว้ เหมือนตัวเลือกกิจกรรมบน Hero) แทน
+ */
+export function ActivityAgendaPanel({ sessions }: { sessions: AgendaSession[] }) {
+    if (sessions.length <= 1) return null
+
+    return (
+        <div>
+            <PanelHeading icon={CalendarDays} tone="text-brand-600">กำหนดการกิจกรรมย่อย</PanelHeading>
+            <ul className="mt-4 space-y-2.5">
+                {sessions.map((s) => (
+                    <li key={s.id} className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                        <span className="font-semibold text-fg">
+                            {s.schedule.dateLabel}
+                            {s.schedule.timeLabel && ` (${s.schedule.timeLabel})`}
+                        </span>
+                        <span className="text-fg-muted">{s.name}</span>
+                    </li>
+                ))}
+            </ul>
         </div>
     )
 }

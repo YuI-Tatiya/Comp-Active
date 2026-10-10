@@ -69,6 +69,9 @@ services:
         # เรียก API ผ่านโดเมนของหน้าเว็บเอง (app.localhost/api → nginx → backend)
         # ให้ cookie ของ session เป็น first-party — ดู frontend/lib/api-base.ts
         NEXT_PUBLIC_API_URL: same-origin
+        # มิเรอร์ของ ADMIN_HOSTS ด้านล่าง สำหรับ MascotWidget ฝั่ง client (ดู lib/admin-host.ts) —
+        # ต้องตั้งให้ตรงกับ ADMIN_HOSTS เสมอถ้าจะเปลี่ยนโดเมนแอดมิน
+        NEXT_PUBLIC_ADMIN_HOSTS: admin.localhost
     container_name: compactive_frontend
     environment:
       # โฮสต์ที่ proxy.ts ยอมให้เข้าโซนแอดมิน (allowlist เทียบตรงตัว)
