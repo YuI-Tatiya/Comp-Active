@@ -510,6 +510,7 @@ export default function MyRegistrationsPage() {
     <div className="bg-surface pb-12">
       {/* หัวข้อ — ไม่ใส่ sticky เพราะ AppHeader ปักที่ top-0 z-50 อยู่แล้ว แถบนี้จะมุดหายไปใต้มัน */}
       <PageHeader
+        prompt="~/comp-active/student $ ls --mine"
         title="กิจกรรมของฉัน"
         subtitle="ติดตามสถานะการเข้าร่วมและการประเมินผลของคุณ"
         icons={[ClipboardCheck, CalendarDays, Award]}

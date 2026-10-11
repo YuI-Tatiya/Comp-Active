@@ -25,10 +25,9 @@ export default function OrganizerLayout({
           links={LINKS}
           roleLabel="ผู้จัดกิจกรรม"
           accountHref="/organizer/settings"
-          theme="denim"
         />
         <main className="flex-1">{children}</main>
-        <SiteFooter theme="denim" />
+        <SiteFooter />
       </div>
     </RoleGuard>
   )

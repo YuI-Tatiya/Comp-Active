@@ -166,6 +166,7 @@ export default function EventsPage() {
 
             {/* หัวเรื่องแบบเดียวกับ /student/events — ข้อความสำหรับผู้เยี่ยมชมที่ยังไม่ได้เข้าสู่ระบบ */}
             <PageHeader
+                prompt="~/comp-active $ ls events/"
                 title="กิจกรรมทั้งหมด"
                 subtitle="สำรวจกิจกรรมของวิทยาลัยการคอมพิวเตอร์ได้โดยไม่ต้องเข้าสู่ระบบ หากต้องการลงทะเบียนเข้าร่วมและสะสมคะแนน Soft Skills กรุณาเข้าสู่ระบบด้วยบัญชีนักศึกษา"
                 icons={[Compass, CalendarDays, Users]}
@@ -277,7 +278,7 @@ export default function EventsPage() {
                 </div>
             </Container>
 
-            <SiteFooter theme="denim" />
+            <SiteFooter />
         </div>
     )
 }

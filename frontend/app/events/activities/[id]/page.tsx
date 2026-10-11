@@ -72,7 +72,7 @@ export default function PublicActivityDetailsPage() {
                     <Loader2 className="mx-auto mb-4 size-8 animate-spin text-brand-600" aria-hidden="true" />
                     <p className="text-fg-muted">กำลังโหลดรายละเอียดกิจกรรม...</p>
                 </div>
-                <SiteFooter theme="denim" />
+                <SiteFooter />
             </div>
         )
     }
@@ -89,7 +89,7 @@ export default function PublicActivityDetailsPage() {
                         <Button onClick={() => router.push("/events")} className="w-full">กลับไปหน้าค้นหากิจกรรม</Button>
                     </div>
                 </div>
-                <SiteFooter theme="denim" />
+                <SiteFooter />
             </div>
         )
     }
@@ -113,7 +113,7 @@ export default function PublicActivityDetailsPage() {
             >
                 <Toast open={toast.open} message={toast.message} description={toast.description} />
             </ActivityRegistrationView>
-            <SiteFooter theme="denim" />
+            <SiteFooter />
         </div>
     )
 }

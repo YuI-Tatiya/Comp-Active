@@ -63,27 +63,44 @@ export const OUTLINE_ON_DENIM_BUTTON =
 
 /* ── หัวข้อส่วน / ปุ่มกลม ─────────────────────────────────────────────────── */
 
-/** หัวข้อส่วนแบบคอมเมนต์โค้ดนำหน้า ("// news.latest()") + h2 + ช่องขวาสำหรับลิงก์/ปุ่มเลื่อน */
+/**
+ * หัวข้อส่วนแบบคอมเมนต์โค้ดนำหน้า ("// news.latest()") + h2 + คำอธิบาย (ถ้ามี) + ช่องขวาสำหรับลิงก์/ปุ่มเลื่อน
+ * tone="dark" สำหรับส่วนที่พื้นยีนส์เข้ม (คอมเมนต์เป็นอำพัน หัวข้อขาว)
+ */
 export function DenimSectionHeading({
     id,
     comment,
     title,
+    description,
     action,
+    tone = "light",
 }: {
     id: string
     comment: string
     title: React.ReactNode
+    description?: React.ReactNode
     action?: React.ReactNode
+    tone?: "light" | "dark"
 }) {
+    const dark = tone === "dark"
     return (
         <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="flex flex-col gap-1.5">
-                <span className="font-code text-[13px] text-denim-accent" aria-hidden="true">
+                <span className={cn("font-code text-[13px]", dark ? "text-amber" : "text-denim-accent")} aria-hidden="true">
                     {`// ${comment}`}
                 </span>
-                <h2 id={id} className="font-display text-[30px] font-bold leading-tight text-denim-deep sm:text-[34px]">
+                <h2
+                    id={id}
+                    className={cn(
+                        "font-display text-[30px] font-bold leading-tight sm:text-[34px]",
+                        dark ? "text-white" : "text-denim-deep"
+                    )}
+                >
                     {title}
                 </h2>
+                {description && (
+                    <p className={cn("text-[15px]", dark ? "text-denim-on" : "text-denim-muted")}>{description}</p>
+                )}
             </div>
             {action}
         </div>
@@ -105,7 +122,7 @@ export function RoundIconButton({
             type="button"
             onClick={onClick}
             aria-label={label}
-            className="grid size-11 place-items-center rounded-full border-[1.5px] border-denim-line bg-white text-denim-deep transition-colors hover:border-denim hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-amber"
+            className="grid size-11 place-items-center rounded-full border-[1.5px] border-denim-line bg-white text-denim-deep transition-colors hover:border-denim hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-denim"
         >
             <Icon className="size-5" aria-hidden="true" />
         </button>
@@ -255,7 +272,7 @@ export function StatusTabs({ tabs, value, counts, onChange, className }: StatusT
 /* ── แผงค้นหา + ตัวกรอง ──────────────────────────────────────────────────── */
 
 const FIELD =
-    "min-h-11 h-11 rounded-xl border-[1.5px] border-denim-field bg-white text-sm text-denim-deep hover:border-denim-dash focus-visible:border-denim focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-amber"
+    "min-h-11 h-11 rounded-xl border-[1.5px] border-denim-field bg-white text-sm text-denim-deep hover:border-denim-dash focus-visible:border-denim focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-denim"
 
 interface FilterPanelProps {
     searchValue: string
@@ -474,7 +491,7 @@ export function CreateActivityTile() {
     return (
         <Link
             href="/organizer/create"
-            className="flex min-h-[300px] flex-col items-center justify-center gap-3.5 rounded-[22px] border-2 border-dashed border-denim-dash bg-white p-6 text-center text-denim transition-colors hover:border-denim hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-amber"
+            className="flex min-h-[300px] flex-col items-center justify-center gap-3.5 rounded-[22px] border-2 border-dashed border-denim-dash bg-white p-6 text-center text-denim transition-colors hover:border-denim hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
         >
             <span className="denim-weave grid size-16 place-items-center rounded-[20px]">
                 <Plus className="size-7 text-amber" strokeWidth={2.4} aria-hidden="true" />

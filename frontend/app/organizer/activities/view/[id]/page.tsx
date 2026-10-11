@@ -92,7 +92,7 @@ export default function OrganizerActivityViewPage() {
                 </div>
 
                 <ActivityPreviewHero
-                    imageUrl={activity.imageUrl ? `${API_BASE_URL}${activity.imageUrl}` : "/mascot.svg"}
+                    imageUrl={activity.imageUrl ? `${API_BASE_URL}${activity.imageUrl}` : "/activity-placeholder.svg"}
                     title={activity.name}
                     categories={activity.categories ?? []}
                     organizerName={activity.organizer?.name}

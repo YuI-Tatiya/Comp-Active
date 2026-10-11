@@ -13,7 +13,7 @@ import { SectionHeading } from "@/components/ui/section-heading"
 import { StatTile } from "@/components/ui/stat-tile"
 import { SkillRadar, SkillScoreList } from "@/components/ui/skill-radar"
 import { UpcomingItem, type UpcomingActivity } from "@/components/ui/upcoming-item"
-import { NewsCarousel } from "@/components/ui/news-carousel"
+import { NewsShowcase } from "@/components/home/news-showcase"
 import { categoriesBadgeLabel } from "@/lib/categories"
 import {
   activitiesAPI,
@@ -101,6 +101,7 @@ export default function StudentDashboardPage() {
     <>
       {/* ── แถบทักทาย ────────────────────────────────────────────────────── */}
       <PageHeader
+        prompt="~/comp-active/student $ whoami"
         badge={loadingMine ? "กำลังโหลดข้อมูล..." : `ระดับ ${level}`}
         title={`สวัสดี ${user?.name || "นักศึกษา"}`}
         subtitle="เลือกกิจกรรมที่สนใจ สะสมคะแนน Soft Skills และติดตามการเติบโตของคุณ"
@@ -327,7 +328,7 @@ export default function StudentDashboardPage() {
       </section>
 
       {/* ── ข่าวสารและประกาศ ─────────────────────────────────────────────── */}
-      <NewsCarousel />
+      <NewsShowcase />
     </>
   )
 }

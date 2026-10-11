@@ -145,7 +145,7 @@ export default function RootPage() {
         <SkillsShowcase />
       </main>
 
-      <SiteFooter theme="denim" />
+      <SiteFooter />
     </div>
   )
 }

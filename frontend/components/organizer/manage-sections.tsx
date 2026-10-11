@@ -145,7 +145,7 @@ export function ManageCard({
                 <div className="flex items-center gap-2.5 border-t border-denim-chip pt-4">
                     <Link
                         href={action.href}
-                        className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border-[1.5px] border-denim-field bg-denim-paper px-3 text-sm font-semibold text-denim-deep transition-colors hover:border-denim hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-amber"
+                        className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border-[1.5px] border-denim-field bg-denim-paper px-3 text-sm font-semibold text-denim-deep transition-colors hover:border-denim hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-denim"
                     >
                         <ActionIcon className="size-4" aria-hidden="true" />
                         {action.label}

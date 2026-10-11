@@ -162,6 +162,7 @@ export default function StudentEventsPage() {
         // ไม่ใส่ min-h-screen / SiteHeader / SiteFooter — app/student/layout.tsx จัดการให้แล้ว
         <div className="bg-surface font-sans">
             <PageHeader
+                prompt="~/comp-active/student $ ls events/"
                 title="กิจกรรมทั้งหมด"
                 subtitle="เลือกงานที่สนใจ กดเข้าไปดูรายละเอียดเพื่อลงทะเบียนเข้าร่วม"
                 icons={[Compass, CalendarDays, Users]}

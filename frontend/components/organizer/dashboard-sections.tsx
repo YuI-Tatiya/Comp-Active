@@ -255,7 +255,7 @@ export function ActivityTableRow({ row }: { row: ActivityRowData }) {
             <td className={cn(CELL, "pr-6 text-right")}>
                 <Link
                     href={row.href}
-                    className="inline-flex min-h-10 items-center gap-2 whitespace-nowrap rounded-xl border-[1.5px] border-denim-field bg-white px-4 text-sm font-semibold text-denim-deep transition-colors hover:border-denim hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-amber"
+                    className="inline-flex min-h-10 items-center gap-2 whitespace-nowrap rounded-xl border-[1.5px] border-denim-field bg-white px-4 text-sm font-semibold text-denim-deep transition-colors hover:border-denim hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-denim"
                 >
                     <ChartColumn className="size-4" aria-hidden="true" />
                     ดู dashboard

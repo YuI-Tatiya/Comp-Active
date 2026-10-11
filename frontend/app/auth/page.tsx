@@ -35,8 +35,8 @@ const STEPS = [
         title: "เข้าสู่ระบบแบบนักศึกษา",
         body: (
             <>
-                ที่ช่อง <span className="font-medium text-brand-900">Username</span> ให้กรอกอีเมล
-                <span className="font-medium text-brand-900"> @kkumail.com</span> ของคุณ
+                ที่ช่อง <span className="font-semibold text-white">Username</span> ให้กรอกอีเมล
+                <span className="font-semibold text-white"> @kkumail.com</span> ของคุณ
             </>
         ),
     },
@@ -49,7 +49,7 @@ const STEPS = [
                 สำหรับชมรม/หน่วยงานที่ต้องการจัดกิจกรรมเอง{" "}
                 <Link
                     href="/auth/organizer/register"
-                    className="font-medium text-brand-900 underline underline-offset-4 hover:text-brand-600"
+                    className="font-semibold text-amber underline underline-offset-4 hover:text-white"
                 >
                     สมัครที่นี่
                 </Link>
@@ -73,25 +73,29 @@ export default function AuthPage() {
             {/* ความสูงคงที่ — ไม่ยืดตามเนื้อหา จึงไม่ขยับเวลาสลับแท็บ */}
             <div className="grid h-[calc(100dvh-2rem)] max-h-[720px] w-full max-w-5xl overflow-hidden rounded-xl border border-border bg-bg shadow-md lg:grid-cols-2">
                 {/* ── แผงซ้าย ─────────────────────────────────────────────── */}
-                <aside className="hidden flex-col overflow-hidden bg-[url('/login_bg.png')] bg-cover bg-center text-brand-900 lg:flex">
+                <aside className="denim-weave hidden flex-col overflow-hidden text-white lg:flex">
+                    <p className="px-10 pt-8 font-code text-sm text-denim-on-muted">
+                        ~/comp-active $ login
+                        <span className="term-cursor" aria-hidden="true" />
+                    </p>
                     <ol className="flex flex-1 flex-col justify-center space-y-6 overflow-y-auto px-10 py-8">
                         {STEPS.map((step, i) => (
                             <li
                                 key={step.title}
                                 className={cn(
                                     "flex gap-4",
-                                    step.divider && "border-t border-brand-900/15 pt-6"
+                                    step.divider && "border-t border-dashed border-amber/40 pt-6"
                                 )}
                             >
-                                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-sm font-medium text-white">
+                                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-amber font-display text-sm font-bold text-denim-deep">
                                     {i + 1}
                                 </span>
                                 <div>
-                                    <h2 className="flex items-center gap-2 text-base font-medium">
+                                    <h2 className="flex items-center gap-2 text-base font-bold text-white">
                                         <step.icon className="size-4" aria-hidden="true" />
                                         {step.title}
                                     </h2>
-                                    <p className="mt-1 text-sm leading-relaxed text-brand-700">
+                                    <p className="mt-1 text-sm leading-relaxed text-denim-on">
                                         {step.body}
                                     </p>
                                 </div>
@@ -99,10 +103,11 @@ export default function AuthPage() {
                         ))}
                     </ol>
 
-                    <div className="shrink-0 border-t border-brand-900/15 px-10 py-5">
+                    <div className="checker-strip h-3.5 shrink-0" aria-hidden="true" />
+                    <div className="shrink-0 px-10 py-5">
                         <Link
                             href="/"
-                            className="inline-flex items-center gap-2 text-sm text-brand-700 transition-colors hover:text-brand-900"
+                            className="inline-flex items-center gap-2 text-sm text-denim-on transition-colors hover:text-white"
                         >
                             <ArrowLeft className="size-4" aria-hidden="true" />
                             กลับไปหน้าหลัก
@@ -128,7 +133,7 @@ export default function AuthPage() {
                                 className={cn(
                                     "flex-1 rounded-md py-2 text-sm transition-colors",
                                     activeTab === "login"
-                                        ? "bg-bg font-medium text-brand-600 shadow-xs"
+                                        ? "bg-denim font-semibold text-white shadow-xs"
                                         : "text-fg-muted hover:text-fg"
                                 )}
                             >
@@ -142,7 +147,7 @@ export default function AuthPage() {
                                 className={cn(
                                     "flex-1 rounded-md py-2 text-sm transition-colors",
                                     activeTab === "register"
-                                        ? "bg-bg font-medium text-brand-600 shadow-xs"
+                                        ? "bg-denim font-semibold text-white shadow-xs"
                                         : "text-fg-muted hover:text-fg"
                                 )}
                             >

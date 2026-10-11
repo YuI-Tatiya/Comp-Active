@@ -125,9 +125,27 @@ Routes organized under `app/`:
 
 Shared UI in `components/ui/` (Radix + Tailwind + CVA) and auth UI in `components/auth/`.
 
-**Denim Varsity theme (organizer portal + public pages):** `app/organizer/layout.tsx` passes `theme="denim"` to `AppHeader`/`SiteFooter` (and on to `UserMenu`); the public `SiteHeader` is denim-only and every public page passes `theme="denim"` to `SiteFooter`. The student portal (`AppHeader` default, `SiteFooter` default) keeps the old look. Shared pieces live in `components/denim/denim-ui.tsx` (hero frame, terminal prompt, section heading, stat cards, status tabs, filter panel, card cover/pill/row, create tile); page-specific parts in `components/organizer/*` and `components/home/*` (public `/`). Tokens are `denim-*`/`amber` in `globals.css`. The three fonts (`lib/denim-fonts.ts`) sit on `<html>` with `preload: false`, so a page only downloads them if it renders text in them; their tokens stay in `@theme inline`, which resolves the `var()` at the element and survived the earlier layout-scoped setup where a plain `@theme` silently fell back to Sarabun. News for both `/` (text slides) and `/student` (banner images) comes from `lib/news.ts`.
+**Theme — Denim Varsity, system-wide:**
 
-**Request budget:** a cold page load (first visit or hard refresh) must stay well under the burst of Nginx's `general` zone (60), and font files count. Never preload whole font families — Sarabun used to preload 32 files on every page, which pushed `/organizer` to 72 requests; the trailing API calls got 429 and rendered as empty lists. Measure with `performance.getEntriesByType('resource')` after a no-cache load. Weight counts too: `next/image` does not optimize SVGs, so raster art belongs in a PNG/JPG it can resize — the home hero's 20 MB `college.svg` (a photo wrapped in SVG) made the page 16.5 MB; `college-building.png` brought it to 1.4 MB.
+- **Tokens:** the theme lives in the tokens, so new pages get it by using them.
+  - `brand-*` is the denim scale (`brand-600` = denim, `brand-900` = denim-deep).
+  - `surface`/`border`/`fg*` are the denim paper, line and ink tones.
+  - `denim-*`/`amber` are for denim-specific pieces.
+- **Fonts:** `--font-sans` = IBM Plex Sans Thai and `--font-heading` = Bai Jamjuree, from `lib/denim-fonts.ts` on `<html>`.
+  - Plex and Bai are preloaded (10 files). JetBrains Mono is lazy.
+  - The font tokens stay in `@theme inline`, which resolves `var()` at the element. A plain `@theme` once silently fell back to the system font.
+- **Chrome:**
+  - `SiteHeader` (public), `AppHeader` + `UserMenu` (student/organizer) and `SiteFooter` have a single denim variant and no theme prop.
+  - The admin portal styles itself with inline hex, already mapped onto the denim palette. Keep new admin colors on that palette.
+  - Use light accents (amber, `#c3d3ea`) for numbers and text on dark denim panels. Green and denim are unreadable there.
+- **Shared pieces:**
+  - `components/denim/denim-ui.tsx`: hero frame, terminal prompt, section heading, stat cards, status tabs, filter panel, card cover/pill/row, create tile.
+  - `PageHeader` is the denim band used by list pages.
+  - Page-specific parts live in `components/organizer/*`, `components/home/*` (public `/`) and `components/about/*`.
+- **Focus rings:** amber only on denim backgrounds. On white it is ~2:1, below the 3:1 a focus indicator needs, so use denim there.
+- **News:** both `/` and `/student` show text slides from `lib/news.ts`.
+
+**Request budget:** a cold page load (first visit or hard refresh) must stay well under the burst of Nginx's `general` zone (60), and font files count. Preload only the weights pages actually use — Sarabun used to preload 32 files on every page, which pushed `/organizer` to 72 requests; the trailing API calls got 429 and rendered as empty lists. Today a cold load is 40-53 requests with at most 11 font files. Measure with `performance.getEntriesByType('resource')` after a no-cache load. Weight counts too: `next/image` does not optimize SVGs, so raster art belongs in a PNG/JPG it can resize — the home hero's 20 MB `college.svg` (a photo wrapped in SVG) made the page 16.5 MB; `college-building.png` brought it to 1.4 MB.
 
 ## Commands
 

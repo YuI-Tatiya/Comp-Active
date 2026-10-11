@@ -72,7 +72,7 @@ export function ActivityCard({ item }: { item: ActivityCardData }) {
     return (
         <Link
             href={item.href}
-            className="group block h-full rounded-[22px] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-amber"
+            className="group block h-full rounded-[22px] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
         >
             <article className="flex h-full flex-col overflow-hidden rounded-[22px] border border-denim-line bg-white transition-[transform,box-shadow] duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_18px_40px_-18px_rgb(18_34_61_/_0.45)]">
                 <CardCover
