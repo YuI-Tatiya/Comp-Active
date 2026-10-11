@@ -12,7 +12,7 @@ import {
     CreateActivityTile,
     StatusTabs,
     referenceCode,
-} from "@/components/organizer/denim-ui"
+} from "@/components/denim/denim-ui"
 import {
     CARD_MENU_TRIGGER,
     ManageCard,

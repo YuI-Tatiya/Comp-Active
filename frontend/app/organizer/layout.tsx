@@ -1,8 +1,6 @@
 import { AppHeader, type AppNavLink } from "@/components/layout/app-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 import { RoleGuard } from "@/components/auth/role-guard"
-import { cn } from "@/lib/utils"
-import { denimFontVariables } from "./fonts"
 
 const LINKS: AppNavLink[] = [
   { href: "/organizer", label: "หน้าหลัก", exact: true },
@@ -13,9 +11,8 @@ const LINKS: AppNavLink[] = [
   { href: "/organizer/about", label: "เกี่ยวกับเรา" },
 ]
 
-// server component (ไม่มี "use client") เพื่อโหลดฟอนต์ธีมผ่าน next/font — ส่วนที่ต้องเป็น client
-// (RoleGuard, AppHeader) เป็น client component อยู่แล้วในตัวเอง
 // header/footer ใช้ธีม Denim Varsity ทั้งพอร์ทัลผู้จัด ไม่ใช่แค่หน้าหลัก — เปลี่ยนหน้าแล้ว header ต้องไม่เปลี่ยนหน้าตา
+// (ฟอนต์ของธีมผูกไว้บน <html> ใน app/layout.tsx แล้ว ใช้ได้ทุกหน้า)
 export default function OrganizerLayout({
   children,
 }: {
@@ -23,7 +20,7 @@ export default function OrganizerLayout({
 }) {
   return (
     <RoleGuard allow={["organizer"]}>
-      <div className={cn("flex min-h-screen flex-col", denimFontVariables)}>
+      <div className="flex min-h-screen flex-col">
         <AppHeader
           links={LINKS}
           roleLabel="ผู้จัดกิจกรรม"

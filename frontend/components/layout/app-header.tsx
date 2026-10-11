@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { LogOut, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
-import { Logo } from "@/components/layout/logo"
+import { DenimLogo, Logo } from "@/components/layout/logo"
 import { UserMenu } from "@/components/ui/user-menu"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
@@ -89,19 +89,8 @@ export function AppHeader({ links, roleLabel, accountHref, theme = "default" }: 
             <Container>
                 <div className={cn("flex items-center gap-4", denim ? "h-[72px]" : "h-16")}>
                     {denim ? (
-                        <Link href={links[0]?.href ?? "/"} className="flex items-center gap-3 rounded-md">
-                            <span
-                                aria-hidden="true"
-                                className="denim-weave grid size-11 shrink-0 place-items-center rounded-xl font-code text-[15px] font-semibold text-white"
-                            >
-                                &lt;/&gt;
-                            </span>
-                            <span className="flex flex-col leading-[1.1]">
-                                <span className="font-display text-[22px] font-bold tracking-[-0.01em] text-denim-deep">
-                                    Comp<span className="text-denim-accent">Active</span>
-                                </span>
-                                <span className="hidden text-xs text-denim-muted sm:block">วิทยาลัยการคอมพิวเตอร์ มข.</span>
-                            </span>
+                        <Link href={links[0]?.href ?? "/"} className="rounded-md">
+                            <DenimLogo />
                         </Link>
                     ) : (
                         <Link href={links[0]?.href ?? "/"} className="flex flex-col leading-tight rounded-md">

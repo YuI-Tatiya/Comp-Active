@@ -1,11 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import type { LucideIcon } from "lucide-react"
 import { ArrowRight, CalendarDays, SquareCheckBig, X } from "lucide-react"
 import { categoryLabel } from "@/lib/categories"
-import { cn } from "@/lib/utils"
-import { CardCover, CoverTag, categoryTag } from "./denim-ui"
+import { CardCover, CardRow, CoverStatusPill, CoverTag, categoryTag } from "@/components/denim/denim-ui"
 
 /* ชิ้นส่วนรายการกิจกรรมของหน้าหลักผู้จัด (ธีม Denim Varsity) — บรรทัดผลลัพธ์, การ์ด
    ส่วนที่ใช้ร่วมกับหน้าอื่น (แท็บสถานะ, แผงตัวกรอง, ปกการ์ด, ช่องสร้างใหม่, กริด) อยู่ที่ denim-ui.tsx
@@ -50,21 +48,6 @@ export function ResultLine({
 
 /* ── การ์ดกิจกรรม ────────────────────────────────────────────────────────── */
 
-const STATUS_PILL: Record<ActivityStatus, { label: string; pill: string; dot: string }> = {
-    open: { label: "กำลังเปิด", pill: "bg-amber text-denim-deep", dot: "bg-denim-deep" },
-    closed: { label: "ปิดรับสมัคร", pill: "border border-white/35 bg-denim-deep/55 text-white", dot: "bg-[#c3ccd9]" },
-    cancelled: { label: "ยกเลิกแล้ว", pill: "border border-white/35 bg-denim-deep/55 text-white", dot: "bg-red-400" },
-}
-
-function CardRow({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
-    return (
-        <div className="flex items-center gap-2.5 rounded-[10px] bg-denim-paper px-3 py-[9px] text-[13px] text-denim-ink">
-            <Icon className="size-4 shrink-0 text-denim-accent" aria-hidden="true" />
-            <span className="min-w-0 truncate">{children}</span>
-        </div>
-    )
-}
-
 export interface ActivityCardData {
     href: string
     name: string
@@ -84,7 +67,6 @@ export interface ActivityCardData {
 
 export function ActivityCard({ item }: { item: ActivityCardData }) {
     const tag = categoryTag(item.categories)
-    const pill = STATUS_PILL[item.status]
     const categoryNote = item.categories.map(categoryLabel).join(" · ") || "ไม่ระบุหมวดหมู่"
 
     return (
@@ -99,17 +81,7 @@ export function ActivityCard({ item }: { item: ActivityCardData }) {
                     code={item.code}
                     dateMs={item.dateMs}
                     topLeft={tag ? <CoverTag>{tag}</CoverTag> : undefined}
-                    topRight={
-                        <span
-                            className={cn(
-                                "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-[5px] text-xs font-semibold",
-                                pill.pill
-                            )}
-                        >
-                            <span className={cn("size-[7px] rounded-full", pill.dot)} aria-hidden="true" />
-                            {pill.label}
-                        </span>
-                    }
+                    topRight={<CoverStatusPill status={item.status} />}
                 />
 
                 <div className="flex flex-1 flex-col gap-3.5 p-5">

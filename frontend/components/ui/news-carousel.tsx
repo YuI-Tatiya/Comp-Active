@@ -4,35 +4,12 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Container } from "@/components/layout/container"
+import { NEWS_ITEMS } from "@/lib/news"
 import { cn } from "@/lib/utils"
 
-const NEWS_ITEMS = [
-  {
-    tag: "ประกาศ",
-    title: "เปิดลงทะเบียนกิจกรรม AI Workshop รอบใหม่",
-    desc: "นักศึกษาที่สนใจสามารถลงทะเบียนเข้าร่วมได้แล้ววันนี้ รับจำนวนจำกัด",
-    date: "8 ส.ค. 2569",
-    image: "/new1.png",
-  },
-  {
-    tag: "ข่าวสาร",
-    title: "ประกาศผลการประเมินซอฟต์สกิลประจำภาคเรียน",
-    desc: "ตรวจสอบคะแนนสะสมทั้ง 12 ด้านของคุณได้แล้วที่หน้าโปรไฟล์",
-    date: "5 ส.ค. 2569",
-    image: "/new2.png",
-  },
-  {
-    tag: "กิจกรรมเด่น",
-    title: "Coding Challenge ชิงรางวัลรวมมูลค่ากว่า 10,000 บาท",
-    desc: "ร่วมท้าทายทักษะการเขียนโปรแกรมกับเพื่อนๆ ทั่วทั้งวิทยาลัย",
-    date: "1 ส.ค. 2569",
-    image: "/new3.png",
-  },
-]
-
 /**
- * สไลด์ข่าวสาร — เลื่อนเองทุก 6 วินาที กดปุ่มซ้าย/ขวา หรือจุดไข่ปลาได้
- * ใช้ทั้งหน้า / และ /student — แก้ข้อความหรือรูปที่นี่ที่เดียว เห็นผลทั้งสองหน้า
+ * สไลด์ข่าวสารแบบภาพแบนเนอร์ — เลื่อนเองทุก 6 วินาที กดปุ่มซ้าย/ขวา หรือจุดไข่ปลาได้
+ * ใช้ที่ /student (หน้าแรกฝั่ง public ใช้ NewsShowcase ธีม Denim แทน) — ข่าวอยู่ที่ lib/news.ts ที่เดียว
  *
  * แต่ละหน้าสร้าง instance ของตัวเอง สไลด์จึงเดินอิสระจากกัน (ตั้งใจให้เป็นแบบนี้)
  */

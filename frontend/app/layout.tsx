@@ -3,6 +3,7 @@ import { Sarabun } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { MascotWidget } from "@/components/ui/mascot-widget";
+import { denimFontVariables } from "@/lib/denim-fonts";
 
 // รองรับทั้งไทย+ละตินในตัวเดียว — self-host ผ่าน next/font ทำให้ทุกเครื่อง
 // (Windows/macOS) เห็นฟอนต์เดียวกันเสมอ ไม่พึ่งฟอนต์ที่ติดตั้งในเครื่องผู้ใช้
@@ -38,7 +39,8 @@ export default function RootLayout({
     // ฝั่ง server แหล่งเดียวกับ proxy.ts) เพราะมันบังคับให้ RootLayout กลายเป็น dynamic ไปด้วย — เคยลองแล้ว
     // ทุกหน้าที่เคย prerender เป็น static (○) ตอน build เปลี่ยนเป็น server-render ทุกคำขอ (ƒ) หมดทั้งแอป
     // ย้ายเช็คไปไว้ใน MascotWidget เองแทน (client-side, อ่าน window.location.hostname) ดูเหตุผลที่นั่น
-    <html lang="th" className={sarabun.variable}>
+    // ตัวแปรฟอนต์ธีม Denim อยู่บน <html> ด้วยเหตุผลเดียวกัน — ไม่ preload (ดู lib/denim-fonts.ts)
+    <html lang="th" className={`${sarabun.variable} ${denimFontVariables}`}>
       <body className="font-sans antialiased">
         <AuthProvider>
           {children}

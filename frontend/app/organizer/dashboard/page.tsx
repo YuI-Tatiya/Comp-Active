@@ -10,7 +10,7 @@ import {
     OrganizerStatCards,
     StatusTabs,
     type OrganizerStat,
-} from "@/components/organizer/denim-ui"
+} from "@/components/denim/denim-ui"
 import {
     ActivityTable,
     ActivityTableCard,

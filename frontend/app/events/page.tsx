@@ -277,7 +277,7 @@ export default function EventsPage() {
                 </div>
             </Container>
 
-            <SiteFooter />
+            <SiteFooter theme="denim" />
         </div>
     )
 }

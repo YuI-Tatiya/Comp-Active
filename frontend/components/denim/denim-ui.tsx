@@ -8,8 +8,8 @@ import { Select } from "@/components/ui/select"
 import type { FilterSpec } from "@/components/ui/filter-bar"
 import { cn } from "@/lib/utils"
 
-/* ชิ้นส่วนธีม Denim Varsity ที่ใช้ร่วมกันหลายหน้าในพอร์ทัลผู้จัด — หน้าหลัก (/organizer), จัดการกิจกรรม (/organizer/manage)
-   และแดชบอร์ด (/organizer/dashboard)
+/* ชิ้นส่วนธีม Denim Varsity ที่ใช้ร่วมกันหลายหน้า — พอร์ทัลผู้จัด (หน้าหลัก /organizer, จัดการ /organizer/manage,
+   แดชบอร์ด /organizer/dashboard) และหน้าแรกฝั่ง public (/)
    แต่ละหน้าจัดวางเนื้อหาของตัวเอง ไฟล์นี้มีแค่ส่วนที่หน้าตาต้องเหมือนกันทุกหน้า */
 
 /* ── แถบหัวหน้า ──────────────────────────────────────────────────────────── */
@@ -56,6 +56,61 @@ export function TerminalPrompt({ children }: { children: string }) {
 /** ปุ่มหลักสีอำพันมีเงาแข็งด้านล่าง (ปุ่มกดได้แบบนูน) — "สร้างกิจกรรมใหม่" ในแถบหัวหน้าทุกหน้า */
 export const AMBER_BUTTON =
     "inline-flex min-h-[52px] items-center justify-center gap-2.5 rounded-[14px] bg-amber px-6 text-base font-semibold text-denim-deep shadow-[0_4px_0_var(--color-amber-deep)] transition-[transform,box-shadow] hover:-translate-y-px active:translate-y-0.5 active:shadow-[0_2px_0_var(--color-amber-deep)] focus-visible:outline-white"
+
+/** ปุ่มรองเส้นขอบขาวบนพื้นยีนส์ — คู่กับ AMBER_BUTTON ในแถบหัวหน้า */
+export const OUTLINE_ON_DENIM_BUTTON =
+    "inline-flex min-h-[52px] items-center justify-center gap-2.5 rounded-[14px] border-[1.5px] border-white/45 px-[22px] text-base font-medium text-white transition-colors hover:border-white/70 hover:bg-white/10 focus-visible:outline-white"
+
+/* ── หัวข้อส่วน / ปุ่มกลม ─────────────────────────────────────────────────── */
+
+/** หัวข้อส่วนแบบคอมเมนต์โค้ดนำหน้า ("// news.latest()") + h2 + ช่องขวาสำหรับลิงก์/ปุ่มเลื่อน */
+export function DenimSectionHeading({
+    id,
+    comment,
+    title,
+    action,
+}: {
+    id: string
+    comment: string
+    title: React.ReactNode
+    action?: React.ReactNode
+}) {
+    return (
+        <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="flex flex-col gap-1.5">
+                <span className="font-code text-[13px] text-denim-accent" aria-hidden="true">
+                    {`// ${comment}`}
+                </span>
+                <h2 id={id} className="font-display text-[30px] font-bold leading-tight text-denim-deep sm:text-[34px]">
+                    {title}
+                </h2>
+            </div>
+            {action}
+        </div>
+    )
+}
+
+/** ปุ่มกลมขาวมีลูกศร — เลื่อนสไลด์/หน้าถัดไป */
+export function RoundIconButton({
+    label,
+    icon: Icon,
+    onClick,
+}: {
+    label: string
+    icon: LucideIcon
+    onClick: () => void
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label={label}
+            className="grid size-11 place-items-center rounded-full border-[1.5px] border-denim-line bg-white text-denim-deep transition-colors hover:border-denim hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-amber"
+        >
+            <Icon className="size-5" aria-hidden="true" />
+        </button>
+    )
+}
 
 /* ── การ์ดสถิติใต้แถบหัวหน้า ────────────────────────────────────────────────── */
 
@@ -323,7 +378,10 @@ export function referenceCode(prefix: "EVT" | "ACT", id: number): string {
 interface CardCoverProps {
     tone: CoverTone
     categories: string[]
-    code: string
+    /** รหัสอ้างอิงมุมซ้ายล่าง (ฝั่งผู้จัด) — หน้า public ใช้ bottomLeft แทน */
+    code?: string
+    /** แทนรหัสมุมซ้ายล่าง เช่น ชื่อหมวดหมู่บนการ์ดหน้าแรก */
+    bottomLeft?: React.ReactNode
     /** วันจัดวันแรก (epoch ms) — ไม่ส่ง/ใช้ไม่ได้ = ไม่แสดงวันที่ตัวใหญ่ */
     dateMs?: number
     topLeft?: React.ReactNode
@@ -332,7 +390,7 @@ interface CardCoverProps {
     bottomRight?: React.ReactNode
 }
 
-export function CardCover({ tone, categories, code, dateMs, topLeft, topRight, bottomRight }: CardCoverProps) {
+export function CardCover({ tone, categories, code, bottomLeft, dateMs, topLeft, topRight, bottomRight }: CardCoverProps) {
     const date = dateMs === undefined ? null : coverDate(dateMs)
     return (
         <div className={cn("relative flex h-[150px] shrink-0 flex-col justify-between p-4", coverPattern(tone, categories))}>
@@ -341,7 +399,7 @@ export function CardCover({ tone, categories, code, dateMs, topLeft, topRight, b
                 {topRight}
             </div>
             <div className="flex items-end justify-between gap-3">
-                <span className="font-code text-xs text-white/75">{code}</span>
+                {bottomLeft ?? <span className="font-code text-xs text-white/75">{code}</span>}
                 {bottomRight ??
                     (date && (
                         <span className="text-right font-display text-[44px] font-bold leading-[0.9] text-white/90">
@@ -376,6 +434,33 @@ export function CoverPill({ dotClassName, children }: { dotClassName: string; ch
             <span className={cn("size-[7px] rounded-full", dotClassName)} aria-hidden="true" />
             {children}
         </span>
+    )
+}
+
+/** สถานะบนปกการ์ด (มุมขวาบน) — เปิดเป็นอำพัน, ปิด/ยกเลิกเป็นแคปซูลเข้มโปร่ง */
+const STATUS_PILL: Record<"open" | "closed" | "cancelled", { label: string; pill: string; dot: string }> = {
+    open: { label: "กำลังเปิด", pill: "bg-amber text-denim-deep", dot: "bg-denim-deep" },
+    closed: { label: "ปิดรับสมัคร", pill: "border border-white/35 bg-denim-deep/55 text-white", dot: "bg-[#c3ccd9]" },
+    cancelled: { label: "ยกเลิกแล้ว", pill: "border border-white/35 bg-denim-deep/55 text-white", dot: "bg-red-400" },
+}
+
+export function CoverStatusPill({ status }: { status: "open" | "closed" | "cancelled" }) {
+    const pill = STATUS_PILL[status]
+    return (
+        <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-[5px] text-xs font-semibold", pill.pill)}>
+            <span className={cn("size-[7px] rounded-full", pill.dot)} aria-hidden="true" />
+            {pill.label}
+        </span>
+    )
+}
+
+/** แถวข้อมูลบนการ์ด (วันจัด / ช่วงรับสมัคร) — บรรทัดเดียว ตัดท้ายเมื่อยาวเกิน */
+export function CardRow({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
+    return (
+        <div className="flex items-center gap-2.5 rounded-[10px] bg-denim-paper px-3 py-[9px] text-[13px] text-denim-ink">
+            <Icon className="size-4 shrink-0 text-denim-accent" aria-hidden="true" />
+            <span className="min-w-0 truncate">{children}</span>
+        </div>
     )
 }
 

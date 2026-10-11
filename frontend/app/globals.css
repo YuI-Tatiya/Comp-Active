@@ -104,11 +104,11 @@
   --animate-icon-pop: icon-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
 }
 
-/* ฟอนต์ธีม Denim Varsity — โหลดผ่าน next/font ใน app/organizer/fonts.ts ตัวแปรจึงมีเฉพาะใต้ div ของ layout ผู้จัด
-   ต้องเป็น @theme inline: @theme ปกติประกาศ --font-display ไว้บน :root แล้ว var() ข้างในถูกแทนค่าที่ :root
-   (ซึ่งไม่มีตัวแปรของ next/font) ก่อนส่งต่อลงมา — ฟอนต์จะตกไปตัวสำรองทั้งหมด (บั๊กเดียวกับที่ layout.tsx
-   อธิบายไว้เรื่อง --font-sarabun) inline ทำให้ utility อ้าง var() ตรงๆ แล้วไปแทนค่าที่ element ที่ใช้งานจริง
-   fallback ใน var() กันกรณีใช้ class นี้นอกพอร์ทัลผู้จัด / code ต่อด้วย Plex Thai เพราะ JetBrains Mono ไม่มีอักษรไทย */
+/* ฟอนต์ธีม Denim Varsity — โหลดผ่าน next/font ใน lib/denim-fonts.ts ตัวแปรผูกไว้บน <html> (app/layout.tsx)
+   เป็น @theme inline ไว้: @theme ปกติประกาศ --font-display บน :root แล้วแทนค่า var() ข้างในที่ :root เลย —
+   ใช้ได้ก็ต่อเมื่อตัวแปรของ next/font อยู่บน <html> เท่านั้น (เคยโหลดไว้ใต้ div ของ layout ผู้จัด แล้วฟอนต์ตก
+   ไปตัวสำรองหมดโดยไม่มี error) inline ให้ utility อ้าง var() ตรงๆ แทนค่าที่ element ที่ใช้งานจริง ทนทานกว่า
+   fallback ใน var() กันกรณีตัวแปรหาไม่เจอ / code ต่อด้วย Plex Thai เพราะ JetBrains Mono ไม่มีอักษรไทย */
 @theme inline {
   --font-display: var(--font-bai-jamjuree, var(--font-sarabun)), ui-sans-serif, system-ui, sans-serif;
   --font-plex: var(--font-plex-thai, var(--font-sarabun)), ui-sans-serif, system-ui, sans-serif;

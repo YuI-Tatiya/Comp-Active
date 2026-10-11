@@ -5,7 +5,7 @@ import Link from "next/link"
 import { ChartColumn, Infinity as InfinityIcon, MapPin, X } from "lucide-react"
 import { categoryLabel } from "@/lib/categories"
 import { cn } from "@/lib/utils"
-import { DenimHero, TerminalPrompt } from "./denim-ui"
+import { DenimHero, TerminalPrompt } from "@/components/denim/denim-ui"
 
 /* ชิ้นส่วนแดชบอร์ดผู้จัด (/organizer/dashboard) ธีม Denim Varsity — ข้อมูล/ตัวกรอง/การนับอยู่ที่หน้า ไฟล์นี้วาดอย่างเดียว */
 

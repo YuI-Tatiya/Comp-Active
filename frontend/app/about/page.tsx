@@ -11,7 +11,7 @@ export default function AboutPage() {
             <main className="flex-1">
                 <AboutSections />
             </main>
-            <SiteFooter />
+            <SiteFooter theme="denim" />
         </div>
     )
 }

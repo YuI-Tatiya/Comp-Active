@@ -54,7 +54,7 @@ export default function PublicEventGroupPage() {
                     <div className="w-10 h-10 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
                     <p className="text-fg-muted mt-4">กำลังโหลดรายละเอียดงาน...</p>
                 </div>
-                <SiteFooter />
+                <SiteFooter theme="denim" />
             </div>
         )
     }
@@ -73,7 +73,7 @@ export default function PublicEventGroupPage() {
                         </Button>
                     </div>
                 </div>
-                <SiteFooter />
+                <SiteFooter theme="denim" />
             </div>
         )
     }
@@ -140,7 +140,7 @@ export default function PublicEventGroupPage() {
                 </div>
             </Container>
 
-            <SiteFooter />
+            <SiteFooter theme="denim" />
         </div>
     )
 }

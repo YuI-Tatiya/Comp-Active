@@ -1,7 +1,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, Plus } from "lucide-react"
-import { AMBER_BUTTON, DenimHero, TerminalPrompt } from "./denim-ui"
+import { AMBER_BUTTON, DenimHero, OUTLINE_ON_DENIM_BUTTON, TerminalPrompt } from "@/components/denim/denim-ui"
 
 /**
  * ส่วนบนของหน้าหลักผู้จัด (ธีม Denim Varsity) — แถบทักทายพื้นยีนส์ + มาสคอต DEK COM
@@ -24,10 +24,7 @@ export function OrganizerHero({ name, summary }: { name: string; summary: string
                         <Plus className="size-5" strokeWidth={2.4} aria-hidden="true" />
                         สร้างกิจกรรมใหม่
                     </Link>
-                    <Link
-                        href="/organizer/dashboard"
-                        className="inline-flex min-h-[52px] items-center gap-2.5 rounded-[14px] border-[1.5px] border-white/45 px-[22px] text-base font-medium text-white transition-colors hover:border-white/70 hover:bg-white/10 focus-visible:outline-white"
-                    >
+                    <Link href="/organizer/dashboard" className={OUTLINE_ON_DENIM_BUTTON}>
                         ดูแดชบอร์ดผู้เข้าร่วม
                         <ArrowRight className="size-[18px]" aria-hidden="true" />
                     </Link>

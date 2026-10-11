@@ -4,7 +4,7 @@ import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
 import { Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { AMBER_BUTTON, CardCover, CoverPill, CoverTag, DenimHero, TerminalPrompt, categoryTag, type CoverTone } from "./denim-ui"
+import { AMBER_BUTTON, CardCover, CoverPill, CoverTag, DenimHero, TerminalPrompt, categoryTag, type CoverTone } from "@/components/denim/denim-ui"
 
 /* ชิ้นส่วนหน้าจัดการกิจกรรม (/organizer/manage) ธีม Denim Varsity — ตรรกะ/เมนู/การยืนยันทั้งหมดอยู่ที่หน้า ไฟล์นี้วาดอย่างเดียว */
 

@@ -16,7 +16,7 @@ import {
   StatusTabs,
   referenceCode,
   type OrganizerStat,
-} from "@/components/organizer/denim-ui"
+} from "@/components/denim/denim-ui"
 import { activitiesAPI, eventsAPI, isCancelledByOrganizer, Activity, EventSummary, OrganizerStats } from "@/lib/api"
 import { CATEGORIES } from "@/lib/categories"
 import { formatCompactDateSpan } from "@/lib/date-span"
