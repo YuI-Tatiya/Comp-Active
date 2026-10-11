@@ -15,8 +15,13 @@ interface AuthContextType {
     adminLogin: (email: string, password: string) => Promise<void>
     /** สมัครสมาชิกยังไม่เข้าสู่ระบบ — พาไปหน้ากรอก OTP ต่อ (ดู verifyRegisterOtp) */
     register: (data: RegisterData) => Promise<void>
-    /** ยืนยัน OTP ที่ส่งไปตอนสมัคร — สำเร็จแล้วถึงเข้าสู่ระบบจริง */
-    verifyRegisterOtp: (email: string, otp: string) => Promise<void>
+    /**
+     * ยืนยัน OTP ที่ส่งไปตอนสมัคร — สำเร็จแล้วถึงเข้าสู่ระบบจริง
+     * ไม่ส่ง password = ใช้รหัสผ่านที่แท็บนี้จำไว้จาก register()/login() เมื่อกี้ (ดู hasPendingRegistration)
+     */
+    verifyRegisterOtp: (email: string, otp: string, password?: string) => Promise<void>
+    /** แท็บนี้จำรหัสผ่านของคำขอสมัครอีเมลนี้ไว้ไหม — ถ้าไม่ หน้า OTP ต้องถามรหัสผ่านเอง */
+    hasPendingRegistration: (email: string) => boolean
     logout: () => Promise<void>
     /** โหลดข้อมูลผู้ใช้ใหม่หลังแก้โปรไฟล์ — ให้ชื่อบน navbar อัปเดตตาม */
     refreshUser: () => Promise<void>
@@ -34,6 +39,14 @@ interface RegisterData {
 
 // ==================== CONTEXT ====================
 
+/**
+ * ส่วนหนึ่งของ AUTH_ERRORS.ACCOUNT_NOT_VERIFIED ฝั่ง backend — ไม่มี error code แบบมีโครงสร้างให้เช็ค
+ * จึงจับคู่ด้วยข้อความ (login-form ใช้ค่าเดียวกันนี้)
+ */
+export const ACCOUNT_NOT_VERIFIED_HINT = "ยังไม่ได้ยืนยันอีเมล"
+
+const normalizeEmail = (email: string) => email.trim().toLowerCase()
+
 const AuthContext = createContext<AuthContextType | null>(null)
 
 export function useAuth() {
@@ -50,6 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const router = useRouter()
+
+    // รหัสผ่านของคำขอสมัครที่รอ OTP — backend ต้องการคู่กับ OTP จึงจำไว้ให้หน้า OTP ไม่ต้องถามซ้ำ
+    // อยู่ในหน่วยความจำของแท็บนี้เท่านั้น ไม่ลง storage ใดๆ (รีเฟรช = หาย หน้า OTP จะถามรหัสผ่านเอง)
+    const pendingRegistration = useRef<{ email: string; password: string } | null>(null)
 
     // token อยู่ใน httpOnly cookie ที่ JavaScript อ่านไม่ได้ (กัน XSS ขโมย session)
     // จึงเช็คสถานะล็อกอินด้วยการถาม backend ตรง ๆ — ถ้า cookie ยังใช้ได้จะได้ profile กลับมา
@@ -120,7 +137,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     async function login(identifier: string, password: string) {
-        const res = await authAPI.login({ identifier, password })
+        let res
+        try {
+            res = await authAPI.login({ identifier, password })
+        } catch (err) {
+            // backend เช็ครหัสผ่านก่อนสถานะยืนยัน — error นี้แปลว่ารหัสผ่านถูก จำไว้ให้หน้า OTP ไม่ต้องถามซ้ำ
+            if (err instanceof ApiError && err.message.includes(ACCOUNT_NOT_VERIFIED_HINT)) {
+                pendingRegistration.current = { email: normalizeEmail(identifier), password }
+            }
+            throw err
+        }
         // ไม่เก็บ accessToken ไว้ฝั่ง client — backend ออก httpOnly cookie ให้แล้ว
         // Profile may be in the response or we fetch it
         if (res.user) {
@@ -147,12 +173,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function register(data: RegisterData) {
         const res = await authAPI.register(data)
+        pendingRegistration.current = { email: normalizeEmail(res.email), password: data.password }
         // ยังไม่มี session ให้ที่นี่ (ดู authAPI.register) — พาไปกรอก OTP ต่อแทนการล็อกอินทันที
         router.push(`/auth/verify?email=${encodeURIComponent(res.email)}`)
     }
 
-    async function verifyRegisterOtp(email: string, otp: string) {
-        const res = await authAPI.verifyRegisterOtp(email, otp)
+    function hasPendingRegistration(email: string) {
+        return pendingRegistration.current?.email === normalizeEmail(email)
+    }
+
+    async function verifyRegisterOtp(email: string, otp: string, password?: string) {
+        const remembered = hasPendingRegistration(email) ? pendingRegistration.current?.password : undefined
+        const registrationPassword = password ?? remembered
+        if (!registrationPassword) throw new Error("กรุณากรอกรหัสผ่านที่ใช้สมัคร")
+
+        const res = await authAPI.verifyRegisterOtp(email, otp, registrationPassword)
+        pendingRegistration.current = null
         if (res.user) {
             setUser(res.user)
             redirectByRole(res.user.role)
@@ -185,7 +221,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return (
-        <AuthContext.Provider value={{ user, isLoading, login, adminLogin, register, verifyRegisterOtp, logout, refreshUser }}>
+        <AuthContext.Provider
+            value={{ user, isLoading, login, adminLogin, register, verifyRegisterOtp, hasPendingRegistration, logout, refreshUser }}
+        >
             {children}
         </AuthContext.Provider>
     )

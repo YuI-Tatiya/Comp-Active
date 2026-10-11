@@ -223,11 +223,14 @@ export const authAPI = {
       body: JSON.stringify(body),
     }),
 
-  /** ยืนยัน OTP ที่ได้จากการสมัครสมาชิก — สำเร็จแล้วถึงจะได้ session จริง (ออก cookie) */
-  verifyRegisterOtp: (email: string, otp: string) =>
+  /**
+   * ยืนยัน OTP ที่ได้จากการสมัครสมาชิก — สำเร็จแล้วถึงจะได้ session จริง (ออก cookie)
+   * ต้องส่งรหัสผ่านของคำขอสมัครคู่กับ OTP เสมอ: backend ผูกการยืนยันกับคนที่สมัครจริง ไม่ใช่แค่คนที่เข้ากล่องเมลได้
+   */
+  verifyRegisterOtp: (email: string, otp: string, password: string) =>
     fetchAPI<AuthResponse>('/api/auth/register/verify-otp', {
       method: 'POST',
-      body: JSON.stringify({ email, otp }),
+      body: JSON.stringify({ email, otp, password }),
     }),
 
   /** ขอรหัส OTP สมัครสมาชิกใหม่ — รหัสเดิมหมดอายุ (15 นาที) หรือไม่ได้รับอีเมล */

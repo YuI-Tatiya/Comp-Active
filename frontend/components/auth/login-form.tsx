@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { User, Lock, Loader2 } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
+import { ACCOUNT_NOT_VERIFIED_HINT, useAuth } from "@/lib/auth-context"
 
 export function LoginForm() {
     const { login } = useAuth()
@@ -35,9 +35,7 @@ export function LoginForm() {
         }
     }
 
-    // ⚠️ ข้อความต้องตรงกับ AUTH_ERRORS.ACCOUNT_NOT_VERIFIED ฝั่ง backend — ไม่มี error code
-    // แบบมีโครงสร้างให้เช็คในระบบนี้ จึงจับคู่ด้วยข้อความ (เหมือนที่อื่นในหน้านี้ทั้งหมด)
-    const needsVerification = error.includes("ยังไม่ได้ยืนยันอีเมล")
+    const needsVerification = error.includes(ACCOUNT_NOT_VERIFIED_HINT)
 
     return (
         // โครงเดียวกับ register-form เพื่อให้ปุ่มอยู่ตำแหน่งเดียวกันทั้ง 2 แท็บ

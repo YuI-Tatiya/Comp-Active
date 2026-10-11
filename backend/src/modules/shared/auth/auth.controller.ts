@@ -62,8 +62,10 @@ export class AuthController {
    * ถึงจะนับว่าสมัครสำเร็จและเข้าสู่ระบบได้จริง
    */
   @Post("register")
-  @UseGuards(ThrottlerGuard)
-  @Throttle({ default: { limit: 5, ttl: 600_000 } }) // 5 ครั้ง / 10 นาที ต่อ IP — กันสร้างบัญชีถล่ม
+  // นับ 2 ถังแยกกัน: ต่อ IP กันสร้างบัญชีถล่ม และต่ออีเมลปลายทาง — สมัครแต่ละครั้งส่งเมล OTP หนึ่งฉบับ
+  // ไม่งั้นแค่เปลี่ยน IP ไปเรื่อยๆ ก็ใช้ระบบเราถล่มกล่องเมลของคนที่ยังสมัครค้างอยู่ได้
+  @UseGuards(ThrottlerGuard, AuthThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 600_000 } }) // 5 ครั้ง / 10 นาที ต่อถัง
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary:
@@ -77,7 +79,8 @@ export class AuthController {
    * POST /api/auth/register/verify-otp - ยืนยัน OTP เพื่อเปิดใช้งานบัญชีที่เพิ่งสมัคร (สาธารณะ — ยังไม่มี session)
    */
   @Post("register/verify-otp")
-  @UseGuards(ThrottlerGuard)
+  // นับต่อบัญชีเป้าหมาย ไม่ใช่ต่อ IP — ทั้งวิทยาลัยออกเน็ตผ่าน NAT เดียว นับต่อ IP จะล็อกคนที่สมัครพร้อมกัน
+  @UseGuards(AuthThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 300_000 } }) // ชั้นนอกของการจำกัดการเดา OTP
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "ยืนยัน OTP เพื่อเปิดใช้งานบัญชีที่เพิ่งสมัคร" })
@@ -87,7 +90,11 @@ export class AuthController {
   ) {
     return this.issueSession(
       res,
-      await this.authService.verifyRegistrationOtp(dto.email, dto.otp),
+      await this.authService.verifyRegistrationOtp(
+        dto.email,
+        dto.otp,
+        dto.password,
+      ),
     );
   }
 
@@ -95,8 +102,8 @@ export class AuthController {
    * POST /api/auth/register/resend-otp - ขอรหัส OTP สมัครสมาชิกใหม่ (สาธารณะ — ยังไม่มี session)
    */
   @Post("register/resend-otp")
-  @UseGuards(ThrottlerGuard)
-  @Throttle({ default: { limit: 3, ttl: 300_000 } }) // 3 ครั้ง / 5 นาที — กัน mail bombing
+  @UseGuards(AuthThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 300_000 } }) // 3 ครั้ง / 5 นาที ต่อกล่องเมล — กัน mail bombing
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "ขอรหัส OTP สมัครสมาชิกใหม่ (สำหรับบัญชีที่ยังไม่ยืนยัน)",

@@ -29,6 +29,13 @@ type SafeUser = {
   program?: string | null;
 };
 
+type OtpHolder = {
+  id: number;
+  verificationOtp: string | null;
+  verificationOtpExpiresAt: Date | null;
+  verificationOtpAttempts: number;
+};
+
 /** จำนวนครั้งที่ยอมให้กรอก OTP ผิดก่อนเผารหัสทิ้ง */
 const MAX_OTP_ATTEMPTS = 5;
 
@@ -38,6 +45,14 @@ const MAX_OTP_ATTEMPTS = 5;
  */
 const DUMMY_HASH =
   "$2a$12$C6UzMDM.H6dfI/f/IKcEe.iBqNOxdN4hMBFQZBBhqLGGWOSXqbPCu";
+
+/** ข้อความเดียวกันทั้ง "ไม่พบอีเมล" และ "ยืนยันไปแล้ว" — ไม่บอกว่าอีเมลไหนเป็นบัญชีที่ใช้งานอยู่ */
+const NO_PENDING_REGISTRATION =
+  "ไม่พบคำขอสมัครที่รอยืนยันของอีเมลนี้ หากยืนยันไปแล้วให้เข้าสู่ระบบได้เลย";
+const REGISTRATION_PASSWORD_MISMATCH =
+  "รหัสผ่านไม่ตรงกับที่ใช้สมัครครั้งล่าสุดด้วยอีเมลนี้ หากจำไม่ได้หรือไม่ได้สมัครซ้ำเอง กรุณาสมัครใหม่อีกครั้ง";
+const REGISTRATION_CHANGED =
+  "คำขอสมัครของอีเมลนี้เปลี่ยนไประหว่างยืนยัน กรุณาสมัครใหม่อีกครั้ง";
 
 /** เทียบสตริงแบบไม่รั่วเวลา — ป้องกันการไล่เดา OTP ทีละหลักจากเวลาที่ใช้เปรียบเทียบ */
 function safeEqual(a: string, b: string): boolean {
@@ -77,19 +92,12 @@ export class AuthService {
   }
 
   /**
-   * ตรวจ OTP ที่กรอกกับที่เก็บไว้บนแถว user — throw ตามเงื่อนไขเดิมถ้าไม่ผ่าน (ไม่ตรง/หมดอายุ/เกินโควตา)
-   * ใช้ร่วมกันทั้ง verifyOtp (ต้องล็อกอินแล้ว) และ verifyRegistrationOtp (ยังไม่มี session เลย)
+   * ตรวจ OTP ที่กรอกกับที่เก็บไว้บนแถว user — throw ถ้าไม่ผ่าน (ไม่ตรง/หมดอายุ/เกินโควตา) แต่ผ่านแล้วยังไม่ล้างรหัสทิ้ง
+   * ผู้เรียกล้างเองเมื่อทำงานต่อสำเร็จ: consumeOtp (flow ที่ล็อกอินแล้ว) หรือ markRegistrationVerified (flow สมัคร
+   * ที่ยังต้องเช็ครหัสผ่านต่อ — พิมพ์รหัสผ่านผิดไม่ควรทำให้ OTP ที่ถูกต้องใช้ไม่ได้)
    * รับ user ที่ query มาแล้วตรงๆ แทนที่จะ query ซ้ำในนี้ เพราะผู้เรียกแต่ละฝั่ง query ด้วยคนละ key (id/email)
    */
-  private async consumeOtp(
-    user: {
-      id: number;
-      verificationOtp: string | null;
-      verificationOtpExpiresAt: Date | null;
-      verificationOtpAttempts: number;
-    },
-    otp: string,
-  ): Promise<void> {
+  private async assertOtp(user: OtpHolder, otp: string): Promise<void> {
     if (!user.verificationOtp) {
       throw new UnauthorizedException("รหัส OTP ไม่ถูกต้อง");
     }
@@ -126,7 +134,11 @@ export class AuthService {
       });
       throw new UnauthorizedException("รหัส OTP ไม่ถูกต้อง");
     }
+  }
 
+  /** assertOtp แล้วล้างรหัสทิ้งทันที — OTP ใช้ได้ครั้งเดียว */
+  private async consumeOtp(user: OtpHolder, otp: string): Promise<void> {
+    await this.assertOtp(user, otp);
     await this.authRepository.updateUser(user.id, {
       verificationOtp: null,
       verificationOtpExpiresAt: null,
@@ -156,9 +168,8 @@ export class AuthService {
   }
 
   /**
-   * สมัครสมาชิก (นักศึกษา) — ไม่ออก session ทันทีอีกต่อไป สร้างแถวเป็น isVerified:false แล้วส่ง OTP
-   * ไปอีเมล ต้องยืนยันผ่าน verifyRegistrationOtp ก่อนถึงจะเข้าสู่ระบบได้จริง (ดูเหตุผลที่ CLAUDE.md
-   * ไม่มี — เป็นการตัดสินใจของผู้ใช้ตรงๆ ว่าอยากให้ "สมัครสำเร็จ" ต้องผ่านการยืนยันอีเมลก่อนเสมอ)
+   * สมัครสมาชิก (นักศึกษา) — ยังไม่ออก session: สร้างแถวเป็น isVerified:false แล้วส่ง OTP ไปอีเมล
+   * การสมัครนับว่าสำเร็จเมื่อ verifyRegistrationOtp ผ่านเท่านั้น
    */
   async register(registerDto: RegisterDto) {
     const email = registerDto.email.trim().toLowerCase();
@@ -188,46 +199,65 @@ export class AuthService {
 
     // อีเมลนี้เคยสมัครค้างไว้แต่ไม่เคยยืนยัน (พิมพ์อีเมลตัวเองผิด/ไม่ได้รับเมล/เปลี่ยนใจกรอกใหม่) —
     // เขียนทับแถวเดิมแทนที่จะชน unique constraint ไม่งั้นอีเมลที่ "สมัครค้างไว้" แบบนี้จะกันคนจริง
-    // สมัครซ้ำไม่ได้ตลอดไป (ไม่มีใครมาล้างแถวที่ไม่เคยยืนยันทิ้งเอง)
+    // สมัครซ้ำไม่ได้ตลอดไป (ไม่มีใครมาล้างแถวที่ไม่เคยยืนยันทิ้งเอง) การทับนี้ไม่เป็นช่องยึดบัญชี เพราะ
+    // verifyRegistrationOtp ต้องใช้รหัสผ่านของคำขอล่าสุดคู่กับ OTP เสมอ
+    // ทับเฉพาะเมื่อแถวยังไม่ยืนยัน ณ ตอนเขียน — bcrypt.hash ข้างบนกินเวลา ถ้าเจ้าของยืนยันเสร็จระหว่างนั้นได้ null
     const user = existingUser
-      ? await this.authRepository.updateUser(existingUser.id, data)
+      ? await this.authRepository.overwritePendingRegistration(
+          existingUser.id,
+          data,
+        )
       : await this.authRepository.createUser(data);
+    if (!user) {
+      throw new ConflictException("อีเมลนี้ถูกใช้งานแล้ว");
+    }
 
     const otp = await this.issueOtp(user.id);
     await this.mailService.sendRegistrationOtp(user.email, user.name, otp);
 
-    this.logger.log(
-      `New user registration pending verification: ${user.email}`,
-    );
+    this.logger.log(`Registration pending verification: user id=${user.id}`);
     return { pendingVerification: true as const, email: user.email };
   }
 
-  /** ยืนยัน OTP ที่ได้จากการสมัครสมาชิก แล้วออก session จริงให้ทันที (ยังไม่เคยมี session มาก่อนตอนนี้) */
-  async verifyRegistrationOtp(email: string, otp: string) {
+  /**
+   * ยืนยันการสมัคร แล้วออก session ให้ทันที — ต้องพิสูจน์ครบทั้ง 2 อย่าง:
+   * OTP (เข้ากล่องเมลนั้นได้จริง) และรหัสผ่าน (เป็นคนเดียวกับที่ตั้งรหัสผ่านบนคำขอนี้)
+   *
+   * รหัสผ่านจำเป็นเพราะ register() เขียนทับคำขอที่ยังไม่ยืนยันได้: ถ้าเช็คแค่ OTP คนที่รู้อีเมลเหยื่อ
+   * สมัครทับด้วยรหัสผ่านของตัวเองระหว่างที่เหยื่อรอเมล แล้วเหยื่อกรอก OTP ฉบับล่าสุด = บัญชีถูกยืนยัน
+   * ด้วยรหัสผ่านของผู้โจมตี บัญชีที่ยืนยันแล้วไม่มีทางผ่าน endpoint นี้ — ไม่มี session นำหน้า
+   * ถ้าปล่อยผ่านก็เท่ากับล็อกอินด้วยอีเมลอย่างเดียว
+   */
+  async verifyRegistrationOtp(email: string, otp: string, password: string) {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await this.authRepository.findUserByEmail(normalizedEmail);
 
-    if (!user) {
-      throw new UnauthorizedException(
-        "ไม่พบคำขอสมัครสมาชิกนี้ หรือรหัส OTP ไม่ถูกต้อง",
-      );
+    if (!user || user.isVerified) {
+      throw new UnauthorizedException(NO_PENDING_REGISTRATION);
     }
 
-    // ยืนยันไปแล้วจริง (เช่น กดปุ่มซ้ำ/ย้อนกลับมาหน้าเดิมหลังยืนยันสำเร็จ) — ให้เข้าสู่ระบบได้เลย
-    // แทนที่จะโชว์ error ที่น่ากลัวทั้งที่บัญชีใช้งานได้ปกติอยู่แล้ว
-    if (user.isVerified) {
-      this.logger.log(
-        `Registration OTP re-verify on already-verified account: ${user.email}`,
+    await this.assertOtp(user, otp);
+
+    // ถึงตรงนี้ OTP ถูกแล้ว (เข้ากล่องเมลได้) จึงบอกตรงๆ ว่ารหัสผ่านไม่ตรงได้โดยไม่เป็นช่องให้คนนอกไล่เดารหัสผ่าน
+    // และไม่เผา OTP: คนพิมพ์ผิดลองใหม่ได้ ส่วนเคสถูกสมัครทับ เจ้าของตัวจริงต้องสมัครใหม่ (ทับคืน) อยู่แล้ว
+    if (!(await bcrypt.compare(password, user.password))) {
+      this.logger.warn(
+        `Registration verify password mismatch for user id=${user.id}`,
       );
-      return this.generateAuthResponse(user);
+      throw new UnauthorizedException(REGISTRATION_PASSWORD_MISMATCH);
     }
 
-    await this.consumeOtp(user, otp);
-    const verifiedUser = await this.authRepository.updateUser(user.id, {
-      isVerified: true,
-    });
+    // compare-and-set: bcrypt ข้างบนกินเวลาหลายร้อย ms ถ้ามีคนสมัครทับระหว่างนั้น แถวจะไม่ใช่คำขอที่เพิ่งตรวจผ่านแล้ว
+    const verifiedUser = await this.authRepository.markRegistrationVerified(
+      user.id,
+      user.password,
+      otp,
+    );
+    if (!verifiedUser) {
+      throw new UnauthorizedException(REGISTRATION_CHANGED);
+    }
 
-    this.logger.log(`User completed registration verification: ${user.email}`);
+    this.logger.log(`Registration verified: user id=${user.id}`);
     return this.generateAuthResponse(verifiedUser);
   }
 
@@ -240,7 +270,7 @@ export class AuthService {
     if (user && !user.isVerified) {
       const otp = await this.issueOtp(user.id);
       await this.mailService.sendRegistrationOtp(user.email, user.name, otp);
-      this.logger.log(`Registration OTP resent: ${user.email}`);
+      this.logger.log(`Registration OTP resent: user id=${user.id}`);
     }
 
     return {

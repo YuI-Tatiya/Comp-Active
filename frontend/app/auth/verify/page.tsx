@@ -18,8 +18,12 @@ const RESEND_COOLDOWN_SECONDS = 60
 function VerifyOtpForm() {
     const searchParams = useSearchParams()
     const email = searchParams?.get("email") ?? ""
-    const { verifyRegisterOtp } = useAuth()
+    const { verifyRegisterOtp, hasPendingRegistration } = useAuth()
 
+    // backend ต้องการรหัสผ่านของคำขอสมัครคู่กับ OTP — มาจากการสมัคร/ล็อกอินเมื่อกี้ แท็บนี้จำไว้แล้วไม่ต้องถามซ้ำ
+    // เปิดลิงก์นี้ใหม่หรือรีเฟรชหน้า = ไม่มีให้ใช้ ต้องถาม
+    const [askPassword] = useState(() => !hasPendingRegistration(email))
+    const [password, setPassword] = useState("")
     const [otp, setOtp] = useState("")
     const [error, setError] = useState("")
     const [verifying, setVerifying] = useState(false)
@@ -54,9 +58,13 @@ function VerifyOtpForm() {
             setError("กรุณากรอกรหัส OTP ให้ครบ 6 หลัก")
             return
         }
+        if (askPassword && !password) {
+            setError("กรุณากรอกรหัสผ่านที่ใช้สมัคร")
+            return
+        }
         setVerifying(true)
         try {
-            await verifyRegisterOtp(email, otp)
+            await verifyRegisterOtp(email, otp, askPassword ? password : undefined)
         } catch (err) {
             setError(err instanceof Error ? err.message : "ยืนยันไม่สำเร็จ")
         } finally {
@@ -130,6 +138,20 @@ function VerifyOtpForm() {
                             disabled={verifying}
                         />
                     </div>
+
+                    {askPassword && (
+                        <div className="space-y-2">
+                            <Label htmlFor="verify-password">รหัสผ่านที่ตั้งไว้ตอนสมัคร</Label>
+                            <Input
+                                id="verify-password"
+                                type="password"
+                                autoComplete="current-password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                disabled={verifying}
+                            />
+                        </div>
+                    )}
 
                     <Button
                         type="submit"
