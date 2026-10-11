@@ -94,6 +94,7 @@
     "testEnvironment": "node",
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1"
-    }
+    },
+    "globalSetup": "<rootDir>/../jest.global-setup.js"
   }
 }

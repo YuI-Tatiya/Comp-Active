@@ -179,6 +179,25 @@ describe('ActivitiesService.autoCompleteOverdueActivities', () => {
     expect(count).toBe(1);
   });
 
+  it('reads a legacy date + endTime as Thai time even when the process runs in UTC (Docker)', async () => {
+    // กิจกรรมรุ่นเก่า: วันที่ 18 ต.ค. จบ 16:00 ตามเวลาไทย = 09:00 UTC — โค้ดเดิมอ่านสตริงไม่มีเขตเวลาเป็นเวลาของ
+    // process (UTC — ชุดเทสต์รันใน UTC ดู jest.global-setup.js) จึงได้ 16:00 UTC แล้วปิดกิจกรรมช้าไป 7 ชม.
+    jest.useFakeTimers();
+    try {
+      const legacy = makeCandidate({ endAt: null, date: '2026-10-18T00:00:00.000Z', endTime: '16:00' });
+
+      jest.setSystemTime(new Date('2026-10-18T08:59:00.000Z')); // 15:59 ตามเวลาไทย — ยังไม่จบ
+      repo.findOpenPastEnd.mockResolvedValue([legacy]);
+      expect(await service.autoCompleteOverdueActivities()).toBe(0);
+
+      jest.setSystemTime(new Date('2026-10-18T09:01:00.000Z')); // 16:01 ตามเวลาไทย — จบแล้ว
+      expect(await service.autoCompleteOverdueActivities()).toBe(1);
+      expect(repo.markCompleted).toHaveBeenCalledWith(5);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('no candidates — no-op, returns 0', async () => {
     const count = await service.autoCompleteOverdueActivities();
 

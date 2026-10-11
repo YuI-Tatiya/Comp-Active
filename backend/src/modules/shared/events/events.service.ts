@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, ForbiddenException, NotFoundException,
 import { EventsRepository, PreparedActivityData } from './events.repository';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
-import { diffHours, formatHHmm } from '../../../common/utils/time.util';
+import { bangkokDateOnly, diffHours, formatHHmm } from '../../../common/utils/time.util';
 import { prepareRegistrationTypeFields } from '../../../common/utils/registration-type.util';
 import { maxSoftSkillLevel } from '../../../common/utils/soft-skill-cap.util';
 
@@ -93,7 +93,7 @@ export class EventsService {
         startAt,
         endAt,
         // date/startTime/endTime derived จาก startAt/endAt เพื่อ backward-compat กับทุกหน้าที่ query ด้วยฟิลด์เดิม
-        date: startAt,
+        date: bangkokDateOnly(startAt),
         startTime: formatHHmm(startAt),
         endTime: formatHHmm(endAt),
         location: a.location,
@@ -196,7 +196,7 @@ export class EventsService {
         attachmentUrl: a.attachmentUrl,
         startAt,
         endAt,
-        date: startAt,
+        date: bangkokDateOnly(startAt),
         startTime: formatHHmm(startAt),
         endTime: formatHHmm(endAt),
         location: a.location,

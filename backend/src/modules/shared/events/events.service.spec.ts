@@ -210,6 +210,42 @@ describe('EventsService.create — registration window (registrationOpenAt / reg
   });
 });
 
+describe('EventsService.create — derived date/startTime/endTime are Thai time', () => {
+  let service: EventsService;
+  let repo: { create: jest.Mock };
+
+  beforeEach(async () => {
+    repo = { create: jest.fn().mockResolvedValue({ id: 1, name: 'Camp', activities: [] }) };
+    const module = await Test.createTestingModule({
+      providers: [EventsService, { provide: EventsRepository, useValue: repo }],
+    }).compile();
+    service = module.get(EventsService);
+  });
+
+  it('stores the Thai calendar date and HH:mm, even for a dawn activity that is still "yesterday" in UTC', async () => {
+    // 05:30–08:00 ตามเวลาไทยวันที่ 18 ต.ค. = 22:30Z วันที่ 17 ถึง 01:00Z วันที่ 18 — ชุดเทสต์รันใน UTC แบบ container
+    const dto = makeDto([
+      {
+        name: 'วิ่งเช้า',
+        description: 'd',
+        categories: ['Sports'],
+        startAt: '2026-10-17T22:30:00.000Z',
+        endAt: '2026-10-18T01:00:00.000Z',
+        location: 'สนาม',
+      },
+    ]);
+
+    await service.create(7, dto);
+
+    const saved = repo.create.mock.calls[0][1].activities[0];
+    expect(saved.date).toEqual(new Date('2026-10-18T00:00:00.000Z')); // วันที่ 18 ไม่ใช่ 17
+    expect(saved.startTime).toBe('05:30');
+    expect(saved.endTime).toBe('08:00');
+    // ค่าเวลาจริงไม่เปลี่ยน — derive เฉพาะฟิลด์รุ่นเก่า
+    expect(saved.startAt).toEqual(new Date('2026-10-17T22:30:00.000Z'));
+  });
+});
+
 describe('EventsService.update', () => {
   let service: EventsService;
   let repo: { findById: jest.Mock; update: jest.Mock };

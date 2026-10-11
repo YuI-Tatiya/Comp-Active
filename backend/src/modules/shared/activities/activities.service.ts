@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException,
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { generateCheckinToken } from '../../../common/utils/checkin-token.util';
+import { APP_UTC_OFFSET } from '../../../common/utils/time.util';
 import { ActivitiesRepository } from './activities.repository';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
@@ -333,7 +334,9 @@ export class ActivitiesService {
   private computeEndsAt(activity: { endAt: Date | null; date: Date; endTime: string | null }): Date {
     return activity.endAt
       ? new Date(activity.endAt)
-      : new Date(`${new Date(activity.date).toISOString().slice(0, 10)}T${activity.endTime || '23:59'}:00`);
+      : // date+endTime ที่ผู้จัดกรอกเป็นเวลาไทย — ต้องระบุ +07:00 ไม่งั้นสตริงไม่มีเขตเวลาถูกอ่านเป็นเวลาของ process
+        // (container เป็น UTC → ปิดกิจกรรมอัตโนมัติช้าไป 7 ชม.)
+        new Date(`${new Date(activity.date).toISOString().slice(0, 10)}T${activity.endTime || '23:59'}:00${APP_UTC_OFFSET}`);
   }
 
   /**

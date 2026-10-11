@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { verifyCheckinToken } from '../../../common/utils/checkin-token.util';
+import { APP_TIME_ZONE } from '../../../common/utils/time.util';
 import { RegistrationsRepository } from './registrations.repository';
 import { EvaluationsService } from './evaluation.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -299,7 +300,7 @@ export class RegistrationsService {
         full.student.email,
         full.student.name,
         full.activity.name,
-        new Date(full.activity.date).toLocaleDateString('th-TH', { dateStyle: 'long' }),
+        new Date(full.activity.date).toLocaleDateString('th-TH', { dateStyle: 'long', timeZone: APP_TIME_ZONE }),
         `${full.activity.startTime} - ${full.activity.endTime}`,
         full.activity.location,
       );

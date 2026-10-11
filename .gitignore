@@ -74,6 +74,8 @@ pnpm-debug.log*
 *.sqlite
 *.sqlite3
 !backend/prisma/migrations/**/*.sql
+# สคริปต์ซ่อมข้อมูลที่เขียนเอง (ไม่มีข้อมูลจริง) — migrate.sh รันทุกไฟล์ในโฟลเดอร์นี้ ห้ามวาง dump ไว้ที่นี่
+!backend/prisma/backfills/*.sql
 
 # === Merge / Backup Artifacts (เกิดตอนแก้ conflict หรือสำรองไฟล์ก่อนแก้) ===
 *.bak

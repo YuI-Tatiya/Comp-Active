@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { MailerService } from "./mailer.service";
 import { escapeHtml as esc } from "../../../common/utils";
+import { APP_TIME_ZONE } from "../../../common/utils/time.util";
 
 @Injectable()
 export class MailService {
@@ -82,6 +83,7 @@ export class MailService {
   ) {
     const formattedExpiry = validUntil.toLocaleDateString("th-TH", {
       dateStyle: "long",
+      timeZone: APP_TIME_ZONE,
     });
 
     await this.mailerService.sendMail({
@@ -216,6 +218,7 @@ export class MailService {
     const formattedExpiry = expiresAt.toLocaleString("th-TH", {
       dateStyle: "long",
       timeStyle: "short",
+      timeZone: APP_TIME_ZONE,
     });
 
     await this.mailerService.sendMail({
