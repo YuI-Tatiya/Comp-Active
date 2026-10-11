@@ -14,7 +14,7 @@ import {
   ApprovalStatus,
 } from '../../../common/enums/status.enum';
 import { UserRole } from '../../../common/enums/role.enum';
-import { isViewerEligibleForEvent, Viewer } from './event-visibility.util';
+import { canViewerSeeEvent, Viewer } from './event-visibility.util';
 import { buildSurveyResults } from './survey-results.util';
 
 @Injectable()
@@ -329,7 +329,7 @@ export class EventsService {
 
   async findAllPublic(viewer: Viewer | null) {
     const events = await this.eventsRepository.findAllApproved();
-    return events.filter((e: any) => isViewerEligibleForEvent(viewer, e as any)).map((e: any) => this.toPublicEvent(e));
+    return events.filter((e: any) => canViewerSeeEvent(viewer, e as any)).map((e: any) => this.toPublicEvent(e));
   }
 
   async findByIdPublic(id: number, viewer: Viewer | null) {
@@ -337,8 +337,8 @@ export class EventsService {
     const hasApprovedActivity = (event as any)?.activities?.some(
       (a: any) => a.approvalStatus === ApprovalStatus.APPROVED,
     );
-    // ให้ error เดียวกับ "ไม่พบ" เสมอ ไม่ว่าจะไม่มีจริงๆ, ไม่มีกิจกรรมย่อยที่อนุมัติแล้ว, หรือมีแต่ไม่มีสิทธิ์เห็น
-    if (!event || !hasApprovedActivity || !isViewerEligibleForEvent(viewer, event as any)) {
+    // ให้ error เดียวกับ "ไม่พบ" เสมอ ไม่ว่าจะไม่มีจริงๆ, ไม่มีกิจกรรมย่อยที่อนุมัติแล้ว, ไม่เผยแพร่, หรือมีแต่ไม่มีสิทธิ์เห็น
+    if (!event || !hasApprovedActivity || !canViewerSeeEvent(viewer, event as any)) {
       throw new NotFoundException(`ไม่พบงาน ID: ${id}`);
     }
     return this.toPublicEvent(event);

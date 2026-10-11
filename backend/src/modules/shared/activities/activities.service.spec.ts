@@ -712,3 +712,77 @@ describe('ActivitiesService.getOrganizerStats', () => {
     expect(registrationsRepo.countPendingByOrganizer).toHaveBeenCalledWith(7);
   });
 });
+
+describe('ActivitiesService public reads — unpublished events and organizer email', () => {
+  let service: ActivitiesService;
+  let repo: { findAllApproved: jest.Mock; findById: jest.Mock };
+
+  const student = { id: 5, role: 'student', studentId: '653380001-1', program: 'IT' };
+  const owner = { id: 7, role: 'organizer' };
+
+  const inEvent = (id: number, isPublic: boolean) =>
+    makeActivity({
+      id,
+      organizer: { id: 7, name: 'Org', email: 'org@example.com' },
+      event: { visibility: 'everyone', visibilityProgram: [], visibilityYears: [], isPublic, organizerId: 7 },
+      _count: { registrations: 4 },
+    });
+
+  beforeEach(async () => {
+    repo = { findAllApproved: jest.fn(), findById: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: repo },
+        { provide: EventsRepository, useValue: {} },
+        { provide: RegistrationsRepository, useValue: {} },
+        { provide: MailService, useValue: {} },
+        { provide: UsersRepository, useValue: {} },
+        { provide: ConfigService, useValue: { get: () => 'test-secret' } },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+  });
+
+  it('findAllApproved leaves out activities of unpublished events, except for their own organizer', async () => {
+    repo.findAllApproved.mockResolvedValue([inEvent(1, true), inEvent(2, false), makeActivity({ id: 3 })]);
+
+    expect((await service.findAllApproved(undefined, null)).map((a: any) => a.id)).toEqual([1, 3]);
+    expect((await service.findAllApproved(undefined, student)).map((a: any) => a.id)).toEqual([1, 3]);
+    expect((await service.findAllApproved(undefined, owner)).map((a: any) => a.id)).toEqual([1, 2, 3]);
+  });
+
+  it('findAllApproved never sends the organizer email out on the public feed', async () => {
+    repo.findAllApproved.mockResolvedValue([inEvent(1, true)]);
+
+    const [a] = await service.findAllApproved(undefined, null);
+    expect(a.organizer).toEqual({ id: 7, name: 'Org' });
+    expect(a.registeredCount).toBe(4);
+    expect(a._count).toBeUndefined();
+  });
+
+  it('findByIdPublic is a 404 for a student on an unpublished event, but opens for the owner and admins', async () => {
+    repo.findById.mockResolvedValue(inEvent(2, false));
+
+    await expect(service.findByIdPublic(2, null)).rejects.toThrow(NotFoundException);
+    await expect(service.findByIdPublic(2, student)).rejects.toThrow(NotFoundException);
+    await expect(service.findByIdPublic(2, owner)).resolves.toMatchObject({ id: 2 });
+    await expect(service.findByIdPublic(2, { id: 1, role: 'admin' })).resolves.toMatchObject({ id: 2 });
+  });
+
+  it('findByIdPublic is a 404 for a missing activity and strips the organizer email', async () => {
+    repo.findById.mockResolvedValue(null);
+    await expect(service.findByIdPublic(9, null)).rejects.toThrow(NotFoundException);
+
+    repo.findById.mockResolvedValue(inEvent(1, true));
+    const a = await service.findByIdPublic(1, null);
+    expect(a.organizer).toEqual({ id: 7, name: 'Org' });
+    expect(a.registeredCount).toBe(4);
+  });
+
+  it('findById (used by the owner-checked write paths) is deliberately not gated on publishing', async () => {
+    // ผู้จัดต้องแก้/ปิด/ลบ/เช็คอินกิจกรรมของงานที่ตัวเองปิดการเผยแพร่ได้ตามปกติ — เมธอดพวกนั้นเช็คความเป็นเจ้าของเอง
+    repo.findById.mockResolvedValue(inEvent(2, false));
+    await expect(service.findById(2)).resolves.toMatchObject({ id: 2 });
+  });
+});

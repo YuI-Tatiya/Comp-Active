@@ -580,7 +580,7 @@ describe('RegistrationsService.create — registration deadline (Event.registrat
 
   const activityWithDeadline = (registrationCloseAt: Date | null) => ({
     id: 1,
-    event: { visibility: 'everyone', registrationCloseAt },
+    event: { visibility: 'everyone', isPublic: true, organizerId: OWNER_ID, registrationCloseAt },
     approvalStatus: 'approved',
     status: 'open',
     capacity: null,
@@ -657,7 +657,7 @@ describe('RegistrationsService.create — registration open date (Event.registra
 
   const activityWithWindow = (registrationOpenAt: Date | null, registrationCloseAt: Date | null = null) => ({
     id: 1,
-    event: { visibility: 'everyone', registrationOpenAt, registrationCloseAt },
+    event: { visibility: 'everyone', isPublic: true, organizerId: OWNER_ID, registrationOpenAt, registrationCloseAt },
     approvalStatus: 'approved',
     status: 'open',
     capacity: null,
@@ -731,3 +731,66 @@ describe('RegistrationsService.create — registration open date (Event.registra
   });
 });
 
+describe('RegistrationsService.create — unpublished event (Event.isPublic = false)', () => {
+  let service: RegistrationsService;
+  let repo: { findActivityWithActiveCount: jest.Mock; findActiveByStudentAndActivity: jest.Mock; create: jest.Mock };
+
+  const student = { id: 5, role: 'student', studentId: '653380001-1', program: 'IT' };
+
+  const activityInEvent = (event: Record<string, unknown>) => ({
+    id: 1,
+    event: { visibility: 'everyone', visibilityProgram: [], visibilityYears: [], organizerId: OWNER_ID, ...event },
+    approvalStatus: 'approved',
+    status: 'open',
+    capacity: null,
+    volunteerRole: null,
+    questions: [],
+    _count: { registrations: 0 },
+    registrationType: RegistrationType.PARTICIPANT,
+    dutyRoleOptions: [] as string[],
+    dutyShiftOptions: [] as string[],
+    teamSizeMin: null,
+    teamSizeMax: null,
+    competitionCategoryOptions: [] as string[],
+  });
+
+  beforeEach(async () => {
+    repo = {
+      findActivityWithActiveCount: jest.fn(),
+      findActiveByStudentAndActivity: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 99 }),
+    };
+    const module = await Test.createTestingModule({
+      providers: [
+        RegistrationsService,
+        { provide: RegistrationsRepository, useValue: repo },
+        { provide: EvaluationsService, useValue: {} },
+        { provide: PrismaService, useValue: {} },
+        { provide: MailService, useValue: {} },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
+      ],
+    }).compile();
+    service = module.get(RegistrationsService);
+  });
+
+  // เดิมเช็คแค่ restricted — POST ตรงด้วย ID กิจกรรมของงานที่ปิดถาวรแล้วยังลงทะเบียนผ่าน
+  it('rejects a direct POST with the same 404 as a missing activity, without creating anything', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityInEvent({ isPublic: false }));
+
+    await expect(service.create(5, 1, student, [], {}, {})).rejects.toThrow(NotFoundException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the publish state was not loaded', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityInEvent({}));
+
+    await expect(service.create(5, 1, student, [], {}, {})).rejects.toThrow(NotFoundException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('accepts again once the organizer re-publishes the event', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityInEvent({ isPublic: true }));
+
+    await expect(service.create(5, 1, student, [], {}, {})).resolves.toEqual({ id: 99 });
+  });
+});

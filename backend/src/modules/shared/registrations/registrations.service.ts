@@ -14,7 +14,7 @@ import {
   SurveyQuestionType,
   RegistrationType,
 } from '../../../common/enums/status.enum';
-import { isViewerEligibleForEvent, type Viewer } from '../events/event-visibility.util';
+import { canViewerSeeEvent, type Viewer } from '../events/event-visibility.util';
 import { MailService } from '../mail/mail.service';
 import { maskUnapprovedEvaluation } from './evaluation-visibility.util';
 import { UserRole } from '../../../common/enums/role.enum';
@@ -69,8 +69,8 @@ export class RegistrationsService {
 
     if (!activity) throw new NotFoundException('ไม่พบกิจกรรม');
 
-    // Defense in depth — ป้องกันการ POST ตรงข้าม ID กิจกรรม restricted ที่ frontend ไม่ได้แสดงให้เห็น
-    if (!isViewerEligibleForEvent(viewer, (activity as any).event)) {
+    // Defense in depth — ป้องกันการ POST ตรงข้าม ID กิจกรรม restricted หรือของงานที่ไม่เผยแพร่ ที่ frontend ไม่ได้แสดงให้เห็น
+    if (!canViewerSeeEvent(viewer, (activity as any).event)) {
       throw new NotFoundException('ไม่พบกิจกรรม');
     }
 

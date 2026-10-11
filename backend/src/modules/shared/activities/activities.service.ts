@@ -11,12 +11,25 @@ import { CreateSurveyQuestionDto } from '../events/dto/create-survey-question.dt
 import { ActivityStatus, ApprovalStatus, AttendanceStatus, SurveyQuestionType } from '../../../common/enums/status.enum';
 import { prepareRegistrationTypeFields } from '../../../common/utils/registration-type.util';
 import { UserRole } from '../../../common/enums/role.enum';
-import { isViewerEligibleForEvent, filterVisibleActivities, type Viewer } from '../events/event-visibility.util';
+import { canViewerSeeEvent, isViewerEligibleForEvent, filterVisibleActivities, type Viewer } from '../events/event-visibility.util';
 import { buildSurveyResults } from '../events/survey-results.util';
 import { EventsRepository } from '../events/events.repository';
 import { RegistrationsRepository } from '../registrations/registrations.repository';
 import { MailService } from '../mail/mail.service';
 import { UsersRepository } from '../users/users.repository';
+
+/**
+ * รูปที่ส่งออกเส้นทางสาธารณะ: จำนวนผู้ลงทะเบียนแทน _count และผู้จัดเหลือแค่ id + ชื่อ —
+ * activityInclude select อีเมลผู้จัดมาด้วย (เส้นทางผู้จัด/แอดมินใช้) ห้ามหลุดออก endpoint ที่ไม่ต้องล็อกอิน
+ * (กติกาเดียวกับ EventsService.toPublicEvent)
+ */
+function toPublicActivity({ _count, organizer, ...a }: any) {
+  return {
+    ...a,
+    organizer: organizer ? { id: organizer.id, name: organizer.name } : organizer,
+    registeredCount: _count?.registrations ?? 0,
+  };
+}
 
 @Injectable()
 export class ActivitiesService {
@@ -95,7 +108,21 @@ export class ActivitiesService {
     const activities = await this.activitiesRepository.findAllApproved(filterDto);
     const visible = filterVisibleActivities(activities as any, viewer ?? null);
 
-    return visible.map(({ _count, ...a }: any) => ({ ...a, registeredCount: _count.registrations }));
+    return visible.map((a: any) => toPublicActivity(a));
+  }
+
+  /**
+   * GET /api/activities/:id (สาธารณะ) — เช็คทั้ง restricted และการเผยแพร่ของงานแม่ (canViewerSeeEvent):
+   * งานที่ไม่เผยแพร่เห็นได้เฉพาะเจ้าของ (ดูตัวอย่าง) และแอดมิน — 404 เดียวกันทั้งไม่พบจริงและไม่มีสิทธิ์เห็น
+   * แยกจาก findById ที่เมธอดภายใน (update/ลบ/เปลี่ยนสถานะ ฯลฯ) เรียกใช้ เพราะพวกนั้นเช็คความเป็นเจ้าของเองอยู่แล้ว
+   * ผู้จัดต้องจัดการกิจกรรมของงานที่ตัวเองปิดการเผยแพร่ได้ตามปกติ
+   */
+  async findByIdPublic(id: number, viewer: Viewer | null) {
+    const activity = await this.activitiesRepository.findById(id);
+    if (!activity || !canViewerSeeEvent(viewer, (activity as any).event)) {
+      throw new NotFoundException(`ไม่พบกิจกรรม ID: ${id}`);
+    }
+    return toPublicActivity(activity);
   }
 
   async findById(id: number, viewer?: Viewer | null) {
@@ -432,7 +459,7 @@ export class ActivitiesService {
     // เดิมนับจาก approvalStatus === APPROVED ทำให้ตัวเลขบนการ์ดสถิติไม่ตรงกับแท็บสถานะ "เปิดรับสมัคร"
     // ของหน้าเดียวกัน (กิจกรรมที่อนุมัติแล้วแต่ถูกปิดรับสมัคร/จบไปแล้ว ก็ยังถูกนับว่า "active" อยู่)
     // ต้อง === APPROVED ตรงๆ (ไม่ใช่แค่ !== CANCELLED/REJECTED) ให้ตรงกับเงื่อนไขเดียวกับที่
-    // findAllApproved/EXCLUDE_RESTRICTED ใช้ตัดสินว่ากิจกรรมนี้เปิดให้สาธารณะเห็น-สมัครได้จริงหรือไม่
+    // findAllApproved/PUBLIC_EVENTS_ONLY ใช้ตัดสินว่ากิจกรรมนี้เปิดให้สาธารณะเห็น-สมัครได้จริงหรือไม่
     const activeActivities = activities.filter(
       (a) => a.status === ActivityStatus.OPEN && a.approvalStatus === ApprovalStatus.APPROVED,
     ).length;

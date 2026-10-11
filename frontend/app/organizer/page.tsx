@@ -311,6 +311,7 @@ export default function OrganizerDashboardPage() {
       dateLabel: formatCompactDateSpan(item.sortDate, item.endDate),
       registrationWindow: formatRegistrationWindow(item.registrationOpenAt, item.registrationCloseAt, { compact: true }),
       actionLabel: item.ownerId !== undefined && item.ownerId === user?.id ? "จัดการ" : "ดูรายละเอียด",
+      unpublished: item.isPublic === false,
     }
   }
 

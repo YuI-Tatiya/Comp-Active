@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
-import { ArrowLeft, AlertTriangle, Loader2, CalendarClock } from "lucide-react"
+import { ArrowLeft, AlertTriangle, Loader2, CalendarClock, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { eventsAPI, isUnlimitedCapacity, EventSummary } from "@/lib/api"
 import { resolveEventImageUrl } from "@/lib/event-image"
@@ -107,6 +107,23 @@ export default function OrganizerEventViewPage() {
                         <ArrowLeft className="w-4 h-4 mr-2" /> กลับ
                     </Link>
                 </div>
+
+                {/* backend ส่งงานที่ไม่เผยแพร่มาให้เฉพาะเจ้าของ (และแอดมิน) — บอกให้ชัดว่านี่คือการดูตัวอย่าง ไม่ใช่สิ่งที่นักศึกษาเห็น */}
+                {event.isPublic === false && (
+                    <div
+                        role="note"
+                        className="flex items-start gap-3 rounded-xl border border-denim-line bg-denim-paper px-4 py-3 text-sm leading-relaxed text-denim-ink"
+                    >
+                        <EyeOff className="mt-0.5 size-4 shrink-0 text-denim-accent" aria-hidden="true" />
+                        <p>
+                            <strong className="font-semibold text-denim-deep">งานนี้ยังไม่เผยแพร่</strong> — นักศึกษาและบุคคลทั่วไปจะไม่เห็นหน้านี้
+                            และลงทะเบียนไม่ได้ (ลิงก์แชร์จะยังเปิดไม่ได้) คุณเห็นได้เพราะเป็นเจ้าของงาน · เปิดเผยแพร่ได้ที่{" "}
+                            <Link href="/organizer/manage" className="font-semibold text-denim underline underline-offset-2">
+                                หน้าจัดการกิจกรรม
+                            </Link>
+                        </p>
+                    </div>
+                )}
 
                 {activeActivity && (
                     <ActivityPreviewHero

@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { ArrowRight, CalendarDays, SquareCheckBig, X } from "lucide-react"
 import { categoryLabel } from "@/lib/categories"
-import { CardCover, CardRow, CoverStatusPill, CoverTag, categoryTag } from "@/components/denim/denim-ui"
+import { CardCover, CardRow, CoverPill, CoverStatusPill, CoverTag, categoryTag } from "@/components/denim/denim-ui"
 
 /* ชิ้นส่วนรายการกิจกรรมของหน้าหลักผู้จัด (ธีม Denim Varsity) — บรรทัดผลลัพธ์, การ์ด
    ส่วนที่ใช้ร่วมกับหน้าอื่น (แท็บสถานะ, แผงตัวกรอง, ปกการ์ด, ช่องสร้างใหม่, กริด) อยู่ที่ denim-ui.tsx
@@ -63,6 +63,11 @@ export interface ActivityCardData {
     registrationWindow: string | null
     /** ของตัวเอง = "จัดการ" · ของผู้จัดคนอื่น = "ดูรายละเอียด" */
     actionLabel: string
+    /**
+     * งานที่ปิดการเผยแพร่ — backend ส่งมาให้เฉพาะเจ้าของ (และแอดมิน) จึงต้องบอกให้ชัดว่านักศึกษาไม่เห็นใบนี้
+     * ป้ายแทนแท็กหมวดหมู่มุมซ้ายบน (หมวดหมู่ยังอยู่ที่ท้ายการ์ด) — การ์ดสูงตายตัว เพิ่มแถวใหม่ไม่ได้
+     */
+    unpublished?: boolean
 }
 
 export function ActivityCard({ item }: { item: ActivityCardData }) {
@@ -80,7 +85,13 @@ export function ActivityCard({ item }: { item: ActivityCardData }) {
                     categories={item.categories}
                     code={item.code}
                     dateMs={item.dateMs}
-                    topLeft={tag ? <CoverTag>{tag}</CoverTag> : undefined}
+                    topLeft={
+                        item.unpublished ? (
+                            <CoverPill dotClassName="bg-denim-muted">ไม่เผยแพร่</CoverPill>
+                        ) : tag ? (
+                            <CoverTag>{tag}</CoverTag>
+                        ) : undefined
+                    }
                     topRight={<CoverStatusPill status={item.status} />}
                 />
 
