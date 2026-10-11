@@ -12,6 +12,11 @@ const sarabun = Sarabun({
   subsets: ["thai", "latin"],
   display: "swap",
   variable: "--font-sarabun",
+  // ไม่ preload: 8 น้ำหนัก × ปกติ/เอียง × ไทย/ละติน = 32 ไฟล์ถูกบังคับโหลดทุกหน้า ทั้งที่หน้าหนึ่งใช้จริงไม่กี่ตัว
+  // แค่ฟอนต์อย่างเดียวก็กินโควตา burst 60 คำขอของ nginx (zone general) ไปครึ่งหนึ่ง — โหลดหน้าแบบไม่มีแคช
+  // (เปิดครั้งแรก/กด hard refresh) จึงโดน 429 ที่คำขอ API ท้ายแถว แล้วหน้ากลายเป็นรายการว่าง
+  // (วัดจริงที่ /organizer: 72 คำขอใน 1 วินาที เป็นฟอนต์ 45) ปิด preload แล้วเบราว์เซอร์โหลดเฉพาะตัวที่หน้านั้นใช้
+  preload: false,
 });
 
 export const metadata: Metadata = {
