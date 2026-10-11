@@ -571,12 +571,12 @@ export default function MyRegistrationsPage() {
               return (
                 <Fragment key={tab.key}>
                   {isCancelTab && <span aria-hidden="true" className="mx-1 my-2 w-px shrink-0 bg-border-strong" />}
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab(tab.key)}
-                    aria-pressed={activeTab === tab.key}
+                  {/* ปุ่มแท็บกับปุ่มคำอธิบาย (i) ต้องเป็นพี่น้องกัน — <button> ซ้อนใน <button> ผิดหลัก HTML
+                      (React เตือน hydration error และ screen reader อ่านปุ่มในปุ่มไม่ได้) ปุ่มแท็บยังกดได้ทั้งแคปซูล
+                      ด้วย ::after ที่คลุมกรอบ ส่วนปุ่ม (i) ยกขึ้นเหนือชั้นนั้นด้วย z-10 */}
+                  <div
                     className={cn(
-                      "inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2.5 text-xs font-semibold transition-all sm:gap-2 sm:px-4 sm:text-sm",
+                      "relative inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2.5 text-xs font-semibold transition-all sm:gap-2 sm:px-4 sm:text-sm",
                       activeTab === tab.key
                         ? isCancelTab
                           ? "bg-bg text-danger shadow-xs"
@@ -584,19 +584,26 @@ export default function MyRegistrationsPage() {
                         : "text-fg-muted hover:bg-bg/60 hover:text-fg"
                     )}
                   >
-                    {isCancelTab && <X className="size-4 shrink-0" aria-hidden="true" />}
-                    {tab.label}
-                    <span
-                      aria-label={`${tab.count} รายการ`}
-                      className={cn(
-                        "min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-bold tabular-nums",
-                        activeTab === tab.key ? "bg-surface-2 text-fg" : "bg-surface text-fg-muted"
-                      )}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab(tab.key)}
+                      aria-pressed={activeTab === tab.key}
+                      className="inline-flex min-w-0 items-center gap-1.5 outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-brand-600 sm:gap-2"
                     >
-                      {tab.count}
-                    </span>
-                    <InfoTooltip text={TAB_INFO[tab.key]} label={`คำอธิบายแท็บ ${tab.label}`} />
-                  </button>
+                      {isCancelTab && <X className="size-4 shrink-0" aria-hidden="true" />}
+                      {tab.label}
+                      <span
+                        aria-label={`${tab.count} รายการ`}
+                        className={cn(
+                          "min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-bold tabular-nums",
+                          activeTab === tab.key ? "bg-surface-2 text-fg" : "bg-surface text-fg-muted"
+                        )}
+                      >
+                        {tab.count}
+                      </span>
+                    </button>
+                    <InfoTooltip className="z-10" text={TAB_INFO[tab.key]} label={`คำอธิบายแท็บ ${tab.label}`} />
+                  </div>
                   {i < 2 && (
                     <ChevronRight aria-hidden="true" className="size-4 shrink-0 self-center text-fg-subtle" />
                   )}

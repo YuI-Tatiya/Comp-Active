@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Calendar, MapPin, Users, Activity } from "lucide-react"
 import { activitiesAPI, isUnlimitedCapacity, type Activity as ActivityItem } from "@/lib/api"
+import { formatActivitySchedule } from "@/lib/activity-view"
 import { categoriesBadgeLabel } from "@/lib/categories"
 
 const approvalStyle: Record<string, { label: string; bg: string; color: string }> = {
@@ -66,6 +67,7 @@ export default function AdminAllActivitiesPage() {
                                         ? Math.round(((activity.registeredCount ?? 0) / activity.capacity!) * 100)
                                         : 0
                                     const statusStyle = approvalStyle[activity.approvalStatus] ?? approvalStyle.pending
+                                    const schedule = formatActivitySchedule(activity)
                                     return (
                                         <tr
                                             key={activity.id}
@@ -86,9 +88,15 @@ export default function AdminAllActivitiesPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-1.5 text-sm" style={{ color: "#5f6f87" }}>
-                                                    <Calendar className="w-4 h-4 shrink-0" />
-                                                    {activity.date}
+                                                {/* วัน-เวลาตามเวลาไทย (ตัวเดียวกับหน้านักศึกษา) — เดิมพิมพ์ค่า date ดิบจาก API ออกมาเป็น ISO */}
+                                                <div className="flex items-start gap-1.5 text-sm" style={{ color: "#5f6f87" }}>
+                                                    <Calendar className="mt-0.5 w-4 h-4 shrink-0" />
+                                                    <div>
+                                                        <div className="whitespace-nowrap" style={{ color: "#12223d" }}>{schedule.dateLabel}</div>
+                                                        {schedule.timeLabel && (
+                                                            <div className="whitespace-nowrap text-xs">{schedule.timeLabel}</div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
