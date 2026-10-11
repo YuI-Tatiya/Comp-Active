@@ -5,14 +5,17 @@ import Link from "next/link"
 import { Container } from "@/components/layout/container"
 import type { FilterSpec } from "@/components/ui/filter-bar"
 import { formatRegistrationWindow } from "@/components/ui/event-card"
-import { OrganizerHero, OrganizerStatCards, type OrganizerStat } from "@/components/organizer/home-hero"
-import { ActivityCard, FilterPanel, ResultLine, type ActivityCardData } from "@/components/organizer/home-activity-list"
+import { OrganizerHero } from "@/components/organizer/home-hero"
+import { ActivityCard, ResultLine, type ActivityCardData } from "@/components/organizer/home-activity-list"
 import {
   ACTIVITY_GRID,
   ActivityCardSkeleton,
   CreateActivityTile,
+  FilterPanel,
+  OrganizerStatCards,
   StatusTabs,
   referenceCode,
+  type OrganizerStat,
 } from "@/components/organizer/denim-ui"
 import { activitiesAPI, eventsAPI, isCancelledByOrganizer, Activity, EventSummary, OrganizerStats } from "@/lib/api"
 import { CATEGORIES } from "@/lib/categories"

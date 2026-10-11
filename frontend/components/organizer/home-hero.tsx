@@ -1,14 +1,11 @@
 import Image from "next/image"
 import Link from "next/link"
-import type { LucideIcon } from "lucide-react"
 import { ArrowRight, Plus } from "lucide-react"
-import { Container } from "@/components/layout/container"
-import { cn } from "@/lib/utils"
 import { AMBER_BUTTON, DenimHero, TerminalPrompt } from "./denim-ui"
 
 /**
  * ส่วนบนของหน้าหลักผู้จัด (ธีม Denim Varsity) — แถบทักทายพื้นยีนส์ + มาสคอต DEK COM
- * การ์ดสถิติ (OrganizerStatCards) ต้องวางต่อท้ายทันที: ดึงตัวเองขึ้นมาทับขอบล่างของส่วนนี้ (-mt-16)
+ * การ์ดสถิติ (OrganizerStatCards ใน denim-ui.tsx) ต้องวางต่อท้ายทันที: ดึงตัวเองขึ้นมาทับขอบล่างของส่วนนี้ (-mt-16)
  * ซึ่งเผื่อที่ไว้ให้แล้วด้วย pb-24 ของคอลัมน์ข้อความ
  */
 export function OrganizerHero({ name, summary }: { name: string; summary: string }) {
@@ -55,73 +52,5 @@ export function OrganizerHero({ name, summary }: { name: string; summary: string
                 />
             </div>
         </DenimHero>
-    )
-}
-
-export interface OrganizerStat {
-    /** ป้ายตัวพิมพ์ใหญ่แบบโค้ด เช่น ALL_EVENTS */
-    code: string
-    label: string
-    value: string | number
-    icon: LucideIcon
-    /** การ์ดเด่น (พื้นยีนส์) — ดีไซน์ใช้กับ "กำลังเปิดรับสมัคร" ใบเดียว */
-    highlight?: boolean
-    /** ขอบอำพันเรียกความสนใจ — ใช้กับ "รออนุมัติ" เมื่อมีคำขอค้าง */
-    attention?: boolean
-}
-
-export function OrganizerStatCards({ stats }: { stats: OrganizerStat[] }) {
-    return (
-        <section aria-label="สรุปภาพรวม" className="relative z-[1] -mt-16">
-            <Container>
-                {/* มือถือ 2x2 แทนเรียงเดี่ยว 4 ใบ (ใบละ ~170px = กินจอไปเกือบ 700px ก่อนถึงรายการกิจกรรม) */}
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-                    {stats.map(({ code, label, value, icon: Icon, highlight, attention }) => (
-                        <div
-                            key={code}
-                            className={cn(
-                                "flex min-w-0 flex-col gap-2.5 rounded-[20px] px-4 py-4 sm:px-6 sm:py-[22px]",
-                                highlight
-                                    ? "denim-weave text-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.6)]"
-                                    : "border bg-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.5)]",
-                                !highlight && (attention ? "border-amber ring-2 ring-amber/30" : "border-denim-line")
-                            )}
-                        >
-                            <div className="flex items-center justify-between gap-2">
-                                <span
-                                    className={cn(
-                                        "min-w-0 truncate font-code text-[11px] tracking-[0.04em] sm:text-xs",
-                                        highlight ? "text-denim-on-soft" : "text-denim-muted"
-                                    )}
-                                >
-                                    {code}
-                                </span>
-                                <span
-                                    className={cn(
-                                        "grid size-9 shrink-0 place-items-center rounded-xl sm:size-10",
-                                        highlight || attention ? "bg-amber" : "bg-denim-chip"
-                                    )}
-                                >
-                                    <Icon
-                                        className={cn("size-5", highlight || attention ? "text-denim-deep" : "text-denim")}
-                                        strokeWidth={highlight ? 2.2 : 2}
-                                        aria-hidden="true"
-                                    />
-                                </span>
-                            </div>
-                            <div
-                                className={cn(
-                                    "font-display text-[36px] font-bold leading-none tabular-nums sm:text-[44px]",
-                                    highlight ? "text-white" : "text-denim-deep"
-                                )}
-                            >
-                                {value}
-                            </div>
-                            <div className={cn("text-sm", highlight ? "text-denim-on" : "text-denim-ink")}>{label}</div>
-                        </div>
-                    ))}
-                </div>
-            </Container>
-        </section>
     )
 }

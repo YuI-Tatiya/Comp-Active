@@ -2,91 +2,16 @@
 
 import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
-import { ArrowRight, CalendarDays, Search, SquareCheckBig, X } from "lucide-react"
-import { Select } from "@/components/ui/select"
-import type { FilterSpec } from "@/components/ui/filter-bar"
+import { ArrowRight, CalendarDays, SquareCheckBig, X } from "lucide-react"
 import { categoryLabel } from "@/lib/categories"
 import { cn } from "@/lib/utils"
 import { CardCover, CoverTag, categoryTag } from "./denim-ui"
 
-/* ชิ้นส่วนรายการกิจกรรมของหน้าหลักผู้จัด (ธีม Denim Varsity) — แผงตัวกรอง, บรรทัดผลลัพธ์, การ์ด
-   ส่วนที่ใช้ร่วมกับหน้าอื่น (แท็บสถานะ, ปกการ์ด, ช่องสร้างใหม่, กริด) อยู่ที่ denim-ui.tsx
+/* ชิ้นส่วนรายการกิจกรรมของหน้าหลักผู้จัด (ธีม Denim Varsity) — บรรทัดผลลัพธ์, การ์ด
+   ส่วนที่ใช้ร่วมกับหน้าอื่น (แท็บสถานะ, แผงตัวกรอง, ปกการ์ด, ช่องสร้างใหม่, กริด) อยู่ที่ denim-ui.tsx
    ตรรกะการกรอง/เรียงอยู่ที่หน้า (app/organizer/page.tsx) ไฟล์นี้วาดอย่างเดียว */
 
 export type ActivityStatus = "open" | "closed" | "cancelled"
-
-/* ── แผงค้นหา + ตัวกรอง ──────────────────────────────────────────────────── */
-
-const FIELD =
-    "min-h-11 h-11 rounded-xl border-[1.5px] border-denim-field bg-white text-sm text-denim-deep hover:border-denim-dash focus-visible:border-denim focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-amber"
-
-interface FilterPanelProps {
-    searchValue: string
-    onSearchChange: (value: string) => void
-    searchPlaceholder: string
-    filters: FilterSpec[]
-    values: Record<string, string>
-    onFilterChange: (key: string, value: string) => void
-}
-
-export function FilterPanel({
-    searchValue,
-    onSearchChange,
-    searchPlaceholder,
-    filters,
-    values,
-    onFilterChange,
-}: FilterPanelProps) {
-    return (
-        <form
-            role="search"
-            aria-label="ตัวกรองกิจกรรม"
-            onSubmit={(e) => e.preventDefault()}
-            // มือถือ 2 คอลัมน์ตายตัว (auto-fit 170px เหลือคอลัมน์เดียว = ช่องเรียงลงมา 6 ช่องยาวเกินจอ)
-            className="grid grid-cols-2 gap-3.5 rounded-[20px] border border-denim-line bg-white p-5 sm:grid-cols-[repeat(auto-fit,minmax(min(170px,100%),1fr))]"
-        >
-            <div className="col-span-2 flex min-w-0 flex-col gap-1.5">
-                <label htmlFor="organizer-search" className="text-[13px] font-semibold text-denim-ink">
-                    ค้นหา
-                </label>
-                <div className="relative">
-                    <Search
-                        className="pointer-events-none absolute left-3 top-1/2 size-[18px] -translate-y-1/2 text-denim-muted"
-                        aria-hidden="true"
-                    />
-                    <input
-                        id="organizer-search"
-                        type="search"
-                        placeholder={searchPlaceholder}
-                        value={searchValue}
-                        onChange={(e) => onSearchChange(e.target.value)}
-                        className={cn(FIELD, "w-full pl-[38px] pr-3 placeholder:text-denim-muted/80")}
-                    />
-                </div>
-            </div>
-
-            {filters.map((f) => (
-                <div key={f.key} className="flex min-w-0 flex-col gap-1.5">
-                    <label htmlFor={`organizer-filter-${f.key}`} className="text-[13px] font-semibold text-denim-ink">
-                        {f.label}
-                    </label>
-                    <Select
-                        id={`organizer-filter-${f.key}`}
-                        className={FIELD}
-                        value={values[f.key] ?? f.neutralValue ?? ""}
-                        onChange={(e) => onFilterChange(f.key, e.target.value)}
-                    >
-                        {f.options.map((o) => (
-                            <option key={o.value} value={o.value}>
-                                {o.label}
-                            </option>
-                        ))}
-                    </Select>
-                </div>
-            ))}
-        </form>
-    )
-}
 
 /** บรรทัด "→ พบ N รายการ" ใต้แผงตัวกรอง + ปุ่มล้างเมื่อมีตัวกรองทำงานอยู่ */
 export function ResultLine({

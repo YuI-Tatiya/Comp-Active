@@ -1,11 +1,15 @@
 "use client"
 
 import Link from "next/link"
-import { Plus } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
+import { Plus, Search } from "lucide-react"
 import { Container } from "@/components/layout/container"
+import { Select } from "@/components/ui/select"
+import type { FilterSpec } from "@/components/ui/filter-bar"
 import { cn } from "@/lib/utils"
 
-/* ชิ้นส่วนธีม Denim Varsity ที่ใช้ร่วมกันหลายหน้าในพอร์ทัลผู้จัด — หน้าหลัก (/organizer) และจัดการกิจกรรม (/organizer/manage)
+/* ชิ้นส่วนธีม Denim Varsity ที่ใช้ร่วมกันหลายหน้าในพอร์ทัลผู้จัด — หน้าหลัก (/organizer), จัดการกิจกรรม (/organizer/manage)
+   และแดชบอร์ด (/organizer/dashboard)
    แต่ละหน้าจัดวางเนื้อหาของตัวเอง ไฟล์นี้มีแค่ส่วนที่หน้าตาต้องเหมือนกันทุกหน้า */
 
 /* ── แถบหัวหน้า ──────────────────────────────────────────────────────────── */
@@ -52,6 +56,93 @@ export function TerminalPrompt({ children }: { children: string }) {
 /** ปุ่มหลักสีอำพันมีเงาแข็งด้านล่าง (ปุ่มกดได้แบบนูน) — "สร้างกิจกรรมใหม่" ในแถบหัวหน้าทุกหน้า */
 export const AMBER_BUTTON =
     "inline-flex min-h-[52px] items-center justify-center gap-2.5 rounded-[14px] bg-amber px-6 text-base font-semibold text-denim-deep shadow-[0_4px_0_var(--color-amber-deep)] transition-[transform,box-shadow] hover:-translate-y-px active:translate-y-0.5 active:shadow-[0_2px_0_var(--color-amber-deep)] focus-visible:outline-white"
+
+/* ── การ์ดสถิติใต้แถบหัวหน้า ────────────────────────────────────────────────── */
+
+export interface OrganizerStat {
+    /** ป้ายตัวพิมพ์ใหญ่แบบโค้ด เช่น ALL_EVENTS */
+    code: string
+    label: string
+    value: string | number
+    icon: LucideIcon
+    /** การ์ดเด่น (พื้นยีนส์) — ดีไซน์ใช้กับ "กำลังเปิดรับสมัคร" ใบเดียว */
+    highlight?: boolean
+    /** ขอบอำพันเรียกความสนใจ — ใช้กับ "รออนุมัติ" เมื่อมีคำขอค้าง */
+    attention?: boolean
+    /** บรรทัดอธิบายจางๆ ใต้ป้าย (แดชบอร์ด) — มีแล้วป้ายกลายเป็นตัวหนาตามดีไซน์ */
+    caption?: string
+}
+
+export function OrganizerStatCards({ stats }: { stats: OrganizerStat[] }) {
+    return (
+        <section aria-label="สรุปภาพรวม" className="relative z-[1] -mt-16">
+            <Container>
+                {/* มือถือ 2x2 แทนเรียงเดี่ยว 4 ใบ (ใบละ ~170px = กินจอไปเกือบ 700px ก่อนถึงรายการกิจกรรม) */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+                    {stats.map(({ code, label, value, icon: Icon, highlight, attention, caption }) => (
+                        <div
+                            key={code}
+                            className={cn(
+                                "flex min-w-0 flex-col gap-2.5 rounded-[20px] px-4 py-4 sm:px-6 sm:py-[22px]",
+                                highlight
+                                    ? "denim-weave text-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.6)]"
+                                    : "border bg-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.5)]",
+                                !highlight && (attention ? "border-amber ring-2 ring-amber/30" : "border-denim-line")
+                            )}
+                        >
+                            <div className="flex items-center justify-between gap-2">
+                                <span
+                                    className={cn(
+                                        "min-w-0 truncate font-code text-[11px] tracking-[0.04em] sm:text-xs",
+                                        highlight ? "text-denim-on-soft" : "text-denim-muted"
+                                    )}
+                                >
+                                    {code}
+                                </span>
+                                <span
+                                    className={cn(
+                                        "grid size-9 shrink-0 place-items-center rounded-xl sm:size-10",
+                                        highlight || attention ? "bg-amber" : "bg-denim-chip"
+                                    )}
+                                >
+                                    <Icon
+                                        className={cn("size-5", highlight || attention ? "text-denim-deep" : "text-denim")}
+                                        strokeWidth={highlight ? 2.2 : 2}
+                                        aria-hidden="true"
+                                    />
+                                </span>
+                            </div>
+                            <div
+                                className={cn(
+                                    "font-display text-[36px] font-bold leading-none tabular-nums sm:text-[44px]",
+                                    highlight ? "text-white" : "text-denim-deep"
+                                )}
+                            >
+                                {value}
+                            </div>
+                            <div>
+                                <div
+                                    className={cn(
+                                        "text-sm",
+                                        caption && "font-semibold",
+                                        highlight ? (caption ? "text-white" : "text-denim-on") : caption ? "text-denim-deep" : "text-denim-ink"
+                                    )}
+                                >
+                                    {label}
+                                </div>
+                                {caption && (
+                                    <div className={cn("mt-0.5 text-xs", highlight ? "text-denim-on-soft" : "text-denim-muted")}>
+                                        {caption}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </Container>
+        </section>
+    )
+}
 
 /* ── แท็บสถานะ ───────────────────────────────────────────────────────────── */
 
@@ -103,6 +194,79 @@ export function StatusTabs({ tabs, value, counts, onChange, className }: StatusT
                 })}
             </div>
         </div>
+    )
+}
+
+/* ── แผงค้นหา + ตัวกรอง ──────────────────────────────────────────────────── */
+
+const FIELD =
+    "min-h-11 h-11 rounded-xl border-[1.5px] border-denim-field bg-white text-sm text-denim-deep hover:border-denim-dash focus-visible:border-denim focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-amber"
+
+interface FilterPanelProps {
+    searchValue: string
+    onSearchChange: (value: string) => void
+    searchPlaceholder: string
+    filters: FilterSpec[]
+    values: Record<string, string>
+    onFilterChange: (key: string, value: string) => void
+}
+
+export function FilterPanel({
+    searchValue,
+    onSearchChange,
+    searchPlaceholder,
+    filters,
+    values,
+    onFilterChange,
+}: FilterPanelProps) {
+    return (
+        <form
+            role="search"
+            aria-label="ตัวกรองกิจกรรม"
+            onSubmit={(e) => e.preventDefault()}
+            // มือถือ 2 คอลัมน์ตายตัว (auto-fit 170px เหลือคอลัมน์เดียว = ช่องเรียงลงมา 6 ช่องยาวเกินจอ)
+            className="grid grid-cols-2 gap-3.5 rounded-[20px] border border-denim-line bg-white p-5 sm:grid-cols-[repeat(auto-fit,minmax(min(170px,100%),1fr))]"
+        >
+            <div className="col-span-2 flex min-w-0 flex-col gap-1.5">
+                <label htmlFor="organizer-search" className="text-[13px] font-semibold text-denim-ink">
+                    ค้นหา
+                </label>
+                <div className="relative">
+                    <Search
+                        className="pointer-events-none absolute left-3 top-1/2 size-[18px] -translate-y-1/2 text-denim-muted"
+                        aria-hidden="true"
+                    />
+                    <input
+                        id="organizer-search"
+                        type="search"
+                        placeholder={searchPlaceholder}
+                        value={searchValue}
+                        onChange={(e) => onSearchChange(e.target.value)}
+                        className={cn(FIELD, "w-full pl-[38px] pr-3 placeholder:text-denim-muted/80")}
+                    />
+                </div>
+            </div>
+
+            {filters.map((f) => (
+                <div key={f.key} className="flex min-w-0 flex-col gap-1.5">
+                    <label htmlFor={`organizer-filter-${f.key}`} className="text-[13px] font-semibold text-denim-ink">
+                        {f.label}
+                    </label>
+                    <Select
+                        id={`organizer-filter-${f.key}`}
+                        className={FIELD}
+                        value={values[f.key] ?? f.neutralValue ?? ""}
+                        onChange={(e) => onFilterChange(f.key, e.target.value)}
+                    >
+                        {f.options.map((o) => (
+                            <option key={o.value} value={o.value}>
+                                {o.label}
+                            </option>
+                        ))}
+                    </Select>
+                </div>
+            ))}
+        </form>
     )
 }
 
