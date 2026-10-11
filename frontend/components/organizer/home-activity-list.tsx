@@ -2,66 +2,18 @@
 
 import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
-import { ArrowRight, CalendarDays, Plus, Search, SquareCheckBig, X } from "lucide-react"
+import { ArrowRight, CalendarDays, Search, SquareCheckBig, X } from "lucide-react"
 import { Select } from "@/components/ui/select"
 import type { FilterSpec } from "@/components/ui/filter-bar"
 import { categoryLabel } from "@/lib/categories"
 import { cn } from "@/lib/utils"
+import { CardCover, CoverTag, categoryTag } from "./denim-ui"
 
-/* ชิ้นส่วนรายการกิจกรรมของหน้าหลักผู้จัด (ธีม Denim Varsity) — แท็บสถานะ, แผงตัวกรอง, การ์ด, ช่องสร้างใหม่
+/* ชิ้นส่วนรายการกิจกรรมของหน้าหลักผู้จัด (ธีม Denim Varsity) — แผงตัวกรอง, บรรทัดผลลัพธ์, การ์ด
+   ส่วนที่ใช้ร่วมกับหน้าอื่น (แท็บสถานะ, ปกการ์ด, ช่องสร้างใหม่, กริด) อยู่ที่ denim-ui.tsx
    ตรรกะการกรอง/เรียงอยู่ที่หน้า (app/organizer/page.tsx) ไฟล์นี้วาดอย่างเดียว */
 
 export type ActivityStatus = "open" | "closed" | "cancelled"
-
-/* ── แท็บสถานะ ───────────────────────────────────────────────────────────── */
-
-interface StatusTabsProps {
-    tabs: { value: string; label: string }[]
-    value: string
-    counts: Record<string, number>
-    onChange: (value: string) => void
-}
-
-export function StatusTabs({ tabs, value, counts, onChange }: StatusTabsProps) {
-    return (
-        // จอแคบเลื่อนแนวนอนแทนการตัดขึ้นบรรทัดใหม่ — กรอบแคปซูลสองแถวดูเหมือนหน้าตาพัง
-        <div className="-mx-1 max-w-full self-start overflow-x-auto px-1 py-1">
-            <div
-                role="group"
-                aria-label="กรองตามสถานะกิจกรรม"
-                className="inline-flex gap-1.5 rounded-full border border-denim-line bg-white p-1.5"
-            >
-                {tabs.map((tab) => {
-                    const active = value === tab.value
-                    return (
-                        <button
-                            key={tab.value}
-                            type="button"
-                            aria-pressed={active}
-                            onClick={() => onChange(tab.value)}
-                            className={cn(
-                                "flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full px-[18px] text-[15px] transition-colors",
-                                active
-                                    ? "bg-denim font-semibold text-white"
-                                    : "font-medium text-denim-ink hover:bg-denim-paper hover:text-denim-deep"
-                            )}
-                        >
-                            {tab.label}
-                            <span
-                                className={cn(
-                                    "rounded-full px-2 py-0.5 font-code text-xs tabular-nums",
-                                    active ? "bg-amber font-semibold text-denim-deep" : "bg-denim-chip text-denim-ink"
-                                )}
-                            >
-                                {counts[tab.value] ?? 0}
-                            </span>
-                        </button>
-                    )
-                })}
-            </div>
-        </div>
-    )
-}
 
 /* ── แผงค้นหา + ตัวกรอง ──────────────────────────────────────────────────── */
 
@@ -173,50 +125,10 @@ export function ResultLine({
 
 /* ── การ์ดกิจกรรม ────────────────────────────────────────────────────────── */
 
-/** ป้ายหมวดหมู่สั้นแบบแท็กโค้ด — ค่าเป็น value ที่ backend เก็บ (lib/categories.ts) */
-const CATEGORY_TAGS: Record<string, string> = {
-    Technology: "TECH",
-    Academic: "ACAD",
-    Competition: "COMP",
-    Volunteer: "VOLUNTEER",
-    Sports: "SPORT",
-    "Art & Culture": "CULTURE",
-}
-
-function categoryTag(categories: string[]): string | null {
-    if (categories.length === 0) return null
-    const first = CATEGORY_TAGS[categories[0]] ?? categories[0].toUpperCase()
-    return categories.length > 1 ? `#${first} +${categories.length - 1}` : `#${first}`
-}
-
-/** ลายปกตามหมวดหมู่แรก — ปิดรับ/ยกเลิกแล้วเป็นปกเทาเสมอ ให้แยกออกจากงานที่ยังเปิดได้ในพริบตา */
-function coverClass(status: ActivityStatus, categories: string[]): string {
-    if (status !== "open") return "cover-closed"
-    switch (categories[0]) {
-        case "Technology":
-            return "cover-dots"
-        case "Academic":
-            return "cover-lines"
-        case "Competition":
-            return "cover-grid"
-        default:
-            return "denim-weave"
-    }
-}
-
 const STATUS_PILL: Record<ActivityStatus, { label: string; pill: string; dot: string }> = {
     open: { label: "กำลังเปิด", pill: "bg-amber text-denim-deep", dot: "bg-denim-deep" },
     closed: { label: "ปิดรับสมัคร", pill: "border border-white/35 bg-denim-deep/55 text-white", dot: "bg-[#c3ccd9]" },
     cancelled: { label: "ยกเลิกแล้ว", pill: "border border-white/35 bg-denim-deep/55 text-white", dot: "bg-red-400" },
-}
-
-/** วันที่ตัวใหญ่บนปก — "18" + "ต.ค. 69" ตามเวลาไทย (เหมือน formatEventDate ของการ์ดอื่น) */
-function coverDate(ms: number): { day: string; month: string } | null {
-    if (!Number.isFinite(ms)) return null
-    const d = new Date(ms)
-    const day = new Intl.DateTimeFormat("th-TH", { day: "2-digit", timeZone: "Asia/Bangkok" }).format(d)
-    const month = new Intl.DateTimeFormat("th-TH", { month: "short", year: "2-digit", timeZone: "Asia/Bangkok" }).format(d)
-    return { day, month }
 }
 
 function CardRow({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
@@ -248,7 +160,6 @@ export interface ActivityCardData {
 export function ActivityCard({ item }: { item: ActivityCardData }) {
     const tag = categoryTag(item.categories)
     const pill = STATUS_PILL[item.status]
-    const date = coverDate(item.dateMs)
     const categoryNote = item.categories.map(categoryLabel).join(" · ") || "ไม่ระบุหมวดหมู่"
 
     return (
@@ -257,15 +168,13 @@ export function ActivityCard({ item }: { item: ActivityCardData }) {
             className="group block h-full rounded-[22px] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-amber"
         >
             <article className="flex h-full flex-col overflow-hidden rounded-[22px] border border-denim-line bg-white transition-[transform,box-shadow] duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_18px_40px_-18px_rgb(18_34_61_/_0.45)]">
-                <div className={cn("relative flex h-[150px] shrink-0 flex-col justify-between p-4", coverClass(item.status, item.categories))}>
-                    <div className="flex items-start justify-between gap-2">
-                        {tag ? (
-                            <span className="rounded-lg bg-white/95 px-2.5 py-[5px] font-code text-xs font-semibold text-denim-deep">
-                                {tag}
-                            </span>
-                        ) : (
-                            <span />
-                        )}
+                <CardCover
+                    tone={item.status === "open" ? "open" : "closed"}
+                    categories={item.categories}
+                    code={item.code}
+                    dateMs={item.dateMs}
+                    topLeft={tag ? <CoverTag>{tag}</CoverTag> : undefined}
+                    topRight={
                         <span
                             className={cn(
                                 "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-[5px] text-xs font-semibold",
@@ -275,18 +184,8 @@ export function ActivityCard({ item }: { item: ActivityCardData }) {
                             <span className={cn("size-[7px] rounded-full", pill.dot)} aria-hidden="true" />
                             {pill.label}
                         </span>
-                    </div>
-                    <div className="flex items-end justify-between gap-3">
-                        <span className="font-code text-xs text-white/75">{item.code}</span>
-                        {date && (
-                            <span className="text-right font-display text-[44px] font-bold leading-[0.9] text-white/90">
-                                {date.day}
-                                <span className="block text-sm font-semibold tracking-[0.06em] text-white/75">{date.month}</span>
-                            </span>
-                        )}
-                    </div>
-                    <div className="absolute inset-x-4 bottom-0 border-t-2 border-dashed border-amber/60" aria-hidden="true" />
-                </div>
+                    }
+                />
 
                 <div className="flex flex-1 flex-col gap-3.5 p-5">
                     <div className="flex flex-col gap-1.5">
@@ -312,38 +211,3 @@ export function ActivityCard({ item }: { item: ActivityCardData }) {
         </Link>
     )
 }
-
-/** ช่องเส้นประท้ายกริด — ทางลัดไปสร้างกิจกรรม (ช่องเดียวที่เหลือเมื่อยังไม่มีกิจกรรมเลย) */
-export function CreateActivityTile() {
-    return (
-        <Link
-            href="/organizer/create"
-            className="flex min-h-[300px] flex-col items-center justify-center gap-3.5 rounded-[22px] border-2 border-dashed border-denim-dash bg-white p-6 text-center text-denim transition-colors hover:border-denim hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-amber"
-        >
-            <span className="denim-weave grid size-16 place-items-center rounded-[20px]">
-                <Plus className="size-7 text-amber" strokeWidth={2.4} aria-hidden="true" />
-            </span>
-            <span className="font-display text-xl font-bold">สร้างกิจกรรมใหม่</span>
-            <span className="max-w-[220px] text-sm leading-normal text-denim-muted">
-                เปิดรับสมัคร ออกใบรับรอง และติดตามผู้เข้าร่วมได้ในที่เดียว
-            </span>
-        </Link>
-    )
-}
-
-export function ActivityCardSkeleton() {
-    return (
-        <div className="flex h-[380px] flex-col overflow-hidden rounded-[22px] border border-denim-line bg-white" aria-hidden="true">
-            <div className="h-[150px] animate-pulse bg-denim-chip" />
-            <div className="flex flex-1 flex-col gap-3 p-5">
-                <div className="h-6 w-3/4 animate-pulse rounded-md bg-denim-chip" />
-                <div className="h-4 w-full animate-pulse rounded-md bg-denim-paper" />
-                <div className="mt-auto h-9 animate-pulse rounded-[10px] bg-denim-paper" />
-                <div className="h-9 animate-pulse rounded-[10px] bg-denim-paper" />
-            </div>
-        </div>
-    )
-}
-
-/** กริดการ์ด — คอลัมน์ยืดตามจอ (ขั้นต่ำ 300px) การ์ดในแถวเดียวกันสูงเท่ากัน */
-export const ACTIVITY_GRID = "grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-6"

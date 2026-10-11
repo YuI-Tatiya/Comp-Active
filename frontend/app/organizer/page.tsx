@@ -6,16 +6,14 @@ import { Container } from "@/components/layout/container"
 import type { FilterSpec } from "@/components/ui/filter-bar"
 import { formatRegistrationWindow } from "@/components/ui/event-card"
 import { OrganizerHero, OrganizerStatCards, type OrganizerStat } from "@/components/organizer/home-hero"
+import { ActivityCard, FilterPanel, ResultLine, type ActivityCardData } from "@/components/organizer/home-activity-list"
 import {
   ACTIVITY_GRID,
-  ActivityCard,
   ActivityCardSkeleton,
   CreateActivityTile,
-  FilterPanel,
-  ResultLine,
   StatusTabs,
-  type ActivityCardData,
-} from "@/components/organizer/home-activity-list"
+  referenceCode,
+} from "@/components/organizer/denim-ui"
 import { activitiesAPI, eventsAPI, isCancelledByOrganizer, Activity, EventSummary, OrganizerStats } from "@/lib/api"
 import { CATEGORIES } from "@/lib/categories"
 import { formatCompactDateSpan } from "@/lib/date-span"
@@ -56,11 +54,6 @@ function earliestDate(ev: EventSummary): number {
 function latestDate(ev: EventSummary): number {
   const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
   return times.length ? Math.max(...times) : Number.NEGATIVE_INFINITY
-}
-
-/** รหัสอ้างอิงบนปกการ์ด — EVT- = งาน, ACT- = กิจกรรมเดี่ยว (id คนละตารางกัน จึงต้องแยก prefix) */
-function referenceCode(prefix: "EVT" | "ACT", id: number): string {
-  return `${prefix}-${String(id).padStart(4, "0")}`
 }
 
 /** การ์ดข้อมูลรวมที่ใช้แสดงผล — งาน (หลายกิจกรรมย่อย) และกิจกรรมเดี่ยว normalize มาเป็นรูปแบบเดียวกัน */
