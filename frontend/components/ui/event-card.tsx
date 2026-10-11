@@ -3,6 +3,7 @@
 import * as React from "react"
 import type { LucideIcon } from "lucide-react"
 import { API_BASE_URL } from "@/lib/api"
+import { formatCompactDateSpan } from "@/lib/date-span"
 import { cn } from "@/lib/utils"
 import { EVENT_CARD_HEIGHT } from "./event-card-layout"
 
@@ -63,9 +64,20 @@ export function formatEventDateRange(startMs: number, endMs: number): string {
     return `${sameYear ? formatEventDateNoYear(startIso) : start} - ${formatEventDate(endIso)}`
 }
 
-/** ช่วงเปิด-ปิดรับสมัคร — ไม่มีทั้งคู่คืน null (ให้ผู้เรียกซ่อนแถวนี้ไปเลย เช่น กิจกรรมเดี่ยวที่ไม่มีแนวคิดนี้) */
-export function formatRegistrationWindow(openAt?: string | null, closeAt?: string | null): string | null {
-    if (openAt && closeAt) return `เปิดรับสมัคร ${formatEventDate(openAt)} - ${formatEventDate(closeAt)}`
+/**
+ * ช่วงเปิด-ปิดรับสมัคร — ไม่มีทั้งคู่คืน null (ให้ผู้เรียกซ่อนแถวนี้ไปเลย เช่น กิจกรรมเดี่ยวที่ไม่มีแนวคิดนี้)
+ * compact = ช่วงวันที่แบบรวบ (formatCompactDateSpan) — ใช้ที่การ์ดหน้าหลักผู้จัด
+ */
+export function formatRegistrationWindow(
+    openAt?: string | null,
+    closeAt?: string | null,
+    { compact = false }: { compact?: boolean } = {}
+): string | null {
+    if (openAt && closeAt) {
+        return compact
+            ? `เปิดรับสมัคร ${formatCompactDateSpan(openAt, closeAt)}`
+            : `เปิดรับสมัคร ${formatEventDate(openAt)} - ${formatEventDate(closeAt)}`
+    }
     if (openAt) return `เปิดรับสมัครตั้งแต่ ${formatEventDate(openAt)}`
     if (closeAt) return `เปิดรับสมัครถึง ${formatEventDate(closeAt)}`
     return null

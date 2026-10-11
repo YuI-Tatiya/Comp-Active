@@ -12,6 +12,8 @@ interface UserMenuProps {
   accountHref: string
   /** ป้ายบทบาท เช่น "นักศึกษา" / "ผู้จัดกิจกรรม" */
   roleLabel: string
+  /** "denim" = ปุ่มทรงแคปซูลโชว์ชื่อ + บทบาท ตามธีม Denim Varsity ของพอร์ทัลผู้จัด */
+  theme?: "default" | "denim"
 }
 
 /**
@@ -19,7 +21,8 @@ interface UserMenuProps {
  * เขียนเองด้วย useState + useRef ตามแพตเทิร์นเดียวกับ dialog.tsx / tabs.tsx
  * (โปรเจกต์นี้ไม่ได้ติดตั้ง headless dropdown library ไว้)
  */
-export function UserMenu({ accountHref, roleLabel }: UserMenuProps) {
+export function UserMenu({ accountHref, roleLabel, theme = "default" }: UserMenuProps) {
+  const denim = theme === "denim"
   const { user, logout } = useAuth()
   const pathname = usePathname()
   const [open, setOpen] = React.useState(false)
@@ -68,16 +71,32 @@ export function UserMenu({ accountHref, roleLabel }: UserMenuProps) {
         aria-expanded={open}
         aria-label={`เมนูของ ${name}`}
         className={cn(
-          "flex items-center gap-1.5 rounded-full p-1 pr-2 transition-colors",
-          open ? "bg-surface" : "hover:bg-surface"
+          "flex items-center rounded-full transition-colors",
+          denim
+            ? "min-h-11 gap-2.5 border border-denim-line bg-denim-paper py-1 pl-1 pr-3.5 hover:border-denim-field"
+            : cn("gap-1.5 p-1 pr-2", open ? "bg-surface" : "hover:bg-surface")
         )}
       >
-        <span className="flex size-8 items-center justify-center rounded-full bg-brand-600 text-sm font-semibold text-white">
+        <span
+          className={cn(
+            "flex shrink-0 items-center justify-center rounded-full",
+            denim
+              ? "size-9 bg-amber font-display font-bold text-denim-deep"
+              : "size-8 bg-brand-600 text-sm font-semibold text-white"
+          )}
+        >
           {initial}
         </span>
+        {denim && (
+          <span className="flex min-w-0 flex-col items-start leading-[1.15]">
+            <span className="max-w-40 truncate text-sm font-semibold text-denim-deep">{name}</span>
+            <span className="text-xs text-denim-muted">{roleLabel}</span>
+          </span>
+        )}
         <ChevronDown
           className={cn(
-            "size-4 text-fg-subtle transition-transform",
+            "size-4 transition-transform",
+            denim ? "text-denim-muted" : "text-fg-subtle",
             open && "rotate-180"
           )}
           aria-hidden="true"
@@ -92,13 +111,23 @@ export function UserMenu({ accountHref, roleLabel }: UserMenuProps) {
         >
           {/* หัวข้อผู้ใช้ — แสดงข้อมูลเฉย ๆ ไม่ใช่รายการที่กดได้ */}
           <div className="flex items-start gap-3 border-b border-border p-4">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-base font-semibold text-white">
+            <span
+              className={cn(
+                "flex size-10 shrink-0 items-center justify-center rounded-full text-base",
+                denim ? "bg-amber font-display font-bold text-denim-deep" : "bg-brand-600 font-semibold text-white"
+              )}
+            >
               {initial}
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-fg">{name}</p>
               <p className="truncate text-xs text-fg-muted">{user?.email}</p>
-              <span className="mt-1.5 inline-flex items-center rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
+              <span
+                className={cn(
+                  "mt-1.5 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                  denim ? "bg-denim-chip text-denim" : "bg-brand-50 text-brand-700"
+                )}
+              >
                 {roleLabel}
               </span>
             </div>

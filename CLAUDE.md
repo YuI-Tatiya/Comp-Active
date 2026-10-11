@@ -125,6 +125,10 @@ Routes organized under `app/`:
 
 Shared UI in `components/ui/` (Radix + Tailwind + CVA) and auth UI in `components/auth/`.
 
+**Organizer portal theme (Denim Varsity):** `app/organizer/layout.tsx` passes `theme="denim"` to `AppHeader`/`SiteFooter` (and on to `UserMenu`); the home page is built from `components/organizer/home-*.tsx`; tokens are `denim-*`/`amber` in `globals.css`. Its three fonts load only under that layout (`app/organizer/fonts.ts`), so their font tokens live in `@theme inline` — a plain `@theme` resolves the inner `var()` on `:root`, where next/font's variables don't exist, and silently falls back to Sarabun. Student and guest pages keep the default look.
+
+**Request budget:** a cold page load (first visit or hard refresh) must stay well under the burst of Nginx's `general` zone (60), and font files count. Never preload whole font families — Sarabun used to preload 32 files on every page, which pushed `/organizer` to 72 requests; the trailing API calls got 429 and rendered as empty lists. Measure with `performance.getEntriesByType('resource')` after a no-cache load.
+
 ## Commands
 
 ### Backend (`backend/`)
