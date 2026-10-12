@@ -1,47 +1,92 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import Link from "next/link"
-import {
-    ArrowLeft, CheckCircle2, ClipboardList, Clock, Mail,
-    CalendarPlus, ShieldCheck, Zap, Users, Send, Loader2,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { CalendarPlus, ChartColumn, CheckCircle2, Clock, Loader2, Mail, Medal, ScanLine, Send } from "lucide-react"
+import { AMBER_BUTTON } from "@/components/denim/denim-ui"
+import { AUTH_INPUT, AuthBackButton, AuthError, AuthHeading, AuthLabel, AuthMobileBack, AuthShell } from "@/components/auth/auth-shell"
+import { Input } from "@/components/ui/input"
 import { organizerRequestsAPI } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
-const benefits = [
+const BENEFITS = [
     { icon: CalendarPlus, title: "สร้างและจัดการกิจกรรม", desc: "ระบบดูแลการจัดการกิจกรรมครบวงจรตั้งแต่เริ่มจนจบ" },
-    { icon: Users, title: "ระบบจัดการผู้เข้าร่วม", desc: "เช็คอินด้วย QR Code และติดตามสถานะผู้เข้าร่วมเรียลไทม์" },
-    { icon: Zap, title: "เครื่องมือวิเคราะห์สถิติ", desc: "ดูข้อมูลเชิงลึกและประสิทธิภาพของกิจกรรมที่คุณจัด" },
-    { icon: ShieldCheck, title: "ออกเกียรติบัตรอัตโนมัติ", desc: "ระบบสร้างและแจกจ่ายเกียรติบัตรออนไลน์ให้ผู้ผ่านกิจกรรม" },
+    { icon: ScanLine, title: "ระบบจัดการผู้เข้าร่วม", desc: "เช็คอินด้วย QR Code และติดตามสถานะผู้เข้าร่วมเรียลไทม์" },
+    { icon: ChartColumn, title: "เครื่องมือวิเคราะห์สถิติ", desc: "ดูข้อมูลเชิงลึกและประสิทธิภาพของกิจกรรมที่คุณจัด" },
+    { icon: Medal, title: "ออกเกียรติบัตรอัตโนมัติ", desc: "ระบบสร้างและแจกจ่ายเกียรติบัตรออนไลน์ให้ผู้ผ่านกิจกรรม" },
 ]
 
-const steps = [
-    { icon: ClipboardList, text: "กรอกแบบฟอร์ม" },
-    { icon: Clock, text: "รอการตรวจสอบ 1-2 วันทำการ" },
-    { icon: Mail, text: "รับ credentials ทางอีเมล" },
-]
+/** ความยาวขั้นต่ำของเหตุผล — ต้องตรงกับที่ validate() เช็ค */
+const REASON_MIN = 20
 
 type FormState = "idle" | "loading" | "success"
 
-function inputCls(error?: string) {
-    return cn(
-        "w-full rounded-md border bg-bg px-3 py-2.5 text-sm text-fg transition-colors placeholder:text-fg-subtle",
-        error ? "border-danger" : "border-border hover:border-border-strong"
-    )
-}
-
-function Field({ label, required, error, children }: {
-    label: string; required?: boolean; error?: string; children: React.ReactNode
-}) {
+/** แผงซ้าย — กรอบเส้นประอำพัน: หัวเรื่อง, ประโยชน์ 4 ข้อ, ขั้นตอนหลังส่งคำขอ และมาสคอตโบกมือ */
+function ApplyAside() {
     return (
-        <div>
-            <label className="mb-1.5 block text-sm font-medium text-fg">
-                {label} {required && <span className="text-danger">*</span>}
-            </label>
-            {children}
-            {error && <p className="mt-1 text-xs text-danger">{error}</p>}
+        <div className="relative m-5 flex flex-1 flex-col rounded-[22px] border-2 border-dashed border-amber/50 px-7 pb-0 pt-7 xl:m-6 xl:px-8">
+            <div className="flex items-center justify-between gap-3">
+                <AuthBackButton href="/auth">ย้อนกลับ</AuthBackButton>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber px-3.5 py-1.5 text-xs font-semibold text-denim-deep">
+                    <span className="size-[7px] rounded-full bg-denim-deep" aria-hidden="true" />
+                    เปิดรับสมัคร
+                </span>
+            </div>
+
+            <p className="mt-7 font-code text-sm text-denim-on-muted">$ sudo apply --role=organizer</p>
+            <h1 className="mt-2 font-display text-4xl font-bold leading-[1.2] text-white xl:text-[44px]">
+                สมัครเป็น<span className="text-amber">ผู้จัดกิจกรรม</span>
+            </h1>
+            <p className="mt-3 max-w-md text-[15px] leading-relaxed text-denim-on">
+                กรอกข้อมูลด้านขวา ทีมงานจะตรวจสอบและแจ้งผลพร้อม credentials ทางอีเมล
+            </p>
+
+            <ul className="mt-7 grid grid-cols-2 gap-3">
+                {BENEFITS.map(({ icon: Icon, title, desc }) => (
+                    <li key={title} className="rounded-2xl border border-white/15 bg-white/[0.06] p-4">
+                        <span className="grid size-9 place-items-center rounded-lg bg-amber text-denim-deep">
+                            <Icon className="size-[18px]" aria-hidden="true" />
+                        </span>
+                        <p className="mt-3 text-[15px] font-semibold text-white">{title}</p>
+                        <p className="mt-1 text-[13px] leading-relaxed text-denim-on">{desc}</p>
+                    </li>
+                ))}
+            </ul>
+
+            {/* ขั้นตอนหลังส่ง — ขั้นแรก (กำลังทำอยู่) เป็นวงขาว ที่เหลือวงเข้ม เชื่อมด้วยเส้นประ */}
+            <ol className="relative mt-7 space-y-5" aria-label="ขั้นตอนการสมัคร">
+                <span className="absolute bottom-4 left-4 top-4 border-l-2 border-dashed border-amber/40" aria-hidden="true" />
+                {[
+                    { n: "01", text: <>กรอกแบบฟอร์ม</>, current: true },
+                    { n: "02", text: <>รอการตรวจสอบ <span className="text-amber">1–2 วันทำการ</span></> },
+                    { n: "03", text: <>รับ credentials ทางอีเมล</> },
+                ].map(({ n, text, current }) => (
+                    <li key={n} className="relative flex items-center gap-4" aria-current={current ? "step" : undefined}>
+                        <span
+                            className={cn(
+                                "grid size-8 shrink-0 place-items-center rounded-full font-code text-xs font-semibold",
+                                current ? "bg-white text-denim-deep" : "border border-white/25 bg-denim-deep text-denim-on"
+                            )}
+                        >
+                            {n}
+                        </span>
+                        <span className="font-semibold text-white">{text}</span>
+                    </li>
+                ))}
+            </ol>
+
+            {/* ที่ว่างให้มาสคอตยืน (วางแบบ absolute ชิดล่างกรอบ) */}
+            <div className="h-56 shrink-0" aria-hidden="true" />
+
+            <Image
+                src="/mascot-wave.png"
+                alt=""
+                width={421}
+                height={900}
+                sizes="110px"
+                className="absolute bottom-0 left-6 h-52 w-auto drop-shadow-[0_16px_24px_rgb(0_0_0/0.35)]"
+            />
         </div>
     )
 }
@@ -65,20 +110,26 @@ export default function OrganizerRegisterPage() {
         if (!form.phone.trim()) e.phone = "กรุณากรอกเบอร์โทรศัพท์"
         if (!form.department.trim()) e.department = "กรุณากรอกสังกัด/หน่วยงาน"
         if (!form.reason.trim()) e.reason = "กรุณากรอกเหตุผล"
-        else if (form.reason.trim().length < 20) e.reason = "กรุณากรอกเหตุผลอย่างน้อย 20 ตัวอักษร"
+        else if (form.reason.trim().length < REASON_MIN) e.reason = `กรุณากรอกเหตุผลอย่างน้อย ${REASON_MIN} ตัวอักษร`
         return e
     }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
         const errs = validate()
-        if (Object.keys(errs).length > 0) { setErrors(errs); return }
+        if (Object.keys(errs).length > 0) {
+            setErrors(errs)
+            return
+        }
         setState("loading")
         setServerError("")
         try {
             await organizerRequestsAPI.submit({
-                name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim(),
-                department: form.department.trim(), reason: form.reason.trim(),
+                name: form.name.trim(),
+                email: form.email.trim(),
+                phone: form.phone.trim(),
+                department: form.department.trim(),
+                reason: form.reason.trim(),
                 experience: form.experience.trim() || undefined,
             })
             setState("success")
@@ -88,178 +139,168 @@ export default function OrganizerRegisterPage() {
         }
     }
 
-    // ── หน้า success — ล็อกความสูงเหมือนกัน ไม่ให้หน้าเลื่อน ──────────────────
+    // ── ส่งสำเร็จ ─────────────────────────────────────────────────────────────
     if (state === "success") {
         return (
-            <div className="flex h-dvh items-center justify-center overflow-hidden bg-surface p-4">
-                <div className="w-full max-w-md rounded-xl border border-border bg-bg p-8 text-center shadow-xs">
-                    <span className="mx-auto mb-5 flex size-14 items-center justify-center rounded-full bg-success-bg">
-                        <CheckCircle2 className="size-7 text-success" aria-hidden="true" />
-                    </span>
-                    <h1 className="text-xl font-semibold text-fg">ส่งคำขอสำเร็จแล้ว</h1>
-                    <p className="mt-2 text-sm leading-relaxed text-fg-muted">
-                        ทีมงานจะตรวจสอบข้อมูลและแจ้งผลผ่านทางอีเมล
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-brand-600">{form.email}</p>
-
-                    <ul className="mt-6 space-y-3 rounded-lg border border-border bg-surface p-4 text-left">
-                        {[
-                            { icon: Clock, text: "รอผล 1-2 วันทำการ" },
-                            { icon: Mail, text: "รับอีเมลแจ้งผลพร้อม credentials" },
-                            { icon: CheckCircle2, text: "เข้าสู่ระบบและเริ่มสร้างกิจกรรมได้เลย" },
-                        ].map(({ icon: Icon, text }) => (
-                            <li key={text} className="flex items-center gap-3 text-sm text-fg-muted">
-                                <Icon className="size-4 shrink-0 text-fg-subtle" aria-hidden="true" />
-                                {text}
-                            </li>
-                        ))}
-                    </ul>
-
-                    <Button size="lg" asChild className="mt-6 w-full">
-                        <Link href="/auth">กลับหน้าเข้าสู่ระบบ</Link>
-                    </Button>
+            <div className="flex min-h-dvh items-center justify-center bg-surface p-4">
+                <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-denim-line bg-white shadow-[0_30px_80px_-40px_rgb(18_34_61/0.55)]">
+                    <div className="denim-weave px-8 pb-8 pt-9 text-center text-white">
+                        <span className="mx-auto grid size-14 place-items-center rounded-full bg-amber text-denim-deep">
+                            <CheckCircle2 className="size-7" aria-hidden="true" />
+                        </span>
+                        <p className="mt-5 font-code text-xs text-denim-on-muted">$ sudo apply --role=organizer · sent</p>
+                        <h1 className="mt-1.5 font-display text-2xl font-bold">ส่งคำขอสำเร็จแล้ว</h1>
+                        <p className="mt-2 text-sm leading-relaxed text-denim-on">ทีมงานจะตรวจสอบข้อมูลและแจ้งผลผ่านทางอีเมล</p>
+                        <p className="mt-1 break-all text-sm font-semibold text-amber">{form.email}</p>
+                    </div>
+                    <div className="checker-strip h-3" aria-hidden="true" />
+                    <div className="p-7">
+                        <ul className="space-y-3 rounded-2xl bg-denim-paper p-4">
+                            {[
+                                { icon: Clock, text: "รอผล 1–2 วันทำการ" },
+                                { icon: Mail, text: "รับอีเมลแจ้งผลพร้อม credentials" },
+                                { icon: CheckCircle2, text: "เข้าสู่ระบบและเริ่มสร้างกิจกรรมได้เลย" },
+                            ].map(({ icon: Icon, text }) => (
+                                <li key={text} className="flex items-center gap-3 text-sm text-denim-ink">
+                                    <Icon className="size-4 shrink-0 text-denim" aria-hidden="true" />
+                                    {text}
+                                </li>
+                            ))}
+                        </ul>
+                        <Link href="/auth" className={cn(AMBER_BUTTON, "mt-6 w-full")}>
+                            กลับหน้าเข้าสู่ระบบ
+                        </Link>
+                    </div>
                 </div>
             </div>
         )
     }
 
+    const requiredDone = [
+        form.name.trim(),
+        form.email.trim(),
+        form.phone.trim(),
+        form.department.trim(),
+        form.reason.trim().length >= REASON_MIN ? "ok" : "",
+    ].filter(Boolean).length
+    const reasonLength = form.reason.trim().length
+    const reasonPct = Math.min(100, (reasonLength / REASON_MIN) * 100)
+
+    const fieldProps = (field: keyof typeof form) => ({
+        id: `org-${field}`,
+        value: form[field],
+        "aria-invalid": errors[field] ? true : undefined,
+        "aria-describedby": errors[field] ? `org-${field}-error` : undefined,
+    })
+    const fieldError = (field: string) =>
+        errors[field] ? (
+            <p id={`org-${field}-error`} className="mt-1.5 text-xs font-medium text-red-700">
+                {errors[field]}
+            </p>
+        ) : null
+
     return (
-        <div className="flex h-dvh items-center justify-center overflow-hidden bg-surface p-4">
-            <div className="grid h-[calc(100dvh-2rem)] max-h-[720px] w-full max-w-5xl overflow-hidden rounded-xl border border-border bg-bg shadow-md lg:grid-cols-5">
-                {/* ── แผงซ้าย ─────────────────────────────────────────────── */}
-                <aside className="hidden flex-col overflow-hidden bg-gradient-to-br from-brand-100 to-brand-500 text-white lg:col-span-2 lg:flex">
-                    <div className="shrink-0 px-8 pt-10">
-                        <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
-                            <span className="size-1.5 rounded-full bg-white" aria-hidden="true" />
-                            เปิดรับสมัคร
-                        </span>
-                        <h1 className="mt-5 text-2xl font-semibold leading-tight">
-                            สมัครเป็นผู้จัดกิจกรรม
-                        </h1>
-                        <p className="mt-2 text-sm leading-relaxed text-white/90">
-                            กรอกข้อมูลด้านขวา ทีมงานจะตรวจสอบและแจ้งผลพร้อม credentials ทางอีเมล
+        <AuthShell aside={<ApplyAside />} scroll="page" asideRatio="narrow">
+            <div className="border-b border-denim-line px-6 pb-5 pt-7 sm:px-10 sm:pt-10">
+                <AuthMobileBack href="/auth">ย้อนกลับ</AuthMobileBack>
+                <AuthHeading
+                    comment="application.form"
+                    title="กรอกข้อมูลการสมัคร"
+                    subtitle={
+                        <>
+                            ช่องที่มี <span className="text-red-600">*</span> จำเป็นต้องกรอก
+                        </>
+                    }
+                    right={
+                        <p className="font-code text-sm text-denim-muted" aria-label={`กรอกช่องบังคับแล้ว ${requiredDone} จาก 5`}>
+                            required: <strong className={cn("font-semibold", requiredDone === 5 ? "text-emerald-700" : "text-denim-deep")}>{requiredDone}/5</strong>
                         </p>
-                    </div>
-
-                    <ul className="flex-1 space-y-5 overflow-y-auto px-8 py-8">
-                        {benefits.map(({ icon: Icon, title, desc }) => (
-                            <li key={title} className="flex gap-3">
-                                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/15">
-                                    <Icon className="size-4" aria-hidden="true" />
-                                </span>
-                                <div>
-                                    <p className="text-sm font-medium">{title}</p>
-                                    <p className="mt-0.5 text-xs leading-relaxed text-white/90">{desc}</p>
-                                </div>
-                            </li>
-                        ))}
-
-                        <li className="border-t border-white/20 pt-5">
-                            <ul className="space-y-2.5">
-                                {steps.map(({ icon: Icon, text }) => (
-                                    <li key={text} className="flex items-center gap-2.5 text-sm text-white/90">
-                                        <Icon className="size-4 shrink-0" aria-hidden="true" />
-                                        {text}
-                                    </li>
-                                ))}
-                            </ul>
-                        </li>
-                    </ul>
-
-                    <div className="shrink-0 border-t border-white/15 px-8 py-5">
-                        <Link
-                            href="/auth"
-                            className="inline-flex items-center gap-2 text-sm text-white/90 transition-colors hover:text-white"
-                        >
-                            <ArrowLeft className="size-4" aria-hidden="true" />
-                            ย้อนกลับ
-                        </Link>
-                    </div>
-                </aside>
-
-                {/* ── คอลัมน์ฟอร์ม ────────────────────────────────────────── */}
-                <main className="flex flex-col overflow-hidden bg-bg lg:col-span-3">
-                    <div className="shrink-0 border-b border-border px-6 pt-8 pb-5 sm:px-8">
-                        {/* บนมือถือแผงซ้ายถูกซ่อน จึงต้องมีทางย้อนกลับตรงนี้ */}
-                        <Link
-                            href="/auth"
-                            className="mb-4 inline-flex items-center gap-1.5 text-sm text-fg-muted transition-colors hover:text-fg lg:hidden"
-                        >
-                            <ArrowLeft className="size-4" aria-hidden="true" />
-                            ย้อนกลับ
-                        </Link>
-                        <h2 className="text-xl font-semibold tracking-tight text-fg">กรอกข้อมูลการสมัคร</h2>
-                        <p className="mt-1 text-sm text-fg-muted">
-                            ช่องที่มี <span className="text-danger">*</span> จำเป็นต้องกรอก
-                        </p>
-                    </div>
-
-                    {/* ⬇️ จุดเดียวในหน้านี้ที่เลื่อนได้ */}
-                    {/* ไม่ใส่ pb — ปล่อยให้แถบปุ่ม sticky เป็นตัวปิดขอบล่างเอง */}
-                    <div tabIndex={0} className="flex-1 overflow-y-auto px-6 pt-6 sm:px-8">
-                        <form onSubmit={handleSubmit} className="flex min-h-full flex-col gap-5">
-                            <Field label="ชื่อ-นามสกุล" required error={errors.name}>
-                                <input type="text" placeholder="สมชาย ใจดี" value={form.name}
-                                    onChange={(e) => set("name", e.target.value)} className={inputCls(errors.name)} />
-                            </Field>
-
-                            <Field label="อีเมล" required error={errors.email}>
-                                <input type="email" placeholder="example@kkumail.com" value={form.email}
-                                    onChange={(e) => set("email", e.target.value)} className={inputCls(errors.email)} />
-                            </Field>
-
-                            <Field label="เบอร์โทรศัพท์" required error={errors.phone}>
-                                <input type="tel" placeholder="0812345678" value={form.phone}
-                                    onChange={(e) => set("phone", e.target.value)} className={inputCls(errors.phone)} />
-                            </Field>
-
-                            <Field label="สังกัด / หน่วยงาน" required error={errors.department}>
-                                <input type="text" placeholder="สโมสรนักศึกษาวิทยาลัยการคอมพิวเตอร์" value={form.department}
-                                    onChange={(e) => set("department", e.target.value)} className={inputCls(errors.department)} />
-                            </Field>
-
-                            <Field label="เหตุผลที่ต้องการเป็น Organizer" required error={errors.reason}>
-                                <textarea rows={3} placeholder="อธิบายวัตถุประสงค์และประเภทกิจกรรมที่ต้องการจัด..."
-                                    value={form.reason} onChange={(e) => set("reason", e.target.value)}
-                                    className={cn(inputCls(errors.reason), "resize-none")} />
-                                <p className="mt-1 text-xs text-fg-subtle">{form.reason.length} ตัวอักษร (ขั้นต่ำ 20)</p>
-                            </Field>
-
-                            <Field label="ประสบการณ์การจัดกิจกรรม (ถ้ามี)">
-                                <textarea rows={2} placeholder="เคยจัดกิจกรรมอะไรมาบ้าง..."
-                                    value={form.experience} onChange={(e) => set("experience", e.target.value)}
-                                    className={cn(inputCls(), "resize-none")} />
-                            </Field>
-
-                            {serverError && (
-                                <div
-                                    role="alert"
-                                    className="rounded-lg border border-danger/20 bg-danger-bg px-4 py-3 text-sm text-danger"
-                                >
-                                    {serverError}
-                                </div>
-                            )}
-
-                            {/* ปุ่มลอยติดก้นกรอบ ไม่ต้องเลื่อนหา */}
-                            <div className="sticky bottom-0 -mx-6 mt-auto border-t border-border bg-bg px-6 py-4 sm:-mx-8 sm:px-8">
-                                <Button type="submit" size="lg" className="w-full" disabled={state === "loading"}>
-                                    {state === "loading" ? (
-                                        <>
-                                            <Loader2 className="animate-spin" />
-                                            กำลังส่ง...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Send />
-                                            ส่งคำขอ
-                                        </>
-                                    )}
-                                </Button>
-                            </div>
-                        </form>
-                    </div>
-                </main>
+                    }
+                />
             </div>
-        </div>
+
+            <form onSubmit={handleSubmit} noValidate className="flex flex-1 flex-col">
+                <div className="grid gap-x-6 gap-y-5 px-6 py-7 sm:grid-cols-2 sm:px-10">
+                    <div>
+                        <AuthLabel htmlFor="org-name" required>ชื่อ-นามสกุล</AuthLabel>
+                        <Input {...fieldProps("name")} autoComplete="name" placeholder="สมชาย ใจดี" onChange={(e) => set("name", e.target.value)} className={AUTH_INPUT} />
+                        {fieldError("name")}
+                    </div>
+                    <div>
+                        <AuthLabel htmlFor="org-email" required>อีเมล</AuthLabel>
+                        <Input {...fieldProps("email")} type="email" autoComplete="email" placeholder="example@kkumail.com" onChange={(e) => set("email", e.target.value)} className={AUTH_INPUT} />
+                        {fieldError("email")}
+                    </div>
+                    <div>
+                        <AuthLabel htmlFor="org-phone" required>เบอร์โทรศัพท์</AuthLabel>
+                        <Input {...fieldProps("phone")} type="tel" autoComplete="tel" placeholder="0812345678" onChange={(e) => set("phone", e.target.value)} className={AUTH_INPUT} />
+                        {fieldError("phone")}
+                    </div>
+                    <div>
+                        <AuthLabel htmlFor="org-department" required>สังกัด / หน่วยงาน</AuthLabel>
+                        <Input {...fieldProps("department")} autoComplete="organization" placeholder="สโมสรนักศึกษาวิทยาลัยการคอมพิวเตอร์" onChange={(e) => set("department", e.target.value)} className={AUTH_INPUT} />
+                        {fieldError("department")}
+                    </div>
+
+                    <div className="sm:col-span-2">
+                        <AuthLabel htmlFor="org-reason" required>เหตุผลที่ต้องการเป็น Organizer</AuthLabel>
+                        <textarea
+                            {...fieldProps("reason")}
+                            rows={4}
+                            placeholder="อธิบายวัตถุประสงค์และประเภทกิจกรรมที่ต้องการจัด..."
+                            onChange={(e) => set("reason", e.target.value)}
+                            className={cn(AUTH_INPUT, "h-auto min-h-32 w-full resize-y py-3 leading-relaxed")}
+                        />
+                        <div className="mt-2 flex items-center justify-end gap-3">
+                            <span className="h-1.5 w-24 overflow-hidden rounded-full bg-denim-chip" aria-hidden="true">
+                                <span
+                                    className={cn("block h-full rounded-full transition-[width] duration-300", reasonPct >= 100 ? "bg-emerald-600" : "bg-amber")}
+                                    style={{ width: `${reasonPct}%` }}
+                                />
+                            </span>
+                            <span className={cn("font-code text-xs", reasonPct >= 100 ? "text-emerald-700" : "text-denim-muted")}>
+                                {reasonLength} ตัวอักษร (ขั้นต่ำ {REASON_MIN})
+                            </span>
+                        </div>
+                        {fieldError("reason")}
+                    </div>
+
+                    <div className="sm:col-span-2">
+                        <AuthLabel htmlFor="org-experience">
+                            ประสบการณ์การจัดกิจกรรม <span className="font-normal text-denim-muted">(ถ้ามี)</span>
+                        </AuthLabel>
+                        <textarea
+                            {...fieldProps("experience")}
+                            rows={3}
+                            placeholder="[ตัวอย่างกิจกรรมที่เคยจัด]"
+                            onChange={(e) => set("experience", e.target.value)}
+                            className={cn(AUTH_INPUT, "h-auto min-h-28 w-full resize-y py-3 leading-relaxed")}
+                        />
+                    </div>
+
+                    {serverError && (
+                        <div className="sm:col-span-2">
+                            <AuthError>{serverError}</AuthError>
+                        </div>
+                    )}
+                </div>
+
+                <div className="mt-auto border-t border-denim-line px-6 py-6 sm:px-10">
+                    <button type="submit" disabled={state === "loading"} className={cn(AMBER_BUTTON, "w-full disabled:cursor-wait disabled:opacity-80")}>
+                        {state === "loading" ? (
+                            <>
+                                <Loader2 className="size-5 animate-spin" aria-hidden="true" />
+                                กำลังส่ง...
+                            </>
+                        ) : (
+                            <>
+                                <Send className="size-5" aria-hidden="true" />
+                                ส่งคำขอ
+                            </>
+                        )}
+                    </button>
+                </div>
+            </form>
+        </AuthShell>
     )
 }

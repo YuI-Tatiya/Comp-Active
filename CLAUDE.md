@@ -144,6 +144,10 @@ Shared UI in `components/ui/` (Radix + Tailwind + CVA) and auth UI in `component
     - The public home `/` is the size reference: the card is identical on every page and is never sized ad hoc.
     - Width is a column of `ACTIVITY_GRID`. The horizontal rows on the list pages use `ACTIVITY_GRID_COLUMN`, which computes the same width from the page's `@container` wrapper, because those rows are narrower than the grid. Keep the two constants in sync.
     - Height is fixed by fixed inner slots, not a fixed total. The text block holds 1 title line plus 1 description line; a 2-line title fills it and hides the description. The registration-window row keeps its space even when it is empty.
+  - **Auth pages:** `/auth` (login/register) and `/auth/organizer/register` share `components/auth/auth-shell.tsx`.
+    - It provides a two-panel card (denim aside with checker strip, white form side) plus the shared inputs, the password field with show/hide, and the heading.
+    - The aside hides below `lg`, so each page shows its own back link on the form side.
+    - Mascots are PNGs (`mascot-wave.png`, `mascot-laptop.png`). Convert Canva SVG exports to PNG first: they wrap base64 rasters, and `next/image` can't resize SVG.
   - **Activity/event detail page:** `components/activity/activity-registration-view.tsx` is the single page for every role.
     - `mode="register"` serves students and guests, for both events and standalone activities. `mode="preview"` serves the organizer's view-only pages.
     - The pieces are the hero (`activity-detail-hero`: cover, title, WHEN/WHERE, round picker), the bottom bars (`activity-detail-bars`: every `describeAction` state) and the numbered sections plus sidebar (`activity-detail-sections`).
