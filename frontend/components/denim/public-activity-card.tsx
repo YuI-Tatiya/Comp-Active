@@ -14,8 +14,11 @@ import { cn } from "@/lib/utils"
  * ปกแบบเดียวกับฝั่งผู้จัด แต่มุมซ้ายล่างเป็นชื่อหมวดหมู่แทนรหัสงาน และท้ายการ์ดเป็นปุ่มชวนลงทะเบียน
  * ลิงก์คือการ์ดทั้งใบ (ปุ่มเป็นแค่ป้ายบอก ไม่ใช่ปุ่มซ้อนในลิงก์)
  *
- * ไม่มีความสูงตายตัว — ในกริด/แถวเลื่อน การ์ดยืดเท่าใบที่สูงสุดของแถวเอง (h-full + ปุ่มชิดล่างด้วย mt-auto)
- * className ใช้กำหนดขนาดช่องจากภายนอก เช่นความกว้างคงที่ในแถวเลื่อนแนวนอน
+ * สูงเท่ากันทุกใบทุกหน้า (ยึดหน้าแรก public เป็นแบบ) โดยไม่ต้องตายตัวความสูงรวม — ทุกช่องข้างในมีขนาดคงที่:
+ * ช่องข้อความสูงเท่าชื่อ 1 บรรทัด + คำอธิบาย 1 บรรทัด (ชื่อที่ยาว 2 บรรทัดใช้ที่เท่ากันพอดี คำอธิบายจึงล้นกรอบ
+ * และถูกซ่อน — ชื่อสำคัญกว่า) และเว้นที่แถวช่วงรับสมัครไว้เสมอแม้ไม่มี เดิมการ์ดสูงตามเนื้อหา แถวที่มีชื่อยาว
+ * ใบเดียวยืดทั้งแถว การ์ดใบเดียวกันจึงสูงไม่เท่ากันในแต่ละหน้า
+ * className ใช้กำหนดความกว้างช่องจากภายนอก (ดู ACTIVITY_GRID_COLUMN)
  */
 export function PublicActivityCard({ item, className }: { item: FeaturedCardItem; className?: string }) {
     const tag = categoryTag(item.categories)
@@ -41,16 +44,24 @@ export function PublicActivityCard({ item, className }: { item: FeaturedCardItem
                 />
 
                 <div className="flex flex-1 flex-col gap-3.5 p-5">
-                    <div className="flex flex-col gap-1.5">
+                    {/* ชื่อ 1 บรรทัด (1.25rem × 1.3) + ช่องห่าง 0.375rem + คำอธิบาย 1 บรรทัด (0.875rem × 1.55) ≈ 3.36rem
+                        ชื่อ 2 บรรทัด (3.25rem) ก็พอดีช่องนี้ — คำอธิบายจะเริ่มเลยขอบล่างและถูก overflow ซ่อนทั้งบรรทัด */}
+                    <div className="h-[3.375rem] overflow-hidden">
                         <h3 className="line-clamp-2 font-display text-xl font-bold leading-[1.3] text-denim-deep">{item.name}</h3>
                         {item.description && (
-                            <p className="line-clamp-2 text-sm leading-[1.55] text-denim-muted">{item.description}</p>
+                            <p className="mt-1.5 line-clamp-1 text-sm leading-[1.55] text-denim-muted">{item.description}</p>
                         )}
                     </div>
                     <div className="mt-auto flex flex-col gap-2">
                         <CardRow icon={CalendarDays}>จัดกิจกรรม {formatCompactDateSpan(item.sortDate, item.endDate)}</CardRow>
-                        {/* กิจกรรมเดี่ยวไม่มีช่วงรับสมัครในสคีมา (ไม่มีฟิลด์นี้เลย) — ซ่อนแถวนี้แทนที่จะโชว์ค่าว่าง */}
-                        {registrationWindow && <CardRow icon={SquareCheckBig}>{registrationWindow}</CardRow>}
+                        {registrationWindow ? (
+                            <CardRow icon={SquareCheckBig}>{registrationWindow}</CardRow>
+                        ) : (
+                            // กิจกรรมเดี่ยวไม่มีช่วงรับสมัครในสคีมา — เว้นที่เท่าหนึ่งแถวไว้ การ์ดทุกใบจึงสูงเท่ากันและแถววันที่ตรงกัน
+                            <div aria-hidden="true" className="invisible">
+                                <CardRow icon={SquareCheckBig}>&nbsp;</CardRow>
+                            </div>
+                        )}
                     </div>
                     <span
                         className={cn(

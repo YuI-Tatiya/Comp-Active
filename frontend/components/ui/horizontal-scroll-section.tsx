@@ -88,8 +88,9 @@ export function HorizontalScrollSection({ title, count, children }: HorizontalSc
                 // overflow-x ตัดทุกอย่างที่ล้นกรอบ (แกน y ด้วย) — เผื่อขอบไว้ให้การ์ดยกตัว/เงาตอน hover (ล้นล่าง ~40px
                 // ข้าง ~22px) และกรอบโฟกัส แล้วหักคืนด้วย margin ติดลบ ตำแหน่งการ์ดจึงเท่าเดิม ด้านข้างเผื่อได้ไม่เกิน
                 // padding ของ Container (16px / sm 24px) ไม่งั้นหน้าจอแคบจะเลื่อนแนวนอนได้ · scroll-px ให้ snap ชิดขอบคอลัมน์
+                // ช่องห่าง gap-6 เท่ากริดการ์ดหน้าแรก (ACTIVITY_GRID)
                 className={cn(
-                    "-mx-4 -mt-3 -mb-10 flex snap-x snap-mandatory scroll-px-4 gap-5 overflow-x-auto scroll-smooth px-4 pt-3 pb-12 sm:-mx-6 sm:scroll-px-6 sm:px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                    "-mx-4 -mt-3 -mb-10 flex snap-x snap-mandatory scroll-px-4 gap-6 overflow-x-auto scroll-smooth px-4 pt-3 pb-12 sm:-mx-6 sm:scroll-px-6 sm:px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
                     dragging ? "cursor-grabbing select-none snap-none" : "cursor-grab"
                 )}
             >

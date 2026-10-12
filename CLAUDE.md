@@ -140,7 +140,10 @@ Shared UI in `components/ui/` (Radix + Tailwind + CVA) and auth UI in `component
   - Use light accents (amber, `#c3d3ea`) for numbers and text on dark denim panels. Green and denim are unreadable there.
 - **Shared pieces:**
   - `components/denim/denim-ui.tsx`: hero frame, terminal prompt, section heading, stat cards, status tabs, filter panel, card cover/pill/row, create tile.
-  - `components/denim/public-activity-card.tsx`: the participant-facing activity card used on `/`, `/events` and `/student/events`. All three build their items with `buildFeaturedCards` (`lib/events-filter.ts`): one card per event, plus standalone activities.
+  - `components/denim/public-activity-card.tsx`: the participant-facing activity card. `/`, `/student`, `/events` and `/student/events` all build their items with `buildFeaturedCards` (`lib/events-filter.ts`): one card per event, plus standalone activities.
+    - The public home `/` is the size reference: the card is identical on every page and is never sized ad hoc.
+    - Width is a column of `ACTIVITY_GRID`. The horizontal rows on the list pages use `ACTIVITY_GRID_COLUMN`, which computes the same width from the page's `@container` wrapper, because those rows are narrower than the grid. Keep the two constants in sync.
+    - Height is fixed by fixed inner slots, not a fixed total. The text block holds 1 title line plus 1 description line; a 2-line title fills it and hides the description. The registration-window row keeps its space even when it is empty.
   - `PageHeader` is the denim band used by list pages.
   - Page-specific parts live in `components/organizer/*`, `components/home/*` (public `/`) and `components/about/*`.
 - **Focus rings:** amber only on denim backgrounds. On white it is ~2:1, below the 3:1 a focus indicator needs, so use denim there.

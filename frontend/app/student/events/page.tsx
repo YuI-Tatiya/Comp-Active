@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@
 import { EventsFilterSidebar } from "@/components/ui/events-filter-sidebar"
 import { HorizontalScrollSection } from "@/components/ui/horizontal-scroll-section"
 import { PublicActivityCard } from "@/components/denim/public-activity-card"
-import { EVENT_CARD_SLOT } from "@/components/ui/event-card-layout"
+import { ACTIVITY_GRID_COLUMN } from "@/components/denim/denim-ui"
 import { eventsAPI, activitiesAPI, EventSummary, Activity } from "@/lib/api"
 import {
     INITIAL_FILTERS,
@@ -89,7 +89,8 @@ export default function StudentEventsPage() {
                     ตัวกรอง
                 </Button>
 
-                <div className="lg:grid lg:grid-cols-[260px_1fr] lg:gap-10">
+                {/* @container: ความกว้างการ์ด (ACTIVITY_GRID_COLUMN) คิดจากความกว้างเต็มของตัวห่อนี้ ให้เท่าคอลัมน์การ์ดหน้าแรก */}
+                <div className="@container lg:grid lg:grid-cols-[260px_1fr] lg:gap-10">
                     <aside className="hidden lg:block">
                         <div className="sticky top-24">
                             <EventsFilterSidebar
@@ -135,8 +136,7 @@ export default function StudentEventsPage() {
                                             <PublicActivityCard
                                                 key={item.key}
                                                 item={item}
-                                                // ความกว้างคงที่ในแถวเลื่อน · h-auto ให้ flex ยืดทุกใบเท่าใบที่สูงสุดของแถว
-                                                className={cn("h-auto shrink-0 snap-start", EVENT_CARD_SLOT)}
+                                                className={cn("shrink-0 snap-start", ACTIVITY_GRID_COLUMN)}
                                             />
                                         ))}
                                     </HorizontalScrollSection>
