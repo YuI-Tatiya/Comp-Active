@@ -76,6 +76,7 @@ export function DenimSectionHeading({
     description,
     action,
     tone = "light",
+    size = "page",
 }: {
     id: string
     comment: string
@@ -83,25 +84,32 @@ export function DenimSectionHeading({
     description?: React.ReactNode
     action?: React.ReactNode
     tone?: "light" | "dark"
+    /** page = หัวข้อส่วนของหน้า (ตัวใหญ่) · card = หัวการ์ดข้อมูล เช่นการ์ดในแดชบอร์ดของกิจกรรม */
+    size?: "page" | "card"
 }) {
     const dark = tone === "dark"
+    const card = size === "card"
     return (
-        <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="flex flex-col gap-1.5">
-                <span className={cn("font-code text-[13px]", dark ? "text-amber" : "text-denim-accent")} aria-hidden="true">
+        <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+            <div className={cn("flex min-w-0 flex-col", card ? "gap-1" : "gap-1.5")}>
+                <span
+                    className={cn("font-code", card ? "text-xs" : "text-[13px]", dark ? "text-amber" : "text-denim-accent")}
+                    aria-hidden="true"
+                >
                     {`// ${comment}`}
                 </span>
                 <h2
                     id={id}
                     className={cn(
-                        "font-display text-[30px] font-bold leading-tight sm:text-[34px]",
+                        "font-display font-bold leading-tight",
+                        card ? "text-2xl" : "text-[30px] sm:text-[34px]",
                         dark ? "text-white" : "text-denim-deep"
                     )}
                 >
                     {title}
                 </h2>
                 {description && (
-                    <p className={cn("text-[15px]", dark ? "text-denim-on" : "text-denim-muted")}>{description}</p>
+                    <p className={cn(card ? "text-sm" : "text-[15px]", dark ? "text-denim-on" : "text-denim-muted")}>{description}</p>
                 )}
             </div>
             {action}
@@ -145,19 +153,51 @@ export interface OrganizerStat {
     attention?: boolean
     /** บรรทัดอธิบายจางๆ ใต้ป้าย (แดชบอร์ด) — มีแล้วป้ายกลายเป็นตัวหนาตามดีไซน์ */
     caption?: string
+    /** 0-100 — แสดงวงแหวนความคืบหน้าแทนไอคอน (เช่น อัตราการเข้าร่วม) */
+    progress?: number
 }
 
-export function OrganizerStatCards({ stats }: { stats: OrganizerStat[] }) {
+/** วงแหวนความคืบหน้าบนการ์ดสถิติ — ส่วนที่เติมเป็นอำพัน */
+function ProgressRing({ value, onDark }: { value: number; onDark: boolean }) {
+    const r = 22
+    const circumference = 2 * Math.PI * r
+    const v = Math.max(0, Math.min(100, value))
+    return (
+        <svg viewBox="0 0 56 56" className="size-14 shrink-0 -rotate-90 sm:size-16" aria-hidden="true">
+            <circle cx="28" cy="28" r={r} fill="none" strokeWidth="7" className={onDark ? "stroke-white/15" : "stroke-denim-chip"} />
+            <circle
+                cx="28"
+                cy="28"
+                r={r}
+                fill="none"
+                strokeWidth="7"
+                strokeLinecap="round"
+                className="stroke-amber transition-[stroke-dashoffset] duration-700"
+                strokeDasharray={circumference}
+                strokeDashoffset={circumference * (1 - v / 100)}
+            />
+        </svg>
+    )
+}
+
+export function OrganizerStatCards({
+    stats,
+    strongLabels = false,
+}: {
+    stats: OrganizerStat[]
+    /** ป้ายตัวหนาทุกใบ แม้ไม่มี caption (แดชบอร์ดของกิจกรรม) — ปกติตัวหนาเฉพาะใบที่มี caption */
+    strongLabels?: boolean
+}) {
     return (
         <section aria-label="สรุปภาพรวม" className="relative z-[1] -mt-16">
             <Container>
                 {/* มือถือ 2x2 แทนเรียงเดี่ยว 4 ใบ (ใบละ ~170px = กินจอไปเกือบ 700px ก่อนถึงรายการกิจกรรม) */}
                 <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-                    {stats.map(({ code, label, value, icon: Icon, highlight, attention, caption }) => (
+                    {stats.map(({ code, label, value, icon: Icon, highlight, attention, caption, progress }) => (
                         <div
                             key={code}
                             className={cn(
-                                "flex min-w-0 flex-col gap-2.5 rounded-[20px] px-4 py-4 sm:px-6 sm:py-[22px]",
+                                "relative flex min-w-0 flex-col gap-2.5 rounded-[20px] px-4 py-4 sm:px-6 sm:py-[22px]",
                                 highlight
                                     ? "denim-weave text-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.6)]"
                                     : "border bg-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.5)]",
@@ -173,18 +213,20 @@ export function OrganizerStatCards({ stats }: { stats: OrganizerStat[] }) {
                                 >
                                     {code}
                                 </span>
-                                <span
-                                    className={cn(
-                                        "grid size-9 shrink-0 place-items-center rounded-xl sm:size-10",
-                                        highlight || attention ? "bg-amber" : "bg-denim-chip"
-                                    )}
-                                >
-                                    <Icon
-                                        className={cn("size-5", highlight || attention ? "text-denim-deep" : "text-denim")}
-                                        strokeWidth={highlight ? 2.2 : 2}
-                                        aria-hidden="true"
-                                    />
-                                </span>
+                                {progress === undefined && (
+                                    <span
+                                        className={cn(
+                                            "grid size-9 shrink-0 place-items-center rounded-xl sm:size-10",
+                                            highlight || attention ? "bg-amber" : "bg-denim-chip"
+                                        )}
+                                    >
+                                        <Icon
+                                            className={cn("size-5", highlight || attention ? "text-denim-deep" : "text-denim")}
+                                            strokeWidth={highlight ? 2.2 : 2}
+                                            aria-hidden="true"
+                                        />
+                                    </span>
+                                )}
                             </div>
                             <div
                                 className={cn(
@@ -194,12 +236,23 @@ export function OrganizerStatCards({ stats }: { stats: OrganizerStat[] }) {
                             >
                                 {value}
                             </div>
+                            {progress !== undefined && (
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 sm:right-6">
+                                    <ProgressRing value={progress} onDark={!!highlight} />
+                                </span>
+                            )}
                             <div>
                                 <div
                                     className={cn(
                                         "text-sm",
-                                        caption && "font-semibold",
-                                        highlight ? (caption ? "text-white" : "text-denim-on") : caption ? "text-denim-deep" : "text-denim-ink"
+                                        (caption || strongLabels) && "font-semibold",
+                                        highlight
+                                            ? caption || strongLabels
+                                                ? "text-white"
+                                                : "text-denim-on"
+                                            : caption || strongLabels
+                                              ? "text-denim-deep"
+                                              : "text-denim-ink"
                                     )}
                                 >
                                     {label}
