@@ -143,6 +143,9 @@ Shared UI in `components/ui/` (Radix + Tailwind + CVA) and auth UI in `component
   - `components/denim/public-activity-card.tsx`: the participant-facing activity card. `/`, `/student`, `/events` and `/student/events` all build their items with `buildFeaturedCards` (`lib/events-filter.ts`): one card per event, plus standalone activities.
     - The public home `/` is the size reference: the card is identical on every page and is never sized ad hoc.
     - Width is a column of `ACTIVITY_GRID`. The horizontal rows on the list pages use `ACTIVITY_GRID_COLUMN`, which computes the same width from the page's `@container` wrapper, because those rows are narrower than the grid. Keep the two constants in sync.
+    - `/events` and `/student/events` are one component, `components/events/events-browser.tsx`; the pages only pass the prompt, subtitle and card links.
+      - On `lg+` the page body is itself a 3-column grid with `ACTIVITY_GRID`'s gap. The filter panel takes one column and the "ทั้งหมด" grid takes the other two (`lg:grid-cols-2`), so cards come out home-sized.
+      - Don't give the panel its own fixed width: cards would either change size or leave an empty strip. The user chose home-sized cards over the mockup's 3-per-row.
     - Height is fixed by fixed inner slots, not a fixed total. The text block holds 1 title line plus 1 description line; a 2-line title fills it and hides the description. The registration-window row keeps its space even when it is empty.
   - **Auth pages:** `/auth` (login/register) and `/auth/organizer/register` share `components/auth/auth-shell.tsx`.
     - It provides a two-panel card (denim aside with checker strip, white form side) plus the shared inputs, the password field with show/hide, and the heading.

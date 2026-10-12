@@ -10,6 +10,10 @@ interface HorizontalScrollSectionProps {
     children: React.ReactNode
 }
 
+/** ปุ่มเลื่อนกลมขาว — แบบเดียวกับ RoundIconButton ของหน้าแรก (ย่อเหลือ 40px ให้พอดีหัวแถว) */
+const NAV_BUTTON =
+    "grid size-10 place-items-center rounded-full border-[1.5px] border-denim-line bg-white text-denim-deep transition-colors hover:border-denim hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-denim"
+
 /** แถวการ์ดเลื่อนซ้าย-ขวาได้ — scroll-snap ธรรมชาติของเบราว์เซอร์ + ลากด้วยเมาส์ ไม่พึ่งไลบรารีภายนอก */
 export function HorizontalScrollSection({ title, count, children }: HorizontalScrollSectionProps) {
     const scrollRef = useRef<HTMLDivElement>(null)
@@ -53,27 +57,22 @@ export function HorizontalScrollSection({ title, count, children }: HorizontalSc
 
     return (
         <section>
-            <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-fg">
-                    {title}
-                    {count !== undefined && <span className="ml-2 text-sm font-normal text-fg-muted">({count})</span>}
+            <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="flex min-w-0 items-center gap-2.5 font-display text-xl font-bold text-denim-deep">
+                    <span className="truncate">{title}</span>
+                    {count !== undefined && (
+                        <span className="rounded-full bg-denim-chip px-2.5 py-0.5 font-code text-xs font-semibold tabular-nums text-denim">
+                            {count}
+                            <span className="sr-only"> รายการ</span>
+                        </span>
+                    )}
                 </h2>
-                <div className="flex gap-2">
-                    <button
-                        type="button"
-                        aria-label="เลื่อนซ้าย"
-                        onClick={() => scroll(-1)}
-                        className="flex size-9 items-center justify-center rounded-full border border-border bg-bg text-fg-muted shadow-sm transition-colors hover:bg-surface hover:text-fg"
-                    >
-                        <ChevronLeft className="size-4" aria-hidden="true" />
+                <div className="flex shrink-0 gap-2">
+                    <button type="button" aria-label={`เลื่อนหมวด${title}ไปทางซ้าย`} onClick={() => scroll(-1)} className={NAV_BUTTON}>
+                        <ChevronLeft className="size-[18px]" aria-hidden="true" />
                     </button>
-                    <button
-                        type="button"
-                        aria-label="เลื่อนขวา"
-                        onClick={() => scroll(1)}
-                        className="flex size-9 items-center justify-center rounded-full border border-border bg-bg text-fg-muted shadow-sm transition-colors hover:bg-surface hover:text-fg"
-                    >
-                        <ChevronRight className="size-4" aria-hidden="true" />
+                    <button type="button" aria-label={`เลื่อนหมวด${title}ไปทางขวา`} onClick={() => scroll(1)} className={NAV_BUTTON}>
+                        <ChevronRight className="size-[18px]" aria-hidden="true" />
                     </button>
                 </div>
             </div>

@@ -2,7 +2,7 @@
 import { test, describe } from "node:test"
 import assert from "node:assert/strict"
 import type { Activity, EventSummary } from "./api.ts"
-import { buildFeaturedCards, eventImagePath, filterAndSortItems, groupByCategory, INITIAL_FILTERS } from "./events-filter.ts"
+import { buildFeaturedCards, eventImagePath, facetCounts, filterAndSortItems, groupByCategory, INITIAL_FILTERS } from "./events-filter.ts"
 
 const HREFS = { event: (id: number) => `/events/${id}`, activity: (id: number) => `/events/activities/${id}` }
 
@@ -134,6 +134,36 @@ describe("filterAndSortItems + groupByCategory", () => {
                 ["Academic", ["event-3"]],
             ]
         )
+    })
+})
+
+describe("facetCounts — ตัวเลขข้างตัวเลือกในแผงตัวกรอง", () => {
+    const cards = buildFeaturedCards(
+        [
+            event(1, [subActivity({ categories: ["Technology", "Competition"] })]),
+            event(2, [subActivity({ categories: ["Technology"], status: "closed" })]),
+            event(3, [subActivity({ categories: ["Academic"] }), subActivity({ categories: ["Academic"] })]),
+        ],
+        [],
+        HREFS
+    )
+
+    test("ไม่มีตัวกรอง: นับการ์ดต่อหมวด (การ์ดหลายหมวดนับทุกหมวด แต่ไม่นับซ้ำในหมวดเดียวกัน) และต่อสถานะ", () => {
+        const counts = facetCounts(cards, INITIAL_FILTERS)
+        assert.equal(counts.categories.Technology, 2)
+        assert.equal(counts.categories.Competition, 1)
+        assert.equal(counts.categories.Academic, 1)
+        assert.equal(counts.categories.Sports, 0)
+        assert.deepEqual(counts.statuses, { open: 2, closed: 1 })
+    })
+
+    test("ตัวเลขหมวดไม่ถูกตัวกรองหมวดเอง แต่ตามตัวกรองอื่น (สถานะ)", () => {
+        const counts = facetCounts(cards, { ...INITIAL_FILTERS, categories: ["Academic"], statuses: ["open"] })
+        // ติ๊ก "วิชาการ" ไว้ — หมวดอื่นยังบอกจำนวนที่จะได้ถ้าติ๊กเพิ่ม (นับเฉพาะที่เปิดรับสมัคร)
+        assert.equal(counts.categories.Technology, 1)
+        assert.equal(counts.categories.Academic, 1)
+        // ตัวเลขสถานะคิดจากหมวดที่ติ๊ก แต่ไม่ถูกตัวกรองสถานะเอง
+        assert.deepEqual(counts.statuses, { open: 1, closed: 0 })
     })
 })
 

@@ -262,6 +262,33 @@ export function filterAndSortItems<T extends FilterableItem>(
     })
 }
 
+export interface FacetCounts {
+    categories: Record<string, number>
+    statuses: Record<string, number>
+}
+
+/**
+ * จำนวนการ์ดข้างตัวเลือกในแผงตัวกรอง — นับแบบ faceted: ตัวเลขของหมวดหมู่คิดจากตัวกรองอื่นทั้งหมด
+ * (ค้นหา สถานะ ใบรับรอง ช่วงเวลา) แต่ไม่รวมตัวกรองหมวดหมู่เอง ตัวเลขจึงบอกว่า "ติ๊กเพิ่มแล้วจะได้กี่รายการ"
+ * แทนที่จะกลายเป็น 0 ทุกหมวดที่ยังไม่ได้ติ๊ก สถานะรับสมัครก็นับแบบเดียวกัน
+ * การ์ดหลายหมวดนับในทุกหมวดที่มี (เหมือน groupByCategory) ผลรวมของหมวดจึงเกินจำนวนการ์ดได้
+ */
+export function facetCounts<T extends FilterableItem>(items: T[], filters: EventsFilterValues): FacetCounts {
+    const categories: Record<string, number> = Object.fromEntries(CATEGORIES.map((c) => [c.value, 0]))
+    for (const item of filterAndSortItems(items, { ...filters, categories: [] })) {
+        for (const c of new Set(item.categories)) {
+            if (c in categories) categories[c]++
+        }
+    }
+
+    const statuses: Record<string, number> = Object.fromEntries(STATUS_OPTIONS.map((o) => [o.value, 0]))
+    for (const item of filterAndSortItems(items, { ...filters, statuses: [] })) {
+        statuses[item.status] = (statuses[item.status] ?? 0) + 1
+    }
+
+    return { categories, statuses }
+}
+
 /**
  * จัดกลุ่มตามหมวดหมู่ตามลำดับใน CATEGORIES แล้วตัดกลุ่มที่ว่างทิ้ง
  *
