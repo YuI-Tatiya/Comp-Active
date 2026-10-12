@@ -365,7 +365,8 @@ export function categoryTag(categories: string[]): string | null {
     return categories.length > 1 ? `#${first} +${categories.length - 1}` : `#${first}`
 }
 
-function coverPattern(tone: CoverTone, categories: string[]): string {
+/** ลายปกตามสถานะ/หมวดหมู่ — ใช้ทั้งปกการ์ดและปกใหญ่หน้ารายละเอียด */
+export function coverPattern(tone: CoverTone, categories: string[]): string {
     if (tone === "draft") return "cover-draft"
     if (tone === "closed") return "cover-closed"
     switch (categories[0]) {
@@ -393,6 +394,26 @@ function coverDate(ms: number): { day: string; month: string } | null {
 export function referenceCode(prefix: "EVT" | "ACT", id: number): string {
     return `${prefix}-${String(id).padStart(4, "0")}`
 }
+
+/**
+ * รูปที่ผู้จัดอัปโหลด (path เช่น /uploads/activities/x.jpg) → src เต็ม + ควรแสดงไหม
+ * โหลดไม่ขึ้น → show = false ให้ปกกลับไปใช้ลายของธีม จำ src ที่เสียไว้ (ไม่ใช่แค่ true/false) ถ้าเปลี่ยนรูปภายหลังจะลองใหม่เอง
+ */
+export function useUploadImage(path: string | null | undefined) {
+    const src = path ? `${API_BASE_URL}${path}` : null
+    const [failedSrc, setFailedSrc] = useState<string | null>(null)
+    return { src, show: src !== null && src !== failedSrc, onError: () => setFailedSrc(src) }
+}
+
+/**
+ * ไล่เฉดสีกรมท่าทับรูปปก: บนเข้มพอให้ป้ายอ่านออก กลางจางให้เห็นรูป แล้วเข้มขึ้นตั้งแต่ครึ่งล่างที่วันที่ตัวใหญ่วางอยู่
+ * (ทดสอบกับรูปขาวจัดแล้ว — จางกว่านี้ตัวเลขกลืนไปกับรูป)
+ */
+export const PHOTO_SCRIM =
+    "absolute inset-0 bg-[linear-gradient(to_bottom,rgb(18_34_61/0.5)_0%,rgb(18_34_61/0.12)_30%,rgb(18_34_61/0.5)_58%,rgb(18_34_61/0.88)_100%)]"
+
+/** เงาจางๆ ให้ข้อความที่วางบนรูปตรงๆ (ไม่มีพื้นของตัวเอง) อ่านออกตอนรูปสว่าง */
+export const PHOTO_TEXT_SHADOW = "[text-shadow:0_1px_10px_rgb(18_34_61/0.65)]"
 
 interface CardCoverProps {
     tone: CoverTone
@@ -426,10 +447,8 @@ export function CardCover({
     imageUrl,
 }: CardCoverProps) {
     const date = dateMs === undefined ? null : coverDate(dateMs)
-    const src = imageUrl ? `${API_BASE_URL}${imageUrl}` : null
-    // ไฟล์หาย/โหลดไม่ขึ้น → กลับไปใช้ลายปก จำ src ที่เสียไว้ (ไม่ใช่แค่ true/false) ถ้าเปลี่ยนรูปภายหลังจะลองโหลดใหม่เอง
-    const [failedSrc, setFailedSrc] = useState<string | null>(null)
-    const showImage = src !== null && src !== failedSrc
+    const image = useUploadImage(imageUrl)
+    const showImage = image.show
     return (
         // ลายของธีมอยู่ใต้รูปเสมอ — ระหว่างรูปกำลังโหลด (หรือถ้าโหลดไม่ขึ้น) ปกจึงไม่เป็นช่องว่าง
         <div className={cn("relative flex h-[150px] shrink-0 flex-col justify-between overflow-hidden p-4", coverPattern(tone, categories))}>
@@ -437,19 +456,14 @@ export function CardCover({
                 <>
                     {/* eslint-disable-next-line @next/next/no-img-element -- รูปอัปโหลดเสิร์ฟจาก backend (/uploads) ไม่ได้ผ่านตัวย่อรูปของ Next */}
                     <img
-                        src={src}
+                        src={image.src!}
                         alt=""
                         loading="lazy"
                         decoding="async"
-                        onError={() => setFailedSrc(src)}
+                        onError={image.onError}
                         className="absolute inset-0 size-full object-cover"
                     />
-                    {/* ไล่เฉดสีกรมท่า: บนเข้มพอให้ป้ายอ่านออก กลางจางให้เห็นรูป แล้วเข้มขึ้นตั้งแต่ครึ่งล่าง
-                        ที่วันที่ตัวใหญ่วางอยู่ (ทดสอบกับรูปขาวจัดแล้ว — จางกว่านี้ตัวเลขกลืนไปกับรูป) */}
-                    <div
-                        className="absolute inset-0 bg-[linear-gradient(to_bottom,rgb(18_34_61/0.5)_0%,rgb(18_34_61/0.12)_30%,rgb(18_34_61/0.5)_58%,rgb(18_34_61/0.88)_100%)]"
-                        aria-hidden="true"
-                    />
+                    <div className={PHOTO_SCRIM} aria-hidden="true" />
                 </>
             )}
             <div className="relative flex items-start justify-between gap-2">
@@ -460,7 +474,7 @@ export function CardCover({
             <div
                 className={cn(
                     "relative flex items-end justify-between gap-3",
-                    showImage && "[text-shadow:0_1px_10px_rgb(18_34_61/0.65)]"
+                    showImage && PHOTO_TEXT_SHADOW
                 )}
             >
                 {bottomLeft ?? <span className="font-code text-xs text-white/75">{code}</span>}

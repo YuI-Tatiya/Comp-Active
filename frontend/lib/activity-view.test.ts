@@ -2,6 +2,8 @@ import { test, describe } from "node:test"
 import assert from "node:assert/strict"
 import {
     formatActivitySchedule,
+    coverDateParts,
+    roundLabel,
     formatScheduleShort,
     formatDeadline,
     closeCountdown,
@@ -352,5 +354,27 @@ describe("describeVolunteer — เงื่อนไขชั่วโมงจ
         const v = describeVolunteer({ volunteerRole: "x", volunteerHours: null })
         assert.equal(v.gives, true)
         assert.equal(v.hoursLabel, null)
+    })
+})
+
+describe("coverDateParts — วันที่ตัวใหญ่บนปก", () => {
+    test("วัน 2 หลัก + เดือนย่อและปีเต็ม + ชื่อวันย่อ ตามเวลาไทย", () => {
+        assert.deepEqual(coverDateParts({ startAt: "2026-10-04T22:30:00.000Z", endAt: "2026-10-05T01:00:00.000Z" }), {
+            day: "05",
+            monthYear: "ต.ค. 2569",
+            weekday: "จ.",
+        })
+    })
+
+    test("กิจกรรมรุ่นเก่าใช้ date และไม่มีวันที่เลยคืน null", () => {
+        assert.deepEqual(coverDateParts({ date: "2026-10-18T00:00:00.000Z" }), { day: "18", monthYear: "ต.ค. 2569", weekday: "อา." })
+        assert.equal(coverDateParts({}), null)
+    })
+})
+
+describe("roundLabel", () => {
+    test("ลำดับจาก 0 เป็นรหัสรอบ 2 หลัก", () => {
+        assert.equal(roundLabel(0), "ROUND_01")
+        assert.equal(roundLabel(11), "ROUND_12")
     })
 })

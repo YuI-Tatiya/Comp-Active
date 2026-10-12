@@ -2,19 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
-import { ArrowLeft, Loader2 } from "lucide-react"
-import Link from "next/link"
-import { activitiesAPI, isUnlimitedCapacity, Activity, API_BASE_URL } from "@/lib/api"
-import { formatActivitySchedule } from "@/lib/activity-view"
-import { ActivityPreviewHero } from "@/components/activity/activity-preview-hero"
-import {
-    ActivityAboutPanel,
-    ActivityRegistrationPanel,
-    ActivityRewardsPanel,
-    PANEL_CLASS,
-} from "@/components/activity/activity-info-panels"
+import { referenceCode } from "@/components/denim/denim-ui"
+import { ActivityRegistrationView } from "@/components/activity/activity-registration-view"
+import { activitiesAPI, Activity } from "@/lib/api"
+import { eventImagePathFor } from "@/lib/event-image"
 
 /**
  * มุมมอง "ดูอย่างเดียว" ของกิจกรรมเดี่ยวสำหรับผู้จัด — ใช้ตอนกดดูกิจกรรมที่ไม่ใช่ของตัวเอง
@@ -22,11 +16,8 @@ import {
  * /organizer/activities/:id ที่เป็นหน้าจัดการเต็มรูปแบบและล็อกไว้เฉพาะเจ้าของ — หน้านี้อยู่ใน
  * layout ของผู้จัดเอง (AppHeader/RoleGuard ยังคุมอยู่) ไม่มีปุ่มจัดการหรือลงทะเบียนใด ๆ
  *
- * เดิมหน้านี้เขียน JSX ของตัวเอง (Tabs รายละเอียด/เงื่อนไข/สิทธิประโยชน์) แยกจากหน้าลงทะเบียนฝั่ง
- * นักศึกษาโดยสิ้นเชิง — เปลี่ยนมาใช้การ์ดหัวเรื่อง+แผงชุดเดียวกับหน้านักศึกษา/หน้า organizer อื่นๆ
- * ตามคอมเมนต์เดิมของหน้านี้เองที่บอกว่าตั้งใจให้ "ดูอย่างเดียว" ของอีกฝั่งหนึ่ง ไม่ใช่ดีไซน์แยกต่างหาก
- * (ไม่มีแผง "เงื่อนไข"/"สิทธิประโยชน์" อีกต่อไป เพราะ wizard สร้างงานปัจจุบันไม่เคยเก็บสองฟิลด์นี้แล้ว —
- * เหมือนกับที่ตัดออกจาก activity-info-panels.tsx ไปแล้วก่อนหน้านี้)
+ * ใช้ ActivityRegistrationView ชุดเดียวกับหน้ากิจกรรมฝั่งนักศึกษาในโหมด preview — ตั้งใจให้เป็น "ดูอย่างเดียว"
+ * ของอีกฝั่งหนึ่ง ไม่ใช่ดีไซน์แยกต่างหาก (เดิมเคยเขียน JSX ของตัวเองแล้วเพี้ยนออกจากหน้านักศึกษา)
  */
 export default function OrganizerActivityViewPage() {
     const params = useParams()
@@ -78,53 +69,19 @@ export default function OrganizerActivityViewPage() {
         )
     }
 
-    const capacity = activity.capacity ?? null
-    const registeredCount = activity.registeredCount ?? 0
-    const unlimited = isUnlimitedCapacity(capacity)
-
     return (
-        <div className="bg-surface pb-12">
-            <Container className="space-y-4 py-6">
-                <div>
-                    <Link href="/organizer" className="inline-flex items-center text-fg-muted hover:text-fg transition-colors">
-                        <ArrowLeft className="mr-2 size-4" aria-hidden="true" /> กลับ
-                    </Link>
-                </div>
-
-                <ActivityPreviewHero
-                    imageUrl={activity.imageUrl ? `${API_BASE_URL}${activity.imageUrl}` : "/activity-placeholder.svg"}
-                    title={activity.name}
-                    categories={activity.categories ?? []}
-                    organizerName={activity.organizer?.name}
-                    statusLabel={activity.status === "open" || !activity.status ? "เปิดรับสมัคร" : "ปิดรับสมัคร"}
-                    statusOpen={activity.status === "open" || !activity.status}
-                    isProject={false}
-                    sessions={[]}
-                    activeId={null}
-                    onSelectActivity={() => {}}
-                    schedule={formatActivitySchedule(activity)}
-                    location={activity.location}
-                    registeredCount={registeredCount}
-                    capacity={capacity}
-                    unlimited={unlimited}
-                    shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${activity.id}`}
-                    onShareCopied={() => alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")}
-                />
-
-                {/* 2 คอลัมน์เหมือนหน้าลงทะเบียนนักศึกษา — ซ้ายรวมรายละเอียด+การลงทะเบียนเป็นการ์ดเดียว
-                    (เดิมแยกเป็นการ์ดละอัน เรียง 1 คอลัมน์ยาวดิ่งลงมา ทำให้ต้องเลื่อนดูมากเกินจำเป็น)
-                    ไม่มี ActivityAgendaPanel ที่นี่ — กิจกรรมเดี่ยวไม่มีกิจกรรมย่อยให้ทำกำหนดการ */}
-                <div className="grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
-                    <div className={PANEL_CLASS}>
-                        <ActivityAboutPanel activity={activity} hideMeta bare />
-                        <hr className="border-border" />
-                        <ActivityRegistrationPanel activity={activity} bare />
-                    </div>
-                    <div className={PANEL_CLASS}>
-                        <ActivityRewardsPanel activity={activity} />
-                    </div>
-                </div>
-            </Container>
-        </div>
+        <ActivityRegistrationView
+            mode="preview"
+            title={activity.name}
+            imagePath={eventImagePathFor(activity)}
+            code={referenceCode("ACT", activity.id)}
+            organizerName={activity.organizer?.name}
+            activities={[activity]}
+            activeId={activity.id}
+            onSelectActivity={() => {}}
+            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${activity.id}`}
+            onShareCopied={() => alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")}
+            backHref="/organizer"
+        />
     )
 }

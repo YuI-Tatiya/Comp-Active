@@ -8,7 +8,8 @@ import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 import { AlertTriangle, Loader2 } from "lucide-react"
 import { activitiesAPI, Activity } from "@/lib/api"
-import { resolveEventImageUrl } from "@/lib/event-image"
+import { eventImagePathFor } from "@/lib/event-image"
+import { referenceCode } from "@/components/denim/denim-ui"
 import { ActivityRegistrationView } from "@/components/activity/activity-registration-view"
 
 /**
@@ -99,7 +100,8 @@ export default function PublicActivityDetailsPage() {
             <SiteHeader />
             <ActivityRegistrationView
                 title={event.name}
-                imageUrl={resolveEventImageUrl(event)}
+                imagePath={eventImagePathFor(event)}
+                code={referenceCode("ACT", event.id)}
                 organizerName={event.organizer?.name}
                 activities={[event]}
                 activeId={event.id}

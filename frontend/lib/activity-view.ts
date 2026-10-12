@@ -29,6 +29,9 @@ function dayParts(date: Date) {
     return { weekday: p.weekday, day: p.day, month: p.month, year: p.year, key }
 }
 
+/** ชื่อวันย่อแบบปฏิทินไทย — ICU ของ th-TH ให้ weekday "short" เป็นชื่อเต็ม ("อาทิตย์") จึงเทียบจากตารางเองแทน */
+const THAI_WEEKDAY_ABBR: Record<string, string> = { Sun: "อา.", Mon: "จ.", Tue: "อ.", Wed: "พ.", Thu: "พฤ.", Fri: "ศ.", Sat: "ส." }
+
 /** เวลา HH:mm (24 ชม.) ตามเวลาไทย */
 function clock(date: Date): string {
     const p = partsOf(date, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
@@ -104,6 +107,23 @@ export function formatScheduleShort(input: ScheduleInput): string {
     // ตัดวันในสัปดาห์และปีออก — การ์ดแคบ และวันที่เต็มอยู่ในการ์ดรายละเอียดอยู่แล้ว
     const short = s.dateLabel.replace(/^\S+\s/, "").replace(/\s\d{4}$/, "")
     return s.timeLabel ? `${short} · ${s.timeLabel}` : short
+}
+
+/**
+ * วันที่ตัวใหญ่บนปกหน้ารายละเอียด: { day: "18", monthYear: "ต.ค. 2569", weekday: "อา." } — วันแรกของกิจกรรม ตามเวลาไทย
+ * null = ไม่มีวันที่ให้ใช้ (ปกไม่แสดงวันที่)
+ */
+export function coverDateParts(input: ScheduleInput): { day: string; monthYear: string; weekday: string } | null {
+    const start = parseDate(input.startAt) ?? parseDate(input.date)
+    if (!start) return null
+    const p = dayParts(start)
+    const en = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, weekday: "short" }).format(start)
+    return { day: p.day.padStart(2, "0"), monthYear: `${p.month} ${p.year}`, weekday: THAI_WEEKDAY_ABBR[en] ?? p.weekday }
+}
+
+/** ป้ายลำดับรอบแบบโค้ด "ROUND_01" — index เริ่มที่ 0 ตามลำดับที่ผู้จัดสร้างไว้ */
+export function roundLabel(index: number): string {
+    return `ROUND_${String(index + 1).padStart(2, "0")}`
 }
 
 /** วัน-เวลาปิดรับสมัคร: "20 ม.ค. 2570 17:00 น." */

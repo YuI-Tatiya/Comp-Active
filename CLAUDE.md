@@ -144,6 +144,10 @@ Shared UI in `components/ui/` (Radix + Tailwind + CVA) and auth UI in `component
     - The public home `/` is the size reference: the card is identical on every page and is never sized ad hoc.
     - Width is a column of `ACTIVITY_GRID`. The horizontal rows on the list pages use `ACTIVITY_GRID_COLUMN`, which computes the same width from the page's `@container` wrapper, because those rows are narrower than the grid. Keep the two constants in sync.
     - Height is fixed by fixed inner slots, not a fixed total. The text block holds 1 title line plus 1 description line; a 2-line title fills it and hides the description. The registration-window row keeps its space even when it is empty.
+  - **Activity/event detail page:** `components/activity/activity-registration-view.tsx` is the single page for every role.
+    - `mode="register"` serves students and guests, for both events and standalone activities. `mode="preview"` serves the organizer's view-only pages.
+    - The pieces are the hero (`activity-detail-hero`: cover, title, WHEN/WHERE, round picker), the bottom bars (`activity-detail-bars`: every `describeAction` state) and the numbered sections plus sidebar (`activity-detail-sections`).
+    - Don't fork a role-specific copy; add a prop instead. The organizer views used to drift from the student page exactly that way.
   - **Card covers (`CardCover`, used by every denim card):**
     - When the organizer attached an image, the cover shows that photo. For an event, `eventImagePath` picks the event cover, otherwise the earliest sub-activity's image.
     - When there is no image, or it fails to load, the cover falls back to the theme pattern. The pattern always sits underneath, so a slow or broken image never leaves a blank cover.

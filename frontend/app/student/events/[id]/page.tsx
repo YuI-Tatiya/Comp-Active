@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label"
 import { Select } from "@/components/ui/select"
 import { AlertTriangle, Loader2 } from "lucide-react"
 import { eventsAPI, registrationsAPI, EventSummary, RegistrationAnswerBody } from "@/lib/api"
-import { resolveEventImageUrl } from "@/lib/event-image"
+import { eventImagePathFor } from "@/lib/event-image"
+import { referenceCode } from "@/components/denim/denim-ui"
 import { useAuth } from "@/lib/auth-context"
 import { formatActivitySchedule, pickMyRegistration } from "@/lib/activity-view"
 import { ActivityRegistrationView } from "@/components/activity/activity-registration-view"
@@ -269,7 +270,8 @@ export default function StudentEventDetailsPage() {
     return (
         <ActivityRegistrationView
             title={event.name}
-            imageUrl={resolveEventImageUrl(event, activeActivity)}
+            imagePath={eventImagePathFor(event, activeActivity)}
+            code={referenceCode("EVT", event.id)}
             organizerName={activeActivity?.organizer?.name ?? event.activities[0]?.organizer?.name}
             intro={event.description}
             activities={event.activities}

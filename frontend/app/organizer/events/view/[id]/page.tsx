@@ -2,35 +2,20 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import Link from "next/link"
+import { AlertTriangle, EyeOff, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
-import { ArrowLeft, AlertTriangle, Loader2, CalendarClock, EyeOff } from "lucide-react"
-import Link from "next/link"
-import { eventsAPI, isUnlimitedCapacity, EventSummary } from "@/lib/api"
-import { resolveEventImageUrl } from "@/lib/event-image"
-import { formatActivitySchedule } from "@/lib/activity-view"
-import { ActivityPreviewHero } from "@/components/activity/activity-preview-hero"
-import {
-    ActivityAboutPanel,
-    ActivityAgendaPanel,
-    ActivityRegistrationPanel,
-    ActivityRewardsPanel,
-    PANEL_CLASS,
-    type AgendaSession,
-} from "@/components/activity/activity-info-panels"
+import { referenceCode } from "@/components/denim/denim-ui"
+import { ActivityRegistrationView } from "@/components/activity/activity-registration-view"
+import { eventsAPI, EventSummary } from "@/lib/api"
+import { eventImagePathFor } from "@/lib/event-image"
 
 type EventActivity = EventSummary["activities"][number]
 
-function formatDateTime(iso: string | null | undefined): string {
-    if (!iso) return "-"
-    const d = new Date(iso)
-    if (Number.isNaN(d.getTime())) return "-"
-    return d.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })
-}
-
 /**
- * มุมมอง "ดูอย่างเดียว" ของงาน (Event) สำหรับผู้จัด — หน้าตาเหมือนหน้ารายละเอียดงานฝั่งนักศึกษา
- * (/student/events/:id) ทุกส่วน ต่างกันแค่ไม่มีปุ่ม/ฟอร์มลงทะเบียนเข้าร่วม เพราะผู้จัดไม่ใช่ผู้ลงทะเบียน
+ * มุมมอง "ดูอย่างเดียว" ของงาน (Event) สำหรับผู้จัด — ใช้ ActivityRegistrationView ชุดเดียวกับหน้ารายละเอียดงาน
+ * ฝั่งนักศึกษา (/student/events/:id) ในโหมด preview: แถบท้ายการ์ดเป็นจำนวนผู้ลงทะเบียนแทนปุ่มสมัคร
  * ใช้ตอนกดดูงานที่ไม่ใช่ของตัวเอง (เช่นจากฟีดกิจกรรมทั้งหมดในหน้าแรก) — อยู่ใน layout ของผู้จัดเอง
  * (AppHeader/RoleGuard ยังคุมอยู่) ต่างจาก /organizer/events/:id ที่เป็นหน้าจัดการเต็มรูปแบบและ
  * ล็อกไว้เฉพาะเจ้าของงาน
@@ -89,108 +74,41 @@ export default function OrganizerEventViewPage() {
         )
     }
 
-    const capacity = activeActivity?.capacity ?? null
-    const registeredCount = activeActivity?.registeredCount ?? 0
-    const unlimited = isUnlimitedCapacity(capacity)
-    // กำหนดการกิจกรรมย่อย — เฉพาะงานที่มีหลายกิจกรรมย่อย ดู ActivityAgendaPanel
-    const agendaSessions: AgendaSession[] = event.activities.map((a) => ({
-        id: a.id,
-        name: a.name,
-        schedule: formatActivitySchedule(a),
-    }))
-
     return (
-        <div className="bg-surface pb-12">
-            <Container className="space-y-4 py-6">
-                <div>
-                    <Link href="/organizer" className="inline-flex items-center text-fg-muted hover:text-fg transition-colors">
-                        <ArrowLeft className="w-4 h-4 mr-2" /> กลับ
-                    </Link>
-                </div>
-
-                {/* backend ส่งงานที่ไม่เผยแพร่มาให้เฉพาะเจ้าของ (และแอดมิน) — บอกให้ชัดว่านี่คือการดูตัวอย่าง ไม่ใช่สิ่งที่นักศึกษาเห็น */}
-                {event.isPublic === false && (
+        <ActivityRegistrationView
+            mode="preview"
+            title={event.name}
+            imagePath={eventImagePathFor(event, activeActivity)}
+            code={referenceCode("EVT", event.id)}
+            organizerName={activeActivity?.organizer?.name ?? event.activities[0]?.organizer?.name}
+            intro={event.description}
+            activities={event.activities}
+            activeId={activeActivityId}
+            onSelectActivity={setActiveActivityId}
+            registrationOpenAt={event.registrationOpenAt}
+            registrationCloseAt={event.registrationCloseAt}
+            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.id}`}
+            onShareCopied={() => alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")}
+            backHref="/organizer"
+            showActivityImage
+            notice={
+                // backend ส่งงานที่ไม่เผยแพร่มาให้เฉพาะเจ้าของ (และแอดมิน) — บอกให้ชัดว่านี่คือการดูตัวอย่าง ไม่ใช่สิ่งที่นักศึกษาเห็น
+                event.isPublic === false ? (
                     <div
                         role="note"
-                        className="flex items-start gap-3 rounded-xl border border-denim-line bg-denim-paper px-4 py-3 text-sm leading-relaxed text-denim-ink"
+                        className="flex items-start gap-3 rounded-xl border border-amber/40 bg-denim-deep/70 px-4 py-3 text-sm leading-relaxed text-denim-on backdrop-blur-sm"
                     >
-                        <EyeOff className="mt-0.5 size-4 shrink-0 text-denim-accent" aria-hidden="true" />
+                        <EyeOff className="mt-0.5 size-4 shrink-0 text-amber" aria-hidden="true" />
                         <p>
-                            <strong className="font-semibold text-denim-deep">งานนี้ยังไม่เผยแพร่</strong> — นักศึกษาและบุคคลทั่วไปจะไม่เห็นหน้านี้
+                            <strong className="font-semibold text-white">งานนี้ยังไม่เผยแพร่</strong> — นักศึกษาและบุคคลทั่วไปจะไม่เห็นหน้านี้
                             และลงทะเบียนไม่ได้ (ลิงก์แชร์จะยังเปิดไม่ได้) คุณเห็นได้เพราะเป็นเจ้าของงาน · เปิดเผยแพร่ได้ที่{" "}
-                            <Link href="/organizer/manage" className="font-semibold text-denim underline underline-offset-2">
+                            <Link href="/organizer/manage" className="font-semibold text-amber underline underline-offset-2">
                                 หน้าจัดการกิจกรรม
                             </Link>
                         </p>
                     </div>
-                )}
-
-                {activeActivity && (
-                    <ActivityPreviewHero
-                        imageUrl={resolveEventImageUrl(event, activeActivity)}
-                        title={event.name}
-                        description={event.description}
-                        categories={activeActivity.categories ?? []}
-                        organizerName={activeActivity.organizer?.name}
-                        statusLabel={activeActivity.status === "open" ? "กำลังเปิดรับสมัคร" : "ปิดรับสมัคร"}
-                        statusOpen={activeActivity.status === "open"}
-                        isProject={event.activities.length > 1}
-                        sessions={event.activities.map((a) => ({ id: a.id, name: a.name }))}
-                        activeId={activeActivityId}
-                        onSelectActivity={setActiveActivityId}
-                        schedule={formatActivitySchedule(activeActivity)}
-                        location={activeActivity.location}
-                        registeredCount={registeredCount}
-                        capacity={capacity}
-                        unlimited={unlimited}
-                        shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.id}`}
-                        onShareCopied={() => alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")}
-                    />
-                )}
-
-                {(event.registrationOpenAt || event.registrationCloseAt) && (
-                    <div className="flex flex-wrap gap-3">
-                        {event.registrationOpenAt && (
-                            <div className="flex items-center gap-2 rounded-xl border border-border bg-bg px-3 py-2.5 text-xs text-fg-muted">
-                                <CalendarClock className="size-4 shrink-0" aria-hidden="true" />
-                                เปิดรับสมัคร {formatDateTime(event.registrationOpenAt)}
-                            </div>
-                        )}
-                        {event.registrationCloseAt && (
-                            <div className="flex items-center gap-2 rounded-xl border border-border bg-bg px-3 py-2.5 text-xs text-fg-muted">
-                                <CalendarClock className="size-4 shrink-0" aria-hidden="true" />
-                                ปิดรับสมัคร {formatDateTime(event.registrationCloseAt)}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* 2 คอลัมน์เหมือนหน้าลงทะเบียนนักศึกษา — ซ้ายรวมรายละเอียด+กำหนดการ+การลงทะเบียนเป็นการ์ดเดียว
-                    (เดิมแยกเป็นการ์ดละอัน เรียง 1 คอลัมน์ยาวดิ่งลงมา ทำให้ต้องเลื่อนดูมากเกินจำเป็น) */}
-                {activeActivity && (
-                    <div className="grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
-                        <div className={PANEL_CLASS}>
-                            <ActivityAboutPanel activity={activeActivity} showActivityImage hideMeta bare />
-                            {agendaSessions.length > 1 && (
-                                <>
-                                    <hr className="border-border" />
-                                    <ActivityAgendaPanel sessions={agendaSessions} />
-                                </>
-                            )}
-                            <hr className="border-border" />
-                            <ActivityRegistrationPanel
-                                activity={activeActivity}
-                                registrationOpenAt={event.registrationOpenAt}
-                                registrationCloseAt={event.registrationCloseAt}
-                                bare
-                            />
-                        </div>
-                        <div className={PANEL_CLASS}>
-                            <ActivityRewardsPanel activity={activeActivity} />
-                        </div>
-                    </div>
-                )}
-            </Container>
-        </div>
+                ) : undefined
+            }
+        />
     )
 }
