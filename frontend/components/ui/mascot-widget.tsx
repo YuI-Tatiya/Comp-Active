@@ -71,9 +71,9 @@ const CORNER_NOTCH: Record<Corner, string> = {
  *
  * หัวบับเบิลมี 2 ปุ่มแยกความหมายกันชัดเจน:
  * - ย่อแชท (ChevronDown) = setOpenPersisted(false) เฉยๆ — ปิดกล่องคุย แต่ตัวมาสคอตยังยืนตัวใหญ่ลอยอยู่เหมือนเดิม
- *   กดที่ตัวมาสคอตอีกทีเพื่อเปิดกล่องคุยกลับมา (ไม่ต้องรอ "เรียกคืน" จากไอคอนวงกลมเล็ก)
- * - ซ่อนมาสคอต (X) = hideMascot() ซ่อนทั้งตัว (ทั้งบับเบิลและตัวมาสคอต) เหลือแค่ปุ่มวงกลมเล็กมุมเดิม
- *   และจำไว้ใน localStorage ไม่ให้โผล่ซ้ำอีกจนกว่าจะกดปุ่มวงกลมนั้นเรียกคืน
+ *   กดที่ตัวมาสคอตอีกทีเพื่อเปิดกล่องคุยกลับมา (ไม่ต้อง "เรียกคืน" จากหัวมาสคอตก่อน)
+ * - ซ่อนมาสคอต (X) = hideMascot() ซ่อนทั้งตัว (ทั้งบับเบิลและตัวมาสคอต) เหลือแค่หัวมาสคอตมุมขวาล่าง
+ *   และจำไว้ใน localStorage ไม่ให้โผล่ซ้ำอีกจนกว่าจะกดหัวมาสคอตนั้นเรียกคืน
  */
 export function MascotWidget() {
     const [open, setOpen] = React.useState(false)
@@ -246,18 +246,27 @@ export function MascotWidget() {
     // แทนที่จะเช็คฝั่ง server ใน app/layout.tsx — เรื่อง static prerendering)
     if (!mounted || isAdminHostname(window.location.hostname.toLowerCase(), PUBLIC_ADMIN_HOSTS)) return null
 
-    // ซ่อนแล้วไม่ใช่หายเกลี้ยงไม่มีทางเรียกคืน — เหลือปุ่มเล็กๆ มุมเดิมไว้กดเรียกกลับมา
+    // ซ่อนแล้วไม่ใช่หายเกลี้ยงไม่มีทางเรียกคืน — เหลือหัวมาสคอตมุมขวาล่างไว้กดเรียกกลับมา
+    // (เดิมเป็นวงกลมขาว 48px ที่ยัดมาสคอตทั้งตัวไว้ 32px จนมองไม่ออกว่าเป็นอะไร) ไม่มีพื้น/กรอบ ใช้เงารองให้เห็นบนพื้นทุกสี
+    // ใช้ PNG ที่แปลงจาก mascot_head.svg (Canva ห่อรูป raster ไว้ ไฟล์ 1.5MB และ next/image ย่อ SVG ไม่ได้)
     if (hidden) {
         return (
             <button
                 type="button"
                 onClick={showMascot}
-                aria-label="แสดงมาสคอต"
-                className="fixed bottom-5 right-5 z-50 flex size-12 items-center justify-center rounded-full border border-border bg-bg shadow-md transition-transform hover:scale-105"
+                aria-label="แสดงผู้ช่วย Comp Active"
+                title="ผู้ช่วย Comp Active"
+                className="fixed bottom-4 right-4 z-50 rounded-full transition-transform hover:-translate-y-0.5 hover:scale-105 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim active:scale-95 sm:bottom-5 sm:right-5"
             >
-                <div className="relative size-8">
-                    <Image src="/mascot.svg" alt="" fill sizes="32px" className="object-contain object-top" />
-                </div>
+                <Image
+                    src="/mascot-head.png"
+                    alt=""
+                    width={520}
+                    height={502}
+                    sizes="88px"
+                    className="h-[72px] w-auto drop-shadow-[0_8px_14px_rgb(18_34_61/0.35)] sm:h-[84px]"
+                    draggable={false}
+                />
             </button>
         )
     }
