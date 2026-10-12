@@ -4,7 +4,8 @@ import { RoleGuard } from "@/components/auth/role-guard"
 
 const LINKS: AppNavLink[] = [
   { href: "/organizer", label: "หน้าหลัก", exact: true },
-  { href: "/organizer/manage", label: "จัดการกิจกรรม" },
+  // หน้าจัดการงาน/กิจกรรมรายตัว (และแดชบอร์ดรายกิจกรรม) เปิดจากหน้าจัดการ — เมนูนี้ต้องติดสถานะด้วย
+  { href: "/organizer/manage", label: "จัดการกิจกรรม", alsoMatches: ["/organizer/events/", "/organizer/activities/"] },
   { href: "/organizer/dashboard", label: "แดชบอร์ด" },
   // ซ่อนออกจากเมนูหลัก — หน้า /organizer/soft-skills ยังอยู่ปกติ เข้าถึงได้จากลิงก์ "ดูเกณฑ์การประเมินแต่ละระดับ"
   // ในวิซาร์ดสร้างงาน/หน้าประเมินรายฝ่าย/อนุมัติผล (SoftSkillRubricLink) ซึ่งน่าจะตรงบริบทกว่าวางไว้แยกบนเมนูหลัก

@@ -16,6 +16,8 @@ export interface AppNavLink {
     label: string
     /** true = active เฉพาะเมื่อ path ตรงเป๊ะ (ใช้กับ href รากของโซน) */
     exact?: boolean
+    /** path prefix อื่นที่นับเป็นเมนูนี้ด้วย — หน้าที่เข้าจากเมนูนี้แต่ URL อยู่นอก href (เช่น /organizer/events/12 มาจาก "จัดการกิจกรรม") */
+    alsoMatches?: string[]
 }
 
 interface AppHeaderProps {
@@ -41,7 +43,8 @@ export function AppHeader({ links, roleLabel, accountHref }: AppHeaderProps) {
     }, [pathname])
 
     const isActive = (link: AppNavLink) =>
-        link.exact ? pathname === link.href : pathname.startsWith(link.href)
+        (link.exact ? pathname === link.href : pathname.startsWith(link.href)) ||
+        (link.alsoMatches ?? []).some((prefix) => pathname.startsWith(prefix))
 
     const displayName = user?.name || "ผู้ใช้งาน"
 

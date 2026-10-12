@@ -155,6 +155,12 @@ Shared UI in `components/ui/` (Radix + Tailwind + CVA) and auth UI in `component
     - `mode="register"` serves students and guests, for both events and standalone activities. `mode="preview"` serves the organizer's view-only pages.
     - The pieces are the hero (`activity-detail-hero`: cover, title, WHEN/WHERE, round picker), the bottom bars (`activity-detail-bars`: every `describeAction` state) and the numbered sections plus sidebar (`activity-detail-sections`).
     - Don't fork a role-specific copy; add a prop instead. The organizer views used to drift from the student page exactly that way.
+  - **Organizer management pages** (`/organizer/events/[id]`, `/organizer/activities/[id]`) share two pieces:
+    - `OrganizerActivityHero` (`components/organizer/organizer-activity-hero.tsx`).
+    - `ActivityParticipantManager`, which renders the stat card that overlaps the hero (`-mt-16`, so it must come right after the hero) and the tabs.
+    - The "ผู้เข้าร่วม" tab is one table, `activity-participants-table.tsx`. Each row's next step (ยืนยัน → เช็คอิน → ออกใบรับรอง, or the BARS shortcut) is inline. Everything else (contact, กยศ./ทุน, team, answers, certificate) is in the row's "ดูรายละเอียด" expander. There used to be a second, longer list; don't bring it back.
+    - Stat counts exclude cancelled registrations, as on the activity dashboard.
+  - **`sr-only` inside a horizontal scroller needs a `relative` parent inside the scroller.** `sr-only` is `position:absolute`, so if its containing block is outside the `overflow-x-auto` box it escapes the clipping and widens the page on phones (the sub-activity pills did this).
   - **Card covers (`CardCover`, used by every denim card):**
     - When the organizer attached an image, the cover shows that photo. For an event, `eventImagePath` picks the event cover, otherwise the earliest sub-activity's image.
     - When there is no image, or it fails to load, the cover falls back to the theme pattern. The pattern always sits underneath, so a slow or broken image never leaves a blank cover.
