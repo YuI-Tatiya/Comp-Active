@@ -22,11 +22,13 @@ const REASON_MIN = 20
 
 type FormState = "idle" | "loading" | "success"
 
-/** แผงซ้าย — กรอบเส้นประอำพัน: หัวเรื่อง, ประโยชน์ 4 ข้อ, ขั้นตอนหลังส่งคำขอ และมาสคอตโบกมือ */
+/** แผงซ้าย — กรอบเส้นประอำพัน: หัวเรื่อง, ประโยชน์ 4 ข้อ, ขั้นตอนหลังส่งคำขอ และมาสคอตโบกมือ
+ *  การ์ดสูงคงที่เท่าหน้า login (scroll="inner") — เนื้อหาฝั่งนี้ยาวกว่า LoginAside จึงเลื่อนได้เองถ้าจอเตี้ย
+ *  (แถบย้อนกลับ/ป้ายสถานะอยู่นอกส่วนเลื่อน มาสคอตอยู่ในส่วนเลื่อนท้ายสุด — ปักไว้นอกส่วนเลื่อนแล้วมันจะทับเนื้อหาด้านบนตอนเลื่อนยังไม่สุด) */
 function ApplyAside() {
     return (
-        <div className="relative m-5 flex flex-1 flex-col rounded-[22px] border-2 border-dashed border-amber/50 px-7 pb-0 pt-7 xl:m-6 xl:px-8">
-            <div className="flex items-center justify-between gap-3">
+        <div className="relative m-5 flex min-h-0 flex-1 flex-col rounded-[22px] border-2 border-dashed border-amber/50 xl:m-6">
+            <div className="flex shrink-0 items-center justify-between gap-3 px-7 pt-7 xl:px-8">
                 <AuthBackButton href="/auth">ย้อนกลับ</AuthBackButton>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-amber px-3.5 py-1.5 text-xs font-semibold text-denim-deep">
                     <span className="size-[7px] rounded-full bg-denim-deep" aria-hidden="true" />
@@ -34,59 +36,58 @@ function ApplyAside() {
                 </span>
             </div>
 
-            <p className="mt-7 font-code text-sm text-denim-on-muted">$ sudo apply --role=organizer</p>
-            <h1 className="mt-2 font-display text-4xl font-bold leading-[1.2] text-white xl:text-[44px]">
-                สมัครเป็น<span className="text-amber">ผู้จัดกิจกรรม</span>
-            </h1>
-            <p className="mt-3 max-w-md text-[15px] leading-relaxed text-denim-on">
-                กรอกข้อมูลด้านขวา ทีมงานจะตรวจสอบและแจ้งผลพร้อม credentials ทางอีเมล
-            </p>
+            <div className="min-h-0 flex-1 overflow-y-auto px-7 pb-0 xl:px-8">
+                <p className="mt-7 font-code text-sm text-denim-on-muted">$ sudo apply --role=organizer</p>
+                <h1 className="mt-2 font-display text-4xl font-bold leading-[1.2] text-white xl:text-[44px]">
+                    สมัครเป็น<span className="text-amber">ผู้จัดกิจกรรม</span>
+                </h1>
+                <p className="mt-3 max-w-md text-[15px] leading-relaxed text-denim-on">
+                    กรอกข้อมูลด้านขวา ทีมงานจะตรวจสอบและแจ้งผลพร้อม credentials ทางอีเมล
+                </p>
 
-            <ul className="mt-7 grid grid-cols-2 gap-3">
-                {BENEFITS.map(({ icon: Icon, title, desc }) => (
-                    <li key={title} className="rounded-2xl border border-white/15 bg-white/[0.06] p-4">
-                        <span className="grid size-9 place-items-center rounded-lg bg-amber text-denim-deep">
-                            <Icon className="size-[18px]" aria-hidden="true" />
-                        </span>
-                        <p className="mt-3 text-[15px] font-semibold text-white">{title}</p>
-                        <p className="mt-1 text-[13px] leading-relaxed text-denim-on">{desc}</p>
-                    </li>
-                ))}
-            </ul>
+                <ul className="mt-7 grid grid-cols-2 gap-3">
+                    {BENEFITS.map(({ icon: Icon, title, desc }) => (
+                        <li key={title} className="rounded-2xl border border-white/15 bg-white/[0.06] p-4">
+                            <span className="grid size-9 place-items-center rounded-lg bg-amber text-denim-deep">
+                                <Icon className="size-[18px]" aria-hidden="true" />
+                            </span>
+                            <p className="mt-3 text-[15px] font-semibold text-white">{title}</p>
+                            <p className="mt-1 text-[13px] leading-relaxed text-denim-on">{desc}</p>
+                        </li>
+                    ))}
+                </ul>
 
-            {/* ขั้นตอนหลังส่ง — ขั้นแรก (กำลังทำอยู่) เป็นวงขาว ที่เหลือวงเข้ม เชื่อมด้วยเส้นประ */}
-            <ol className="relative mt-7 space-y-5" aria-label="ขั้นตอนการสมัคร">
-                <span className="absolute bottom-4 left-4 top-4 border-l-2 border-dashed border-amber/40" aria-hidden="true" />
-                {[
-                    { n: "01", text: <>กรอกแบบฟอร์ม</>, current: true },
-                    { n: "02", text: <>รอการตรวจสอบ <span className="text-amber">1–2 วันทำการ</span></> },
-                    { n: "03", text: <>รับ credentials ทางอีเมล</> },
-                ].map(({ n, text, current }) => (
-                    <li key={n} className="relative flex items-center gap-4" aria-current={current ? "step" : undefined}>
-                        <span
-                            className={cn(
-                                "grid size-8 shrink-0 place-items-center rounded-full font-code text-xs font-semibold",
-                                current ? "bg-white text-denim-deep" : "border border-white/25 bg-denim-deep text-denim-on"
-                            )}
-                        >
-                            {n}
-                        </span>
-                        <span className="font-semibold text-white">{text}</span>
-                    </li>
-                ))}
-            </ol>
+                {/* ขั้นตอนหลังส่ง — ขั้นแรก (กำลังทำอยู่) เป็นวงขาว ที่เหลือวงเข้ม เชื่อมด้วยเส้นประ */}
+                <ol className="relative mt-7 space-y-5" aria-label="ขั้นตอนการสมัคร">
+                    <span className="absolute bottom-4 left-4 top-4 border-l-2 border-dashed border-amber/40" aria-hidden="true" />
+                    {[
+                        { n: "01", text: <>กรอกแบบฟอร์ม</>, current: true },
+                        { n: "02", text: <>รอการตรวจสอบ <span className="text-amber">1–2 วันทำการ</span></> },
+                        { n: "03", text: <>รับ credentials ทางอีเมล</> },
+                    ].map(({ n, text, current }) => (
+                        <li key={n} className="relative flex items-center gap-4" aria-current={current ? "step" : undefined}>
+                            <span
+                                className={cn(
+                                    "grid size-8 shrink-0 place-items-center rounded-full font-code text-xs font-semibold",
+                                    current ? "bg-white text-denim-deep" : "border border-white/25 bg-denim-deep text-denim-on"
+                                )}
+                            >
+                                {n}
+                            </span>
+                            <span className="font-semibold text-white">{text}</span>
+                        </li>
+                    ))}
+                </ol>
 
-            {/* ที่ว่างให้มาสคอตยืน (วางแบบ absolute ชิดล่างกรอบ) */}
-            <div className="h-56 shrink-0" aria-hidden="true" />
-
-            <Image
-                src="/mascot-wave.png"
-                alt=""
-                width={421}
-                height={900}
-                sizes="110px"
-                className="absolute bottom-0 left-6 h-52 w-auto drop-shadow-[0_16px_24px_rgb(0_0_0/0.35)]"
-            />
+                <Image
+                    src="/mascot-wave.png"
+                    alt=""
+                    width={421}
+                    height={900}
+                    sizes="110px"
+                    className="-mb-2 ml-1 mt-6 h-48 w-auto drop-shadow-[0_16px_24px_rgb(0_0_0/0.35)]"
+                />
+            </div>
         </div>
     )
 }
@@ -200,8 +201,8 @@ export default function OrganizerRegisterPage() {
         ) : null
 
     return (
-        <AuthShell aside={<ApplyAside />} scroll="page" asideRatio="narrow">
-            <div className="border-b border-denim-line px-6 pb-5 pt-7 sm:px-10 sm:pt-10">
+        <AuthShell aside={<ApplyAside />} scroll="inner" asideRatio="narrow">
+            <div className="shrink-0 border-b border-denim-line px-6 pb-5 pt-7 sm:px-10 sm:pt-10">
                 <AuthMobileBack href="/auth">ย้อนกลับ</AuthMobileBack>
                 <AuthHeading
                     comment="application.form"
@@ -219,73 +220,76 @@ export default function OrganizerRegisterPage() {
                 />
             </div>
 
-            <form onSubmit={handleSubmit} noValidate className="flex flex-1 flex-col">
-                <div className="grid gap-x-6 gap-y-5 px-6 py-7 sm:grid-cols-2 sm:px-10">
-                    <div>
-                        <AuthLabel htmlFor="org-name" required>ชื่อ-นามสกุล</AuthLabel>
-                        <Input {...fieldProps("name")} autoComplete="name" placeholder="สมชาย ใจดี" onChange={(e) => set("name", e.target.value)} className={AUTH_INPUT} />
-                        {fieldError("name")}
-                    </div>
-                    <div>
-                        <AuthLabel htmlFor="org-email" required>อีเมล</AuthLabel>
-                        <Input {...fieldProps("email")} type="email" autoComplete="email" placeholder="example@kkumail.com" onChange={(e) => set("email", e.target.value)} className={AUTH_INPUT} />
-                        {fieldError("email")}
-                    </div>
-                    <div>
-                        <AuthLabel htmlFor="org-phone" required>เบอร์โทรศัพท์</AuthLabel>
-                        <Input {...fieldProps("phone")} type="tel" autoComplete="tel" placeholder="0812345678" onChange={(e) => set("phone", e.target.value)} className={AUTH_INPUT} />
-                        {fieldError("phone")}
-                    </div>
-                    <div>
-                        <AuthLabel htmlFor="org-department" required>สังกัด / หน่วยงาน</AuthLabel>
-                        <Input {...fieldProps("department")} autoComplete="organization" placeholder="สโมสรนักศึกษาวิทยาลัยการคอมพิวเตอร์" onChange={(e) => set("department", e.target.value)} className={AUTH_INPUT} />
-                        {fieldError("department")}
-                    </div>
-
-                    <div className="sm:col-span-2">
-                        <AuthLabel htmlFor="org-reason" required>เหตุผลที่ต้องการเป็น Organizer</AuthLabel>
-                        <textarea
-                            {...fieldProps("reason")}
-                            rows={4}
-                            placeholder="อธิบายวัตถุประสงค์และประเภทกิจกรรมที่ต้องการจัด..."
-                            onChange={(e) => set("reason", e.target.value)}
-                            className={cn(AUTH_INPUT, "h-auto min-h-32 w-full resize-y py-3 leading-relaxed")}
-                        />
-                        <div className="mt-2 flex items-center justify-end gap-3">
-                            <span className="h-1.5 w-24 overflow-hidden rounded-full bg-denim-chip" aria-hidden="true">
-                                <span
-                                    className={cn("block h-full rounded-full transition-[width] duration-300", reasonPct >= 100 ? "bg-emerald-600" : "bg-amber")}
-                                    style={{ width: `${reasonPct}%` }}
-                                />
-                            </span>
-                            <span className={cn("font-code text-xs", reasonPct >= 100 ? "text-emerald-700" : "text-denim-muted")}>
-                                {reasonLength} ตัวอักษร (ขั้นต่ำ {REASON_MIN})
-                            </span>
+            {/* ฟอร์มยาวกว่าการ์ด (scroll="inner" สูงคงที่เท่าหน้า login) — เลื่อนเฉพาะกลุ่มช่องกรอก ปุ่มส่งอยู่นอกส่วนเลื่อนเสมอ */}
+            <form onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                    <div className="grid gap-x-6 gap-y-5 px-6 py-7 sm:grid-cols-2 sm:px-10">
+                        <div>
+                            <AuthLabel htmlFor="org-name" required>ชื่อ-นามสกุล</AuthLabel>
+                            <Input {...fieldProps("name")} autoComplete="name" placeholder="สมชาย ใจดี" onChange={(e) => set("name", e.target.value)} className={AUTH_INPUT} />
+                            {fieldError("name")}
                         </div>
-                        {fieldError("reason")}
-                    </div>
+                        <div>
+                            <AuthLabel htmlFor="org-email" required>อีเมล</AuthLabel>
+                            <Input {...fieldProps("email")} type="email" autoComplete="email" placeholder="example@kkumail.com" onChange={(e) => set("email", e.target.value)} className={AUTH_INPUT} />
+                            {fieldError("email")}
+                        </div>
+                        <div>
+                            <AuthLabel htmlFor="org-phone" required>เบอร์โทรศัพท์</AuthLabel>
+                            <Input {...fieldProps("phone")} type="tel" autoComplete="tel" placeholder="0812345678" onChange={(e) => set("phone", e.target.value)} className={AUTH_INPUT} />
+                            {fieldError("phone")}
+                        </div>
+                        <div>
+                            <AuthLabel htmlFor="org-department" required>สังกัด / หน่วยงาน</AuthLabel>
+                            <Input {...fieldProps("department")} autoComplete="organization" placeholder="สโมสรนักศึกษาวิทยาลัยการคอมพิวเตอร์" onChange={(e) => set("department", e.target.value)} className={AUTH_INPUT} />
+                            {fieldError("department")}
+                        </div>
 
-                    <div className="sm:col-span-2">
-                        <AuthLabel htmlFor="org-experience">
-                            ประสบการณ์การจัดกิจกรรม <span className="font-normal text-denim-muted">(ถ้ามี)</span>
-                        </AuthLabel>
-                        <textarea
-                            {...fieldProps("experience")}
-                            rows={3}
-                            placeholder="[ตัวอย่างกิจกรรมที่เคยจัด]"
-                            onChange={(e) => set("experience", e.target.value)}
-                            className={cn(AUTH_INPUT, "h-auto min-h-28 w-full resize-y py-3 leading-relaxed")}
-                        />
-                    </div>
-
-                    {serverError && (
                         <div className="sm:col-span-2">
-                            <AuthError>{serverError}</AuthError>
+                            <AuthLabel htmlFor="org-reason" required>เหตุผลที่ต้องการเป็น Organizer</AuthLabel>
+                            <textarea
+                                {...fieldProps("reason")}
+                                rows={4}
+                                placeholder="อธิบายวัตถุประสงค์และประเภทกิจกรรมที่ต้องการจัด..."
+                                onChange={(e) => set("reason", e.target.value)}
+                                className={cn(AUTH_INPUT, "h-auto min-h-32 w-full resize-y py-3 leading-relaxed")}
+                            />
+                            <div className="mt-2 flex items-center justify-end gap-3">
+                                <span className="h-1.5 w-24 overflow-hidden rounded-full bg-denim-chip" aria-hidden="true">
+                                    <span
+                                        className={cn("block h-full rounded-full transition-[width] duration-300", reasonPct >= 100 ? "bg-emerald-600" : "bg-amber")}
+                                        style={{ width: `${reasonPct}%` }}
+                                    />
+                                </span>
+                                <span className={cn("font-code text-xs", reasonPct >= 100 ? "text-emerald-700" : "text-denim-muted")}>
+                                    {reasonLength} ตัวอักษร (ขั้นต่ำ {REASON_MIN})
+                                </span>
+                            </div>
+                            {fieldError("reason")}
                         </div>
-                    )}
+
+                        <div className="sm:col-span-2">
+                            <AuthLabel htmlFor="org-experience">
+                                ประสบการณ์การจัดกิจกรรม <span className="font-normal text-denim-muted">(ถ้ามี)</span>
+                            </AuthLabel>
+                            <textarea
+                                {...fieldProps("experience")}
+                                rows={3}
+                                placeholder="[ตัวอย่างกิจกรรมที่เคยจัด]"
+                                onChange={(e) => set("experience", e.target.value)}
+                                className={cn(AUTH_INPUT, "h-auto min-h-28 w-full resize-y py-3 leading-relaxed")}
+                            />
+                        </div>
+
+                        {serverError && (
+                            <div className="sm:col-span-2">
+                                <AuthError>{serverError}</AuthError>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                <div className="mt-auto border-t border-denim-line px-6 py-6 sm:px-10">
+                <div className="shrink-0 border-t border-denim-line px-6 py-6 sm:px-10">
                     <button type="submit" disabled={state === "loading"} className={cn(AMBER_BUTTON, "w-full disabled:cursor-wait disabled:opacity-80")}>
                         {state === "loading" ? (
                             <>
