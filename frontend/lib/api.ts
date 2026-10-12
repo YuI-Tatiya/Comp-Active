@@ -20,6 +20,7 @@ export interface User {
   isBlocked?: boolean;
   createdAt?: string;
   // ข้อมูลติดต่อ & การศึกษา — เป็น null สำหรับ user ที่สมัครก่อนมีฟีเจอร์นี้
+  title?: "mr" | "miss" | null;
   phone?: string | null;
   educationLevel?: string | null;
   program?: string | null;
@@ -210,6 +211,7 @@ export const authAPI = {
    * (ดู backend/src/modules/shared/auth/auth.service.ts register())
    */
   register: (body: {
+    title: "mr" | "miss";
     name: string;
     email: string;
     password: string;

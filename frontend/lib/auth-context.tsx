@@ -28,6 +28,7 @@ interface AuthContextType {
 }
 
 interface RegisterData {
+    title: "mr" | "miss"
     name: string
     email: string
     password: string

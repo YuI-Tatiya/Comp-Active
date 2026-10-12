@@ -27,6 +27,12 @@ enum EducationLevel {
   doctorate
 }
 
+/// คำนำหน้าชื่อนักศึกษา — เก็บตอนลงทะเบียน (RegisterDto), nullable เพราะ organizer/admin และ user ก่อนมีฟีเจอร์นี้ไม่มีข้อมูล
+enum Title {
+  mr
+  miss
+}
+
 enum ActivityStatus {
   open
   closed
@@ -139,6 +145,7 @@ model User {
   // ── ข้อมูลติดต่อ & การศึกษา ────────────────────────────────────────────────
   // nullable ทั้งหมด เพราะ admin/organizer ไม่มีข้อมูลส่วนนี้
   // และ user ที่สมัครก่อนฟีเจอร์นี้ก็ยังไม่มีข้อมูล — บังคับกรอกที่ชั้น DTO แทน
+  title          Title?
   phone          String?         @db.VarChar(20)
   educationLevel EducationLevel? @map("education_level")
   program        String?         @db.VarChar(50) // เก็บ code จาก common/constants/programs.ts

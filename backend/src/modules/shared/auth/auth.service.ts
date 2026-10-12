@@ -186,6 +186,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(registerDto.password, 12);
 
     const data = {
+      title: registerDto.title,
       name: registerDto.name,
       email,
       password: hashedPassword,

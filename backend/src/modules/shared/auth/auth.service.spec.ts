@@ -37,6 +37,7 @@ describe("AuthService — registration OTP gate", () => {
   let jwtService: { sign: jest.Mock };
 
   const VALID_REGISTER_DTO: RegisterDto = {
+    title: "mr",
     name: "สมชาย ใจดี",
     email: "Student@KKUmail.com", // ตั้งใจใส่ตัวพิมพ์ใหญ่ปนเพื่อเช็ค normalize เป็น lowercase
     phone: "0812345678",
@@ -118,6 +119,7 @@ describe("AuthService — registration OTP gate", () => {
           email: "student@kkumail.com",
           isVerified: false,
           role: "student",
+          title: "mr",
         }),
       );
       // รหัสผ่านต้อง hash ไว้ ไม่ใช่เก็บ plaintext

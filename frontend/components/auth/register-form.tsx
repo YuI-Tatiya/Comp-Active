@@ -7,6 +7,7 @@ import { AMBER_BUTTON } from "@/components/denim/denim-ui"
 import { AUTH_INPUT, AuthError, AuthIconInput, AuthLabel, AuthPasswordInput } from "@/components/auth/auth-shell"
 import { useAuth } from "@/lib/auth-context"
 import { EDUCATION_LEVELS, getProgramsByLevel } from "@/lib/programs"
+import { TITLES, type TitleCode } from "@/lib/titles"
 import { cn } from "@/lib/utils"
 
 // ⚠️ ต้องตรงกับ backend/src/common/constants/index.ts
@@ -30,6 +31,7 @@ function FormSection({ title, children }: { title: string; children: React.React
 
 export function RegisterForm() {
     const { register } = useAuth()
+    const [title, setTitle] = useState<TitleCode | "">("")
     const [name, setName] = useState("")
     const [studentId, setStudentId] = useState("")
     const [email, setEmail] = useState("")
@@ -54,7 +56,7 @@ export function RegisterForm() {
         e.preventDefault()
         setError("")
 
-        if (!name || !email || !password) {
+        if (!title || !name || !email || !password) {
             setError("กรุณากรอกข้อมูลให้ครบถ้วน")
             return
         }
@@ -88,6 +90,7 @@ export function RegisterForm() {
         setLoading(true)
         try {
             await register({
+                title,
                 name,
                 email,
                 password,
@@ -115,10 +118,27 @@ export function RegisterForm() {
 
             {/* ── ข้อมูลส่วนตัว ─────────────────────────────────────────────── */}
             <FormSection title="ข้อมูลส่วนตัว">
-                <div>
-                    <AuthLabel htmlFor="name" required>ชื่อ-นามสกุล</AuthLabel>
-                    <AuthIconInput id="name" icon={User} autoComplete="name" placeholder="สมชาย ใจดี"
-                        value={name} onChange={(e) => setName(e.target.value)} disabled={loading} />
+                <div className="grid grid-cols-[140px_1fr] gap-3">
+                    <div>
+                        <AuthLabel htmlFor="title" required>คำนำหน้า</AuthLabel>
+                        <Select
+                            id="title"
+                            className={cn(AUTH_INPUT, "pr-10")}
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value as TitleCode)}
+                            disabled={loading}
+                        >
+                            <option value="">เลือก</option>
+                            {TITLES.map((t) => (
+                                <option key={t.code} value={t.code}>{t.label}</option>
+                            ))}
+                        </Select>
+                    </div>
+                    <div>
+                        <AuthLabel htmlFor="name" required>ชื่อ-นามสกุล</AuthLabel>
+                        <AuthIconInput id="name" icon={User} autoComplete="name" placeholder="สมชาย ใจดี"
+                            value={name} onChange={(e) => setName(e.target.value)} disabled={loading} />
+                    </div>
                 </div>
 
                 <div>

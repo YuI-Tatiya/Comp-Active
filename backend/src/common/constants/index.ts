@@ -1,4 +1,5 @@
 export * from "./programs";
+export * from "./titles";
 
 export const STUDENT_EMAIL_DOMAIN = "kkumail.com";
 
