@@ -314,8 +314,15 @@ export function RegistrantsCard({ rows, shareUrl }: { rows: RegistrantRow[]; sha
                             {filtered.map((r) => {
                                 const pill = STATUS_PILL[r.status] ?? STATUS_PILL.pending
                                 return (
-                                    <tr key={r.id} className={cn("text-sm transition-colors hover:bg-denim-paper", r.status === "cancelled" && "text-denim-muted")}>
-                                        <td className="px-5 py-3 pl-6 font-semibold text-denim-deep">{r.name}</td>
+                                    <tr key={r.id} className="text-sm transition-colors hover:bg-denim-paper">
+                                        <td
+                                            className={cn(
+                                                "px-5 py-3 pl-6 font-semibold",
+                                                r.status === "cancelled" ? "text-denim-muted line-through decoration-denim-field" : "text-denim-deep"
+                                            )}
+                                        >
+                                            {r.name}
+                                        </td>
                                         <td className="px-5 py-3 font-code text-[13px] text-denim-muted">{r.studentId}</td>
                                         <td className="px-5 py-3">
                                             <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", pill.className)}>{pill.label}</span>

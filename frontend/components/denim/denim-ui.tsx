@@ -198,6 +198,8 @@ export function OrganizerStatCards({
                             key={code}
                             className={cn(
                                 "relative flex min-w-0 flex-col gap-2.5 rounded-[20px] px-4 py-4 sm:px-6 sm:py-[22px]",
+                                // เว้นที่ขวาให้วงแหวน ข้อความไม่วิ่งลอดใต้วงแหวนบนการ์ดแคบ (มือถือ 2 คอลัมน์)
+                                progress !== undefined && "pr-[4.75rem] sm:pr-24",
                                 highlight
                                     ? "denim-weave text-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.6)]"
                                     : "border bg-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.5)]",
