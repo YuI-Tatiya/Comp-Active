@@ -1,85 +1,26 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { PageHeader } from "@/components/ui/page-header"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { EventsFilterSidebar } from "@/components/ui/events-filter-sidebar"
 import { HorizontalScrollSection } from "@/components/ui/horizontal-scroll-section"
-import { EventCard, EventCardBadge, EventCardRow, formatEventDateRange, formatRegistrationWindow } from "@/components/ui/event-card"
+import { PublicActivityCard } from "@/components/denim/public-activity-card"
 import { EVENT_CARD_SLOT } from "@/components/ui/event-card-layout"
 import { eventsAPI, activitiesAPI, EventSummary, Activity } from "@/lib/api"
 import {
     INITIAL_FILTERS,
-    activityFilterFields,
+    buildFeaturedCards,
     filterAndSortItems,
     groupByCategory,
     type EventsFilterValues,
-    type FilterableItem,
 } from "@/lib/events-filter"
-import { CalendarCheck, CalendarDays, Compass, Loader2, Search, SlidersHorizontal, Users } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { CalendarDays, Compass, Loader2, Search, SlidersHorizontal, Users } from "lucide-react"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
-
-function nearestUpcomingActivity(ev: EventSummary) {
-    return [...ev.activities].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
-}
-
-function eventRegisteredCount(ev: EventSummary): number {
-    return ev.activities.reduce((sum, a) => sum + (a.registeredCount ?? 0), 0)
-}
-
-function eventCapacity(ev: EventSummary): number | null {
-    if (ev.activities.some((a) => a.capacity == null)) return null
-    return ev.activities.reduce((sum, a) => sum + (a.capacity ?? 0), 0)
-}
-
-/** ที่นั่งคงเหลือรวมของงาน — null = ไม่จำกัด ใช้เรียงลำดับ "ที่นั่งเหลือมาก" */
-function seatsLeft(ev: EventSummary): number | null {
-    const cap = eventCapacity(ev)
-    if (cap == null) return null
-    return Math.max(cap - eventRegisteredCount(ev), 0)
-}
-
-function isOpen(ev: EventSummary): boolean {
-    return ev.activities.some((a) => a.status === "open")
-}
-
-function hasVolunteerCert(ev: EventSummary): boolean {
-    return ev.activities.some((a) => !!a.volunteerRole)
-}
-
-/** หมวดหมู่ทั้งหมดที่กิจกรรมย่อยของงานนี้ระบุไว้ — ใช้ให้การ์ดงานโผล่ในทุกหมวดที่เกี่ยวข้อง ไม่ใช่แค่หมวดเดียว */
-function eventCategories(ev: EventSummary): string[] {
-    return Array.from(new Set(ev.activities.flatMap((a) => a.categories)))
-}
-
-/** วันจัดกิจกรรมย่อยที่เร็วที่สุดของงาน — ใช้เรียงลำดับ "ใกล้ถึงก่อน" */
-function earliestDate(ev: EventSummary): number {
-    const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
-    return times.length ? Math.min(...times) : Number.POSITIVE_INFINITY
-}
-
-/** วันจัดกิจกรรมย่อยวันสุดท้ายของงาน — คู่กับ earliestDate ใช้แสดงช่วงวันที่บนการ์ด */
-function latestDate(ev: EventSummary): number {
-    const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
-    return times.length ? Math.max(...times) : Number.NEGATIVE_INFINITY
-}
-
-/** การ์ดข้อมูลรวมที่ใช้แสดงผล — งาน (หลายกิจกรรมย่อย) และกิจกรรมเดี่ยว normalize มาเป็นรูปแบบเดียวกัน */
-interface CardItem extends FilterableItem {
-    key: string
-    imageUrl?: string | null
-    description?: string | null
-    href: string
-    /** วันจัดกิจกรรมวันสุดท้าย (epoch ms) — ต่างจาก sortDate (วันแรก) เฉพาะงานที่มีกิจกรรมย่อยคนละวัน */
-    endDate: number
-    /** ช่วงเปิด-ปิดรับสมัคร — มีความหมายเฉพาะ Event เท่านั้น กิจกรรมเดี่ยวไม่มีฟิลด์นี้ในสคีมาเลยเป็น null เสมอ */
-    registrationOpenAt: string | null
-    registrationCloseAt: string | null
-}
 
 /** หน้ารายการงานสาธารณะ — จัดกลุ่มตามหมวดหมู่ เลื่อนซ้าย-ขวาได้ในแต่ละแถว (คู่กับ /student/events) */
 export default function EventsPage() {
@@ -102,7 +43,7 @@ export default function EventsPage() {
                 activitiesAPI.getAll().catch(() => [] as Activity[]),
             ])
             setEvents(Array.isArray(eventData) ? eventData : [])
-            setStandalone(Array.isArray(activityData) ? activityData.filter((a) => !a.eventId) : [])
+            setStandalone(Array.isArray(activityData) ? activityData : [])
         } catch (err) {
             console.error(err)
         } finally {
@@ -114,45 +55,15 @@ export default function EventsPage() {
         setFilters(INITIAL_FILTERS)
     }
 
-    const allItems = useMemo<CardItem[]>(() => {
-        const fromEvents = events.map((ev): CardItem => {
-            const fa = nearestUpcomingActivity(ev)
-            return {
-                key: `event-${ev.id}`,
-                name: ev.name,
-                imageUrl: ev.imageUrl ?? fa?.imageUrl,
-                description: ev.description,
-                categories: eventCategories(ev),
-                status: isOpen(ev) ? "open" : "closed",
-                href: `/events/${ev.id}`,
-                searchText: [ev.name, ...ev.activities.map((a) => a.name)].join(" ").toLowerCase(),
-                sortDate: earliestDate(ev),
-                endDate: latestDate(ev),
-                createdAt: new Date(ev.createdAt).getTime(),
-                seats: seatsLeft(ev),
-                hasCert: hasVolunteerCert(ev),
-                registrationOpenAt: ev.registrationOpenAt ?? null,
-                registrationCloseAt: ev.registrationCloseAt ?? null,
-            }
-        })
-
-        const fromStandalone = standalone.map((a): CardItem => {
-            const fields = activityFilterFields(a)
-            return {
-                ...fields,
-                key: `activity-${a.id}`,
-                imageUrl: a.imageUrl,
-                description: a.description,
-                href: `/events/activities/${a.id}`,
-                // กิจกรรมเดี่ยว = วันเดียว (endDate เท่ากับ sortDate) และไม่มีช่วงรับสมัครในสคีมา
-                endDate: fields.sortDate,
-                registrationOpenAt: null,
-                registrationCloseAt: null,
-            }
-        })
-
-        return [...fromEvents, ...fromStandalone]
-    }, [events, standalone])
+    // งานหนึ่งงาน = การ์ดเดียว (ไม่ว่าจะมีกี่กิจกรรมย่อย) + กิจกรรมเดี่ยว — ตัวประกอบเดียวกับหน้าแรก
+    const allItems = useMemo(
+        () =>
+            buildFeaturedCards(events, standalone, {
+                event: (id) => `/events/${id}`,
+                activity: (id) => `/events/activities/${id}`,
+            }),
+        [events, standalone]
+    )
 
     const filteredAndSorted = useMemo(() => filterAndSortItems(allItems, filters), [allItems, filters])
 
@@ -224,41 +135,14 @@ export default function EventsPage() {
                             <div className="space-y-12">
                                 {groupedByCategory.map(({ category, items }) => (
                                     <HorizontalScrollSection key={category.value} title={category.label} count={items.length}>
-                                        {items.map((item) => {
-                                            const registrationWindow = formatRegistrationWindow(item.registrationOpenAt, item.registrationCloseAt)
-                                            return (
-                                                <Link
-                                                    key={item.key}
-                                                    href={item.href}
-                                                    className={`block shrink-0 snap-start ${EVENT_CARD_SLOT}`}
-                                                >
-                                                    <EventCard
-                                                        activity={{ name: item.name, imageUrl: item.imageUrl }}
-                                                        description={item.description}
-                                                        badgeLeft={
-                                                            // ใช้หมวดของ "กลุ่มที่กำลังแสดงอยู่" ไม่ใช่หมวดเดียวของการ์ด —
-                                                            // งานที่มีกิจกรรมย่อยหลายหมวดโผล่ซ้ำได้หลายกลุ่ม ป้ายต้องตรงกับกลุ่มนั้นๆ
-                                                            <EventCardBadge variant="light">{category.label}</EventCardBadge>
-                                                        }
-                                                        badgeRight={
-                                                            <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
-                                                                {item.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}
-                                                            </EventCardBadge>
-                                                        }
-                                                    >
-                                                        <EventCardRow icon={CalendarDays}>
-                                                            จัดกิจกรรม {formatEventDateRange(item.sortDate, item.endDate)}
-                                                        </EventCardRow>
-                                                        {/* กิจกรรมเดี่ยวไม่มีช่วงรับสมัครในสคีมา (ไม่มีฟิลด์นี้เลย) — ซ่อนแถวนี้แทนที่จะโชว์ค่าว่าง */}
-                                                        {registrationWindow && (
-                                                            <EventCardRow icon={CalendarCheck} tone="brand">
-                                                                {registrationWindow}
-                                                            </EventCardRow>
-                                                        )}
-                                                    </EventCard>
-                                                </Link>
-                                            )
-                                        })}
+                                        {items.map((item) => (
+                                            <PublicActivityCard
+                                                key={item.key}
+                                                item={item}
+                                                // ความกว้างคงที่ในแถวเลื่อน · h-auto ให้ flex ยืดทุกใบเท่าใบที่สูงสุดของแถว
+                                                className={cn("h-auto shrink-0 snap-start", EVENT_CARD_SLOT)}
+                                            />
+                                        ))}
                                     </HorizontalScrollSection>
                                 ))}
                             </div>

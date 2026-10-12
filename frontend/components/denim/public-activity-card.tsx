@@ -10,10 +10,14 @@ import type { FeaturedCardItem } from "@/lib/events-filter"
 import { cn } from "@/lib/utils"
 
 /**
- * การ์ดกิจกรรมหน้าแรก (ธีม Denim) — ปกแบบเดียวกับฝั่งผู้จัด แต่มุมซ้ายล่างเป็นชื่อหมวดหมู่แทนรหัสงาน
- * และท้ายการ์ดเป็นปุ่มชวนลงทะเบียน ลิงก์คือการ์ดทั้งใบ (ปุ่มเป็นแค่ป้ายบอก ไม่ใช่ปุ่มซ้อนในลิงก์)
+ * การ์ดกิจกรรมฝั่งผู้เข้าร่วม (ธีม Denim) — หน้าแรก public, /events และ /student/events ใช้ใบเดียวกัน
+ * ปกแบบเดียวกับฝั่งผู้จัด แต่มุมซ้ายล่างเป็นชื่อหมวดหมู่แทนรหัสงาน และท้ายการ์ดเป็นปุ่มชวนลงทะเบียน
+ * ลิงก์คือการ์ดทั้งใบ (ปุ่มเป็นแค่ป้ายบอก ไม่ใช่ปุ่มซ้อนในลิงก์)
+ *
+ * ไม่มีความสูงตายตัว — ในกริด/แถวเลื่อน การ์ดยืดเท่าใบที่สูงสุดของแถวเอง (h-full + ปุ่มชิดล่างด้วย mt-auto)
+ * className ใช้กำหนดขนาดช่องจากภายนอก เช่นความกว้างคงที่ในแถวเลื่อนแนวนอน
  */
-export function PublicActivityCard({ item }: { item: FeaturedCardItem }) {
+export function PublicActivityCard({ item, className }: { item: FeaturedCardItem; className?: string }) {
     const tag = categoryTag(item.categories)
     const registrationWindow = formatRegistrationWindow(item.registrationOpenAt, item.registrationCloseAt, { compact: true })
     const categoryNote = item.categories.map(categoryLabel).join(" · ")
@@ -21,7 +25,10 @@ export function PublicActivityCard({ item }: { item: FeaturedCardItem }) {
     return (
         <Link
             href={item.href}
-            className="group block h-full rounded-[22px] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
+            className={cn(
+                "group block h-full rounded-[22px] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim",
+                className
+            )}
         >
             <article className="flex h-full flex-col overflow-hidden rounded-[22px] border border-denim-line bg-white transition-[transform,box-shadow] duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_18px_40px_-18px_rgb(18_34_61_/_0.45)]">
                 <CardCover

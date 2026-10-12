@@ -140,6 +140,7 @@ Shared UI in `components/ui/` (Radix + Tailwind + CVA) and auth UI in `component
   - Use light accents (amber, `#c3d3ea`) for numbers and text on dark denim panels. Green and denim are unreadable there.
 - **Shared pieces:**
   - `components/denim/denim-ui.tsx`: hero frame, terminal prompt, section heading, stat cards, status tabs, filter panel, card cover/pill/row, create tile.
+  - `components/denim/public-activity-card.tsx`: the participant-facing activity card used on `/`, `/events` and `/student/events`. All three build their items with `buildFeaturedCards` (`lib/events-filter.ts`): one card per event, plus standalone activities.
   - `PageHeader` is the denim band used by list pages.
   - Page-specific parts live in `components/organizer/*`, `components/home/*` (public `/`) and `components/about/*`.
 - **Focus rings:** amber only on denim backgrounds. On white it is ~2:1, below the 3:1 a focus indicator needs, so use denim there.

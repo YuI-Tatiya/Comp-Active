@@ -1,12 +1,13 @@
-import type { Activity, EventSummary } from "@/lib/api"
-import { CATEGORIES } from "@/lib/categories"
+// import ไฟล์ข้างเคียงด้วยนามสกุล .ts (ไม่ใช่ "@/...") เพื่อให้ทดสอบด้วย node --test ได้ — ดู events-filter.test.ts
+import type { Activity, EventSummary } from "./api.ts"
+import { CATEGORIES } from "./categories.ts"
 
 /**
- * ตรรกะกรอง/เรียงรายการกิจกรรม ใช้ร่วมกันระหว่าง /events (สาธารณะ) และ /student/events
+ * ตรรกะกรอง/เรียงรายการกิจกรรม และการประกอบข้อมูลเป็นการ์ด — ใช้ร่วมกันระหว่างหน้าแรก (public/นักศึกษา)
+ * และหน้ารายการเต็ม /events, /student/events
  *
- * เดิมโค้ดส่วนนี้ถูกก๊อปไว้ทั้งสองหน้า ทำให้บั๊กกระจายตามกันไปด้วย (เช่น createdAt ที่เอา
- * วันจัดงานมาใช้แทนวันประกาศ) จึงรวมมาไว้จุดเดียว ส่วนการประกอบข้อมูลเป็นการ์ดยังแยกกัน
- * เพราะสองหน้าแสดงผลคนละแบบ
+ * เดิมโค้ดส่วนนี้ถูกก๊อปไว้หลายหน้า ทำให้บั๊กกระจายตามกันไปด้วย (เช่น createdAt ที่เอา
+ * วันจัดงานมาใช้แทนวันประกาศ) จึงรวมมาไว้จุดเดียว
  */
 
 export interface EventsFilterValues {
@@ -165,10 +166,18 @@ function latestEventDate(ev: EventSummary): number {
     return times.length ? Math.max(...times) : Number.NEGATIVE_INFINITY
 }
 
+/** ที่นั่งคงเหลือรวมของงาน — null = ไม่จำกัด (มีกิจกรรมย่อยตัวใดตัวหนึ่งไม่จำกัดจำนวน) ใช้เรียง "ที่นั่งว่าง: เหลือเยอะก่อน" */
+function eventSeatsLeft(ev: EventSummary): number | null {
+    if (ev.activities.some((a) => a.capacity == null)) return null
+    const capacity = ev.activities.reduce((sum, a) => sum + (a.capacity ?? 0), 0)
+    const registered = ev.activities.reduce((sum, a) => sum + (a.registeredCount ?? 0), 0)
+    return Math.max(capacity - registered, 0)
+}
+
 /**
  * รวม Event และกิจกรรมเดี่ยวเป็นการ์ดเดียวกัน — งานหนึ่งงาน (ไม่ว่าจะมีกี่กิจกรรมย่อย) = การ์ดเดียวเสมอ
- * ใช้กับส่วน "แนะนำ"/"กำลังเปิดรับสมัคร" แบบย่อในหน้าแรก (public และ student) — หน้ารายการเต็ม
- * (/events, /student/events) มีตรรกะจัดกลุ่มตามหมวดหมู่ของตัวเองที่ละเอียดกว่านี้ ไม่ได้ใช้ตัวนี้
+ * ใช้ทั้งส่วน "แนะนำ"/"กำลังเปิดรับสมัคร" ในหน้าแรก และหน้ารายการเต็ม (/events, /student/events
+ * ซึ่งเอาผลไปผ่าน filterAndSortItems + groupByCategory ต่อ) กิจกรรมย่อยใน standalone จะถูกตัดทิ้งเอง
  */
 export function buildFeaturedCards(
     events: EventSummary[],
@@ -188,7 +197,7 @@ export function buildFeaturedCards(
             sortDate: earliestEventDate(ev),
             endDate: latestEventDate(ev),
             createdAt: new Date(ev.createdAt).getTime(),
-            seats: null,
+            seats: eventSeatsLeft(ev),
             hasCert: ev.activities.some((a) => !!a.volunteerRole),
             href: hrefFor.event(ev.id),
             registrationOpenAt: ev.registrationOpenAt ?? null,
