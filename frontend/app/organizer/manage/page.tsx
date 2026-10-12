@@ -23,6 +23,7 @@ import {
 import { eventsAPI, activitiesAPI, EventSummary, Activity, type EventDraftResponse } from "@/lib/api"
 import { closedReason, type RegistrationWindow } from "@/lib/activity-view"
 import { formatCompactDateSpan } from "@/lib/date-span"
+import { eventImagePath } from "@/lib/events-filter"
 import {
     Search,
     Pencil,
@@ -720,6 +721,7 @@ export default function OrganizerManagePage() {
                                         key={`event-${ev.id}`}
                                         tone={bucket === "open" ? "open" : "closed"}
                                         categories={eventCategories(ev)}
+                                        imageUrl={eventImagePath(ev)}
                                         code={referenceCode("EVT", ev.id)}
                                         dateMs={earliestDate(ev)}
                                         badge={ev.isPublic ? PUBLISHED_BADGE : UNPUBLISHED_BADGE}
@@ -753,6 +755,7 @@ export default function OrganizerManagePage() {
                                             key={`activity-${a.id}`}
                                             tone={bucket === "open" ? "open" : "closed"}
                                             categories={a.categories}
+                                            imageUrl={a.imageUrl}
                                             code={referenceCode("ACT", a.id)}
                                             dateMs={new Date(a.date).getTime()}
                                             badge={APPROVAL_BADGE[a.approvalStatus] ?? APPROVAL_BADGE.pending_approval}

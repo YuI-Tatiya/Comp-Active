@@ -2,7 +2,7 @@
 import { test, describe } from "node:test"
 import assert from "node:assert/strict"
 import type { Activity, EventSummary } from "./api.ts"
-import { buildFeaturedCards, filterAndSortItems, groupByCategory, INITIAL_FILTERS } from "./events-filter.ts"
+import { buildFeaturedCards, eventImagePath, filterAndSortItems, groupByCategory, INITIAL_FILTERS } from "./events-filter.ts"
 
 const HREFS = { event: (id: number) => `/events/${id}`, activity: (id: number) => `/events/activities/${id}` }
 
@@ -133,6 +133,38 @@ describe("filterAndSortItems + groupByCategory", () => {
                 ["Technology", ["event-1", "event-2"]],
                 ["Academic", ["event-3"]],
             ]
+        )
+    })
+})
+
+describe("eventImagePath — รูปที่การ์ดใช้ (ไม่มี = ลายปกของธีม)", () => {
+    test("รูปหน้าปกงานมาก่อนรูปของกิจกรรมย่อย", () => {
+        const ev = event(1, [subActivity({ imageUrl: "/uploads/activities/sub.jpg" })], { imageUrl: "/uploads/activities/cover.jpg" })
+        assert.equal(eventImagePath(ev), "/uploads/activities/cover.jpg")
+    })
+
+    test("ไม่มีรูปหน้าปก ใช้รูปของกิจกรรมย่อยที่จัดเร็วสุด", () => {
+        const ev = event(1, [
+            subActivity({ id: 10, date: "2026-11-22T00:00:00.000Z", imageUrl: "/uploads/activities/late.jpg" }),
+            subActivity({ id: 11, date: "2026-11-20T00:00:00.000Z", imageUrl: "/uploads/activities/early.jpg" }),
+        ])
+        assert.equal(eventImagePath(ev), "/uploads/activities/early.jpg")
+    })
+
+    test("ไม่มีรูปเลย (หรือเป็นสตริงว่าง) คืน null — การ์ดจะใช้ลายปกแทน", () => {
+        assert.equal(eventImagePath(event(1, [subActivity()])), null)
+        assert.equal(eventImagePath(event(1, [subActivity({ imageUrl: "" })], { imageUrl: "" })), null)
+    })
+
+    test("buildFeaturedCards ส่งรูปตามกติกาเดียวกัน ทั้งการ์ดงานและกิจกรรมเดี่ยว", () => {
+        const cards = buildFeaturedCards(
+            [event(1, [subActivity({ imageUrl: "/uploads/activities/sub.jpg" })])],
+            [standalone(20, { imageUrl: "/uploads/activities/solo.jpg" }), standalone(21)],
+            HREFS
+        )
+        assert.deepEqual(
+            cards.map((c) => c.imageUrl),
+            ["/uploads/activities/sub.jpg", "/uploads/activities/solo.jpg", null]
         )
     })
 })

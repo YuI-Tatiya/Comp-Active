@@ -68,6 +68,8 @@ export interface ActivityCardData {
      * ป้ายแทนแท็กหมวดหมู่มุมซ้ายบน (หมวดหมู่ยังอยู่ที่ท้ายการ์ด) — การ์ดสูงตายตัว เพิ่มแถวใหม่ไม่ได้
      */
     unpublished?: boolean
+    /** path รูปที่ผู้จัดแนบ — ไม่มี = ปกลายของธีม (ดู CardCover) */
+    imageUrl?: string | null
 }
 
 export function ActivityCard({ item }: { item: ActivityCardData }) {
@@ -83,6 +85,7 @@ export function ActivityCard({ item }: { item: ActivityCardData }) {
                 <CardCover
                     tone={item.status === "open" ? "open" : "closed"}
                     categories={item.categories}
+                    imageUrl={item.imageUrl}
                     code={item.code}
                     dateMs={item.dateMs}
                     topLeft={

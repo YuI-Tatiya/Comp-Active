@@ -20,7 +20,7 @@ import {
 import { activitiesAPI, eventsAPI, isCancelledByOrganizer, Activity, EventSummary, OrganizerStats } from "@/lib/api"
 import { CATEGORIES } from "@/lib/categories"
 import { formatCompactDateSpan } from "@/lib/date-span"
-import { RANGE_OPTIONS, withinRange } from "@/lib/events-filter"
+import { RANGE_OPTIONS, eventImagePath, withinRange } from "@/lib/events-filter"
 import { useAuth } from "@/lib/auth-context"
 import { ArrowRight, CalendarDays, Clock, Search, Users, Zap } from "lucide-react"
 
@@ -71,6 +71,8 @@ interface CardItem {
   status: "open" | "closed" | "cancelled"
   // กิจกรรมเดี่ยวไม่มีแนวคิดการเผยแพร่ระดับงาน — undefined = ไม่ใช้กรองด้วยเงื่อนไขนี้
   isPublic?: boolean
+  /** path รูปที่ผู้จัดแนบ (eventImagePath) — null = ปกลายของธีม */
+  imageUrl: string | null
   hasCert: boolean
   href: string
   searchText: string
@@ -199,6 +201,7 @@ export default function OrganizerDashboardPage() {
       categories: eventCategories(ev),
       status: eventStatus(ev),
       isPublic: ev.isPublic,
+      imageUrl: eventImagePath(ev),
       hasCert: eventHasCert(ev),
       href: `/organizer/events/view/${ev.id}`,
       searchText: [ev.name, ...ev.activities.map((a) => a.name)].join(" ").toLowerCase(),
@@ -220,6 +223,7 @@ export default function OrganizerDashboardPage() {
       status: isCancelledByOrganizer(a.approvalStatus) ? "cancelled" : a.status === "open" ? "open" : "closed",
       // กิจกรรมเดี่ยวไม่มีแนวคิดการเผยแพร่ระดับงาน — เว้นว่างไว้ ตัวกรอง "การเผยแพร่" จะไม่จับคู่กิจกรรมนี้เลย
       isPublic: undefined,
+      imageUrl: a.imageUrl || null,
       hasCert: !!a.volunteerRole,
       href: `/organizer/activities/view/${a.id}`,
       searchText: a.name.toLowerCase(),
@@ -312,6 +316,7 @@ export default function OrganizerDashboardPage() {
       registrationWindow: formatRegistrationWindow(item.registrationOpenAt, item.registrationCloseAt, { compact: true }),
       actionLabel: item.ownerId !== undefined && item.ownerId === user?.id ? "จัดการ" : "ดูรายละเอียด",
       unpublished: item.isPublic === false,
+      imageUrl: item.imageUrl,
     }
   }
 

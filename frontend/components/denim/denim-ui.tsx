@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
 import { Plus, Search } from "lucide-react"
@@ -7,6 +8,7 @@ import { Container } from "@/components/layout/container"
 import { Select } from "@/components/ui/select"
 import type { FilterSpec } from "@/components/ui/filter-bar"
 import { cn } from "@/lib/utils"
+import { API_BASE_URL } from "@/lib/api"
 
 /* ชิ้นส่วนธีม Denim Varsity ที่ใช้ร่วมกันหลายหน้า — พอร์ทัลผู้จัด (หน้าหลัก /organizer, จัดการ /organizer/manage,
    แดชบอร์ด /organizer/dashboard) และหน้าแรกฝั่ง public (/)
@@ -405,17 +407,62 @@ interface CardCoverProps {
     topRight?: React.ReactNode
     /** แทนที่วันที่ตัวใหญ่มุมขวาล่าง เช่น ไอคอนของฉบับร่างที่ยังไม่มีวันจัด */
     bottomRight?: React.ReactNode
+    /**
+     * path รูปที่ผู้จัดแนบ (เช่น /uploads/activities/x.jpg) — มีรูปใช้รูปเป็นปก ไม่มีหรือโหลดไม่ขึ้นใช้ลายของธีม (tone)
+     * ป้าย/วันที่ยังวางทับตำแหน่งเดิมทั้งสองแบบ
+     */
+    imageUrl?: string | null
 }
 
-export function CardCover({ tone, categories, code, bottomLeft, dateMs, topLeft, topRight, bottomRight }: CardCoverProps) {
+export function CardCover({
+    tone,
+    categories,
+    code,
+    bottomLeft,
+    dateMs,
+    topLeft,
+    topRight,
+    bottomRight,
+    imageUrl,
+}: CardCoverProps) {
     const date = dateMs === undefined ? null : coverDate(dateMs)
+    const src = imageUrl ? `${API_BASE_URL}${imageUrl}` : null
+    // ไฟล์หาย/โหลดไม่ขึ้น → กลับไปใช้ลายปก จำ src ที่เสียไว้ (ไม่ใช่แค่ true/false) ถ้าเปลี่ยนรูปภายหลังจะลองโหลดใหม่เอง
+    const [failedSrc, setFailedSrc] = useState<string | null>(null)
+    const showImage = src !== null && src !== failedSrc
     return (
-        <div className={cn("relative flex h-[150px] shrink-0 flex-col justify-between p-4", coverPattern(tone, categories))}>
-            <div className="flex items-start justify-between gap-2">
+        // ลายของธีมอยู่ใต้รูปเสมอ — ระหว่างรูปกำลังโหลด (หรือถ้าโหลดไม่ขึ้น) ปกจึงไม่เป็นช่องว่าง
+        <div className={cn("relative flex h-[150px] shrink-0 flex-col justify-between overflow-hidden p-4", coverPattern(tone, categories))}>
+            {showImage && (
+                <>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- รูปอัปโหลดเสิร์ฟจาก backend (/uploads) ไม่ได้ผ่านตัวย่อรูปของ Next */}
+                    <img
+                        src={src}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        onError={() => setFailedSrc(src)}
+                        className="absolute inset-0 size-full object-cover"
+                    />
+                    {/* ไล่เฉดสีกรมท่า: บนเข้มพอให้ป้ายอ่านออก กลางจางให้เห็นรูป แล้วเข้มขึ้นตั้งแต่ครึ่งล่าง
+                        ที่วันที่ตัวใหญ่วางอยู่ (ทดสอบกับรูปขาวจัดแล้ว — จางกว่านี้ตัวเลขกลืนไปกับรูป) */}
+                    <div
+                        className="absolute inset-0 bg-[linear-gradient(to_bottom,rgb(18_34_61/0.5)_0%,rgb(18_34_61/0.12)_30%,rgb(18_34_61/0.5)_58%,rgb(18_34_61/0.88)_100%)]"
+                        aria-hidden="true"
+                    />
+                </>
+            )}
+            <div className="relative flex items-start justify-between gap-2">
                 {topLeft ?? <span />}
                 {topRight}
             </div>
-            <div className="flex items-end justify-between gap-3">
+            {/* ข้อความแถวล่างวางบนรูปตรงๆ (ไม่มีพื้นของตัวเอง) — เงาจางๆ ช่วยตอนรูปสว่าง */}
+            <div
+                className={cn(
+                    "relative flex items-end justify-between gap-3",
+                    showImage && "[text-shadow:0_1px_10px_rgb(18_34_61/0.65)]"
+                )}
+            >
                 {bottomLeft ?? <span className="font-code text-xs text-white/75">{code}</span>}
                 {bottomRight ??
                     (date && (
@@ -436,7 +483,8 @@ export function CoverTag({ variant = "solid", children }: { variant?: "solid" | 
         <span
             className={cn(
                 "shrink-0 rounded-lg px-2.5 py-[5px] font-code text-xs font-semibold",
-                variant === "solid" ? "bg-white/95 text-denim-deep" : "border border-white/45 text-white"
+                // outline มีพื้นกรมท่าโปร่งรองไว้ — บนลายปกแทบไม่ต่าง แต่บนรูปที่ผู้จัดแนบ (อาจสว่าง) ตัวหนังสือขาวยังอ่านออก
+                variant === "solid" ? "bg-white/95 text-denim-deep" : "border border-white/45 bg-denim-deep/40 text-white"
             )}
         >
             {children}

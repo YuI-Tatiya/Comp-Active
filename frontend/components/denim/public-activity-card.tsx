@@ -37,6 +37,7 @@ export function PublicActivityCard({ item, className }: { item: FeaturedCardItem
                 <CardCover
                     tone={item.status}
                     categories={item.categories}
+                    imageUrl={item.imageUrl}
                     dateMs={item.sortDate}
                     topLeft={tag ? <CoverTag>{tag}</CoverTag> : undefined}
                     topRight={<CoverStatusPill status={item.status} />}

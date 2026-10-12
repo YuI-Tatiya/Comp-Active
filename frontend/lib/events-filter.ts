@@ -139,6 +139,7 @@ export function activityFilterFields(a: Activity): FilterableItem {
 /** การ์ดรวม — งาน (Event, หลายกิจกรรมย่อย) และกิจกรรมเดี่ยว normalize มาเป็นรูปแบบเดียวกัน */
 export interface FeaturedCardItem extends FilterableItem {
     key: string
+    /** path รูปที่ผู้จัดแนบ (ดู eventImagePath) — null = ไม่มีรูป ปกการ์ดใช้ลายของธีม */
     imageUrl?: string | null
     description?: string | null
     href: string
@@ -154,6 +155,14 @@ export interface FeaturedCardItem extends FilterableItem {
 
 function nearestUpcomingActivity(ev: EventSummary) {
     return [...ev.activities].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
+}
+
+/**
+ * รูปปกของงาน (path ที่ backend เก็บ เช่น /uploads/activities/x.jpg) — รูปหน้าปกงานก่อน ถ้าไม่มีใช้รูปของกิจกรรมย่อย
+ * ที่จัดเร็วสุด null = ผู้จัดไม่ได้แนบรูป การ์ดจะใช้ลายปกของธีมแทน ใช้กติกาเดียวกันทุกการ์ด (ผู้เข้าร่วม/ผู้จัด)
+ */
+export function eventImagePath(ev: EventSummary): string | null {
+    return ev.imageUrl || nearestUpcomingActivity(ev)?.imageUrl || null
 }
 
 function earliestEventDate(ev: EventSummary): number {
@@ -185,11 +194,10 @@ export function buildFeaturedCards(
     hrefFor: { event: (id: number) => string; activity: (id: number) => string }
 ): FeaturedCardItem[] {
     const fromEvents = events.map((ev): FeaturedCardItem => {
-        const fa = nearestUpcomingActivity(ev)
         return {
             key: `event-${ev.id}`,
             name: ev.name,
-            imageUrl: ev.imageUrl ?? fa?.imageUrl,
+            imageUrl: eventImagePath(ev),
             description: ev.description,
             categories: Array.from(new Set(ev.activities.flatMap((a) => a.categories))),
             status: ev.activities.some((a) => a.status === "open") ? "open" : "closed",
@@ -212,7 +220,7 @@ export function buildFeaturedCards(
             return {
                 ...fields,
                 key: `activity-${a.id}`,
-                imageUrl: a.imageUrl,
+                imageUrl: a.imageUrl || null,
                 description: a.description,
                 href: hrefFor.activity(a.id),
                 // กิจกรรมเดี่ยว = วันเดียว (endDate เท่ากับ sortDate) และไม่มีช่วงรับสมัครในสคีมา

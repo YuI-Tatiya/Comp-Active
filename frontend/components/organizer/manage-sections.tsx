@@ -78,6 +78,8 @@ interface ManageCardProps {
     dateMs?: number
     /** แทนวันที่ตัวใหญ่บนปก (ฉบับร่างยังไม่มีวันจัด) */
     coverIcon?: LucideIcon
+    /** path รูปที่ผู้จัดแนบ — ไม่มี = ปกลายของธีม (ดู CardCover) */
+    imageUrl?: string | null
     /** ป้ายขาวมุมซ้ายบนของปก — สถานะเผยแพร่ (งาน) หรือสถานะอนุมัติ (กิจกรรมเดี่ยว) */
     badge: { label: string; dotClassName: string }
     /** ป้ายสถานะรวมเหนือชื่อ (เปิดรับ/ปิดรับ/จบแล้ว/ยกเลิก/ฉบับร่าง) */
@@ -100,6 +102,7 @@ export function ManageCard({
     code,
     dateMs,
     coverIcon: CoverIcon,
+    imageUrl,
     badge,
     chip,
     name,
@@ -116,6 +119,7 @@ export function ManageCard({
             <CardCover
                 tone={tone}
                 categories={categories}
+                imageUrl={imageUrl}
                 code={code}
                 dateMs={dateMs}
                 topLeft={<CoverPill dotClassName={badge.dotClassName}>{badge.label}</CoverPill>}
