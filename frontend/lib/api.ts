@@ -121,16 +121,8 @@ export function isUnlimitedCapacity(capacity: number | null | undefined): boolea
   return capacity == null;
 }
 
-/**
- * true ถ้าผู้จัดยกเลิกกิจกรรมนี้เอง (ApprovalStatus.CANCELLED)
- *
- * รองรับค่าเก่า "rejected" ไว้ด้วยเผื่อข้อมูลก่อนเปลี่ยน enum — backend เขียนค่าใหม่
- * เป็น "cancelled" เสมอตั้งแต่นี้ไป (แยกจาก "rejected" ที่สงวนไว้สำหรับแอดมิน/ระบบ
- * ปฏิเสธ ซึ่งยังไม่มี flow จริงในระบบตอนนี้)
- */
-export function isCancelledByOrganizer(approvalStatus: string | null | undefined): boolean {
-  return approvalStatus === 'cancelled' || approvalStatus === 'rejected';
-}
+// ย้ายไปไว้ใน lib/registration-bucket.ts (ไฟล์ที่ทดสอบด้วย node --test ได้) — re-export ให้ import จากที่นี่ได้ตามเดิม
+export { isCancelledByOrganizer } from './registration-bucket';
 
 /** ข้อความแสดงจำนวนที่รับ — ใช้ที่เดียวกันทุกหน้าแทนการเขียน `capacity || 0` กระจัดกระจาย */
 export function capacityLabel(capacity: number | null | undefined): string {

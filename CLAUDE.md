@@ -158,7 +158,10 @@ Shared UI in `components/ui/` (Radix + Tailwind + CVA) and auth UI in `component
     - A navy gradient scrim plus a text shadow keep the white date and labels readable on bright photos. Check new overlay text against a near-white image.
     - Card images are plain `<img loading="lazy">`, because uploads are served from the backend `/uploads` and do not go through Next's image optimizer. They count toward the Nginx `general` burst, so keep them lazy.
   - `PageHeader` is the denim band used by list pages.
-  - Page-specific parts live in `components/organizer/*`, `components/home/*` (public `/`) and `components/about/*`.
+  - Page-specific parts live in `components/organizer/*`, `components/home/*` (public `/`), `components/about/*` and `components/student/*`.
+  - **My activities (`/student/my-registrations`):** the four status cards and their counts both come from `registrationBucket` (`lib/registration-bucket.ts`), so a count always matches its list.
+    - An organizer-cancelled activity counts as **cancelled** even though its registration row stays `pending`/`confirmed`, because `cancelByOrganizer` doesn't touch registrations.
+    - A row with an evaluation stays **evaluated** even if the activity is cancelled later.
 - **Focus rings:** amber only on denim backgrounds. On white it is ~2:1, below the 3:1 a focus indicator needs, so use denim there.
 - **News:** both `/` and `/student` show text slides from `lib/news.ts`.
 
