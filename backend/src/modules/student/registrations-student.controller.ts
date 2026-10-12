@@ -74,7 +74,7 @@ export class RegistrationsStudentController {
   @Patch('check-in-self')
   @ApiOperation({ summary: 'เช็คอินเข้าร่วมกิจกรรมด้วยตัวเองผ่าน QR code (Student)' })
   async checkInSelf(@CurrentUser('id') studentId: number, @Body() dto: CheckInSelfDto) {
-    return this.registrationsService.checkInSelf(studentId, dto.activityId);
+    return this.registrationsService.checkInSelf(studentId, dto.activityId, dto.token);
   }
 
   /**

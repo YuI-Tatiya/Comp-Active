@@ -149,6 +149,42 @@ describe('EventsService.create — soft skill cap', () => {
   });
 });
 
+describe('EventsService.create — derived date/startTime/endTime are Thai time', () => {
+  let service: EventsService;
+  let repo: { create: jest.Mock };
+
+  beforeEach(async () => {
+    repo = { create: jest.fn().mockResolvedValue({ id: 1, name: 'Camp', activities: [] }) };
+    const module = await Test.createTestingModule({
+      providers: [EventsService, { provide: EventsRepository, useValue: repo }],
+    }).compile();
+    service = module.get(EventsService);
+  });
+
+  it('stores the Thai calendar date and HH:mm, even for a dawn activity that is still "yesterday" in UTC', async () => {
+    // 05:30–08:00 ตามเวลาไทยวันที่ 18 ต.ค. = 22:30Z วันที่ 17 ถึง 01:00Z วันที่ 18 — ชุดเทสต์รันใน UTC แบบ container
+    const dto = makeDto([
+      {
+        name: 'วิ่งเช้า',
+        description: 'd',
+        categories: ['Sports'],
+        startAt: '2026-10-17T22:30:00.000Z',
+        endAt: '2026-10-18T01:00:00.000Z',
+        location: 'สนาม',
+      },
+    ]);
+
+    await service.create(7, dto);
+
+    const saved = repo.create.mock.calls[0][1].activities[0];
+    expect(saved.date).toEqual(new Date('2026-10-18T00:00:00.000Z')); // วันที่ 18 ไม่ใช่ 17
+    expect(saved.startTime).toBe('05:30');
+    expect(saved.endTime).toBe('08:00');
+    // ค่าเวลาจริงไม่เปลี่ยน — derive เฉพาะฟิลด์รุ่นเก่า
+    expect(saved.startAt).toEqual(new Date('2026-10-17T22:30:00.000Z'));
+  });
+});
+
 describe('EventsService.update', () => {
   let service: EventsService;
   let repo: { findById: jest.Mock; update: jest.Mock };
@@ -257,6 +293,8 @@ describe('EventsService.findByIdPublic', () => {
   it('returns the event when visibility is everyone', async () => {
     const event = {
       id: 1,
+      isPublic: true,
+      organizerId: 7,
       visibility: 'everyone',
       visibilityProgram: [],
       visibilityYears: [],
@@ -281,6 +319,8 @@ describe('EventsService.findByIdPublic', () => {
   it('strips registrations, organizer.email, and unapproved sibling activities from the response', async () => {
     repo.findByIdPublicSafe.mockResolvedValue({
       id: 1,
+      isPublic: true,
+      organizerId: 7,
       visibility: 'everyone',
       visibilityProgram: [],
       visibilityYears: [],
@@ -306,6 +346,39 @@ describe('EventsService.findByIdPublic', () => {
     expect(result.activities[0].organizer).toEqual({ id: 3, name: 'Org' });
     expect((result.activities[0].organizer as any).email).toBeUndefined();
   });
+
+  describe('unpublished event (isPublic = false — "ปิดการใช้งานกิจกรรมถาวร")', () => {
+    const hidden = (overrides: Record<string, unknown> = {}) => ({
+      id: 1,
+      isPublic: false,
+      organizerId: 7,
+      visibility: 'everyone',
+      visibilityProgram: [],
+      visibilityYears: [],
+      activities: [{ id: 10, approvalStatus: 'approved', _count: { registrations: 0 } }],
+      ...overrides,
+    });
+
+    it('is a 404 for guests, students and other organizers — the same answer as a missing event', async () => {
+      repo.findByIdPublicSafe.mockResolvedValue(hidden());
+      await expect(service.findByIdPublic(1, null)).rejects.toThrow(NotFoundException);
+      await expect(
+        service.findByIdPublic(1, { id: 5, role: 'student', studentId: '653380001-1', program: 'IT' }),
+      ).rejects.toThrow(NotFoundException);
+      await expect(service.findByIdPublic(1, { id: 8, role: 'organizer' })).rejects.toThrow(NotFoundException);
+    });
+
+    it('still opens for its own organizer (preview) and for admins', async () => {
+      repo.findByIdPublicSafe.mockResolvedValue(hidden());
+      await expect(service.findByIdPublic(1, { id: 7, role: 'organizer' })).resolves.toMatchObject({ id: 1 });
+      await expect(service.findByIdPublic(1, { id: 1, role: 'admin' })).resolves.toMatchObject({ id: 1 });
+    });
+
+    it('fails closed when the publish state was not loaded at all', async () => {
+      repo.findByIdPublicSafe.mockResolvedValue(hidden({ isPublic: undefined }));
+      await expect(service.findByIdPublic(1, null)).rejects.toThrow(NotFoundException);
+    });
+  });
 });
 
 describe('EventsService.findAllPublic', () => {
@@ -324,6 +397,8 @@ describe('EventsService.findAllPublic', () => {
     repo.findAllApproved.mockResolvedValue([
       {
         id: 1,
+        isPublic: true,
+        organizerId: 7,
         visibility: 'everyone',
         visibilityProgram: [],
         visibilityYears: [],
@@ -344,6 +419,26 @@ describe('EventsService.findAllPublic', () => {
     expect(result.activities).toHaveLength(1);
     expect(result.activities[0].registeredCount).toBe(2);
     expect(result.activities[0].organizer.email).toBeUndefined();
+  });
+
+  it('leaves unpublished events out of the feed, except for their own organizer and admins', async () => {
+    const event = (id: number, isPublic: boolean, organizerId: number) => ({
+      id,
+      isPublic,
+      organizerId,
+      visibility: 'everyone',
+      visibilityProgram: [],
+      visibilityYears: [],
+      activities: [{ id: id * 10, approvalStatus: 'approved', registrations: [], _count: { registrations: 0 } }],
+    });
+    repo.findAllApproved.mockResolvedValue([event(1, true, 7), event(2, false, 7), event(3, false, 8)]);
+    const ids = async (viewer: any) => (await service.findAllPublic(viewer)).map((e: any) => e.id);
+
+    expect(await ids(null)).toEqual([1]);
+    expect(await ids({ id: 5, role: 'student', studentId: '653380001-1', program: 'IT' })).toEqual([1]);
+    // หน้าหลักผู้จัดใช้ feed นี้ — เจ้าของยังเห็นงานที่ตัวเองปิดไว้ แต่ไม่เห็นงานที่ผู้จัดคนอื่นปิด
+    expect(await ids({ id: 7, role: 'organizer' })).toEqual([1, 2]);
+    expect(await ids({ id: 1, role: 'admin' })).toEqual([1, 2, 3]);
   });
 });
 

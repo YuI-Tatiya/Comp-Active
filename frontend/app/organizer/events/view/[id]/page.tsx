@@ -2,12 +2,18 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+<<<<<<< HEAD
 import type { LucideIcon } from "lucide-react"
+=======
+import Link from "next/link"
+import { AlertTriangle, EyeOff, Loader2 } from "lucide-react"
+>>>>>>> organize
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Container } from "@/components/layout/container"
+<<<<<<< HEAD
 import { formatEventDate } from "@/components/ui/event-card"
 import { cn } from "@/lib/utils"
 import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, AlertTriangle, Loader2, CalendarClock } from "lucide-react"
@@ -61,9 +67,18 @@ function QuickFact({
     )
 }
 
+=======
+import { referenceCode } from "@/components/denim/denim-ui"
+import { ActivityRegistrationView } from "@/components/activity/activity-registration-view"
+import { eventsAPI, EventSummary } from "@/lib/api"
+import { eventImagePathFor } from "@/lib/event-image"
+
+type EventActivity = EventSummary["activities"][number]
+
+>>>>>>> organize
 /**
- * มุมมอง "ดูอย่างเดียว" ของงาน (Event) สำหรับผู้จัด — หน้าตาเหมือนหน้ารายละเอียดงานฝั่งนักศึกษา
- * (/student/events/:id) ทุกส่วน ต่างกันแค่ไม่มีปุ่ม/ฟอร์มลงทะเบียนเข้าร่วม เพราะผู้จัดไม่ใช่ผู้ลงทะเบียน
+ * มุมมอง "ดูอย่างเดียว" ของงาน (Event) สำหรับผู้จัด — ใช้ ActivityRegistrationView ชุดเดียวกับหน้ารายละเอียดงาน
+ * ฝั่งนักศึกษา (/student/events/:id) ในโหมด preview: แถบท้ายการ์ดเป็นจำนวนผู้ลงทะเบียนแทนปุ่มสมัคร
  * ใช้ตอนกดดูงานที่ไม่ใช่ของตัวเอง (เช่นจากฟีดกิจกรรมทั้งหมดในหน้าแรก) — อยู่ใน layout ของผู้จัดเอง
  * (AppHeader/RoleGuard ยังคุมอยู่) ต่างจาก /organizer/events/:id ที่เป็นหน้าจัดการเต็มรูปแบบและ
  * ล็อกไว้เฉพาะเจ้าของงาน
@@ -98,12 +113,6 @@ export default function OrganizerEventViewPage() {
 
     const activeActivity: EventActivity | undefined = event?.activities.find((a) => a.id === activeActivityId)
 
-    const handleShare = () => {
-        if (!event) return
-        navigator.clipboard.writeText(`${window.location.origin}/events/${event.id}`)
-        alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")
-    }
-
     if (loading) {
         return (
             <div className="bg-surface flex items-center justify-center">
@@ -128,6 +137,7 @@ export default function OrganizerEventViewPage() {
         )
     }
 
+<<<<<<< HEAD
     const capacity = activeActivity?.capacity ?? null
     const registeredCount = activeActivity?.registeredCount ?? 0
     const unlimited = isUnlimitedCapacity(capacity)
@@ -269,5 +279,43 @@ export default function OrganizerEventViewPage() {
                 )}
             </Container>
         </div>
+=======
+    return (
+        <ActivityRegistrationView
+            mode="preview"
+            title={event.name}
+            imagePath={eventImagePathFor(event, activeActivity)}
+            code={referenceCode("EVT", event.id)}
+            organizerName={activeActivity?.organizer?.name ?? event.activities[0]?.organizer?.name}
+            intro={event.description}
+            activities={event.activities}
+            activeId={activeActivityId}
+            onSelectActivity={setActiveActivityId}
+            registrationOpenAt={event.registrationOpenAt}
+            registrationCloseAt={event.registrationCloseAt}
+            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.id}`}
+            onShareCopied={() => alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")}
+            backHref="/organizer"
+            showActivityImage
+            notice={
+                // backend ส่งงานที่ไม่เผยแพร่มาให้เฉพาะเจ้าของ (และแอดมิน) — บอกให้ชัดว่านี่คือการดูตัวอย่าง ไม่ใช่สิ่งที่นักศึกษาเห็น
+                event.isPublic === false ? (
+                    <div
+                        role="note"
+                        className="flex items-start gap-3 rounded-xl border border-amber/40 bg-denim-deep/70 px-4 py-3 text-sm leading-relaxed text-denim-on backdrop-blur-sm"
+                    >
+                        <EyeOff className="mt-0.5 size-4 shrink-0 text-amber" aria-hidden="true" />
+                        <p>
+                            <strong className="font-semibold text-white">งานนี้ยังไม่เผยแพร่</strong> — นักศึกษาและบุคคลทั่วไปจะไม่เห็นหน้านี้
+                            และลงทะเบียนไม่ได้ (ลิงก์แชร์จะยังเปิดไม่ได้) คุณเห็นได้เพราะเป็นเจ้าของงาน · เปิดเผยแพร่ได้ที่{" "}
+                            <Link href="/organizer/manage" className="font-semibold text-amber underline underline-offset-2">
+                                หน้าจัดการกิจกรรม
+                            </Link>
+                        </p>
+                    </div>
+                ) : undefined
+            }
+        />
+>>>>>>> organize
     )
 }

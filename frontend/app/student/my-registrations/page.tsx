@@ -3,20 +3,24 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Container } from "@/components/layout/container"
+<<<<<<< HEAD
 import { PageHeader } from "@/components/ui/page-header"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+=======
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+>>>>>>> organize
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
+<<<<<<< HEAD
 import { formatEventDate } from "@/components/ui/event-card"
+=======
+>>>>>>> organize
 import { Toast } from "@/components/ui/toast"
-import { RegistrationEvaluation } from "@/components/student/registration-evaluation"
-import { QrCheckInButton } from "@/components/student/qr-checkin-button"
 import { AssessmentDialog } from "@/components/student/assessment-dialog"
+<<<<<<< HEAD
 import { registrationsAPI, API_BASE_URL, isCancelledByOrganizer, isActiveRegistration, EventSurveyQuestion, SurveyAnswerBody, SkillScores } from "@/lib/api"
 import { categoriesBadgeLabel } from "@/lib/categories"
 import { SOFT_SKILLS } from "@/lib/soft-skills"
@@ -24,95 +28,44 @@ import {
   Calendar, MapPin, Loader2, CalendarX, X, Star, Search,
   CheckCircle2, HeartHandshake, TrendingUp, ChevronDown, Check, Info, Users, ClipboardCheck, CalendarDays, Award, Hourglass, CalendarCheck,
 } from "lucide-react"
+=======
+import {
+  BUCKET_LABEL,
+  MyRegistrationsHero,
+  PipelineCard,
+  RegistrationCard,
+  RegistrationCardSkeleton,
+  type MyRegistration,
+} from "@/components/student/my-registrations-ui"
+import { registrationsAPI, EventSurveyQuestion, SurveyAnswerBody } from "@/lib/api"
+import { registrationBucket, type RegistrationBucket } from "@/lib/registration-bucket"
+import { SOFT_SKILLS } from "@/lib/soft-skills"
+import { Loader2, CalendarX, X, Star, Search, CheckCircle2, HeartHandshake, TrendingUp } from "lucide-react"
+>>>>>>> organize
 import { cn } from "@/lib/utils"
 
-/**
- * ผลประเมินรายกิจกรรม — backend สร้างอัตโนมัติตอนเช็คอิน (registrations.service.ts checkIn())
- * โดยคัดลอกคะแนนจาก ActivitySoftSkill.rate ของกิจกรรมนั้น ทักษะที่ไม่ได้กำหนดไว้จะเป็น 0
- */
-interface RegistrationEvaluationData extends SkillScores {
-  comment?: string | null
-  createdAt: string
-  /** pending_approval = รอผู้จัดอนุมัติ (กิจกรรมประเมินรอบด้าน) — server ปิดคะแนนเป็น 0 ไว้แล้ว */
-  status?: string
-}
-
-interface Registration {
-  id: number
-  status: string
-  attendance: string
-  registerDate: string
-  /** เวลาเช็คอินจริง — backend เขียนพร้อมสร้าง evaluation ในธุรกรรมเดียวกัน */
-  checkInTime?: string | null
-  evaluation?: RegistrationEvaluationData | null
-  activity: {
-    id: number
-    name: string
-    date: string
-    startTime: string
-    endTime: string
-    location: string
-    categories: string[]
-    imageUrl?: string
-    status?: string
-    approvalStatus?: string
-    cancellationReason?: string | null
-    /** Prisma Decimal ส่งมาเป็น string เสมอ — ไม่ใช่ number */
-    volunteerHours?: string | null
-    volunteerRole?: string | null
-    /** ผู้จัดเปิดโหมดประเมินรอบด้าน (ตนเอง + เพื่อน) ไว้หรือไม่ */
-    peerAssessmentEnabled?: boolean
-  }
-}
-
 /** รวมชั่วโมงจิตอาสาของกิจกรรมที่เช็คอินแล้วเท่านั้น — ที่ยังไม่ไปร่วมยังไม่นับเป็นชั่วโมงสะสม */
-function totalVolunteerHours(registrations: Registration[]): number {
+function totalVolunteerHours(registrations: MyRegistration[]): number {
   return registrations
     .filter((r) => !!r.evaluation)
     .reduce((sum, r) => sum + Number(r.activity.volunteerHours ?? 0), 0)
 }
 
 /** จำนวนทักษะ (จาก 12 ด้าน) ที่เคยได้คะแนนมากกว่า 0 อย่างน้อยหนึ่งครั้ง */
-function distinctSkillsEarned(registrations: Registration[]): number {
+function distinctSkillsEarned(registrations: MyRegistration[]): number {
   return SOFT_SKILLS.filter((skill) =>
     registrations.some((r) => (r.evaluation?.[skill.field] ?? 0) > 0)
   ).length
 }
 
-function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return "-"
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return "-"
-  return d.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })
-}
-
-/** สถานะการลงทะเบียน — ตรงกับ RegistrationStatus ใน backend/prisma/schema.prisma */
-const STATUS_BADGE: Record<string, { label: string; variant: "success" | "warning" | "danger" }> = {
-  confirmed: { label: "ยืนยันแล้ว", variant: "success" },
-  cancelled: { label: "ยกเลิกแล้ว", variant: "danger" },
-  pending: { label: "รอดำเนินการ", variant: "warning" },
-}
-
-/**
- * คำอธิบายต่อแท็บ — อิงจาก business logic จริง: evaluation ถูกสร้างพร้อมเช็คอินเสมอ
- * (registrations.service.ts checkIn()) และยกเลิกไม่ได้แล้วหลังเช็คอิน (cancel()) จึงไม่มีทาง
- * ที่ registration จะมีทั้ง evaluation และ status "cancelled" พร้อมกัน — 4 กลุ่มนี้เลยแบ่งข้อมูล
- * ทั้งหมดแบบไม่ทับซ้อนและไม่ตกหล่นพอดี
- */
-const TAB_INFO: Record<"pending" | "confirmed" | "evaluated" | "cancelled", string> = {
-  pending: "คุณลงทะเบียนกิจกรรมนี้ไว้แล้ว ระบบกำลังรอให้ผู้จัดกิจกรรมยืนยันที่นั่งให้คุณ ระหว่างนี้ยังสามารถยกเลิกได้",
-  confirmed: "ที่นั่งของคุณได้รับการยืนยันจากผู้จัดแล้ว รอถึงวันจัดกิจกรรมและเช็คอินหน้างาน ยังสามารถยกเลิกได้จนกว่าจะเช็คอิน",
-  evaluated: "คุณเช็คอินเข้าร่วมกิจกรรมนี้แล้ว และได้รับการประเมินคะแนน Soft Skills เรียบร้อย ไม่สามารถยกเลิกรายการนี้ได้อีก",
-  cancelled: "รายการที่คุณยกเลิกเอง หรือกิจกรรมที่ผู้จัดกิจกรรมยกเลิกทั้งงาน จะแสดงรวมอยู่ในหมวดนี้",
-}
-
-const EMPTY_STATE_TEXT: Record<"pending" | "confirmed" | "evaluated" | "cancelled", { title: string; body: string }> = {
+const EMPTY_STATE_TEXT: Record<RegistrationBucket, { title: string; body: string }> = {
   pending: { title: "ไม่มีรายการที่รอการยืนยัน", body: "เมื่อคุณลงทะเบียนกิจกรรมใหม่ รายการจะมาแสดงที่นี่จนกว่าผู้จัดจะยืนยันที่นั่ง" },
   confirmed: { title: "ไม่มีกิจกรรมที่ยืนยันแล้วและรอเข้าร่วม", body: "รายการที่ผู้จัดยืนยันที่นั่งให้แล้วแต่ยังไม่ถึงวันงานจะแสดงที่นี่" },
   evaluated: { title: "ยังไม่มีกิจกรรมที่ประเมินผลแล้ว", body: "หลังเช็คอินเข้าร่วมกิจกรรมและได้รับการประเมิน Soft Skills รายการจะย้ายมาที่นี่" },
   cancelled: { title: "ไม่มีรายการที่ถูกยกเลิก", body: "รายการที่คุณยกเลิกเอง หรือกิจกรรมที่ผู้จัดยกเลิกทั้งงาน จะแสดงที่นี่" },
 }
 
+<<<<<<< HEAD
 type TabKey = "pending" | "confirmed" | "evaluated" | "cancelled"
 
 interface SidebarTab {
@@ -420,14 +373,33 @@ function InfoItem({
     </div>
   )
 }
+=======
+type SortKey = "date_asc" | "date_desc" | "registered_desc" | "name_asc"
+
+/**
+ * ค่าเริ่มต้นของการเรียงลำดับตามความหมายของแต่ละสถานะ — รอยืนยัน/ยืนยันแล้ว เป็นกิจกรรมที่ยังไม่จัด
+ * จึงเรียงวันเก่า→ใหม่ให้อันที่จะถึงก่อนอยู่บนสุด ส่วนประเมินแล้ว/ยกเลิกแล้ว จบไปแล้ว จึงเรียงใหม่→เก่า
+ */
+function defaultSort(bucket: RegistrationBucket): SortKey {
+  return bucket === "pending" || bucket === "confirmed" ? "date_asc" : "date_desc"
+}
+
+/** ช่องค้นหา/เรียงลำดับ — สูง 48px เส้นขอบกรมท่าอ่อน โฟกัสเป็นกรมท่า (บนพื้นขาว ห้ามใช้อำพัน) */
+const FIELD =
+  "h-12 rounded-xl border-[1.5px] border-denim-field bg-white text-[15px] text-denim-deep hover:border-denim-dash focus-visible:border-denim focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-denim"
+>>>>>>> organize
 
 export default function MyRegistrationsPage() {
-  const [registrations, setRegistrations] = useState<Registration[]>([])
+  const [registrations, setRegistrations] = useState<MyRegistration[]>([])
   const [loading, setLoading] = useState(true)
+<<<<<<< HEAD
   const [activeTab, setActiveTab] = useState<TabKey>("pending")
   const [guideOpen, setGuideOpen] = useState(false)
+=======
+  const [activeTab, setActiveTab] = useState<RegistrationBucket>("pending")
+>>>>>>> organize
   const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState<"date_asc" | "date_desc" | "registered_desc" | "name_asc">("date_asc")
+  const [sortBy, setSortBy] = useState<SortKey>(defaultSort("pending"))
   const [message, setMessage] = useState("")
   // เก็บชนิดของข้อความแยกไว้ ไม่เดาจากตัวข้อความ —
   // "ยกเลิกไม่สำเร็จ".includes("สำเร็จ") เป็น true จึงเคยขึ้นกล่องเขียวตอนพัง
@@ -472,11 +444,10 @@ export default function MyRegistrationsPage() {
     loadRegistrations()
   }, [])
 
-  // ค่าเริ่มต้นของการเรียงลำดับตามความหมายของแต่ละแท็บ — รอยืนยัน/ยืนยันแล้ว เป็นกิจกรรมที่ยังไม่จัด
-  // จึงเรียงวันเก่า→ใหม่ให้อันที่จะถึงก่อนอยู่บนสุด ส่วนประเมินแล้ว/ยกเลิกแล้ว จบไปแล้ว จึงเรียงใหม่→เก่า
-  useEffect(() => {
-    setSortBy(activeTab === "pending" || activeTab === "confirmed" ? "date_asc" : "date_desc")
-  }, [activeTab])
+  function selectTab(bucket: RegistrationBucket) {
+    setActiveTab(bucket)
+    setSortBy(defaultSort(bucket))
+  }
 
   async function loadRegistrations() {
     try {
@@ -548,12 +519,11 @@ export default function MyRegistrationsPage() {
     }
   }
 
-  const tabRegs = registrations.filter((r) => {
-    if (activeTab === "pending") return r.status === "pending"
-    if (activeTab === "confirmed") return r.status === "confirmed" && !r.evaluation
-    if (activeTab === "evaluated") return !!r.evaluation
-    return r.status === "cancelled"
-  })
+  // ทุกรายการลงได้สถานะเดียวพอดี (lib/registration-bucket.ts) — นับและกรองจากฟังก์ชันเดียวกัน ตัวเลขบนการ์ดสถานะจึงตรงกับรายการเสมอ
+  const counts: Record<RegistrationBucket, number> = { pending: 0, confirmed: 0, evaluated: 0, cancelled: 0 }
+  for (const r of registrations) counts[registrationBucket(r)]++
+
+  const tabRegs = registrations.filter((r) => registrationBucket(r) === activeTab)
 
   const q = searchQuery.trim().toLowerCase()
   const filteredRegs = [...tabRegs]
@@ -569,68 +539,36 @@ export default function MyRegistrationsPage() {
       return sortBy === "date_asc" ? da - db : db - da
     })
 
-  const counts = {
-    pending: registrations.filter((r) => r.status === "pending").length,
-    confirmed: registrations.filter((r) => r.status === "confirmed" && !r.evaluation).length,
-    evaluated: registrations.filter((r) => !!r.evaluation).length,
-    cancelled: registrations.filter((r) => r.status === "cancelled").length,
-  }
-
-  const TABS = [
-    { key: "pending" as const, label: "รอยืนยัน", count: counts.pending },
-    { key: "confirmed" as const, label: "ยืนยันแล้ว", count: counts.confirmed },
-    { key: "evaluated" as const, label: "ประเมินแล้ว", count: counts.evaluated },
-    { key: "cancelled" as const, label: "ยกเลิกแล้ว", count: counts.cancelled },
-  ]
-
   // สรุปผลสะสม — เจตนาไม่เอา level/points/badges มาซ้ำกับหน้าแรกและหน้าโปรไฟล์
   // แสดงเฉพาะเมื่อเคยเข้าร่วมจริงแล้ว ไม่งั้นนักศึกษาใหม่จะเจอกล่องเลข 0 เปล่าๆ
   const volunteerHours = totalVolunteerHours(registrations)
   const SUMMARY = [
-    {
-      icon: CheckCircle2,
-      label: "เข้าร่วมสำเร็จ",
-      value: `${counts.evaluated}`,
-      unit: "กิจกรรม",
-      tone: "text-success",
-      bgTone: "bg-success-bg",
-    },
+    { icon: CheckCircle2, label: "เข้าร่วมสำเร็จ", value: `${counts.evaluated}`, unit: "กิจกรรม" },
     {
       icon: HeartHandshake,
       label: "ชั่วโมงจิตอาสาสะสม",
       // ตัด .0 ทิ้งเมื่อเป็นจำนวนเต็ม — "12 ชม." อ่านง่ายกว่า "12.0 ชม."
       value: Number.isInteger(volunteerHours) ? `${volunteerHours}` : volunteerHours.toFixed(1),
       unit: "ชั่วโมง",
-      tone: "text-brand-600",
-      bgTone: "bg-brand-50",
     },
-    {
-      icon: TrendingUp,
-      label: "ทักษะที่ได้รับ",
-      value: `${distinctSkillsEarned(registrations)}`,
-      unit: `จาก ${SOFT_SKILLS.length} ด้าน`,
-      tone: "text-warning",
-      bgTone: "bg-warning-bg",
-    },
+    { icon: TrendingUp, label: "ทักษะที่ได้รับ", value: `${distinctSkillsEarned(registrations)}`, unit: `จาก ${SOFT_SKILLS.length} ด้าน` },
   ]
 
   return (
     // ไม่ใส่ min-h-screen — app/student/layout.tsx จัดการให้แล้ว
-    <div className="bg-surface pb-12">
-      {/* หัวข้อ — ไม่ใส่ sticky เพราะ AppHeader ปักที่ top-0 z-50 อยู่แล้ว แถบนี้จะมุดหายไปใต้มัน */}
-      <PageHeader
-        title="กิจกรรมของฉัน"
-        subtitle="ติดตามสถานะการเข้าร่วมและการประเมินผลของคุณ"
-        icons={[ClipboardCheck, CalendarDays, Award]}
-      />
+    <div className="bg-surface pb-16">
+      <MyRegistrationsHero />
+      <PipelineCard value={activeTab} counts={counts} loading={loading} onChange={selectTab} />
 
-      <Container className="py-6">
+      <Container className="pt-6">
         {message && (
           <div
             role="alert"
             className={cn(
-              "mb-6 flex items-center justify-between gap-3 rounded-xl border border-border p-4 text-sm font-medium",
-              messageType === "success" ? "bg-success-bg text-success" : "bg-danger-bg text-danger"
+              "mb-5 flex items-center justify-between gap-3 rounded-xl border p-4 text-sm font-medium",
+              messageType === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-red-200 bg-red-50 text-red-800"
             )}
           >
             {message}
@@ -645,6 +583,7 @@ export default function MyRegistrationsPage() {
           </div>
         )}
 
+<<<<<<< HEAD
         <GuideDialog open={guideOpen} onOpenChange={setGuideOpen} />
 
         {/* ซ้าย = ลำดับสถานะ (แบบเดียวกับหน้า organizer/create) ขวา = เนื้อหา
@@ -655,21 +594,22 @@ export default function MyRegistrationsPage() {
           <div className="min-w-0">
 
         {/* สรุปผลสะสม — ซ่อนตอนยังโหลดอยู่และตอนที่ยังไม่เคยเข้าร่วมกิจกรรมไหนเลย */}
+=======
+        {/* สรุปผลสะสม — ซ่อนตอนยังโหลดอยู่และตอนที่ยังไม่เคยเข้าร่วมกิจกรรมไหนเลย
+            มือถือยังเป็น 3 คอลัมน์ (ซ่อนไอคอน) — เรียงลงมา 3 กล่องดันรายการกิจกรรมตกจอแรก */}
+>>>>>>> organize
         {!loading && counts.evaluated > 0 && (
-          <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="mb-6 grid grid-cols-3 gap-2 sm:gap-3">
             {SUMMARY.map((stat) => (
-              <div
-                key={stat.label}
-                className="relative flex items-center gap-4 overflow-hidden rounded-2xl border border-border bg-bg p-4 shadow-xs"
-              >
-                <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset ring-border", stat.bgTone)}>
-                  <stat.icon className={cn("size-5", stat.tone)} aria-hidden="true" />
-                </div>
+              <div key={stat.label} className="flex min-w-0 items-center gap-4 rounded-2xl border border-denim-line bg-white p-3 sm:p-4">
+                <span className="hidden size-11 shrink-0 place-items-center rounded-xl bg-denim-chip sm:grid">
+                  <stat.icon className="size-5 text-denim" aria-hidden="true" />
+                </span>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-fg-muted">{stat.label}</p>
-                  <p className="mt-0.5 flex items-baseline gap-1.5 text-fg">
-                    <span className="text-2xl font-black tabular-nums leading-none">{stat.value}</span>
-                    <span className="text-xs text-fg-muted">{stat.unit}</span>
+                  <p className="text-[11px] font-semibold leading-snug text-denim-muted sm:text-xs">{stat.label}</p>
+                  <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 sm:mt-0.5">
+                    <span className="font-display text-2xl font-bold leading-none tabular-nums text-denim-deep">{stat.value}</span>
+                    <span className="text-xs text-denim-muted">{stat.unit}</span>
                   </p>
                 </div>
               </div>
@@ -677,6 +617,7 @@ export default function MyRegistrationsPage() {
           </div>
         )}
 
+<<<<<<< HEAD
         {/* ค้นหา + เรียงลำดับ */}
         <div className="mb-5 flex flex-col gap-2.5 rounded-2xl border border-border bg-bg p-2.5 shadow-xs sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-sm">
@@ -685,19 +626,46 @@ export default function MyRegistrationsPage() {
               type="text"
               placeholder="ค้นหาชื่อกิจกรรม..."
               className="h-10 rounded-lg pl-10"
+=======
+        <form
+          role="search"
+          aria-label="ค้นหากิจกรรมของฉัน"
+          onSubmit={(e) => e.preventDefault()}
+          className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          {/* min-w-0 + flex-1: ช่องค้นหาต้องหดได้ ไม่งั้นช่วง ~768px มันกันที่จนช่องเรียงลำดับล้นขอบขวา */}
+          <div className="relative w-full min-w-0 sm:max-w-md sm:flex-1">
+            <Search className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-denim-muted" aria-hidden="true" />
+            <input
+              type="search"
+              aria-label="ค้นหาชื่อกิจกรรม"
+              placeholder="ค้นหาชื่อกิจกรรม..."
+              className={cn(FIELD, "w-full pl-11 pr-4 placeholder:text-denim-muted/80")}
+>>>>>>> organize
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+<<<<<<< HEAD
           <div className="flex items-center gap-2">
             <label htmlFor="my-reg-sort" className="shrink-0 text-xs font-semibold text-fg-muted">
+=======
+          <div className="flex items-center gap-3 sm:shrink-0">
+            <label htmlFor="my-reg-sort" className="shrink-0 text-sm font-semibold text-denim-ink">
+>>>>>>> organize
               เรียงลำดับ
             </label>
             <Select
               id="my-reg-sort"
+<<<<<<< HEAD
               className="h-10 w-full rounded-lg sm:w-60"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+=======
+              className={cn(FIELD, "w-full pl-4 sm:w-64")}
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortKey)}
+>>>>>>> organize
             >
               <option value="date_asc">วันจัดกิจกรรม: เก่า → ใหม่</option>
               <option value="date_desc">วันจัดกิจกรรม: ใหม่ → เก่า</option>
@@ -705,37 +673,54 @@ export default function MyRegistrationsPage() {
               <option value="name_asc">ชื่อกิจกรรม: ก → ฮ</option>
             </Select>
           </div>
+<<<<<<< HEAD
         </div>
+=======
+        </form>
+
+        <p className="mb-3 mt-6 font-code text-xs text-denim-muted" aria-live="polite">
+          {loading ? "→ กำลังโหลด..." : `→ ${BUCKET_LABEL[activeTab]} · ${filteredRegs.length} กิจกรรม`}
+        </p>
+>>>>>>> organize
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="mb-4 size-12 animate-spin text-brand-600" />
-            <p className="text-lg font-medium text-fg-muted">กำลังโหลดกิจกรรมของคุณ...</p>
+          <div className="grid gap-4" aria-busy="true">
+            <span className="sr-only">กำลังโหลดกิจกรรมของคุณ</span>
+            <RegistrationCardSkeleton />
+            <RegistrationCardSkeleton />
           </div>
         ) : filteredRegs.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-bg p-10 text-center shadow-xs">
-            <div className="mx-auto mb-6 flex size-20 items-center justify-center rounded-full bg-surface">
-              <CalendarX className="size-8 text-fg-subtle" aria-hidden="true" />
-            </div>
+          <div className="rounded-[20px] border-2 border-dashed border-denim-field bg-white px-6 py-12 text-center">
+            <span className="mx-auto mb-5 grid size-16 place-items-center rounded-full bg-denim-chip">
+              <CalendarX className="size-7 text-denim" aria-hidden="true" />
+            </span>
             {q && tabRegs.length > 0 ? (
               <>
-                <h3 className="mb-2 text-xl font-bold text-fg">ไม่พบกิจกรรมที่ตรงกับคำค้นหา</h3>
-                <p className="mx-auto mb-8 max-w-sm text-fg-muted">ลองค้นด้วยคำอื่น หรือล้างคำค้นหาเพื่อดูรายการทั้งหมด</p>
-                <Button variant="outline" className="rounded-xl px-8" onClick={() => setSearchQuery("")}>
+                <h3 className="font-display text-xl font-bold text-denim-deep">ไม่พบกิจกรรมที่ตรงกับคำค้นหา</h3>
+                <p className="mx-auto mb-6 mt-2 max-w-sm text-denim-muted">ลองค้นด้วยคำอื่น หรือล้างคำค้นหาเพื่อดูรายการทั้งหมด</p>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="inline-flex min-h-11 items-center rounded-xl border-[1.5px] border-denim-field bg-white px-6 text-sm font-semibold text-denim-deep transition-colors hover:border-denim hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
+                >
                   ล้างคำค้นหา
-                </Button>
+                </button>
               </>
             ) : (
               <>
-                <h3 className="mb-2 text-xl font-bold text-fg">{EMPTY_STATE_TEXT[activeTab].title}</h3>
-                <p className="mx-auto mb-8 max-w-sm text-fg-muted">{EMPTY_STATE_TEXT[activeTab].body}</p>
-                <Button className="rounded-xl px-8" asChild>
-                  <Link href="/student/events">ไปหน้ากิจกรรม</Link>
-                </Button>
+                <h3 className="font-display text-xl font-bold text-denim-deep">{EMPTY_STATE_TEXT[activeTab].title}</h3>
+                <p className="mx-auto mb-6 mt-2 max-w-sm text-denim-muted">{EMPTY_STATE_TEXT[activeTab].body}</p>
+                <Link
+                  href="/student/events"
+                  className="inline-flex min-h-11 items-center rounded-xl bg-denim-deep px-6 text-sm font-semibold text-white transition-colors hover:bg-denim focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
+                >
+                  ไปหน้ากิจกรรม
+                </Link>
               </>
             )}
           </div>
         ) : (
+<<<<<<< HEAD
           <div key={activeTab} className="grid grid-cols-1 gap-5 sm:grid-cols-2 2xl:grid-cols-3">
             {filteredRegs.map((reg, idx) => {
               const st = STATUS_BADGE[reg.status] ?? STATUS_BADGE.pending
@@ -921,6 +906,24 @@ export default function MyRegistrationsPage() {
                 </article>
               )
             })}
+=======
+          <div className="grid gap-4">
+            {filteredRegs.map((reg) => (
+              <RegistrationCard
+                key={reg.id}
+                reg={reg}
+                evaluationOpen={expandedEvaluations.includes(reg.id)}
+                onToggleEvaluation={() =>
+                  setExpandedEvaluations((prev) =>
+                    prev.includes(reg.id) ? prev.filter((id) => id !== reg.id) : [...prev, reg.id]
+                  )
+                }
+                onOpenSurvey={() => openSurvey(reg.id)}
+                onOpenAssessment={() => setAssessmentRegId(reg.id)}
+                onCancel={() => setCancelTargetId(reg.id)}
+              />
+            ))}
+>>>>>>> organize
           </div>
         )}
           </div>

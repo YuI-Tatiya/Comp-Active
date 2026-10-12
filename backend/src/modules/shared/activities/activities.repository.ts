@@ -19,6 +19,9 @@ export const activityInclude = {
       visibilityStudentIdFilter: true,
       visibilityProgram: { select: { programCode: true } },
       visibilityYears: { select: { year: true } },
+      // canViewerSeeEvent ต้องใช้ (fail-closed: ไม่ select มา = ถือว่าไม่เผยแพร่)
+      isPublic: true,
+      organizerId: true,
     },
   },
 } as const;
@@ -301,6 +304,14 @@ export class ActivitiesRepository {
     });
   }
 
+  /** เปิด/ปิดสวิตช์เช็คอินด้วยตัวเองผ่าน QR */
+  updateSelfCheckIn(activityId: number, enabled: boolean) {
+    return this.prisma.activity.update({
+      where: { id: activityId },
+      data: { selfCheckInEnabled: enabled },
+    });
+  }
+
   /** ปิดกิจกรรมแบบ "จบแล้ว" — ต่างจาก cancelByOrganizer ตรงที่ไม่ใช่การยกเลิก */
   markCompleted(activityId: number) {
     return this.prisma.activity.update({
@@ -353,11 +364,15 @@ export class ActivitiesRepository {
   } as const;
 
   // ไม่มี student identity ในเส้นทางนี้ (auth ด้วย API key) — งาน restricted จึงต้องไม่โผล่เด็ดขาด
-  private static readonly EXCLUDE_RESTRICTED = { NOT: { event: { visibility: 'restricted' as any } } };
+  /** newsfeed/แชทบอทไม่มีผู้ใช้ให้เช็คสิทธิ์ — ตัดกิจกรรมของงาน restricted และงานที่ไม่เผยแพร่ออกตั้งแต่ระดับ DB
+   *  (ต้องรวมไว้ใน NOT ตัวเดียว — กระจาย object ที่มี key NOT สองก้อนจะทับกันเหลือแค่ก้อนหลัง) */
+  private static readonly PUBLIC_EVENTS_ONLY = {
+    NOT: { event: { OR: [{ visibility: 'restricted' as any }, { isPublic: false }] } },
+  };
 
   findAllForNewsfeed() {
     return this.prisma.activity.findMany({
-      where: { approvalStatus: ApprovalStatus.APPROVED as any, ...ActivitiesRepository.EXCLUDE_RESTRICTED },
+      where: { approvalStatus: ApprovalStatus.APPROVED as any, ...ActivitiesRepository.PUBLIC_EVENTS_ONLY },
       select: ActivitiesRepository.NEWSFEED_SELECT,
       orderBy: { date: 'asc' },
     });
@@ -365,7 +380,7 @@ export class ActivitiesRepository {
 
   findByIdForNewsfeed(id: number) {
     return this.prisma.activity.findFirst({
-      where: { id, approvalStatus: ApprovalStatus.APPROVED as any, ...ActivitiesRepository.EXCLUDE_RESTRICTED },
+      where: { id, approvalStatus: ApprovalStatus.APPROVED as any, ...ActivitiesRepository.PUBLIC_EVENTS_ONLY },
       select: ActivitiesRepository.NEWSFEED_SELECT,
     });
   }
@@ -377,7 +392,7 @@ export class ActivitiesRepository {
       where: {
         approvalStatus: ApprovalStatus.APPROVED as any,
         status: ActivityStatus.OPEN as any,
-        ...ActivitiesRepository.EXCLUDE_RESTRICTED,
+        ...ActivitiesRepository.PUBLIC_EVENTS_ONLY,
       },
       select: ActivitiesRepository.NEWSFEED_SELECT,
       orderBy: { date: 'asc' },

@@ -1,9 +1,9 @@
 "use client"
 
-import { Input } from "@/components/ui/input"
+import { useId } from "react"
+import { X } from "lucide-react"
 import { Select } from "@/components/ui/select"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
-import { Search, X } from "lucide-react"
 import { CATEGORIES } from "@/lib/categories"
 import {
     STATUS_OPTIONS,
@@ -11,156 +11,178 @@ import {
     SORT_OPTIONS,
     SORT_HELP,
     RANGE_HELP,
+    INITIAL_FILTERS,
     type EventsFilterValues,
+    type FacetCounts,
 } from "@/lib/events-filter"
 import { cn, toggleInArray } from "@/lib/utils"
 
 export type { EventsFilterValues }
 
+/** ตัวกรองในแผงที่ผู้ใช้เปลี่ยนจากค่าเริ่มต้นแล้ว — ไม่นับคำค้นหา (อยู่ในแถบหัวหน้า) และการเรียงลำดับ */
+export function activePanelFilterCount(values: EventsFilterValues): number {
+    return values.categories.length + values.statuses.length + (values.certOnly ? 1 : 0) + (values.range ? 1 : 0)
+}
+
 interface EventsFilterSidebarProps {
     values: EventsFilterValues
     onChange: (values: EventsFilterValues) => void
-    onReset: () => void
-    resultCount?: number
+    /** จำนวนการ์ดข้างตัวเลือก (facetCounts) — ไม่ส่งมาก็ไม่แสดงตัวเลข */
+    counts?: FacetCounts
+    /** false = ไม่แสดงหัว "ตัวกรอง" (ใน Dialog บนมือถือที่มี DialogTitle อยู่แล้ว) */
+    heading?: boolean
     className?: string
 }
 
-/** แผงตัวกรองแนวตั้ง — ใช้ทั้งเป็น sidebar บนจอกว้าง และเนื้อหาใน Dialog บนมือถือ */
-export function EventsFilterSidebar({ values, onChange, onReset, resultCount, className }: EventsFilterSidebarProps) {
-    const activeCount =
-        values.categories.length +
-        values.statuses.length +
-        (values.certOnly ? 1 : 0) +
-        (values.range ? 1 : 0) +
-        (values.search.trim() ? 1 : 0)
+const FIELD =
+    "h-11 rounded-xl border-[1.5px] border-denim-field bg-white pl-3.5 text-sm text-denim-deep hover:border-denim-dash focus-visible:border-denim focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-denim"
+
+/** หัวกลุ่มตัวเลือก + เส้นประคั่นจากกลุ่มก่อนหน้า */
+function Group({ label, help, htmlFor, children }: { label: string; help?: string; htmlFor?: string; children: React.ReactNode }) {
+    const id = useId()
+    const labelClass = "text-xs font-semibold tracking-[0.06em] text-denim-muted"
+    // กลุ่มช่องติ๊ก = role="group" ชื่อมาจากหัวกลุ่ม · กลุ่มที่มีช่องเดียว (select) ใช้ <label htmlFor> ตรงๆ
+    return (
+        <div role={htmlFor ? undefined : "group"} aria-labelledby={htmlFor ? undefined : id} className="border-t border-dashed border-denim-line pt-4">
+            <div className="mb-2 flex items-center gap-1">
+                {htmlFor ? (
+                    <label htmlFor={htmlFor} className={labelClass}>
+                        {label}
+                    </label>
+                ) : (
+                    <p id={id} className={labelClass}>
+                        {label}
+                    </p>
+                )}
+                {help && <InfoTooltip text={help} label={`คำอธิบาย${label}`} />}
+            </div>
+            {children}
+        </div>
+    )
+}
+
+/** แถวช่องติ๊ก — จุดสี (หมวดหมู่) + ป้าย + จำนวนชิดขวา ทั้งแถวกดได้ */
+function CheckRow({
+    checked,
+    onToggle,
+    label,
+    dot,
+    count,
+}: {
+    checked: boolean
+    onToggle: () => void
+    label: string
+    dot?: string
+    count?: number
+}) {
+    const empty = count === 0 && !checked
+    return (
+        <label
+            className={cn(
+                "flex min-h-9 cursor-pointer items-center gap-2.5 rounded-lg px-1.5 text-sm transition-colors hover:bg-denim-paper",
+                empty ? "text-denim-muted" : "text-denim-ink"
+            )}
+        >
+            <input
+                type="checkbox"
+                checked={checked}
+                onChange={onToggle}
+                className="size-4 shrink-0 cursor-pointer rounded accent-denim focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
+            />
+            {dot && <span className={cn("size-2 shrink-0 rounded-full", dot)} aria-hidden="true" />}
+            <span className={cn("min-w-0 flex-1 leading-snug", checked && "font-semibold text-denim-deep")}>{label}</span>
+            {count !== undefined && (
+                <span className="font-code text-xs tabular-nums text-denim-muted">
+                    {count}
+                    <span className="sr-only"> รายการ</span>
+                </span>
+            )}
+        </label>
+    )
+}
+
+/** แผงตัวกรองแนวตั้ง — ใช้ทั้งเป็น sidebar บนจอกว้าง และเนื้อหาใน Dialog บนมือถือ (ช่องค้นหาอยู่ที่แถบหัวหน้าของหน้า) */
+export function EventsFilterSidebar({ values, onChange, counts, heading = true, className }: EventsFilterSidebarProps) {
+    const activeCount = activePanelFilterCount(values)
+    // ล้างเฉพาะตัวกรองในแผงนี้ — คำค้นหาที่พิมพ์ไว้ในแถบหัวหน้าคงไว้
+    const reset = () => onChange({ ...INITIAL_FILTERS, search: values.search })
+    const rangeId = useId()
+    const sortId = useId()
 
     return (
-        <div className={cn("space-y-6", className)}>
-            <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-fg">ตัวกรอง</h2>
-                {activeCount > 0 && (
-                    <button
-                        type="button"
-                        onClick={onReset}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline"
-                    >
-                        <X className="size-3" aria-hidden="true" /> ล้างตัวกรอง
-                    </button>
-                )}
-            </div>
-
-            <div>
-                <label className="mb-1.5 block text-xs font-semibold text-fg-muted" htmlFor="events-filter-search">
-                    ค้นหา
-                </label>
-                <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
-                    <Input
-                        id="events-filter-search"
-                        type="text"
-                        placeholder="ค้นหาชื่องานหรือกิจกรรม..."
-                        className="h-10 rounded-lg pl-10"
-                        value={values.search}
-                        onChange={(e) => onChange({ ...values, search: e.target.value })}
-                    />
+        <div className={cn("flex flex-col gap-4", className)}>
+            {(heading || activeCount > 0) && (
+                <div className="flex min-h-8 items-center justify-between gap-3">
+                    {heading ? <h2 className="font-display text-lg font-bold text-denim-deep">ตัวกรอง</h2> : <span />}
+                    {activeCount > 0 && (
+                        <button
+                            type="button"
+                            onClick={reset}
+                            className="inline-flex min-h-8 items-center gap-1 rounded-lg px-1.5 text-xs font-semibold text-denim transition-colors hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-denim"
+                        >
+                            <X className="size-3.5" aria-hidden="true" />
+                            ล้างตัวกรอง ({activeCount})
+                        </button>
+                    )}
                 </div>
-            </div>
+            )}
 
-            <fieldset>
-                <legend className="mb-2 text-xs font-semibold text-fg-muted">หมวดหมู่</legend>
-                <div className="space-y-2">
+            <Group label="หมวดหมู่">
+                <div className="flex flex-col">
                     {CATEGORIES.map((c) => (
-                        <label key={c.value} className="flex cursor-pointer items-center gap-2 text-sm text-fg">
-                            <input
-                                type="checkbox"
-                                className="size-4 rounded border-border text-brand-600 focus:ring-brand-500"
-                                checked={values.categories.includes(c.value)}
-                                onChange={() => onChange({ ...values, categories: toggleInArray(values.categories, c.value) })}
-                            />
-                            <span className={cn("size-2 rounded-full", c.dot)} aria-hidden="true" />
-                            {c.label}
-                        </label>
+                        <CheckRow
+                            key={c.value}
+                            label={c.label}
+                            dot={c.dot}
+                            count={counts?.categories[c.value]}
+                            checked={values.categories.includes(c.value)}
+                            onToggle={() => onChange({ ...values, categories: toggleInArray(values.categories, c.value) })}
+                        />
                     ))}
                 </div>
-            </fieldset>
+            </Group>
 
-            <fieldset>
-                <legend className="mb-2 text-xs font-semibold text-fg-muted">สถานะรับสมัคร</legend>
-                <div className="space-y-2">
+            <Group label="สถานะรับสมัคร">
+                <div className="flex flex-col">
                     {STATUS_OPTIONS.map((o) => (
-                        <label key={o.value} className="flex cursor-pointer items-center gap-2 text-sm text-fg">
-                            <input
-                                type="checkbox"
-                                className="size-4 rounded border-border text-brand-600 focus:ring-brand-500"
-                                checked={values.statuses.includes(o.value)}
-                                onChange={() => onChange({ ...values, statuses: toggleInArray(values.statuses, o.value) })}
-                            />
-                            {o.label}
-                        </label>
+                        <CheckRow
+                            key={o.value}
+                            label={o.label}
+                            count={counts?.statuses[o.value]}
+                            checked={values.statuses.includes(o.value)}
+                            onToggle={() => onChange({ ...values, statuses: toggleInArray(values.statuses, o.value) })}
+                        />
                     ))}
                 </div>
-            </fieldset>
+            </Group>
 
-            <fieldset>
-                <legend className="mb-2 text-xs font-semibold text-fg-muted">ใบรับรอง</legend>
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-fg">
-                    <input
-                        type="checkbox"
-                        className="size-4 rounded border-border text-brand-600 focus:ring-brand-500"
-                        checked={values.certOnly}
-                        onChange={(e) => onChange({ ...values, certOnly: e.target.checked })}
-                    />
-                    มีใบรับรองจิตอาสา
-                </label>
-            </fieldset>
+            <Group label="ใบรับรอง">
+                <CheckRow
+                    label="มีใบรับรองจิตอาสา"
+                    checked={values.certOnly}
+                    onToggle={() => onChange({ ...values, certOnly: !values.certOnly })}
+                />
+            </Group>
 
-            <div>
-                <div className="mb-1.5 flex items-center gap-1">
-                    <label className="text-xs font-semibold text-fg-muted" htmlFor="events-filter-range">
-                        ช่วงเวลา
-                    </label>
-                    <InfoTooltip text={RANGE_HELP} label="คำอธิบายตัวกรองช่วงเวลา" />
-                </div>
-                <Select
-                    id="events-filter-range"
-                    className="h-10 rounded-lg"
-                    value={values.range}
-                    onChange={(e) => onChange({ ...values, range: e.target.value })}
-                >
+            <Group label="ช่วงเวลา" help={RANGE_HELP} htmlFor={rangeId}>
+                <Select id={rangeId} className={FIELD} value={values.range} onChange={(e) => onChange({ ...values, range: e.target.value })}>
                     {RANGE_OPTIONS.map((o) => (
                         <option key={o.value} value={o.value}>
                             {o.label}
                         </option>
                     ))}
                 </Select>
-            </div>
+            </Group>
 
-            <div>
-                <div className="mb-1.5 flex items-center gap-1">
-                    <label className="text-xs font-semibold text-fg-muted" htmlFor="events-filter-sort">
-                        เรียงลำดับ
-                    </label>
-                    <InfoTooltip text={SORT_HELP} label="คำอธิบายตัวเลือกเรียงลำดับ" />
-                </div>
-                <Select
-                    id="events-filter-sort"
-                    className="h-10 rounded-lg"
-                    value={values.sort}
-                    onChange={(e) => onChange({ ...values, sort: e.target.value })}
-                >
+            <Group label="เรียงลำดับ" help={SORT_HELP} htmlFor={sortId}>
+                <Select id={sortId} className={FIELD} value={values.sort} onChange={(e) => onChange({ ...values, sort: e.target.value })}>
                     {SORT_OPTIONS.map((o) => (
                         <option key={o.value} value={o.value}>
                             {o.label}
                         </option>
                     ))}
                 </Select>
-            </div>
-
-            {resultCount !== undefined && (
-                <p className="text-sm text-fg-muted">
-                    พบ <span className="font-semibold text-fg">{resultCount}</span> รายการ
-                </p>
-            )}
+            </Group>
         </div>
     )
 }

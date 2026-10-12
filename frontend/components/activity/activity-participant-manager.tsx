@@ -1,24 +1,23 @@
 "use client"
 
-import { useState } from "react"
-import { QRCodeSVG } from "qrcode.react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import type { LucideIcon } from "lucide-react"
+import { ArrowRight, BadgeCheck, ClipboardList, Info, QrCode, Search, Settings2, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { CheckSquare, Download, Search } from "lucide-react"
 import { formatEventDate } from "@/components/ui/event-card"
-import { registrationsAPI, certificatesAPI, type Activity } from "@/lib/api"
+import { registrationsAPI, certificatesAPI, evaluationsAPI, type Activity, type ApprovalDashboard } from "@/lib/api"
 import { ActivityAboutPanel, ActivityRegistrationPanel, ActivityRewardsPanel } from "@/components/activity/activity-info-panels"
 import { ActivityBatchEvaluation } from "@/components/activity/activity-batch-evaluation"
 import { ActivityAssessmentMode } from "@/components/activity/activity-assessment-mode"
 import { ActivityApprovalDashboard } from "@/components/activity/activity-approval-dashboard"
-import { ActivityOverview } from "@/components/activity/activity-overview"
+import { ActivityCheckinQr } from "@/components/activity/activity-checkin-qr"
+import { ActivityParticipantsTable, type ParticipantTab } from "@/components/activity/activity-participants-table"
+import { DASHBOARD_CARD } from "@/components/organizer/activity-dashboard-sections"
+import { cn } from "@/lib/utils"
 
 interface RegistrationAnswerRow {
     question: { id: number; label: string }
@@ -53,45 +52,7 @@ function answerText(a: RegistrationAnswerRow): string {
     return "-"
 }
 
-interface ParticipantFilters {
-    status: "" | "confirmed" | "pending"
-    attendance: "" | "attended" | "not_attended"
-    wantsCertLoanFund: boolean
-    wantsCertScholarship: boolean
-}
-
-const INITIAL_PARTICIPANT_FILTERS: ParticipantFilters = {
-    status: "",
-    attendance: "",
-    wantsCertLoanFund: false,
-    wantsCertScholarship: false,
-}
-
-/** กรองรายชื่อผู้เข้าร่วมด้วยคำค้นหา + ตัวกรองสถานะ/การเข้าร่วม/กยศ.-ทุน — ใช้ทั้งแสดงรายการและ export CSV เพื่อให้ผลตรงกันเสมอ */
-function filterRegistrations(
-    registrations: RegistrationRow[] | undefined,
-    search: string,
-    filters: ParticipantFilters
-): RegistrationRow[] {
-    if (!registrations) return []
-    const q = search.trim().toLowerCase()
-    return registrations.filter((reg) => {
-        const matchesSearch =
-            !q ||
-            reg.student.name.toLowerCase().includes(q) ||
-            reg.student.studentId.toLowerCase().includes(q) ||
-            reg.student.email.toLowerCase().includes(q)
-        const matchesStatus = !filters.status || reg.status === filters.status
-        const matchesAttendance =
-            !filters.attendance ||
-            (filters.attendance === "attended" ? reg.attendance === "attended" : reg.attendance !== "attended")
-        const matchesCert =
-            (!filters.wantsCertLoanFund && !filters.wantsCertScholarship) ||
-            (filters.wantsCertLoanFund && reg.wantsCertLoanFund) ||
-            (filters.wantsCertScholarship && reg.wantsCertScholarship)
-        return matchesSearch && matchesStatus && matchesAttendance && matchesCert
-    })
-}
+type ManagerTab = "participants" | "details" | "registration" | "evaluation" | "approval"
 
 interface ActivityParticipantManagerProps {
     /** กิจกรรม (กิจกรรมย่อยของงาน หรือกิจกรรมเดี่ยว) — ต้องมี registrations แนบมาด้วยแล้ว */
@@ -102,23 +63,125 @@ interface ActivityParticipantManagerProps {
     eventName?: string
     /** เรียกซ้ำหลังทำ action ใดๆ (ยืนยัน/เช็คอิน) — ควรเป็น silent refetch ไม่ toggle loading เพื่อไม่ให้เสีย state แท็บ/ตัวกรองที่เลือกอยู่ */
     onRefetch: () => void
+    /** แถวบนสุดของการ์ดสถิติ เช่น ปุ่มสลับกิจกรรมย่อยของงาน — กิจกรรมเดี่ยวไม่ต้องส่ง */
+    header?: React.ReactNode
+    /** รหัสกำกับหัวตารางผู้เข้าร่วม เช่น SUB_01 / ACT-0012 */
+    scopeCode: string
+    /** แสดงก่อนแผงรายละเอียด เช่น กลุ่มเป้าหมายของงาน */
+    detailsExtra?: React.ReactNode
+    /** แสดงรูปของกิจกรรมนี้ในแท็บรายละเอียด — หน้างานเปิด (ปกบนสุดเป็นรูปงาน) หน้ากิจกรรมเดี่ยวปิด (ปกเป็นรูปนี้อยู่แล้ว) */
+    showActivityImage?: boolean
+}
+
+/* ── การ์ดสถิติ ──────────────────────────────────────────────────────────── */
+
+function StatCard({
+    code,
+    meta,
+    value,
+    suffix,
+    label,
+    progress,
+    attention,
+}: {
+    code: string
+    meta?: React.ReactNode
+    value: number
+    suffix?: string
+    label: string
+    /** 0-100 — แถบความคืบหน้าด้านล่าง ไม่ส่ง = ไม่มีแถบ */
+    progress?: number
+    attention?: boolean
+}) {
+    return (
+        <div className={cn("flex flex-col rounded-2xl border bg-white p-4 sm:p-5", attention ? "border-amber ring-2 ring-amber/25" : "border-denim-line")}>
+            <div className="flex items-start justify-between gap-2">
+                <span className="font-code text-[11px] tracking-[0.06em] text-denim-muted">{code}</span>
+                {meta}
+            </div>
+            <p className="mt-2 font-display text-[34px] font-bold leading-none tabular-nums text-denim-deep">
+                {value}
+                {suffix && <span className="ml-1 text-lg font-semibold text-denim-muted">{suffix}</span>}
+            </p>
+            <p className="mt-2.5 text-sm font-semibold text-denim-deep">{label}</p>
+            {progress !== undefined && (
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-denim-chip" aria-hidden="true">
+                    <div className="h-full rounded-full bg-denim transition-[width] duration-500" style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} />
+                </div>
+            )}
+        </div>
+    )
+}
+
+const percent = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0)
+
+function PercentMeta({ value }: { value: number }) {
+    return <span className="font-code text-xs font-semibold text-denim-muted">{value}%</span>
+}
+
+/* ── แท็บ ────────────────────────────────────────────────────────────────── */
+
+const TAB_ICONS: Record<ManagerTab, LucideIcon> = {
+    participants: Users,
+    details: Info,
+    registration: QrCode,
+    evaluation: ClipboardList,
+    approval: BadgeCheck,
 }
 
 /**
  * หน่วยจัดการผู้เข้าร่วมของกิจกรรมหนึ่งรายการ — ใช้ร่วมกันทั้งหน้า /organizer/events/[id] (ต่อกิจกรรมย่อย)
  * และ /organizer/activities/[id] (กิจกรรมเดี่ยว) กันสองหน้านี้มีชุดฟีเจอร์เพี้ยนออกจากกัน
- * แสดง 3 แท็บ: รายละเอียด, ข้อมูลผู้เข้าร่วม (ค้นหา/กรอง/ยืนยันทั้งหมด/export CSV), คิวอาร์โค้ดลงทะเบียน (เช็คอิน)
+ *
+ * ลำดับบนหน้า: การ์ดสถิติที่ดึงขึ้นไปทับแถบหัวหน้า (-mt-16) → ทางลัด BARS (เฉพาะกิจกรรมที่ใช้) → แท็บ
+ * ผู้เข้าร่วม / รายละเอียด / QR Code ลงทะเบียน (+ ประเมินรายฝ่าย / อนุมัติผล) ต้องวางต่อจาก OrganizerActivityHero ทันที
  */
+<<<<<<< HEAD
 export function ActivityParticipantManager({ activity, registrationCloseAt, eventName, onRefetch }: ActivityParticipantManagerProps) {
     const [activeTab, setActiveTab] = useState("details")
+=======
+export function ActivityParticipantManager({
+    activity,
+    registrationOpenAt,
+    registrationCloseAt,
+    eventName,
+    onRefetch,
+    header,
+    scopeCode,
+    detailsExtra,
+    showActivityImage = true,
+}: ActivityParticipantManagerProps) {
+    const [activeTab, setActiveTab] = useState<ManagerTab>("participants")
+>>>>>>> organize
     const [confirmAllIds, setConfirmAllIds] = useState<number[] | null>(null)
     const [confirmingAll, setConfirmingAll] = useState(false)
-    const [participantSearch, setParticipantSearch] = useState("")
-    const [participantFilters, setParticipantFilters] = useState<ParticipantFilters>(INITIAL_PARTICIPANT_FILTERS)
     const [checkinSearch, setCheckinSearch] = useState("")
     const [issueCertReg, setIssueCertReg] = useState<RegistrationRow | null>(null)
     const [issueHoursInput, setIssueHoursInput] = useState("")
     const [issuingCert, setIssuingCert] = useState(false)
+    const [approval, setApproval] = useState<ApprovalDashboard | null>(null)
+    const tabRefs = useRef<Partial<Record<ManagerTab, HTMLButtonElement | null>>>({})
+
+    // แท็บประเมินรายฝ่ายมีเฉพาะกิจกรรมที่เลือกทักษะไว้ — ว่ากิจกรรมนั้นเข้าเงื่อนไข Tier 3 จริงหรือไม่ server เป็นผู้ตัดสิน
+    const showBars = activity.registrationType === "staff_volunteer" && (activity.softSkills?.length ?? 0) > 0
+
+    useEffect(() => {
+        if (!showBars) return
+        let cancelled = false
+        evaluationsAPI
+            .getApproval(activity.id)
+            .then((data) => {
+                if (!cancelled) setApproval(data)
+            })
+            .catch(() => {
+                // เงียบไว้ — สถิติ/ตารางจะ fallback ไปใช้สถานะคร่าวๆ จาก evaluation.status แทน ไม่บล็อกหน้าทั้งหน้า
+            })
+        return () => {
+            cancelled = true
+        }
+    }, [activity.id, showBars])
+
+    const approvalByReg = useMemo(() => new Map((approval?.rows ?? []).map((r) => [r.registrationId, r])), [approval])
 
     const handleConfirm = async (regId: number) => {
         try {
@@ -182,11 +245,9 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
         }
     }
 
-    const exportCSV = () => {
-        const allRegs = (activity.registrations as RegistrationRow[] | undefined) ?? []
-        if (allRegs.length === 0) return
-        const filtered = filterRegistrations(allRegs, participantSearch, participantFilters)
-        if (filtered.length === 0) return
+    /** export รายการที่ตารางกรองอยู่ — หัวไฟล์บอกว่าเป็นผลตามตัวกรอง */
+    const exportCSV = (regs: RegistrationRow[]) => {
+        if (regs.length === 0) return
 
         // คอลัมน์คำถามลงทะเบียนแตกต่างกันไปตามกิจกรรม — สร้างหัวตารางจากคำถามจริงของกิจกรรมนี้
         const questions = activity.questions ?? []
@@ -210,7 +271,7 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
             "สถานะการลงทะเบียน",
             "เช็คอิน",
         ]
-        const rows = filtered.map((reg, idx) => [
+        const rows = regs.map((reg, idx) => [
             idx + 1,
             reg.student?.name || "-",
             reg.student?.studentId || "-",
@@ -227,7 +288,7 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
             }),
             reg.wantsCertLoanFund ? "ขอ" : "-",
             reg.wantsCertScholarship ? "ขอ" : "-",
-            reg.status === "confirmed" ? "ยืนยันแล้ว" : "รอดำเนินการ",
+            reg.status === "confirmed" ? "ยืนยันแล้ว" : reg.status === "cancelled" ? "ยกเลิกแล้ว" : "รอดำเนินการ",
             reg.attendance === "attended" ? "เข้าร่วมแล้ว" : "ยังไม่เช็คอิน",
         ])
         const csvContent = [
@@ -235,7 +296,7 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
             `กิจกรรม: ${activity.name}`,
             `วันที่จัด: ${formatEventDate(activity.date)}  เวลา: ${activity.startTime} - ${activity.endTime}`,
             `สถานที่: ${activity.location}`,
-            `จำนวนผู้ลงทะเบียนที่ export (ตามตัวกรองที่เลือก): ${filtered.length} คน`,
+            `จำนวนผู้ลงทะเบียนที่ export (ตามตัวกรองที่เลือก): ${regs.length} คน`,
             "",
             headers.join(","),
             ...rows.map((r) => r.map((cell) => `"${cell}"`).join(",")),
@@ -253,30 +314,75 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
     }
 
     const allRegs = (activity.registrations as RegistrationRow[] | undefined) ?? []
+<<<<<<< HEAD
     const filteredRegs = filterRegistrations(allRegs, participantSearch, participantFilters)
     const questions = activity.questions ?? []
     const pendingIdsInView = filteredRegs.filter((r) => r.status === "pending").map((r) => r.id)
     // แท็บประเมินรายฝ่ายมีเฉพาะกิจกรรมสตาฟฟ์ที่เลือกทักษะไว้ — ว่ากิจกรรมนั้นเข้าเงื่อนไข Tier 3 จริงหรือไม่ server เป็นผู้ตัดสิน
     const showBatchEvaluation = activity.registrationType === "staff_volunteer" && (activity.softSkills?.length ?? 0) > 0
+=======
+    // ตัวเลขสถิตินับเฉพาะคนที่ยังไม่ยกเลิก (แบบเดียวกับแดชบอร์ดของกิจกรรม) — ตารางยังแสดงคนที่ยกเลิกได้ด้วยตัวกรอง
+    const activeRegs = allRegs.filter((r) => r.status !== "cancelled")
+    const total = activeRegs.length
+    const checkedInCount = activeRegs.filter((r) => r.attendance === "attended").length
+    const confirmed = activeRegs.filter((r) => r.status === "confirmed").length
+    const capacity = typeof activity.capacity === "number" && activity.capacity > 0 ? activity.capacity : null
+    const flagged = approval?.summary.flagged ?? 0
+>>>>>>> organize
 
     const checkedIn = allRegs
         .filter((r) => r.attendance === "attended")
         .slice()
         .sort((x, y) => new Date(y.checkInTime ?? 0).getTime() - new Date(x.checkInTime ?? 0).getTime())
-    const checkinResults = checkinSearch.trim() ? filterRegistrations(allRegs, checkinSearch, INITIAL_PARTICIPANT_FILTERS) : []
-    const checkInUrl = typeof window !== "undefined" ? `${window.location.origin}/student/checkin/${activity.id}` : ""
+    const q = checkinSearch.trim().toLowerCase()
+    const checkinResults = q
+        ? allRegs.filter(
+              (r) => r.student.name.toLowerCase().includes(q) || r.student.studentId.toLowerCase().includes(q) || r.student.email.toLowerCase().includes(q)
+          )
+        : []
 
-    // ใช้โดยการ์ดภาพรวม (ลิงก์ "การจัดการ" ต่อแถว + ทางลัด BARS Step 1/2 เมื่อมี) เพื่อสลับแท็บด้านล่างจากภายนอก
-    // แล้วเลื่อนจอมาให้เห็นแท็บที่สลับไป เพราะการ์ดภาพรวมอยู่เหนือ Tabs
-    const jumpToTab = (tab: "participants" | "evaluation" | "approval") => {
+    const tabs: { value: ManagerTab; label: string }[] = [
+        { value: "participants", label: `ผู้เข้าร่วม (${total})` },
+        { value: "details", label: "รายละเอียด" },
+        { value: "registration", label: "QR Code ลงทะเบียน" },
+        ...(showBars
+            ? ([
+                  { value: "evaluation", label: "ประเมินรายฝ่าย" },
+                  { value: "approval", label: "อนุมัติผล" },
+              ] as const)
+            : []),
+    ]
+
+    // สลับแท็บจากในตาราง (ปุ่ม BARS ต่อแถว) แล้วเลื่อนจอมาให้เห็นแถบแท็บ
+    const jumpToTab = (tab: ParticipantTab) => {
         setActiveTab(tab)
         requestAnimationFrame(() => {
             document.getElementById("activity-tabs")?.scrollIntoView({ behavior: "smooth", block: "start" })
         })
     }
 
+    // ลูกศรซ้าย/ขวา/Home/End เลื่อนแท็บตามแบบ WAI-ARIA tabs
+    const onTabKeyDown = (e: React.KeyboardEvent) => {
+        const order = tabs.map((t) => t.value)
+        const i = order.indexOf(activeTab)
+        const next =
+            e.key === "ArrowRight" ? order[(i + 1) % order.length]
+            : e.key === "ArrowLeft" ? order[(i - 1 + order.length) % order.length]
+            : e.key === "Home" ? order[0]
+            : e.key === "End" ? order[order.length - 1]
+            : null
+        if (!next) return
+        e.preventDefault()
+        setActiveTab(next)
+        tabRefs.current[next]?.focus()
+    }
+
+    const tabId = (t: ManagerTab) => `activity-tab-${activity.id}-${t}`
+    const panelId = `activity-tabpanel-${activity.id}`
+
     return (
         <>
+<<<<<<< HEAD
             <div className="mb-6">
                 <ActivityOverview
                     activity={activity}
@@ -590,22 +696,264 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
 
                     <ActivityRegistrationPanel activity={activity} registrationCloseAt={registrationCloseAt} />
                 </TabsContent>
+=======
+            {/* การ์ดสถิติ — ดึงขึ้นไปทับขอบล่างของแถบหัวหน้า */}
+            <section aria-label="สรุปผู้ลงทะเบียน" className="relative z-[1] -mt-16 rounded-[24px] border border-denim-line bg-white p-4 shadow-[0_24px_60px_-30px_rgb(18_34_61/0.45)] sm:p-5">
+                {header}
+                <div className={cn("grid gap-3 sm:grid-cols-3", header && "mt-4")}>
+                    <StatCard
+                        code="REGISTERED"
+                        meta={
+                            capacity ? (
+                                <PercentMeta value={percent(total, capacity)} />
+                            ) : (
+                                <span className="rounded-full border border-denim-line bg-white px-2 py-0.5 text-[11px] font-semibold text-denim-muted">ไม่จำกัดจำนวน</span>
+                            )
+                        }
+                        value={total}
+                        suffix={capacity ? `/ ${capacity}` : undefined}
+                        label="จำนวนผู้ลงทะเบียนทั้งหมด"
+                        progress={capacity ? percent(total, capacity) : undefined}
+                    />
+                    <StatCard
+                        code="CHECKED_IN · QR"
+                        meta={<PercentMeta value={percent(checkedInCount, total)} />}
+                        value={checkedInCount}
+                        label="เช็คอินเข้างานแล้ว (QR Code)"
+                        progress={percent(checkedInCount, total)}
+                    />
+                    {showBars ? (
+                        <StatCard
+                            code="FLAGGED · BARS"
+                            meta={
+                                <span className="text-right text-[11px] font-semibold text-denim-muted">
+                                    {approval && !approval.available ? approval.reason : flagged > 0 ? "ต้องตรวจ" : "ไม่มีรายการติดธง"}
+                                </span>
+                            }
+                            value={flagged}
+                            label="รายการ BARS ติด Flag รอตรวจ"
+                            attention={flagged > 0}
+                        />
+                    ) : (
+                        <StatCard
+                            code="CONFIRMED"
+                            meta={<PercentMeta value={percent(confirmed, total)} />}
+                            value={confirmed}
+                            label="ยืนยันการเข้าร่วมแล้ว"
+                            progress={percent(confirmed, total)}
+                        />
+                    )}
+                </div>
+            </section>
+>>>>>>> organize
 
-                {showBatchEvaluation && (
-                    <TabsContent value="evaluation" className="rounded-xl border border-border bg-bg p-6 shadow-xs">
+            {showBars && (
+                <section aria-labelledby={`bars-shortcut-${activity.id}`} className="mt-6 rounded-[22px] border border-denim-line bg-white p-5">
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div>
+                            <p className="font-code text-xs text-denim-accent" aria-hidden="true">
+                                {"// bars.shortcut"}
+                            </p>
+                            <h2 id={`bars-shortcut-${activity.id}`} className="mt-1 font-display text-xl font-bold text-denim-deep">
+                                ทางลัดประเมินทักษะ BARS 2 ขั้นตอน
+                            </h2>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => jumpToTab("evaluation")}
+                            className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border-[1.5px] border-denim-field bg-white px-3.5 text-sm font-semibold text-denim-deep transition-colors hover:border-denim hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
+                        >
+                            <Settings2 className="size-4" aria-hidden="true" /> ตั้งค่าเงื่อนไข BARS
+                        </button>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        {[
+                            { step: "STEP_1", label: "ให้คะแนนฐานรายฝ่ายสตาฟฟ์ (Batch Evaluation)", tab: "evaluation" as const },
+                            { step: "STEP_2", label: "สรุปคะแนน 360° & อนุมัติผล (Approval Dashboard)", tab: "approval" as const },
+                        ].map(({ step, label, tab }) => (
+                            <button
+                                key={step}
+                                type="button"
+                                onClick={() => jumpToTab(tab)}
+                                className="flex items-center justify-between gap-3 rounded-2xl bg-denim-deep px-5 py-4 text-left text-sm font-semibold text-white transition-colors hover:bg-denim focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
+                            >
+                                <span>
+                                    <span className="block font-code text-[11px] text-amber">{step}</span>
+                                    <span className="mt-0.5 block">{label}</span>
+                                </span>
+                                <ArrowRight className="size-4 shrink-0 text-amber" aria-hidden="true" />
+                            </button>
+                        ))}
+                    </div>
+                </section>
+            )}
+
+            <div id="activity-tabs" className="mt-6 scroll-mt-24">
+                <div className="-mx-1 max-w-full overflow-x-auto px-1 py-1">
+                    <div
+                        role="tablist"
+                        aria-label="ส่วนจัดการกิจกรรม"
+                        onKeyDown={onTabKeyDown}
+                        className="inline-flex gap-1 rounded-2xl border border-denim-line bg-white p-1.5"
+                    >
+                        {tabs.map(({ value, label }) => {
+                            const Icon = TAB_ICONS[value]
+                            const active = activeTab === value
+                            return (
+                                <button
+                                    key={value}
+                                    ref={(el) => {
+                                        tabRefs.current[value] = el
+                                    }}
+                                    type="button"
+                                    role="tab"
+                                    id={tabId(value)}
+                                    aria-selected={active}
+                                    aria-controls={panelId}
+                                    tabIndex={active ? 0 : -1}
+                                    onClick={() => setActiveTab(value)}
+                                    className={cn(
+                                        "inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-4 text-sm font-semibold transition-colors focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-denim",
+                                        active ? "bg-denim-deep text-white" : "text-denim-ink hover:bg-denim-paper hover:text-denim-deep"
+                                    )}
+                                >
+                                    <Icon className="size-4" aria-hidden="true" />
+                                    {label}
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+
+                <div role="tabpanel" id={panelId} aria-labelledby={tabId(activeTab)} className="mt-4">
+                    {activeTab === "participants" && (
+                        <ActivityParticipantsTable
+                            activity={activity}
+                            registrations={allRegs}
+                            showBars={showBars}
+                            approvalByReg={approvalByReg}
+                            scopeCode={scopeCode}
+                            onConfirm={handleConfirm}
+                            onCheckIn={handleCheckIn}
+                            onIssueCert={openIssueCertDialog}
+                            onConfirmAll={setConfirmAllIds}
+                            onExportCSV={exportCSV}
+                            onJumpToTab={jumpToTab}
+                        />
+                    )}
+
+                    {activeTab === "details" && (
                         <div className="space-y-6">
+                            {detailsExtra}
+                            <ActivityAboutPanel activity={activity} showActivityImage={showActivityImage} />
+                            <ActivityRewardsPanel activity={activity} />
+                        </div>
+                    )}
+
+                    {activeTab === "registration" && (
+                        <div className="space-y-6">
+                            <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+                                <div className={cn(DASHBOARD_CARD, "p-0 sm:p-0")}>
+                                    <ActivityCheckinQr activityId={activity.id} completed={activity.status === "completed"} />
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div className={DASHBOARD_CARD}>
+                                        <p className="font-code text-xs text-denim-accent" aria-hidden="true">
+                                            {"// checkin.manual"}
+                                        </p>
+                                        <h2 className="mt-1 font-display text-xl font-bold text-denim-deep">เช็คอินให้ผู้ลงทะเบียน (ค้นหารหัสนักศึกษา)</h2>
+                                        <div className="relative mt-4">
+                                            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-denim-muted" aria-hidden="true" />
+                                            <Input
+                                                aria-label="ค้นหาผู้ลงทะเบียนเพื่อเช็คอิน"
+                                                value={checkinSearch}
+                                                onChange={(e) => setCheckinSearch(e.target.value)}
+                                                placeholder="ค้นหารหัสนักศึกษาหรือชื่อ..."
+                                                className="h-11 rounded-xl border-[1.5px] border-denim-field pl-10"
+                                            />
+                                        </div>
+                                        {q &&
+                                            (checkinResults.length > 0 ? (
+                                                <ul className="mt-3 divide-y divide-denim-line rounded-xl border border-denim-line">
+                                                    {checkinResults.map((reg) => (
+                                                        <li key={reg.id} className="flex items-center justify-between gap-3 p-3">
+                                                            <div className="min-w-0">
+                                                                <p className="truncate font-semibold text-denim-deep">{reg.student.name}</p>
+                                                                <p className="font-code text-xs text-denim-muted">{reg.student.studentId}</p>
+                                                            </div>
+                                                            {reg.attendance === "attended" ? (
+                                                                <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">เช็คอินแล้ว</span>
+                                                            ) : reg.status === "cancelled" ? (
+                                                                <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">ยกเลิกการลงทะเบียนแล้ว</span>
+                                                            ) : (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleCheckIn(reg.id)}
+                                                                    className="inline-flex min-h-9 shrink-0 items-center rounded-lg bg-denim-deep px-3.5 text-xs font-semibold text-white transition-colors hover:bg-denim focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-denim"
+                                                                >
+                                                                    เช็คชื่อ
+                                                                </button>
+                                                            )}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="py-4 text-center text-sm text-denim-muted">ไม่พบผู้ลงทะเบียนตรงกับคำค้นหา</p>
+                                            ))}
+                                    </div>
+
+                                    <div className={cn(DASHBOARD_CARD, "p-0 sm:p-0")}>
+                                        <div className="border-b border-denim-line px-5 py-4 sm:px-6">
+                                            <p className="font-code text-xs text-denim-accent" aria-hidden="true">
+                                                {"// checkin.log"}
+                                            </p>
+                                            <h2 className="mt-1 font-display text-xl font-bold text-denim-deep">รายชื่อผู้เช็คอินแล้ว ({checkedIn.length})</h2>
+                                        </div>
+                                        {checkedIn.length > 0 ? (
+                                            <ul className="max-h-[420px] divide-y divide-denim-line overflow-y-auto">
+                                                {checkedIn.map((reg) => (
+                                                    <li key={reg.id} className="flex items-center justify-between gap-3 px-5 py-3 sm:px-6">
+                                                        <div className="min-w-0">
+                                                            <p className="truncate font-semibold text-denim-deep">{reg.student.name}</p>
+                                                            <p className="font-code text-xs text-denim-muted">{reg.student.studentId}</p>
+                                                        </div>
+                                                        <p className="shrink-0 font-code text-xs text-denim-muted">
+                                                            {reg.checkInTime &&
+                                                                new Date(reg.checkInTime).toLocaleString("th-TH", {
+                                                                    dateStyle: "short",
+                                                                    timeStyle: "short",
+                                                                    timeZone: "Asia/Bangkok",
+                                                                })}
+                                                        </p>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        ) : (
+                                            <p className="px-6 py-10 text-center text-denim-muted">ยังไม่มีผู้เช็คอิน</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <ActivityRegistrationPanel activity={activity} registrationOpenAt={registrationOpenAt} registrationCloseAt={registrationCloseAt} />
+                        </div>
+                    )}
+
+                    {activeTab === "evaluation" && showBars && (
+                        <div className={cn(DASHBOARD_CARD, "space-y-6")}>
                             <ActivityAssessmentMode activityId={activity.id} />
                             <ActivityBatchEvaluation activityId={activity.id} onSaved={onRefetch} />
                         </div>
-                    </TabsContent>
-                )}
+                    )}
 
-                {showBatchEvaluation && (
-                    <TabsContent value="approval" className="rounded-xl border border-border bg-bg p-6 shadow-xs">
-                        <ActivityApprovalDashboard activityId={activity.id} onChanged={onRefetch} />
-                    </TabsContent>
-                )}
-            </Tabs>
+                    {activeTab === "approval" && showBars && (
+                        <div className={DASHBOARD_CARD}>
+                            <ActivityApprovalDashboard activityId={activity.id} onChanged={onRefetch} />
+                        </div>
+                    )}
+                </div>
+            </div>
 
             <ConfirmDialog
                 open={!!confirmAllIds}
@@ -636,7 +984,9 @@ export function ActivityParticipantManager({ activity, registrationCloseAt, even
                         <p className="text-xs text-fg-subtle">ค่าเริ่มต้นคำนวณจากวันเวลาของกิจกรรม ปรับได้ตามการทำงานจริงของคนนี้</p>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIssueCertReg(null)} disabled={issuingCert}>ยกเลิก</Button>
+                        <Button variant="outline" onClick={() => setIssueCertReg(null)} disabled={issuingCert}>
+                            ยกเลิก
+                        </Button>
                         <Button onClick={handleIssueCertificate} disabled={issuingCert}>
                             {issuingCert ? "กำลังออกใบรับรอง..." : "ออกใบรับรอง"}
                         </Button>

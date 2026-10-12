@@ -5,14 +5,18 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { PageHeader } from "@/components/ui/page-header"
+<<<<<<< HEAD
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
+=======
+import { ACTIVITY_GRID, ActivityCardSkeleton } from "@/components/denim/denim-ui"
+import { PublicActivityCard } from "@/components/denim/public-activity-card"
+>>>>>>> organize
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { SectionHeading } from "@/components/ui/section-heading"
 import { SkillRadar, SkillScoreList } from "@/components/ui/skill-radar"
 import { UpcomingItem, type UpcomingActivity } from "@/components/ui/upcoming-item"
-import { NewsCarousel } from "@/components/ui/news-carousel"
-import { categoriesBadgeLabel } from "@/lib/categories"
+import { NewsShowcase } from "@/components/home/news-showcase"
 import {
   activitiesAPI,
   eventsAPI,
@@ -70,7 +74,9 @@ export default function StudentDashboardPage() {
           Array.isArray(standalone) ? standalone : [],
           { event: (id) => `/student/events/${id}`, activity: (id) => `/student/activities/${id}` }
         )
-        setRecommended([...all].sort((a, b) => a.sortDate - b.sortDate).slice(0, 3))
+        // หัวข้อบอกว่า "กิจกรรมที่กำลังเปิดรับสมัคร" — เอาเฉพาะที่เปิดอยู่จริง (กติกาเดียวกับหน้าแรก public)
+        // เดิมเรียงตามวันแล้วตัด 3 อันแรกโดยไม่ดูสถานะ งานที่ปิดไปแล้ว (วันจัดเร็วสุด) จึงขึ้นมาแทน
+        setRecommended(all.filter((i) => i.status === "open").sort((a, b) => a.sortDate - b.sortDate).slice(0, 3))
       })
       .catch((err) => console.error(err))
       .finally(() => setLoadingActivities(false))
@@ -116,6 +122,7 @@ export default function StudentDashboardPage() {
     <>
       {/* ── แถบทักทาย ────────────────────────────────────────────────────── */}
       <PageHeader
+        prompt="~/comp-active/student $ whoami"
         badge={loadingMine ? "กำลังโหลดข้อมูล..." : `ระดับ ${level}`}
         title={`สวัสดี ${user?.name || "นักศึกษา"}`}
         subtitle="เลือกกิจกรรมที่สนใจ สะสมคะแนน Soft Skills และติดตามการเติบโตของคุณ"
@@ -295,12 +302,17 @@ export default function StudentDashboardPage() {
 
           <div className="mt-6">
             {loadingActivities ? (
+<<<<<<< HEAD
               <div className="flex flex-wrap gap-5">
+=======
+              <div className={ACTIVITY_GRID}>
+>>>>>>> organize
                 {Array.from({ length: 3 }).map((_, i) => (
                   <Skeleton key={i} className="h-[340px] w-64 max-w-full rounded-[28px]" />
                 ))}
               </div>
             ) : recommended.length > 0 ? (
+<<<<<<< HEAD
               <div className="flex flex-wrap gap-5">
                 {recommended.map((item, i) => (
                   <Link
@@ -321,6 +333,12 @@ export default function StudentDashboardPage() {
                       }
                     />
                   </Link>
+=======
+              // กริดและการ์ดชุดเดียวกับหน้าแรก public — การ์ดกิจกรรมทุกหน้าขนาดเท่ากัน
+              <div className={ACTIVITY_GRID}>
+                {recommended.map((item) => (
+                  <PublicActivityCard key={item.key} item={item} />
+>>>>>>> organize
                 ))}
               </div>
             ) : (
@@ -331,7 +349,7 @@ export default function StudentDashboardPage() {
       </section>
 
       {/* ── ข่าวสารและประกาศ ─────────────────────────────────────────────── */}
-      <NewsCarousel />
+      <NewsShowcase />
     </>
   )
 }

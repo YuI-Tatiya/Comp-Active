@@ -1,34 +1,32 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import Image from "next/image"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { ArrowRight, CalendarX } from "lucide-react"
 import { Container } from "@/components/layout/container"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
+<<<<<<< HEAD
 import { EventCard, EventCardBadge } from "@/components/ui/event-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
+=======
+import { ACTIVITY_GRID, ActivityCardSkeleton, DenimSectionHeading } from "@/components/denim/denim-ui"
+import { PublicHero } from "@/components/home/home-hero"
+import { PublicActivityCard } from "@/components/denim/public-activity-card"
+import { NewsShowcase } from "@/components/home/news-showcase"
+import { SkillsShowcase } from "@/components/home/skills-showcase"
+>>>>>>> organize
 import { activitiesAPI, eventsAPI, Activity } from "@/lib/api"
-import { CATEGORIES, categoriesBadgeLabel } from "@/lib/categories"
+import { CATEGORIES } from "@/lib/categories"
 import { buildFeaturedCards, type FeaturedCardItem } from "@/lib/events-filter"
-import { SOFT_SKILLS } from "@/lib/soft-skills"
-import {
-  ArrowRight,
-  CalendarX,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react"
 import { cn } from "@/lib/utils"
-import { NewsCarousel } from "@/components/ui/news-carousel"
 
-
+/** หน้าแรกฝั่ง public (ก่อนล็อกอิน) — ธีม Denim Varsity ชุดเดียวกับพอร์ทัลผู้จัด */
 export default function RootPage() {
   const [items, setItems] = useState<FeaturedCardItem[]>([])
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState<string>("")
-  const skillsScrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadActivities()
@@ -56,170 +54,74 @@ export default function RootPage() {
     }
   }
 
-  const filteredItems = (category ? items.filter((i) => i.categories.includes(category)) : items)
-    .slice()
+  // หัวข้อคือ "กำลังเปิดรับสมัคร" — เอาเฉพาะที่เปิดอยู่จริง เดิมเรียงตามวันแล้วตัด 3 อันแรกโดยไม่ดูสถานะ
+  // งานเก่าที่ปิดไปแล้ว (วันจัดเร็วสุด) จึงขึ้นมาแทนที่งานที่เปิดรับอยู่
+  const filteredItems = items
+    .filter((i) => i.status === "open" && (!category || i.categories.includes(category)))
     .sort((a, b) => a.sortDate - b.sortDate)
     .slice(0, 3)
 
+  const categoryTabs = [{ value: "", label: "ทั้งหมด" }, ...CATEGORIES.map((c) => ({ value: c.value, label: c.label }))]
+
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-denim-paper font-plex text-denim-deep">
       <SiteHeader />
 
-      {/* ── Hero (asymmetric, light) ─────────────────────────────────────── */}
-      <section className="hero-sky relative isolate overflow-hidden">
-        {/* แสงและวงกลมลอยช้า ๆ ด้านหลังภาพ */}
-        <div
-          className="pointer-events-none absolute right-[5%] top-[4%] hidden h-[28rem] w-[28rem] rounded-full bg-white/60 blur-3xl lg:block"
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute -right-10 bottom-[8%] hidden h-64 w-64 rounded-full bg-sky-300/35 blur-3xl lg:block"
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute right-[29%] top-[17%] hidden h-36 w-36 rounded-full bg-cyan-100/60 blur-2xl lg:block"
-          aria-hidden="true"
-        />
+      <main className="flex-1">
+        <PublicHero />
 
-        {/* ภาพ — ชิดขอบขวาจริงของจอ ไม่ผูกกับ padding/max-width ของ Container */}
-        <div className="hidden isolate lg:absolute lg:right-0 lg:top-1/2 lg:z-0 lg:block lg:w-full lg:max-w-[58rem] lg:-translate-y-1/2">
-          {/* สปอตไลท์อบอุ่นด้านหลัง — เพิ่มความอลังการ ให้ภาพเป็นจุดเด่นเหมือนถูกจัดแสง */}
-          <div
-            className="pointer-events-none absolute inset-[-26%] z-0 blur-3xl"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(255,247,224,0.85) 0%, rgba(191,219,254,0.4) 45%, transparent 72%)",
-            }}
-            aria-hidden="true"
-          />
-          {/* การ์ดแสงโค้งมนด้านหลัง — กรอบสีฟ้าเอียงเล็กน้อยโผล่มุมขวาบน ให้เข้ากับโทนเว็บ */}
-          <div
-            className="pointer-events-none absolute inset-[-12%] z-0 rotate-[-5deg] rounded-[3rem] bg-gradient-to-br from-sky-200/60 via-blue-100/50 to-white/30 blur-2xl"
-            aria-hidden="true"
-          />
-          {/* เงาเวทีใต้ภาพ — สองชั้น ให้รู้สึกยิ่งใหญ่ลอยเด่นจากพื้น */}
-          <div
-            className="pointer-events-none absolute bottom-[6%] left-1/2 z-0 h-14 w-[78%] -translate-x-1/2 rounded-[50%] bg-slate-900/30 blur-3xl"
-            aria-hidden="true"
-          />
-          <div
-            className="pointer-events-none absolute bottom-[9%] left-1/2 z-0 h-6 w-[45%] -translate-x-1/2 rounded-[50%] bg-slate-900/25 blur-xl"
-            aria-hidden="true"
-          />
-          <Image
-            src="/college.svg"
-            alt="วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น"
-            width={620}
-            height={413}
-            className="relative z-10 h-auto w-full [filter:brightness(1.06)_contrast(1.12)_saturate(1.22)_drop-shadow(0_8px_8px_rgba(15,23,42,0.12))_drop-shadow(0_28px_22px_rgba(15,23,42,0.18))_drop-shadow(0_56px_40px_rgba(15,23,42,0.16))]"
-            priority
-          />
-        </div>
-
-        <Container className="relative z-10 pt-16 pb-16 md:pt-24 md:pb-24">
-          <div className="relative">
-            <div className="max-w-3xl lg:relative lg:z-20 lg:max-w-xl">
-              <p className="mb-3 flex items-center gap-2.5 text-sm font-medium tracking-wide text-slate-500">
-                <span className="h-px w-6 bg-slate-900/15" aria-hidden="true" />
-                วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น
-              </p>
-
-              <h1 className="text-3xl font-bold leading-[1.15] tracking-tight text-slate-900 md:text-5xl">
-                Building Skills
-                <br />
-                <span className="text-brand-600">Through Hands-On Activities</span>
-              </h1>
-
-              <p className="mt-6 max-w-md text-lg leading-relaxed text-slate-600 md:text-xl">
-                นักศึกษาวิทยาลัยการคอมพิวเตอร์ อย่าลืมเข้ามาลงทะเบียนเข้าร่วมกิจกรรมเพื่อพัฒนาทักษะนอกห้องเรียนของคุณ
-              </p>
-
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Button
-                  size="xl"
-                  asChild
-                  className="group rounded-lg bg-brand-600 text-white shadow-lg shadow-brand-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:bg-brand-700 hover:shadow-xl hover:shadow-brand-500/40 active:translate-y-0 active:shadow-md"
+        {/* ── กำลังเปิดรับสมัคร ─────────────────────────────────────────────── */}
+        <section aria-labelledby="open-heading">
+          <Container className="flex flex-col gap-6 py-16">
+            <DenimSectionHeading
+              id="open-heading"
+              comment="events.filter(open)"
+              title="กำลังเปิดรับสมัคร"
+              action={
+                <Link
+                  href="/events"
+                  className="inline-flex min-h-11 items-center gap-2 text-[15px] font-semibold text-denim transition-colors hover:text-denim-deep"
                 >
-                  <Link href="/auth">
-                    เริ่มต้นใช้งาน
-                    <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
-                  </Link>
-                </Button>
-                <Button
-                  size="xl"
-                  variant="outline"
-                  asChild
-                  className="group rounded-lg border-slate-300 bg-white/70 text-slate-900 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-300 hover:bg-white hover:shadow-md active:translate-y-0"
-                >
-                  <Link href="/events">
-                    ดูกิจกรรมทั้งหมด
-                    <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
-                  </Link>
-                </Button>
-              </div>
+                  ดูทั้งหมด
+                  <ArrowRight className="size-[18px]" aria-hidden="true" />
+                </Link>
+              }
+            />
+
+            <div role="group" aria-label="กรองตามหมวดหมู่" className="flex flex-wrap gap-2">
+              {categoryTabs.map((cat) => {
+                const active = category === cat.value
+                return (
+                  <button
+                    key={cat.value}
+                    type="button"
+                    onClick={() => setCategory(cat.value)}
+                    aria-pressed={active}
+                    className={cn(
+                      "min-h-10 rounded-full border-[1.5px] px-4 text-sm transition-colors",
+                      active
+                        ? "border-denim bg-denim font-semibold text-white"
+                        : "border-denim-line bg-white font-medium text-denim-ink hover:border-denim-dash hover:text-denim-deep"
+                    )}
+                  >
+                    {cat.label}
+                  </button>
+                )
+              })}
             </div>
-          </div>
-        </Container>
-      </section>
 
-      {/* ── 02 กิจกรรมแนะนำ ─────────────────────────────────────────────── */}
-      <section>
-        <Container className="py-16">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-3xl font-semibold tracking-tight text-fg">
-                กำลังเปิดรับสมัคร
-              </h2>
-            </div>
-            <Button variant="link" asChild className="px-0">
-              <Link href="/events">
-                ดูทั้งหมด
-                <ArrowRight />
-              </Link>
-            </Button>
-          </div>
-
-          {/* ตัวกรองหมวดหมู่ */}
-          <div className="mt-6 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setCategory("")}
-              aria-pressed={category === ""}
-              className={cn(
-                "rounded-full border px-4 py-1.5 text-sm transition-colors",
-                category === ""
-                  ? "border-brand-600 bg-brand-600 font-medium text-white"
-                  : "border-border bg-bg text-fg-muted hover:border-border-strong hover:text-fg"
-              )}
-            >
-              ทั้งหมด
-            </button>
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.value}
-                type="button"
-                onClick={() => setCategory(cat.value)}
-                aria-pressed={category === cat.value}
-                className={cn(
-                  "rounded-full border px-4 py-1.5 text-sm transition-colors",
-                  category === cat.value
-                    ? "border-brand-600 bg-brand-600 font-medium text-white"
-                    : "border-border bg-bg text-fg-muted hover:border-border-strong hover:text-fg"
-                )}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-8">
             {loading ? (
+<<<<<<< HEAD
               <div className="flex flex-wrap gap-5">
+=======
+              <div className={ACTIVITY_GRID}>
+>>>>>>> organize
                 {Array.from({ length: 3 }).map((_, i) => (
                   <Skeleton key={i} className="h-[340px] w-64 max-w-full rounded-[28px]" />
                 ))}
               </div>
             ) : filteredItems.length > 0 ? (
+<<<<<<< HEAD
               <div className="flex flex-wrap gap-5">
                 {filteredItems.map((item) => (
                   <Link key={item.key} href={item.href} className="block w-64 max-w-full">
@@ -235,91 +137,41 @@ export default function RootPage() {
                       }
                     />
                   </Link>
+=======
+              <div className={ACTIVITY_GRID}>
+                {filteredItems.map((item) => (
+                  <PublicActivityCard key={item.key} item={item} />
+>>>>>>> organize
                 ))}
               </div>
             ) : (
-              <EmptyState
-                icon={CalendarX}
-                title="ไม่พบกิจกรรมในหมวดหมู่นี้"
-                description="ลองเลือกหมวดหมู่อื่น หรือดูกิจกรรมทั้งหมด"
-                action={
-                  <Button variant="outline" onClick={() => setCategory("")}>
-                    ดูทั้งหมด
-                  </Button>
-                }
-              />
-            )}
-          </div>
-        </Container>
-      </section>
-
-      {/* ── 01 กระดานข่าว ───────────────────────────────────────────────── */}
-      <NewsCarousel />
-
-      {/* ── 03 ทักษะ 12 ด้าน ────────────────────────────────────────────── */}
-      <section className="border-y border-border bg-surface">
-        <Container className="py-16">
-          <div className="grid gap-10 lg:grid-cols-12">
-            <div className="lg:col-span-4">
-              <h2 className="text-3xl font-semibold leading-tight tracking-tight text-fg">
-                12 ทักษะที่คุณสามารถสะสมได้จากกการเข้าร่วมกิจกรรม
-              </h2>
-              <p className="mt-4 text-base leading-relaxed text-fg-muted">
-                เพียงคุณเข้าร่วมกิจกรรมและทำกิจกรรมให้สำเร็จ 
-                แล้วคะแนนจะสะสมเข้าโปรไฟล์ของคุณอัตโนมัติ 
-              </p>
-            </div>
-
-            <div className="relative lg:col-span-8">
-              <div
-                ref={skillsScrollRef}
-                className="flex gap-2.5 overflow-x-auto scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              >
-                {SOFT_SKILLS.map((s) => (
-                  <div
-                    key={s.value}
-                    className="w-64 shrink-0 rounded-xl border border-border bg-bg p-5 shadow-xs"
+              <div className="flex flex-col items-center gap-3 rounded-[22px] border-2 border-dashed border-denim-dash bg-white px-6 py-14 text-center">
+                <span className="grid size-12 place-items-center rounded-full bg-denim-chip" aria-hidden="true">
+                  <CalendarX className="size-6 text-denim" />
+                </span>
+                <h3 className="font-display text-lg font-bold text-denim-deep">
+                  {category ? "ไม่พบกิจกรรมในหมวดหมู่นี้" : "ยังไม่มีกิจกรรมเปิดรับสมัครในตอนนี้"}
+                </h3>
+                <p className="max-w-sm text-sm text-denim-muted">
+                  {category ? "ลองเลือกหมวดหมู่อื่น หรือดูกิจกรรมทั้งหมด" : "กิจกรรมใหม่จะขึ้นที่นี่ทันทีที่ผู้จัดเปิดรับสมัคร"}
+                </p>
+                {category && (
+                  <button
+                    type="button"
+                    onClick={() => setCategory("")}
+                    className="mt-2 inline-flex min-h-11 items-center rounded-xl border-[1.5px] border-denim px-5 text-sm font-semibold text-denim transition-colors hover:bg-denim hover:text-white"
                   >
-                    <span className="mb-3 flex size-9 items-center justify-center rounded-lg bg-brand-50">
-                      <s.icon className="size-4.5 text-brand-600" aria-hidden="true" />
-                    </span>
-                    <h3 className="text-sm font-semibold text-fg">{s.label}</h3>
-                    <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">{s.desc}</p>
-                  </div>
-                ))}
+                    ดูทั้งหมด
+                  </button>
+                )}
               </div>
+            )}
+          </Container>
+        </section>
 
-              {/* เงาจางบอกใบ้ว่าเลื่อนได้ */}
-              <div
-                className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-surface to-transparent"
-                aria-hidden="true"
-              />
-              <div
-                className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-surface to-transparent"
-                aria-hidden="true"
-              />
-
-              {/* ปุ่มเลื่อนซ้าย/ขวา */}
-              <button
-                type="button"
-                onClick={() => skillsScrollRef.current?.scrollBy({ left: -240, behavior: "smooth" })}
-                aria-label="เลื่อนทักษะก่อนหน้า"
-                className="absolute -left-3 top-1/2 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-bg text-fg-muted shadow-xs transition-colors hover:text-fg sm:flex"
-              >
-                <ChevronLeft className="size-4" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={() => skillsScrollRef.current?.scrollBy({ left: 240, behavior: "smooth" })}
-                aria-label="เลื่อนทักษะถัดไป"
-                className="absolute -right-3 top-1/2 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-bg text-fg-muted shadow-xs transition-colors hover:text-fg sm:flex"
-              >
-                <ChevronRight className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-        </Container>
-      </section>
+        <NewsShowcase />
+        <SkillsShowcase />
+      </main>
 
       <SiteFooter />
     </div>

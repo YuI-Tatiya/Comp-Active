@@ -33,6 +33,7 @@ import { ActivitiesService } from "../shared/activities/activities.service";
 import { CreateActivityDto } from "../shared/activities/dto/create-activity.dto";
 import { UpdateActivityDto } from "../shared/activities/dto/update-activity.dto";
 import { SetActivityStatusDto } from "../shared/activities/dto/set-activity-status.dto";
+import { SetSelfCheckInDto } from "../shared/activities/dto/set-self-checkin.dto";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -145,6 +146,33 @@ export class ActivitiesOrganizerController {
     @Body() dto: SetActivityStatusDto,
   ) {
     return this.activitiesService.setStatus(id, userId, userRole, dto.status);
+  }
+
+  /**
+   * GET /api/activities/:id/self-checkin - ดูสถานะ + โทเค็น QR เช็คอินปัจจุบัน (เจ้าของ / Admin)
+   */
+  @Get(":id/self-checkin")
+  @ApiOperation({ summary: "ดูสถานะ + โทเค็น QR เช็คอินปัจจุบัน (เจ้าของ / Admin)" })
+  async getCheckInSession(
+    @Param("id", ParseIntPipe) id: number,
+    @CurrentUser("id") userId: number,
+    @CurrentUser("role") userRole: UserRole,
+  ) {
+    return this.activitiesService.getCheckInSession(id, userId, userRole);
+  }
+
+  /**
+   * PATCH /api/activities/:id/self-checkin - เปิด/ปิดการเช็คอินด้วยตัวเองผ่าน QR (เจ้าของ / Admin)
+   */
+  @Patch(":id/self-checkin")
+  @ApiOperation({ summary: "เปิด/ปิดการเช็คอินด้วยตัวเองผ่าน QR (เจ้าของ / Admin)" })
+  async setSelfCheckIn(
+    @Param("id", ParseIntPipe) id: number,
+    @CurrentUser("id") userId: number,
+    @CurrentUser("role") userRole: UserRole,
+    @Body() dto: SetSelfCheckInDto,
+  ) {
+    return this.activitiesService.setSelfCheckIn(id, userId, userRole, dto.enabled);
   }
 
   /**

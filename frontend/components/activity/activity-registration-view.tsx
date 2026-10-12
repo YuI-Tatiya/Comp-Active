@@ -1,117 +1,161 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
+<<<<<<< HEAD
 import { ArrowLeft, ChevronRight, Layers } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Container } from "@/components/layout/container"
 import { ActivityAboutPanel, ActivityRegistrationPanel } from "@/components/activity/activity-info-panels"
 import { BenefitsSection } from "@/components/activity/benefits-section"
 import { KeyDetailsCard } from "@/components/activity/key-details-card"
+=======
+import { ArrowLeft } from "lucide-react"
+import { Container } from "@/components/layout/container"
+import { TerminalPrompt } from "@/components/denim/denim-ui"
+import { ActivityDetailHero, type DetailStatusTone } from "@/components/activity/activity-detail-hero"
+import { PreviewBar, RegistrationBar } from "@/components/activity/activity-detail-bars"
+import {
+    AboutSection,
+    DETAIL_DIVIDER,
+    DETAIL_PANEL,
+    OrganizerCard,
+    PrepareSection,
+    RewardsCard,
+    ScheduleSection,
+} from "@/components/activity/activity-detail-sections"
+>>>>>>> organize
 import { MobileActionBar } from "@/components/activity/mobile-action-bar"
 import { RegistrationActionCard } from "@/components/activity/registration-action-card"
 import { SessionSelector, type SessionItem } from "@/components/activity/session-selector"
 import {
     closedReason,
     countOpenAlternatives,
+    coverDateParts,
     describeAction,
     formatActivitySchedule,
     formatScheduleShort,
     pickMyRegistration,
+    roundLabel,
     seatInfo,
     sessionTag,
+    type ActionView,
     type MyRegistrationLike,
 } from "@/lib/activity-view"
 import { categoryLabel } from "@/lib/categories"
 import type { Activity } from "@/lib/api"
 
-/** เนื้อหายาวพับไว้ 2 บรรทัด — คำอธิบายงานหลักไม่ควรดันตัวเลือกกิจกรรมลงไปต่ำกว่าจอแรก */
-function ExpandableText({ text }: { text: string }) {
-    const [open, setOpen] = useState(false)
-    const long = text.length > 160 || text.split("\n").length > 2
-
-    return (
-        <div className="max-w-3xl">
-            <p className={`whitespace-pre-line leading-relaxed text-fg-muted ${open || !long ? "" : "line-clamp-2"}`}>{text}</p>
-            {long && (
-                <button
-                    type="button"
-                    onClick={() => setOpen((v) => !v)}
-                    className="mt-1 text-sm font-medium text-brand-600 underline-offset-4 hover:underline"
-                    aria-expanded={open}
-                >
-                    {open ? "ย่อ" : "อ่านเพิ่ม"}
-                </button>
-            )}
-        </div>
-    )
+/** ป้ายสถานะบนปกตามสถานะการสมัครของรอบที่เลือก — ข้อความสั้นพอดีแคปซูล (ข้อความเต็มอยู่ในแถบสมัคร) */
+function coverStatus(view: ActionView): { label: string; tone: DetailStatusTone } {
+    switch (view.kind) {
+        case "open":
+            return { label: "เปิดรับสมัคร", tone: "open" }
+        case "registered":
+            return { label: "ลงทะเบียนแล้ว", tone: "success" }
+        case "pending":
+            return { label: "รอยืนยัน", tone: "warning" }
+        case "attended":
+            return { label: "เข้าร่วมแล้ว", tone: "info" }
+        case "full":
+            return { label: "เต็มแล้ว", tone: "neutral" }
+        default:
+            return { label: view.primary?.label ?? "ปิดรับสมัคร", tone: "neutral" }
+    }
 }
 
 export interface ActivityRegistrationViewProps {
-    /** ชื่อที่แสดงใน Hero: งานที่มีหลายกิจกรรม = ชื่องาน, กิจกรรมเดี่ยว = ชื่อกิจกรรม */
+    /** ชื่อที่แสดงในการ์ดหัวเรื่อง: งาน = ชื่องาน, กิจกรรมเดี่ยว = ชื่อกิจกรรม */
     title: string
-    imageUrl: string
+    /** path รูปที่ผู้จัดแนบ (รูปปกงานก่อน แล้วค่อยรูปของรอบที่เลือก) — null = ปกใช้ลายของธีม */
+    imagePath?: string | null
+    /** รหัสอ้างอิงบนปกและบรรทัดคำสั่ง เช่น EVT-0118 / ACT-0042 (referenceCode) */
+    code: string
     organizerName?: string | null
-    /** คำอธิบายงานหลัก (เฉพาะงานที่มีหลายกิจกรรม) */
+    /** คำอธิบายงานหลัก (เฉพาะหน้า "งาน") */
     intro?: string | null
     activities: Activity[]
     activeId: number | null
     onSelectActivity: (id: number) => void
     registrationCloseAt?: string | null
-    myRegistrations: MyRegistrationLike[]
-    onRegister: () => void
-    onCancel: () => void
-    onShare: () => void
+    /** ลิงก์สาธารณะของกิจกรรมนี้ — ต้องเป็นลิงก์ /events/... เสมอ ไม่ว่าหน้านี้จะถูกเรียกจาก role ไหน */
+    shareUrl: string
+    /** เรียกหลังผู้ใช้คัดลอกลิงก์สำเร็จ — ให้หน้าที่เรียกแจ้งผลเอง */
+    onShareCopied?: () => void
     backHref: string
     /**
-     * แสดงรูปของกิจกรรมที่เลือกในส่วนรายละเอียด — หน้า "งาน" เปิด (รูปด้านบนเป็นรูปปกงาน รูปของแต่ละกิจกรรมย่อยไม่เคยแสดงที่อื่น)
-     * หน้ากิจกรรมเดี่ยวปิด (รูปด้านบนเป็นรูปของกิจกรรมนั้นอยู่แล้ว)
+     * แสดงรูปของรอบที่เลือกในหัวข้อ "เกี่ยวกับกิจกรรมนี้" — หน้า "งาน" เปิด (รูปบนปกเป็นรูปของงาน รูปของรอบย่อยไม่เคยแสดง
+     * ที่อื่น) หน้ากิจกรรมเดี่ยวปิด (รูปบนปกเป็นรูปของกิจกรรมนั้นอยู่แล้ว)
      */
     showActivityImage?: boolean
-    /** Dialog ต่างๆ ของหน้า — วางไว้ในต้นไม้เดียวกัน */
+    /**
+     * register = หน้านักศึกษา/บุคคลทั่วไป (แถบสมัคร + แถบสมัครติดขอบล่างบนมือถือ)
+     * preview = มุมมองดูอย่างเดียวของผู้จัด (แถบจำนวนผู้ลงทะเบียน, แสดงช่วงรับสมัคร/ชั่วโมงจิตอาสา, ไม่มีการกระทำใดๆ)
+     */
+    mode?: "register" | "preview"
+    myRegistrations?: MyRegistrationLike[]
+    onRegister?: () => void
+    onCancel?: () => void
+    /** แจ้งเตือนเหนือการ์ดหัวเรื่อง เช่น งานยังไม่เผยแพร่ (มุมมองเจ้าของงาน) */
+    notice?: React.ReactNode
+    /** Dialog/Toast ของหน้า — วางไว้ในต้นไม้เดียวกัน */
     children?: React.ReactNode
 }
 
+const noop = () => {}
+
 /**
- * หน้าลงทะเบียน/รายละเอียดกิจกรรมของนักศึกษา (ใช้ร่วมทั้งหน้า "งาน" และ "กิจกรรมเดี่ยว")
+ * หน้ารายละเอียด/ลงทะเบียนกิจกรรม (ธีม Denim) — ใช้ร่วมทุกมุมมอง: นักศึกษาและบุคคลทั่วไป ทั้งหน้า "งาน" และ
+ * "กิจกรรมเดี่ยว" (mode="register") และมุมมองดูอย่างเดียวของผู้จัด (mode="preview") ซึ่งตั้งใจให้หน้าตาเหมือนฝั่ง
+ * นักศึกษาทุกส่วน ต่างแค่แถบท้ายการ์ดหัวเรื่องกับข้อมูลที่ผู้จัดต้องเห็นเพิ่ม
  *
+<<<<<<< HEAD
  * Layout: ซ้าย 70% (เนื้อหา) / ขวา 30% (การ์ดสมัคร sticky) — Hero อยู่ในคอลัมน์ซ้ายเพื่อให้การ์ดสมัครเริ่มที่ระดับเดียวกัน
  * (ปุ่มสมัครอยู่ในจอแรก) บนจอเล็กเรียงเป็นคอลัมน์เดียวโดยการ์ดสมัครอยู่ต่อจากตัวเลือกกิจกรรม + แถบสมัครติดขอบล่าง
  * ข้อมูลแต่ละอย่างอยู่ที่เดียว: ที่นั่ง/วัน-เวลา/สถานที่ → Key Details, วันปิดรับสมัคร → การ์ดสมัคร, ทักษะ → Benefits
+=======
+ * โครงหน้า: แถบยีนส์ด้านบน (ปุ่มกลับ + บรรทัดคำสั่ง) → การ์ดหัวเรื่องซ้อนขอบแถบ (ปก/ชื่อ/วันเวลา-สถานที่/เลือกรอบ/
+ * แถบสมัคร) → 2 คอลัมน์: การ์ดรายละเอียดแบ่งหัวข้อ 01-03 (ซ้าย) + สิ่งที่จะได้รับและผู้จัด (ขวา)
+>>>>>>> organize
  */
 export function ActivityRegistrationView({
     title,
-    imageUrl,
+    imagePath,
+    code,
     organizerName,
     intro,
     activities,
     activeId,
     onSelectActivity,
     registrationCloseAt,
-    myRegistrations,
-    onRegister,
-    onCancel,
-    onShare,
+    shareUrl,
+    onShareCopied,
     backHref,
     showActivityImage = false,
+    mode = "register",
+    myRegistrations = [],
+    onRegister = noop,
+    onCancel = noop,
+    notice,
     children,
 }: ActivityRegistrationViewProps) {
     const now = new Date()
     const isProject = activities.length > 1
+    const preview = mode === "preview"
 
-    // ลำดับกิจกรรมคงตามที่ผู้จัดตั้งไว้ (ไม่เรียงใหม่) — อาจตั้งใจเรียง เช่น ห้อง CS2, CS3, จิตอาสา
+    // ลำดับรอบคงตามที่ผู้จัดตั้งไว้ (ไม่เรียงใหม่) — อาจตั้งใจเรียง เช่น ห้อง CS2, CS3, จิตอาสา
     const rows = activities.map((activity) => {
         const seat = seatInfo(activity.capacity, activity.registeredCount)
         const closed = closedReason(
             { status: activity.status, approvalStatus: activity.approvalStatus, registrationCloseAt },
             now
         )
-        const mine = pickMyRegistration(myRegistrations, activity.id)
+        // มุมมองผู้จัดไม่ใช่ผู้ลงทะเบียน — ไม่มี "ของฉัน" ป้ายสถานะจึงเป็นของรอบนั้นล้วนๆ
+        const mine = preview ? undefined : pickMyRegistration(myRegistrations, activity.id)
         return { activity, seat, closed, mine, tag: sessionTag({ seat, closed, mine }) }
     })
     const activeIndex = rows.findIndex((r) => r.activity.id === activeId)
     const active = activeIndex >= 0 ? rows[activeIndex] : null
 
+<<<<<<< HEAD
     const sessions: SessionItem[] = rows.map((r) => ({
         id: r.activity.id,
         name: r.activity.name,
@@ -120,6 +164,8 @@ export function ActivityRegistrationView({
         seats: r.seat.shortLabel,
     }))
 
+=======
+>>>>>>> organize
     const view = active
         ? describeAction({
               registrationType: active.activity.registrationType,
@@ -135,10 +181,18 @@ export function ActivityRegistrationView({
           })
         : null
 
-    const categories = [...new Set(activities.flatMap((a) => a.categories ?? []))]
+    const sessions: SessionItem[] = rows.map((r) => ({
+        id: r.activity.id,
+        name: r.activity.name,
+        tag: r.tag,
+        schedule: formatScheduleShort(r.activity),
+        seats: r.seat.shortLabel,
+    }))
 
+    const categories = [...new Set(activities.flatMap((a) => a.categories ?? []))]
     const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })
 
+<<<<<<< HEAD
     const actionCard = view && active && (
         <RegistrationActionCard
             id="registration-card"
@@ -151,16 +205,33 @@ export function ActivityRegistrationView({
             myRegistrationsHref="/student/my-registrations"
         />
     )
+=======
+    // ป้ายของรอบที่เลือกเหนือคำอธิบายของมันเอง — งานหลายรอบบอกเสมอว่าเป็นของรอบไหน, งานรอบเดียวบอกเฉพาะเมื่อชื่อต่างจากชื่องาน
+    const sessionLabel = active
+        ? isProject
+            ? `${roundLabel(activeIndex)} · ${active.activity.name}`
+            : active.activity.name.trim() !== title.trim()
+              ? active.activity.name
+              : null
+        : null
+>>>>>>> organize
 
     return (
-        <div className="min-h-screen bg-surface pb-28 lg:pb-12">
-            <Container className="py-8">
-                <div className="mb-6">
-                    <Link href={backHref} className="inline-flex items-center text-fg-muted transition-colors hover:text-fg">
-                        <ArrowLeft className="mr-2 size-4" aria-hidden="true" /> กลับ
+        // ไม่ใส่ min-h-screen — layout ของแต่ละพอร์ทัลดัน footer ลงล่างเองอยู่แล้ว
+        <div className={preview ? "bg-surface pb-16" : "bg-surface pb-28 lg:pb-16"}>
+            <section className="denim-weave">
+                <Container className="flex flex-wrap items-center justify-between gap-3 pb-20 pt-6 sm:pb-24">
+                    <Link
+                        href={backHref}
+                        className="inline-flex min-h-10 items-center gap-2 rounded-xl border-[1.5px] border-white/40 px-4 text-sm font-semibold text-white transition-colors hover:border-white/70 hover:bg-white/10 focus-visible:outline-white"
+                    >
+                        <ArrowLeft className="size-4" aria-hidden="true" /> กลับ
                     </Link>
-                </div>
+                    <TerminalPrompt>{`~/events/${code} $ open`}</TerminalPrompt>
+                </Container>
+            </section>
 
+<<<<<<< HEAD
                 {/*
                   ลำดับใน DOM: [A ภาพหน้าปก+ตัวเลือกกิจกรรม] → [การ์ดสมัคร] → [B รายละเอียด]
                   จอเล็กเรียงตามนี้ (การ์ดสมัครต่อจากตัวเลือกกิจกรรม) จอ lg การ์ดสมัครไปคอลัมน์ขวาและกินสองแถว
@@ -242,12 +313,105 @@ export function ActivityRegistrationView({
                             <BenefitsSection activity={active.activity} showVolunteer={false} />
                             <ActivityAboutPanel activity={active.activity} showActivityImage={showActivityImage} hideMeta />
                             <ActivityRegistrationPanel activity={active.activity} hideLogistics />
+=======
+            <Container className="-mt-14 space-y-8 sm:-mt-16">
+                {notice}
+
+                {view && active && (
+                    <ActivityDetailHero
+                        id="registration-card"
+                        title={title}
+                        categories={categories}
+                        organizerName={organizerName}
+                        schedule={formatActivitySchedule(active.activity)}
+                        location={active.activity.location}
+                        cover={{
+                            imagePath,
+                            // ลายปกบอกสถานะของรอบเอง (ปิดรับ/จบ/เต็ม = เทา) ไม่ขึ้นกับว่าฉันสมัครแล้วหรือยัง
+                            tone: active.closed || active.seat.level === "full" ? "closed" : "open",
+                            statusLabel: coverStatus(view).label,
+                            statusTone: coverStatus(view).tone,
+                            code,
+                            date: coverDateParts(active.activity),
+                        }}
+                        rounds={isProject ? { sessions, activeId, activeIndex, onSelect: onSelectActivity } : null}
+                        footer={
+                            preview ? (
+                                <PreviewBar
+                                    label={isProject ? "รอบที่เลือก" : "กิจกรรม"}
+                                    sessionName={active.activity.name}
+                                    seat={active.seat}
+                                    shareUrl={shareUrl}
+                                    shareTitle={title}
+                                    onShareCopied={onShareCopied}
+                                />
+                            ) : (
+                                <RegistrationBar
+                                    view={view}
+                                    seat={active.seat}
+                                    sessionName={active.activity.name}
+                                    idleLabel={view.kind === "open" ? "กำลังสมัคร" : isProject ? "รอบที่เลือก" : "สถานะ"}
+                                    shareUrl={shareUrl}
+                                    shareTitle={title}
+                                    onShareCopied={onShareCopied}
+                                    onRegister={onRegister}
+                                    onCancel={onCancel}
+                                    onSeeAlternatives={() => scrollTo("registration-card")}
+                                    myRegistrationsHref="/student/my-registrations"
+                                />
+                            )
+                        }
+                    />
+                )}
+
+                {active && (
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+                        <div className={DETAIL_PANEL}>
+                            <div className="space-y-7">
+                                <AboutSection
+                                    index={1}
+                                    intro={intro}
+                                    activity={active.activity}
+                                    sessionLabel={sessionLabel}
+                                    showActivityImage={showActivityImage}
+                                />
+                                {isProject && (
+                                    <>
+                                        <hr className={DETAIL_DIVIDER} />
+                                        <ScheduleSection
+                                            index={2}
+                                            rows={rows.map((r) => ({
+                                                id: r.activity.id,
+                                                name: r.activity.name,
+                                                schedule: formatActivitySchedule(r.activity),
+                                                tag: r.tag,
+                                                seat: r.seat,
+                                            }))}
+                                            activeId={activeId}
+                                            onSelect={onSelectActivity}
+                                        />
+                                    </>
+                                )}
+                                <hr className={DETAIL_DIVIDER} />
+                                <PrepareSection
+                                    index={isProject ? 3 : 2}
+                                    activity={active.activity}
+                                    logistics={preview ? { registrationOpenAt, registrationCloseAt } : null}
+                                />
+                            </div>
+>>>>>>> organize
                         </div>
-                    )}
-                </div>
+
+                        <aside className="space-y-4" aria-label="สิ่งที่จะได้รับและผู้จัด">
+                            {/* หน้าลงทะเบียนของนักศึกษาไม่แสดงเรื่องชั่วโมงจิตอาสา — มุมมองผู้จัดแสดงให้ตรวจได้ */}
+                            <RewardsCard activity={active.activity} showVolunteer={preview} />
+                            {organizerName && <OrganizerCard name={organizerName} />}
+                        </aside>
+                    </div>
+                )}
             </Container>
 
-            {view && active && (
+            {!preview && view && active && (
                 <MobileActionBar
                     view={view}
                     sessionName={isProject ? active.activity.name : null}

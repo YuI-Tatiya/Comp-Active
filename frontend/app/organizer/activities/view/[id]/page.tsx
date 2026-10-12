@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+<<<<<<< HEAD
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -12,12 +14,25 @@ import Link from "next/link"
 import { Container } from "@/components/layout/container"
 import { activitiesAPI, isUnlimitedCapacity, Activity, Tag as TagType, Condition, Benefit, API_BASE_URL } from "@/lib/api"
 import { categoryLabel } from "@/lib/categories"
+=======
+import { Container } from "@/components/layout/container"
+import { referenceCode } from "@/components/denim/denim-ui"
+import { ActivityRegistrationView } from "@/components/activity/activity-registration-view"
+import { activitiesAPI, Activity } from "@/lib/api"
+import { eventImagePathFor } from "@/lib/event-image"
+>>>>>>> organize
 
 /**
  * มุมมอง "ดูอย่างเดียว" ของกิจกรรมเดี่ยวสำหรับผู้จัด — ใช้ตอนกดดูกิจกรรมที่ไม่ใช่ของตัวเอง
  * (จากฟีดกิจกรรมทั้งหมดในหน้าแรก, หรือจากรายการกิจกรรมย่อยของงานอื่น) ต่างจาก
  * /organizer/activities/:id ที่เป็นหน้าจัดการเต็มรูปแบบและล็อกไว้เฉพาะเจ้าของ — หน้านี้อยู่ใน
  * layout ของผู้จัดเอง (AppHeader/RoleGuard ยังคุมอยู่) ไม่มีปุ่มจัดการหรือลงทะเบียนใด ๆ
+<<<<<<< HEAD
+=======
+ *
+ * ใช้ ActivityRegistrationView ชุดเดียวกับหน้ากิจกรรมฝั่งนักศึกษาในโหมด preview — ตั้งใจให้เป็น "ดูอย่างเดียว"
+ * ของอีกฝั่งหนึ่ง ไม่ใช่ดีไซน์แยกต่างหาก (เดิมเคยเขียน JSX ของตัวเองแล้วเพี้ยนออกจากหน้านักศึกษา)
+>>>>>>> organize
  */
 export default function OrganizerActivityViewPage() {
     const params = useParams()
@@ -45,6 +60,7 @@ export default function OrganizerActivityViewPage() {
         }
     }
 
+<<<<<<< HEAD
     const formatDate = (dateString: string) => {
         try {
             const date = new Date(dateString)
@@ -61,6 +77,8 @@ export default function OrganizerActivityViewPage() {
         alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")
     }
 
+=======
+>>>>>>> organize
     if (loading) {
         return (
             <div className="bg-surface">
@@ -86,6 +104,7 @@ export default function OrganizerActivityViewPage() {
     }
 
     return (
+<<<<<<< HEAD
         <div className="bg-surface pb-12">
             <Container className="py-8">
                 <div className="mb-6">
@@ -261,5 +280,20 @@ export default function OrganizerActivityViewPage() {
                 </div>
             </Container>
         </div>
+=======
+        <ActivityRegistrationView
+            mode="preview"
+            title={activity.name}
+            imagePath={eventImagePathFor(activity)}
+            code={referenceCode("ACT", activity.id)}
+            organizerName={activity.organizer?.name}
+            activities={[activity]}
+            activeId={activity.id}
+            onSelectActivity={() => {}}
+            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${activity.id}`}
+            onShareCopied={() => alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")}
+            backHref="/organizer"
+        />
+>>>>>>> organize
     )
 }

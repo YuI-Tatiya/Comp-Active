@@ -20,6 +20,7 @@ export interface User {
   isBlocked?: boolean;
   createdAt?: string;
   // ข้อมูลติดต่อ & การศึกษา — เป็น null สำหรับ user ที่สมัครก่อนมีฟีเจอร์นี้
+  title?: "mr" | "miss" | null;
   phone?: string | null;
   educationLevel?: string | null;
   program?: string | null;
@@ -28,6 +29,12 @@ export interface User {
 export interface AuthResponse {
   accessToken: string;
   user?: User;
+}
+
+/** สมัครสมาชิกยังไม่เข้าสู่ระบบ — ต้องยืนยัน OTP ที่ส่งไปที่ email นี้ก่อน (authAPI.verifyRegisterOtp) */
+export interface PendingVerification {
+  pendingVerification: true;
+  email: string;
 }
 
 export interface Tag {
@@ -96,6 +103,8 @@ export interface Activity<T = unknown> {
   cancellationReason?: string | null;
   /** เปิดโหมดประเมินรอบด้าน (นักศึกษาประเมินตนเอง + เพื่อน) — เฉพาะกิจกรรมสตาฟฟ์ Tier 3 */
   peerAssessmentEnabled?: boolean;
+  /** เปิดให้เช็คอินเองผ่าน QR ที่หมุนรหัสทุก 5 นาที — ปิดเป็นค่าเริ่มต้นเสมอ ดู activitiesAPI.getCheckInSession */
+  selfCheckInEnabled?: boolean;
   tags: Tag[];
   conditions: Condition[];
   benefits: Benefit[];
@@ -112,16 +121,8 @@ export function isUnlimitedCapacity(capacity: number | null | undefined): boolea
   return capacity == null;
 }
 
-/**
- * true ถ้าผู้จัดยกเลิกกิจกรรมนี้เอง (ApprovalStatus.CANCELLED)
- *
- * รองรับค่าเก่า "rejected" ไว้ด้วยเผื่อข้อมูลก่อนเปลี่ยน enum — backend เขียนค่าใหม่
- * เป็น "cancelled" เสมอตั้งแต่นี้ไป (แยกจาก "rejected" ที่สงวนไว้สำหรับแอดมิน/ระบบ
- * ปฏิเสธ ซึ่งยังไม่มี flow จริงในระบบตอนนี้)
- */
-export function isCancelledByOrganizer(approvalStatus: string | null | undefined): boolean {
-  return approvalStatus === 'cancelled' || approvalStatus === 'rejected';
-}
+// ย้ายไปไว้ใน lib/registration-bucket.ts (ไฟล์ที่ทดสอบด้วย node --test ได้) — re-export ให้ import จากที่นี่ได้ตามเดิม
+export { isCancelledByOrganizer } from './registration-bucket';
 
 /** ข้อความแสดงจำนวนที่รับ — ใช้ที่เดียวกันทุกหน้าแทนการเขียน `capacity || 0` กระจัดกระจาย */
 export function capacityLabel(capacity: number | null | undefined): string {
@@ -197,7 +198,12 @@ async function fetchAPI<T = unknown>(endpoint: string, options: RequestInit = {}
 // ==================== AUTH ====================
 
 export const authAPI = {
+  /**
+   * สมัครสมาชิก — ไม่เข้าสู่ระบบทันทีอีกต่อไป ต้องยืนยัน OTP ที่ส่งไปอีเมลผ่าน verifyRegisterOtp ก่อน
+   * (ดู backend/src/modules/shared/auth/auth.service.ts register())
+   */
   register: (body: {
+    title: "mr" | "miss";
     name: string;
     email: string;
     password: string;
@@ -205,7 +211,28 @@ export const authAPI = {
     phone: string;
     educationLevel: string;
     program: string;
-  }) => fetchAPI<AuthResponse>('/api/auth/register', { method: 'POST', body: JSON.stringify(body) }),
+  }) =>
+    fetchAPI<PendingVerification>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /**
+   * ยืนยัน OTP ที่ได้จากการสมัครสมาชิก — สำเร็จแล้วถึงจะได้ session จริง (ออก cookie)
+   * ต้องส่งรหัสผ่านของคำขอสมัครคู่กับ OTP เสมอ: backend ผูกการยืนยันกับคนที่สมัครจริง ไม่ใช่แค่คนที่เข้ากล่องเมลได้
+   */
+  verifyRegisterOtp: (email: string, otp: string, password: string) =>
+    fetchAPI<AuthResponse>('/api/auth/register/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp, password }),
+    }),
+
+  /** ขอรหัส OTP สมัครสมาชิกใหม่ — รหัสเดิมหมดอายุ (15 นาที) หรือไม่ได้รับอีเมล */
+  resendRegisterOtp: (email: string) =>
+    fetchAPI<{ message: string }>('/api/auth/register/resend-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
 
   // identifier: email (student) or username (organizer)
   login: (body: { identifier: string; password: string }) =>
@@ -285,6 +312,18 @@ export const activitiesAPI = {
   /** เปิด/ปิดรับสมัครชั่วคราว — ย้อนกลับได้ คนละอย่างกับ markCompleted/requestCancel ที่เป็นถาวร */
   setStatus: (id: number, status: 'open' | 'closed') =>
     fetchAPI<Activity>(`/api/activities/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  /**
+   * โทเค็น QR เช็คอินปัจจุบัน + สถานะเปิด/ปิด — เรียกตอนเปิดแท็บคิวอาร์โค้ด และเรียกซ้ำเมื่อ token ใกล้หมดอายุ
+   * (คืน token ใหม่แม้ตอนนี้ปิดอยู่ ไว้แสดงพร้อมทันทีถ้าเปิดสวิตช์)
+   */
+  getCheckInSession: (id: number) =>
+    fetchAPI<CheckInSessionResult>(`/api/activities/${id}/self-checkin`),
+  /** เปิด/ปิดการเช็คอินด้วยตนเองผ่าน QR — ปิดแล้วนักศึกษาสแกนไม่ติดจนกว่าจะเปิดใหม่ */
+  setSelfCheckIn: (id: number, enabled: boolean) =>
+    fetchAPI<CheckInSessionResult>(`/api/activities/${id}/self-checkin`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled }),
+    }),
   getPlatformStats: () => fetchAPI<PlatformStats>('/api/activities/stats/platform'),
   getOrganizerStats: () => fetchAPI<OrganizerStats>('/api/activities/stats/organizer'),
   /** ผลสรุปแบบสำรวจของกิจกรรมเดี่ยว — โครงสร้างตรงกับ eventsAPI.getSurveyResults */
@@ -515,6 +554,13 @@ export interface CheckInSelfResult {
   alreadyCheckedIn: boolean;
 }
 
+/** โทเค็น QR เช็คอินปัจจุบันของกิจกรรมหนึ่งรายการ — หมุนรหัสใหม่ทุก 5 นาที (checkin-token.util.ts ฝั่ง backend) */
+export interface CheckInSessionResult {
+  enabled: boolean;
+  token: string;
+  expiresAt: string;
+}
+
 export const registrationsAPI = {
   create: (
     activityId: number,
@@ -531,11 +577,15 @@ export const registrationsAPI = {
   getByActivity: (activityId: number) => fetchAPI(`/api/registrations/activity/${activityId}`),
   confirm: (id: number) => fetchAPI(`/api/registrations/${id}/confirm`, { method: 'PATCH' }),
   checkIn: (id: number) => fetchAPI(`/api/registrations/${id}/check-in`, { method: 'PATCH' }),
-  /** เช็คอินด้วยตัวเอง — นักศึกษาสแกน QR code ที่ organizer แสดงหน้างาน (ต้อง login เป็น student อยู่แล้ว) */
-  checkInSelf: (activityId: number) =>
+  /**
+   * เช็คอินด้วยตัวเอง — นักศึกษาสแกน QR code ที่ organizer แสดงหน้างาน (ต้อง login เป็น student อยู่แล้ว)
+   * token มาจาก query string ของลิงก์ที่สแกน (หมุนรหัสทุก 5 นาที) — ไม่ใช่ตัวเลือก เพราะ QR ที่ไม่มี token
+   * ที่ยังไม่หมดอายุไม่ควรเช็คอินผ่านได้เลย (ดู checkin-token.util.ts ฝั่ง backend)
+   */
+  checkInSelf: (activityId: number, token: string) =>
     fetchAPI<CheckInSelfResult>('/api/registrations/check-in-self', {
       method: 'PATCH',
-      body: JSON.stringify({ activityId }),
+      body: JSON.stringify({ activityId, token }),
     }),
   getSurveyQuestions: (id: number) => fetchAPI<EventSurveyQuestion[]>(`/api/registrations/${id}/survey-questions`),
   submitSurvey: (id: number, answers: SurveyAnswerBody[]) =>

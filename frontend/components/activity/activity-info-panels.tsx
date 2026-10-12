@@ -197,7 +197,7 @@ interface RegistrationPanelProps {
 }
 
 /** ข้อมูลที่ต้องกรอกเพิ่มตอนสมัคร ตามประเภทการรับสมัคร (สตาฟฟ์/แข่งขัน) — ผู้เข้าร่วมทั่วไปไม่มี */
-function typeRequirements(activity: Activity): { label: string; value: string }[] {
+export function typeRequirements(activity: Activity): { label: string; value: string }[] {
     if (activity.registrationType === "staff_volunteer") {
         const items: { label: string; value: string }[] = []
         if (activity.dutyRoleOptions?.length) items.push({ label: "เลือกฝ่ายที่ต้องการ", value: activity.dutyRoleOptions.join(" / ") })

@@ -58,8 +58,21 @@ const CORNER_NOTCH: Record<Corner, string> = {
  * — ไม่เรียก Gemini ตรงจาก browser เด็ดขาด ไม่งั้น API key หลุด) ประวัติสนทนาเก็บแค่ใน state หน้านี้
  * (รีเฟรชหน้าแล้วหาย ไม่มี backend เก็บ session แชทให้)
  *
+<<<<<<< HEAD
  * กดปุ่มปิดที่บับเบิลแล้วซ่อนทั้งตัว (ไม่ใช่แค่บับเบิล) และจำไว้ไม่ให้โผล่ซ้ำอีก — เดิมปุ่มนี้ปิดแค่บับเบิล
  * ส่วนตัวมาสคอตยังลอยค้างอยู่เสมอไม่มีทางซ่อนได้เลย ซ่อนแล้วไม่ได้หายเกลี้ยง เหลือปุ่มเล็กๆ มุมเดิมไว้กดเรียกกลับมา
+=======
+ * mount ที่ app/layout.tsx จุดเดียว (ไม่ใช่ต่อหน้า) จึงเป็น instance เดียวกันทั้งแอปอยู่แล้วโดยธรรมชาติ
+ * ของ React — คลิกลิงก์ในแอปไปหน้าไหนก็ไม่ remount ไม่เสีย state (ยืนยันแล้วด้วย headless browser)
+ * บทสนทนา+สถานะเปิด/ปิดยังเก็บเพิ่มใน sessionStorage (ดู MESSAGES_KEY/OPEN_KEY) ให้ทนต่อการกดรีเฟรช/เปิด
+ * URL ตรงๆ ในแท็บเดิมด้วย ไม่ใช่แค่กรณีคลิกลิงก์ภายใน — หายแค่ตอนปิดแท็บ/เปิดแท็บใหม่ (ตั้งใจ ไม่ใช่ localStorage)
+ *
+ * หัวบับเบิลมี 2 ปุ่มแยกความหมายกันชัดเจน:
+ * - ย่อแชท (ChevronDown) = setOpenPersisted(false) เฉยๆ — ปิดกล่องคุย แต่ตัวมาสคอตยังยืนตัวใหญ่ลอยอยู่เหมือนเดิม
+ *   กดที่ตัวมาสคอตอีกทีเพื่อเปิดกล่องคุยกลับมา (ไม่ต้อง "เรียกคืน" จากหัวมาสคอตก่อน)
+ * - ซ่อนมาสคอต (X) = hideMascot() ซ่อนทั้งตัว (ทั้งบับเบิลและตัวมาสคอต) เหลือแค่หัวมาสคอตมุมขวาล่าง
+ *   และจำไว้ใน localStorage ไม่ให้โผล่ซ้ำอีกจนกว่าจะกดหัวมาสคอตนั้นเรียกคืน
+>>>>>>> organize
  */
 export function MascotWidget() {
     const pathname = usePathname()
@@ -182,18 +195,27 @@ export function MascotWidget() {
     // !mounted กันไม่ให้เช็ค localStorage (hidden) ต่างกันระหว่าง SSR กับไคลเอนต์จนขึ้น hydration mismatch
     if (!mounted || pathname?.startsWith("/admin")) return null
 
-    // ซ่อนแล้วไม่ใช่หายเกลี้ยงไม่มีทางเรียกคืน — เหลือปุ่มเล็กๆ มุมเดิมไว้กดเรียกกลับมา
+    // ซ่อนแล้วไม่ใช่หายเกลี้ยงไม่มีทางเรียกคืน — เหลือหัวมาสคอตมุมขวาล่างไว้กดเรียกกลับมา
+    // (เดิมเป็นวงกลมขาว 48px ที่ยัดมาสคอตทั้งตัวไว้ 32px จนมองไม่ออกว่าเป็นอะไร) ไม่มีพื้น/กรอบ ใช้เงารองให้เห็นบนพื้นทุกสี
+    // ใช้ PNG ที่แปลงจาก mascot_head.svg (Canva ห่อรูป raster ไว้ ไฟล์ 1.5MB และ next/image ย่อ SVG ไม่ได้)
     if (hidden) {
         return (
             <button
                 type="button"
                 onClick={showMascot}
-                aria-label="แสดงมาสคอต"
-                className="fixed bottom-5 right-5 z-50 flex size-12 items-center justify-center rounded-full border border-border bg-bg shadow-md transition-transform hover:scale-105"
+                aria-label="แสดงผู้ช่วย Comp Active"
+                title="ผู้ช่วย Comp Active"
+                className="fixed bottom-4 right-4 z-50 rounded-full transition-transform hover:-translate-y-0.5 hover:scale-105 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim active:scale-95 sm:bottom-5 sm:right-5"
             >
-                <div className="relative size-8">
-                    <Image src="/mascot.svg" alt="" fill sizes="32px" className="object-contain object-top" />
-                </div>
+                <Image
+                    src="/mascot-head.png"
+                    alt=""
+                    width={520}
+                    height={502}
+                    sizes="88px"
+                    className="h-[72px] w-auto drop-shadow-[0_8px_14px_rgb(18_34_61/0.35)] sm:h-[84px]"
+                    draggable={false}
+                />
             </button>
         )
     }

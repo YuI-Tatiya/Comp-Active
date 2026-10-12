@@ -88,6 +88,7 @@ export function UserMenu({ accountHref, roleLabel }: UserMenuProps) {
         aria-expanded={open}
         aria-label={`เมนูของ ${name}`}
         className={cn(
+<<<<<<< HEAD
           "group flex items-center gap-1.5 rounded-full p-1 pr-2 transition-all duration-300",
           open ? "bg-brand-50" : "hover:bg-surface"
         )}
@@ -104,12 +105,28 @@ export function UserMenu({ accountHref, roleLabel }: UserMenuProps) {
           <span className="relative flex size-8 items-center justify-center rounded-full bg-linear-to-br from-brand-600 to-brand-400 text-sm font-semibold text-white shadow-sm ring-2 ring-bg transition-transform duration-300 group-hover:scale-110">
             {initial}
           </span>
+=======
+          "flex min-h-11 items-center gap-2.5 rounded-full border bg-denim-paper py-1 pl-1 pr-3.5 transition-colors hover:border-denim-field",
+          open ? "border-denim-field" : "border-denim-line"
+        )}
+      >
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber font-display font-bold text-denim-deep">
+          {initial}
+>>>>>>> organize
+        </span>
+        <span className="flex min-w-0 flex-col items-start leading-[1.15]">
+          <span className="max-w-40 truncate text-sm font-semibold text-denim-deep">{name}</span>
+          <span className="text-xs text-denim-muted">{roleLabel}</span>
         </span>
         <ChevronDown
+<<<<<<< HEAD
           className={cn(
             "size-4 text-fg-subtle transition-transform duration-300",
             open && "rotate-180 text-brand-600"
           )}
+=======
+          className={cn("size-4 text-denim-muted transition-transform", open && "rotate-180")}
+>>>>>>> organize
           aria-hidden="true"
         />
       </button>
@@ -127,16 +144,26 @@ export function UserMenu({ accountHref, roleLabel }: UserMenuProps) {
           aria-label="เมนูผู้ใช้"
           className="relative overflow-hidden rounded-2xl border border-border bg-bg shadow-xl shadow-brand-900/10"
         >
+<<<<<<< HEAD
           {/* หัวข้อผู้ใช้ — พื้นไล่สีอ่อน, แสดงข้อมูลเฉย ๆ ไม่ใช่รายการที่กดได้ */}
           <div className="relative flex items-start gap-3 overflow-hidden border-b border-border bg-linear-to-br from-brand-50 to-bg p-4">
             <span aria-hidden="true" className="absolute -right-6 -top-8 size-24 rounded-full bg-brand-100/70" />
             <span className="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-brand-600 to-brand-400 text-base font-semibold text-white shadow-md ring-2 ring-bg">
+=======
+          {/* หัวข้อผู้ใช้ — แสดงข้อมูลเฉย ๆ ไม่ใช่รายการที่กดได้ */}
+          <div className="flex items-start gap-3 border-b border-border p-4">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber font-display text-base font-bold text-denim-deep">
+>>>>>>> organize
               {initial}
             </span>
             <div className="relative min-w-0">
               <p className="truncate text-sm font-semibold text-fg">{name}</p>
               <p className="truncate text-xs text-fg-muted">{user?.email}</p>
+<<<<<<< HEAD
               <span className="mt-1.5 inline-flex items-center rounded-full bg-brand-600 px-2 py-0.5 text-xs font-medium text-white">
+=======
+              <span className="mt-1.5 inline-flex items-center rounded-full bg-denim-chip px-2 py-0.5 text-xs font-medium text-denim">
+>>>>>>> organize
                 {roleLabel}
               </span>
             </div>

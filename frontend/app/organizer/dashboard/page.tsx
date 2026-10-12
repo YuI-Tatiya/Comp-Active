@@ -2,26 +2,36 @@
 
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { StatTile } from "@/components/ui/stat-tile"
 import { Container } from "@/components/layout/container"
+<<<<<<< HEAD
 import { FilterBar, type FilterSpec } from "@/components/ui/filter-bar"
 import { formatEventDate } from "@/components/ui/event-card"
 import { activitiesAPI, isUnlimitedCapacity, isCancelledByOrganizer, Activity } from "@/lib/api"
 import { CATEGORIES, categoryLabel } from "@/lib/categories"
 import { RANGE_OPTIONS, withinRange } from "@/lib/events-filter"
+=======
+import type { FilterSpec } from "@/components/ui/filter-bar"
+>>>>>>> organize
 import {
-    Calendar,
-    Users,
-    Star,
-    CheckCircle,
-    LayoutDashboard,
-    MapPin,
-    Loader2,
-    Search,
-} from "lucide-react"
+    AMBER_BUTTON,
+    FilterPanel,
+    OrganizerStatCards,
+    StatusTabs,
+    type OrganizerStat,
+} from "@/components/denim/denim-ui"
+import {
+    ActivityTable,
+    ActivityTableCard,
+    ActivityTableRow,
+    ActivityTableSkeleton,
+    DashboardHero,
+    type ActivityRowData,
+} from "@/components/organizer/dashboard-sections"
+import { activitiesAPI, isUnlimitedCapacity, isCancelledByOrganizer, Activity } from "@/lib/api"
+import { formatActivitySchedule } from "@/lib/activity-view"
+import { CATEGORIES } from "@/lib/categories"
+import { RANGE_OPTIONS, withinRange } from "@/lib/events-filter"
+import { CalendarDays, CircleCheck, Plus, Search, Star, UserCheck } from "lucide-react"
 
 interface Registration {
     status: string
@@ -29,11 +39,60 @@ interface Registration {
     evaluation?: unknown
 }
 
-/** สถานะการอนุมัติ → ป้าย — ตรงกับ ApprovalStatus ใน backend/prisma/schema.prisma */
-const APPROVAL_BADGE: Record<string, { label: string; variant: "success" | "warning" | "neutral" }> = {
-    approved: { label: "ออนไลน์", variant: "success" },
-    rejected: { label: "ยกเลิกแล้ว", variant: "neutral" },
-    pending_approval: { label: "รออนุมัติ", variant: "warning" },
+/**
+ * สถานะการอนุมัติ → ป้ายในคอลัมน์ "สถานะ" (ตรงกับ ApprovalStatus ใน backend/prisma/schema.prisma)
+ * ยกเลิก (cancelled และค่าเก่า rejected) ตัดสินด้วย isCancelledByOrganizer — แผนที่เดิมไม่มีคีย์ cancelled
+ * กิจกรรมที่ผู้จัดยกเลิกเองจึงตกไปใช้ค่าตั้งต้น "รออนุมัติ" ผิดความหมาย
+ */
+const APPROVAL_CHIP = {
+    approved: { label: "ออนไลน์", className: "bg-emerald-50 text-emerald-700", dotClassName: "bg-emerald-600" },
+    pending: { label: "รออนุมัติ", className: "bg-amber/15 text-amber-ink", dotClassName: "bg-amber" },
+    cancelled: { label: "ยกเลิกแล้ว", className: "bg-red-50 text-red-700", dotClassName: "bg-red-500" },
+}
+
+function approvalChip(approvalStatus: string) {
+    if (isCancelledByOrganizer(approvalStatus)) return APPROVAL_CHIP.cancelled
+    return approvalStatus === "approved" ? APPROVAL_CHIP.approved : APPROVAL_CHIP.pending
+}
+
+/** สถานะรับสมัคร (Activity.status) — บรรทัดเล็กใต้ป้ายอนุมัติ */
+const STATUS_TEXT: Record<string, string> = {
+    open: "เปิดรับสมัคร",
+    closed: "ปิดรับสมัคร",
+    completed: "จบแล้ว",
+}
+
+const BKK_DAY = new Intl.DateTimeFormat("th-TH", { day: "numeric", timeZone: "Asia/Bangkok" })
+const BKK_MONTH = new Intl.DateTimeFormat("th-TH", { month: "short", timeZone: "Asia/Bangkok" })
+
+/**
+ * แปลงกิจกรรมเป็นข้อมูลแถวตาราง — วัน-เวลาใช้ formatActivitySchedule (ตัวเดียวกับหน้านักศึกษา) ซึ่งอ่าน
+ * startAt/endAt ตามเวลาไทย แทน startTime/endTime ที่เก็บไว้: กิจกรรมจาก wizard สร้างสตริงนั้นด้วยเขตเวลาของ
+ * เซิร์ฟเวอร์ (Docker = UTC) งาน 09:30 จึงถูกเก็บเป็น "02:30" — ตารางเดิมโชว์เวลาที่ผิด 7 ชม. ตรงๆ
+ */
+function toRow(a: Activity<Registration>): ActivityRowData {
+    const schedule = formatActivitySchedule(a)
+    const start = new Date(a.startAt ?? a.date)
+    const validStart = !Number.isNaN(start.getTime())
+    return {
+        id: a.id,
+        name: a.name,
+        categories: a.categories,
+        location: a.location,
+        day: validStart ? BKK_DAY.format(start) : "–",
+        month: validStart ? BKK_MONTH.format(start) : "",
+        // ตารางแคบ — ตัดวันในสัปดาห์ออก ("ศ. 4 ต.ค. 2569" → "4 ต.ค. 2569") ช่วงหลายวันไม่มีวันในสัปดาห์อยู่แล้ว
+        dateLabel: schedule.multiDay ? schedule.dateLabel : schedule.dateLabel.replace(/^\S+\s/, ""),
+        timeLabel: schedule.timeLabel,
+        ended: a.status === "completed",
+        registered: a.registeredCount || 0,
+        capacity: isUnlimitedCapacity(a.capacity) ? null : a.capacity || 0,
+        approval: approvalChip(a.approvalStatus),
+        statusText: STATUS_TEXT[a.status] ?? a.status,
+        pendingConfirm: a.registrations?.filter((r) => r.status === "pending").length ?? 0,
+        pendingEval: a.registrations?.filter((r) => r.attendance === "attended" && !r.evaluation).length ?? 0,
+        href: `/organizer/activities/${a.id}/dashboard`,
+    }
 }
 
 /** true ถ้ากิจกรรมยังมีผู้สมัครที่ผู้จัดต้องกดยืนยันตัวตน */
@@ -223,73 +282,53 @@ export default function OrganizerDashboard() {
         return sum + needEval
     }, 0)
 
-    const stats = [
+    const activeFilterCount =
+        FILTERS.filter((f) => (values[f.key] ?? f.neutralValue ?? "") !== (f.neutralValue ?? "")).length +
+        (searchQuery.trim() ? 1 : 0)
+
+    const stats: OrganizerStat[] = [
         {
+            code: "ALL_EVENTS",
             label: "กิจกรรมทั้งหมด",
-            value: activities.length,
-            icon: Calendar,
             caption: "กิจกรรมที่คุณสร้าง",
+            value: loading ? "—" : activities.length,
+            icon: CalendarDays,
         },
         {
+            code: "VERIFY_QUEUE",
             label: "รอยืนยันผู้สมัคร",
-            value: pendingConfirmations.toLocaleString("th-TH"),
-            icon: Users,
             caption: "ต้องกดยืนยันตัวตน",
+            value: loading ? "—" : pendingConfirmations.toLocaleString("th-TH"),
+            icon: UserCheck,
+            attention: !loading && pendingConfirmations > 0,
         },
         {
+            code: "SKILL_REVIEW",
             label: "รอประเมินทักษะ",
-            value: pendingEvaluations.toLocaleString("th-TH"),
-            icon: Star,
             caption: "นักศึกษาที่รอคะแนน",
+            value: loading ? "—" : pendingEvaluations.toLocaleString("th-TH"),
+            icon: Star,
+            attention: !loading && pendingEvaluations > 0,
         },
         {
+            code: "APPROVED",
             label: "อนุมัติแล้ว",
-            value: activities.filter((a) => a.approvalStatus === "approved").length,
-            icon: CheckCircle,
             caption: "กิจกรรมที่ออนไลน์อยู่",
+            value: loading ? "—" : activities.filter((a) => a.approvalStatus === "approved").length,
+            icon: CircleCheck,
+            highlight: true,
         },
     ]
 
     return (
         // ไม่ใส่ min-h-screen — app/organizer/layout.tsx จัดการให้แล้ว
-        <div className="bg-surface">
-            <Container className="space-y-8 py-12">
-                {/* หัวข้อ + ปุ่มลัด */}
-                <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight text-fg">แดชบอร์ดผู้จัดงาน</h1>
-                        <p className="mt-1 text-fg-muted">
-                            ติดตามประสิทธิภาพกิจกรรมและจัดการความคืบหน้าของนักศึกษา
-                        </p>
-                    </div>
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                        <Button
-                            asChild
-                            size="lg"
-                            className="gap-2 rounded-xl font-bold shadow-lg shadow-brand-500/30 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/40"
-                        >
-                            <Link href="/organizer/manage">
-                                <LayoutDashboard className="size-5" aria-hidden="true" />
-                                จัดการทั้งหมด
-                            </Link>
-                        </Button>
-                    </div>
-                </div>
+        <div className="bg-denim-paper font-plex text-denim-deep">
+            <DashboardHero />
+            <OrganizerStatCards stats={stats} />
 
-                {/* กล่องสถิติ — ใช้ StatTile ตัวเดียวกับหน้า /organizer */}
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-                    {stats.map((stat) => (
-                        <StatTile
-                            key={stat.label}
-                            label={stat.label}
-                            value={loading ? "—" : stat.value}
-                            caption={stat.caption}
-                            icon={stat.icon}
-                        />
-                    ))}
-                </div>
-
+            <Container className="flex flex-col gap-6 pb-[88px] pt-10">
                 {!loading && activities.length > 0 && (
+<<<<<<< HEAD
                     <FilterBar
                         searchValue={searchQuery}
                         onSearchChange={setSearchQuery}
@@ -301,115 +340,70 @@ export default function OrganizerDashboard() {
                         resultCount={filteredActivities.length}
                         resultUnit="กิจกรรม"
                     />
+=======
+                    <>
+                        <StatusTabs
+                            tabs={STATUS_TABS}
+                            value={values.status}
+                            counts={statusCounts}
+                            onChange={(value) => setFilter("status", value)}
+                        />
+                        <FilterPanel
+                            searchValue={searchQuery}
+                            onSearchChange={setSearchQuery}
+                            searchPlaceholder="ค้นหาชื่อกิจกรรมหรือสถานที่..."
+                            filters={FILTERS}
+                            values={values}
+                            onFilterChange={setFilter}
+                        />
+                    </>
+>>>>>>> organize
                 )}
 
-                {/* ตารางกิจกรรม */}
-                <div className="overflow-hidden rounded-2xl border border-border bg-bg shadow-xs">
-                    <div className="flex items-center justify-between border-b border-border px-6 py-4">
-                        <h2 className="text-lg font-semibold text-fg">กิจกรรมของคุณ</h2>
-                    </div>
-
+                <ActivityTableCard
+                    count={loading ? undefined : filteredActivities.length}
+                    activeFilters={activeFilterCount}
+                    onReset={resetFilters}
+                >
                     {loading ? (
-                        <div className="flex flex-col items-center justify-center py-24">
-                            <Loader2 className="mb-4 size-10 animate-spin text-brand-600" />
-                            <p className="text-fg-muted">กำลังดึงข้อมูลกิจกรรมของคุณ...</p>
-                        </div>
+                        <ActivityTable>
+                            <ActivityTableSkeleton />
+                        </ActivityTable>
                     ) : activities.length === 0 ? (
-                        <div className="py-20 text-center">
-                            <div className="mx-auto mb-6 flex size-20 items-center justify-center rounded-full bg-surface">
-                                <Calendar className="size-8 text-fg-subtle" aria-hidden="true" />
-                            </div>
-                            <p className="mb-2 text-xl font-bold text-fg">ยังไม่มีกิจกรรม</p>
-                            <p className="mb-8 text-sm text-fg-muted">
-                                คุณพร้อมที่จะสร้างกิจกรรมแรกแล้วหรือยัง?
-                            </p>
+                        <div className="flex flex-col items-center gap-3 border-t border-denim-line px-6 py-16 text-center">
+                            <span className="grid size-14 place-items-center rounded-full bg-denim-chip" aria-hidden="true">
+                                <CalendarDays className="size-7 text-denim" />
+                            </span>
+                            <p className="font-display text-xl font-bold text-denim-deep">ยังไม่มีกิจกรรม</p>
+                            <p className="text-sm text-denim-muted">คุณพร้อมที่จะสร้างกิจกรรมแรกแล้วหรือยัง?</p>
+                            <Link href="/organizer/create" className={`${AMBER_BUTTON} mt-3`}>
+                                <Plus className="size-5" strokeWidth={2.4} aria-hidden="true" />
+                                สร้างกิจกรรมใหม่
+                            </Link>
                         </div>
                     ) : filteredActivities.length === 0 ? (
-                        <div className="py-20 text-center">
-                            <div className="mx-auto mb-6 flex size-20 items-center justify-center rounded-full bg-surface">
-                                <Search className="size-8 text-fg-subtle" aria-hidden="true" />
-                            </div>
-                            <p className="mb-2 text-xl font-bold text-fg">ไม่พบกิจกรรมที่ตรงกับตัวกรอง</p>
-                            <p className="mb-6 text-sm text-fg-muted">ลองปรับตัวกรองหรือคำค้นหาใหม่</p>
-                            <Button variant="outline" className="rounded-full px-8" onClick={resetFilters}>
+                        <div className="flex flex-col items-center gap-3 border-t border-denim-line px-6 py-16 text-center">
+                            <span className="grid size-14 place-items-center rounded-full bg-denim-chip" aria-hidden="true">
+                                <Search className="size-7 text-denim" />
+                            </span>
+                            <p className="font-display text-xl font-bold text-denim-deep">ไม่พบกิจกรรมที่ตรงกับตัวกรอง</p>
+                            <p className="text-sm text-denim-muted">ลองปรับตัวกรองหรือคำค้นหาใหม่</p>
+                            <button
+                                type="button"
+                                onClick={resetFilters}
+                                className="mt-2 inline-flex min-h-11 items-center rounded-xl border-[1.5px] border-denim px-5 text-sm font-semibold text-denim transition-colors hover:bg-denim hover:text-white"
+                            >
                                 ล้างตัวกรอง
-                            </Button>
+                            </button>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead>
-                                    <tr className="bg-surface text-[11px] font-bold uppercase tracking-wider text-fg-subtle">
-                                        <th className="px-6 py-4">กิจกรรม</th>
-                                        <th className="px-6 py-4">วัน-เวลา</th>
-                                        <th className="px-6 py-4">ผู้เข้าร่วม</th>
-                                        <th className="px-6 py-4">สถานะ</th>
-                                        <th className="px-6 py-4 text-right">การจัดการ</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                    {filteredActivities.map((activity) => {
-                                        const unlimited = isUnlimitedCapacity(activity.capacity)
-                                        // กัน capacity = 0 ไม่ให้กลายเป็น NaN% หรือ Infinity%
-                                        const capacity = activity.capacity || 0
-                                        const registered = activity.registeredCount || 0
-                                        const percent =
-                                            !unlimited && capacity > 0 ? Math.round((registered / capacity) * 100) : 0
-                                        const badge =
-                                            APPROVAL_BADGE[activity.approvalStatus] ??
-                                            APPROVAL_BADGE.pending_approval
-
-                                        return (
-                                            <tr key={activity.id} className="transition-colors hover:bg-surface">
-                                                <td className="px-6 py-5">
-                                                    <div className="font-semibold text-fg">{activity.name}</div>
-                                                    <div className="mt-1 flex items-center text-[11px] font-medium text-fg-subtle">
-                                                        {activity.categories.map((c) => (
-                                                            <Badge key={c} variant="outline" className="mr-2 px-1.5 py-0 text-[9px] font-bold uppercase">
-                                                                {categoryLabel(c)}
-                                                            </Badge>
-                                                        ))}
-                                                        <MapPin className="mr-1 size-3 shrink-0" aria-hidden="true" />
-                                                        {activity.location}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-5">
-                                                    <div className="text-sm font-semibold text-fg">
-                                                        {formatEventDate(activity.date)}
-                                                    </div>
-                                                    <div className="mt-1 text-xs text-fg-subtle">
-                                                        {activity.startTime} - {activity.endTime}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-5">
-                                                    <div className="min-w-[100px]">
-                                                        <div className="mb-1.5 flex items-center justify-between text-[11px] font-bold tabular-nums">
-                                                            <span className="text-fg">
-                                                                {unlimited ? `${registered} (ไม่จำกัด)` : `${registered}/${capacity}`}
-                                                            </span>
-                                                            {!unlimited && <span className="text-brand-600">{percent}%</span>}
-                                                        </div>
-                                                        {!unlimited && <Progress value={percent} className="h-1.5" />}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-5 text-sm">
-                                                    <Badge variant={badge.variant}>{badge.label}</Badge>
-                                                </td>
-                                                <td className="px-6 py-5 text-right">
-                                                    <Button size="sm" variant="ghost" className="rounded-xl font-semibold text-brand-600" asChild>
-                                                        <Link href={`/organizer/activities/${activity.id}/dashboard`}>
-                                                            ดู dashboard →
-                                                        </Link>
-                                                    </Button>
-                                                </td>
-                                            </tr>
-                                        )
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
+                        <ActivityTable>
+                            {filteredActivities.map((activity) => (
+                                <ActivityTableRow key={activity.id} row={toRow(activity)} />
+                            ))}
+                        </ActivityTable>
                     )}
-                </div>
+                </ActivityTableCard>
             </Container>
         </div>
     )

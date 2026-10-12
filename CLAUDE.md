@@ -87,7 +87,7 @@ The generated Prisma client lives at `backend/generated/prisma` (not the default
 #### Auth & Guards
 
 - **Internal Users:** JWT via Passport (`JwtAuthGuard` in `common/guards`), plus role checks via `RolesGuard` (`@Roles(...UserRole[])`). Guard order is `@UseGuards(JwtAuthGuard, RolesGuard)`. Get user via `@CurrentUser()`.
-- **Session transport:** The JWT travels in an **httpOnly cookie**, not `localStorage` — `JwtStrategy` reads the cookie first (`common/utils/auth-cookie.util.ts` owns the name and options) and falls back to the `Authorization: Bearer` header for non-browser clients (Swagger, Postman). Login/register/admin-login issue the cookie; `POST /api/auth/logout` clears it, which is why that endpoint has to exist server-side.
+- **Session transport:** The JWT travels in an **httpOnly cookie**, not `localStorage` — `JwtStrategy` reads the cookie first (`common/utils/auth-cookie.util.ts` owns the name and options) and falls back to the `Authorization: Bearer` header for non-browser clients (Swagger, Postman). Login, admin-login and `POST /api/auth/register/verify-otp` issue the cookie (`register` itself only returns `pendingVerification` and emails an OTP); `POST /api/auth/logout` clears it, which is why that endpoint has to exist server-side.
 - **Login throttling:** `AuthThrottlerGuard` keys the rate-limit bucket by the **target account** (hashed identifier), not by IP — the whole college shares one NAT address, so per-IP counting would lock out honest users while an attacker just rotates IPs.
 - **Admin surface:** `AdminIpGuard` (inert until `ADMIN_IP_ALLOWLIST_ENABLED=true`) fronts admin login.
 - **External Developers:** Protected by `ApiKeyGuard` and throttled per key by `ApiKeyThrottlerGuard` (backed by `ThrottlerModule`), plus a coarse per-IP limit at Nginx.
@@ -124,6 +124,57 @@ Routes organized under `app/`:
 - `app/events/*` — Public landing and activity showcases
 
 Shared UI in `components/ui/` (Radix + Tailwind + CVA) and auth UI in `components/auth/`.
+
+**Theme — Denim Varsity, system-wide:**
+
+- **Tokens:** the theme lives in the tokens, so new pages get it by using them.
+  - `brand-*` is the denim scale (`brand-600` = denim, `brand-900` = denim-deep).
+  - `surface`/`border`/`fg*` are the denim paper, line and ink tones.
+  - `denim-*`/`amber` are for denim-specific pieces.
+- **Fonts:** `--font-sans` = IBM Plex Sans Thai and `--font-heading` = Bai Jamjuree, from `lib/denim-fonts.ts` on `<html>`.
+  - Plex and Bai are preloaded (10 files). JetBrains Mono is lazy.
+  - The font tokens stay in `@theme inline`, which resolves `var()` at the element. A plain `@theme` once silently fell back to the system font.
+- **Chrome:**
+  - `SiteHeader` (public), `AppHeader` + `UserMenu` (student/organizer) and `SiteFooter` have a single denim variant and no theme prop.
+  - The admin portal styles itself with inline hex, already mapped onto the denim palette. Keep new admin colors on that palette.
+  - Use light accents (amber, `#c3d3ea`) for numbers and text on dark denim panels. Green and denim are unreadable there.
+- **Shared pieces:**
+  - `components/denim/denim-ui.tsx`: hero frame, terminal prompt, section heading, stat cards, status tabs, filter panel, card cover/pill/row, create tile.
+  - `components/denim/public-activity-card.tsx`: the participant-facing activity card. `/`, `/student`, `/events` and `/student/events` all build their items with `buildFeaturedCards` (`lib/events-filter.ts`): one card per event, plus standalone activities.
+    - The public home `/` is the size reference: the card is identical on every page and is never sized ad hoc.
+    - Width is a column of `ACTIVITY_GRID`. The horizontal rows on the list pages use `ACTIVITY_GRID_COLUMN`, which computes the same width from the page's `@container` wrapper, because those rows are narrower than the grid. Keep the two constants in sync.
+    - `/events` and `/student/events` are one component, `components/events/events-browser.tsx`; the pages only pass the prompt, subtitle and card links.
+      - On `lg+` the page body is itself a 3-column grid with `ACTIVITY_GRID`'s gap. The filter panel takes one column and the "ทั้งหมด" grid takes the other two (`lg:grid-cols-2`), so cards come out home-sized.
+      - Don't give the panel its own fixed width: cards would either change size or leave an empty strip. The user chose home-sized cards over the mockup's 3-per-row.
+    - Height is fixed by fixed inner slots, not a fixed total. The text block holds 1 title line plus 1 description line; a 2-line title fills it and hides the description. The registration-window row keeps its space even when it is empty.
+  - **Auth pages:** `/auth` (login/register) and `/auth/organizer/register` share `components/auth/auth-shell.tsx`.
+    - It provides a two-panel card (denim aside with checker strip, white form side) plus the shared inputs, the password field with show/hide, and the heading.
+    - The aside hides below `lg`, so each page shows its own back link on the form side.
+    - Mascots are PNGs (`mascot-wave.png`, `mascot-laptop.png`). Convert Canva SVG exports to PNG first: they wrap base64 rasters, and `next/image` can't resize SVG.
+  - **Activity/event detail page:** `components/activity/activity-registration-view.tsx` is the single page for every role.
+    - `mode="register"` serves students and guests, for both events and standalone activities. `mode="preview"` serves the organizer's view-only pages.
+    - The pieces are the hero (`activity-detail-hero`: cover, title, WHEN/WHERE, round picker), the bottom bars (`activity-detail-bars`: every `describeAction` state) and the numbered sections plus sidebar (`activity-detail-sections`).
+    - Don't fork a role-specific copy; add a prop instead. The organizer views used to drift from the student page exactly that way.
+  - **Organizer management pages** (`/organizer/events/[id]`, `/organizer/activities/[id]`) share two pieces:
+    - `OrganizerActivityHero` (`components/organizer/organizer-activity-hero.tsx`).
+    - `ActivityParticipantManager`, which renders the stat card that overlaps the hero (`-mt-16`, so it must come right after the hero) and the tabs.
+    - The "ผู้เข้าร่วม" tab is one table, `activity-participants-table.tsx`. Each row's next step (ยืนยัน → เช็คอิน → ออกใบรับรอง, or the BARS shortcut) is inline. Everything else (contact, กยศ./ทุน, team, answers, certificate) is in the row's "ดูรายละเอียด" expander. There used to be a second, longer list; don't bring it back.
+    - Stat counts exclude cancelled registrations, as on the activity dashboard.
+  - **`sr-only` inside a horizontal scroller needs a `relative` parent inside the scroller.** `sr-only` is `position:absolute`, so if its containing block is outside the `overflow-x-auto` box it escapes the clipping and widens the page on phones (the sub-activity pills did this).
+  - **Card covers (`CardCover`, used by every denim card):**
+    - When the organizer attached an image, the cover shows that photo. For an event, `eventImagePath` picks the event cover, otherwise the earliest sub-activity's image.
+    - When there is no image, or it fails to load, the cover falls back to the theme pattern. The pattern always sits underneath, so a slow or broken image never leaves a blank cover.
+    - A navy gradient scrim plus a text shadow keep the white date and labels readable on bright photos. Check new overlay text against a near-white image.
+    - Card images are plain `<img loading="lazy">`, because uploads are served from the backend `/uploads` and do not go through Next's image optimizer. They count toward the Nginx `general` burst, so keep them lazy.
+  - `PageHeader` is the denim band used by list pages.
+  - Page-specific parts live in `components/organizer/*`, `components/home/*` (public `/`), `components/about/*` and `components/student/*`.
+  - **My activities (`/student/my-registrations`):** the four status cards and their counts both come from `registrationBucket` (`lib/registration-bucket.ts`), so a count always matches its list.
+    - An organizer-cancelled activity counts as **cancelled** even though its registration row stays `pending`/`confirmed`, because `cancelByOrganizer` doesn't touch registrations.
+    - A row with an evaluation stays **evaluated** even if the activity is cancelled later.
+- **Focus rings:** amber only on denim backgrounds. On white it is ~2:1, below the 3:1 a focus indicator needs, so use denim there.
+- **News:** both `/` and `/student` show text slides from `lib/news.ts`.
+
+**Request budget:** a cold page load (first visit or hard refresh) must stay well under the burst of Nginx's `general` zone (60), and font files count. Preload only the weights pages actually use — Sarabun used to preload 32 files on every page, which pushed `/organizer` to 72 requests; the trailing API calls got 429 and rendered as empty lists. Today a cold load is 40-53 requests with at most 11 font files. Measure with `performance.getEntriesByType('resource')` after a no-cache load. Weight counts too: `next/image` does not optimize SVGs, so raster art belongs in a PNG/JPG it can resize — the home hero's 20 MB `college.svg` (a photo wrapped in SVG) made the page 16.5 MB; `college-building.png` brought it to 1.4 MB.
 
 ## Commands
 
@@ -167,7 +218,7 @@ docker compose up --build      # Postgres, migrate (runs once), Backend, Fronten
 
 Services start in order: `postgres` (healthcheck) → `migrate` (runs to completion) → `backend` / `frontend` → `nginx`. Postgres is published on `127.0.0.1:5433` only, so it is not reachable from the local network.
 
-**`migrate` service:** applies `schema.prisma` to the database and exits; `backend` waits on `service_completed_successfully`. It runs from the `migrator` Docker stage, which is the only image carrying the Prisma CLI. Destructive schema changes fail unless `PRISMA_ACCEPT_DATA_LOSS=true` — the default refuses to drop columns silently at container start.
+**`migrate` service:** applies `schema.prisma` to the database and exits; `backend` waits on `service_completed_successfully`. It runs from the `migrator` Docker stage, which is the only image carrying the Prisma CLI. Destructive schema changes fail unless `PRISMA_ACCEPT_DATA_LOSS=true` — the default refuses to drop columns silently at container start. After `db push` it runs every `prisma/backfills/*.sql` (data repairs, e.g. the Bangkok-time fix-up). There is no migration history to remember what already ran, so each backfill runs on every start and **must be idempotent**. `*.sql` is otherwise gitignored (DB dumps carry real student data); only `prisma/migrations/` and `prisma/backfills/` are excepted, so never drop a dump into either.
 
 **Production image (`backend/Dockerfile`):** three stages — `builder` (full deps, `prisma generate` + `nest build`), `migrator` (`FROM builder`, runs `migrate.sh`), and `runner`. The runner installs with `npm ci --omit=dev --legacy-peer-deps`; the flag is load-bearing, not cosmetic: `@prisma/client` declares `prisma` as an *optional peerDependency*, so plain `--omit=dev` still drags the CLI (and its unused `mysql2` MySQL driver) into the production image. Verify this by hand after touching the Dockerfile or dependency split: install with `npm ci --omit=dev --legacy-peer-deps` in a scratch folder and confirm `node_modules/prisma` and `node_modules/mysql2` are absent. The runner ships only `dist/` — the compiled client lives at `dist/generated/`, so neither `prisma/` nor `generated/` is copied.
 
@@ -201,7 +252,9 @@ Requires `NEXT_PUBLIC_API_URL`: `same-origin` behind Nginx (Docker), or a full U
 - **Role & Guard Application:** Enforce route security using `@UseGuards(JwtAuthGuard, RolesGuard)` alongside `@Roles(...)`. Endpoints exposed on `admin.compactive.com` MUST strictly verify `UserRole.ADMIN`.
 - **Ownership checks belong in the service:** Controllers pass `callerId` and `callerRole` down; the service decides. The established shape is `if (callerRole !== UserRole.ADMIN && resource.organizerId !== callerId) throw new ForbiddenException(...)`. Keep it — a role check alone does not stop one organizer from editing another's activity.
 - **Evaluation visibility (360° mode):** an activity with `peerAssessmentEnabled` creates its `Evaluation` rows as `pending_approval` and students must not see those scores until the organizer approves them. Every student/public/admin reader of `Evaluation` filters with `APPROVED_ONLY` (`modules/shared/registrations/evaluation-visibility.util.ts`), and student-facing payloads that carry an `evaluation` object pass it through `maskUnapprovedEvaluation` (the row stays because the frontend treats "has an evaluation" as "checked in"; only the scores are zeroed). Organizer-facing readers deliberately do not filter. A row with an `EvaluationApproval` is locked — Batch Evaluation and `PATCH /evaluations/:registrationId` must not overwrite it; only the approval flow may.
+- **Event publishing (`Event.isPublic`) is enforced by `canViewerSeeEvent`** (`modules/shared/events/event-visibility.util.ts`), which adds the publish rule on top of the restricted-audience rule. Every public/student reader of events or activities, plus `RegistrationsService.create`, goes through it. An unpublished event is visible only to its own organizer (preview, and the organizer home reuses the public feed) and to admins; everyone else gets the same 404 as a missing record. It **fails closed** when `isPublic` was not loaded, so a query feeding it must select `isPublic` + `organizerId`. Queries with no viewer (Developer API newsfeed, chatbot) filter in SQL with `PUBLIC_EVENTS_ONLY`. `ActivitiesService.findById` is deliberately not gated (the owner-checked write paths use it); the public `GET /api/activities/:id` uses `findByIdPublic`, which also strips the organizer's email.
 - **Never `include: { student: true }` (or any bare `true` on a User relation):** it ships the whole User row, password hash and OTP included. Use `STUDENT_BASIC_SELECT` / `STUDENT_CONTACT_SELECT` from `common/constants/user-select.ts`; `user-select.spec.ts` fails the build if a bare include comes back.
+- **Thai wall-clock time goes through `common/utils/time.util.ts`:** the containers run in UTC, so `getHours()`, `toISOString().slice(0, 10)` or a bare `toLocale*String()` on a `Date` gives UTC values (a 09:30 activity was stored as `02:30`). Use `formatHHmm` / `bangkokDateOnly` / `bangkokParts`, pass `timeZone: APP_TIME_ZONE` to `toLocale*`, and append `APP_UTC_OFFSET` when parsing a stored `date` + `HH:mm`. Jest runs with `TZ=UTC` (`jest.global-setup.js`) so these bugs fail tests instead of hiding on a Thai-time laptop.
 - **Skill transcript = snapshot (`modules/shared/skill-transcripts/`):** the public `GET /api/skill-transcripts/verify/:code` returns the score snapshot frozen at issue time, never live scores, and only `name` + `studentId` of the holder (no email/phone/rank). A revoked transcript returns no snapshot. Build snapshots only from `findByStudentWithActivity` (already `APPROVED_ONLY`) and the shared `summarizeEvaluations`, so PDF numbers always match the dashboard.
 
 ## Security Conventions
@@ -217,3 +270,4 @@ These exist because each one closed a real hole. Follow them rather than re-deri
 - **Fail closed on misconfiguration.** Missing or placeholder `JWT_SECRET` aborts boot; SMTP verifies TLS certificates by default; destructive migrations require an explicit opt-in.
 - **Keep CLI-only tooling out of the production image.** If you add a build/migrate tool, it belongs in `devDependencies` and in the `migrator` stage. After touching `backend/Dockerfile` or the dependency split, verify manually — `npm ci --omit=dev --legacy-peer-deps` in a scratch folder — that no CLI-only package (`prisma`, `mysql2`, etc.) leaked into the production tree.
 - **Log security events without logging people.** Failed logins are recorded by user `id` and role, never by email — logs should not become the PII leak.
+- **Registration OTP proves the registrant, not just the inbox.** `register/verify-otp` is unauthenticated yet issues a session, so it rejects already-verified accounts outright (never "idempotently" logs them in — that was a full account takeover by email) and requires the emailed OTP **plus** the password stored on the pending row, committed with a compare-and-set (`markRegistrationVerified`). `register` may overwrite an unverified row so a typo'd email cannot squat an address; that is safe only because of the password binding.

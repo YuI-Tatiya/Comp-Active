@@ -1,4 +1,5 @@
 export * from "./programs";
+export * from "./titles";
 
 export const STUDENT_EMAIL_DOMAIN = "kkumail.com";
 
@@ -9,6 +10,8 @@ export const AUTH_ERRORS = {
   ORGANIZER_EXPIRED:
     "บัญชีผู้จัดกิจกรรมของคุณหมดอายุการใช้งาน กรุณาติดต่อเจ้าหน้าที่ดูแลระบบ Comp Active เพื่อต่ออายุการใช้งาน",
   ACCOUNT_BLOCKED: "บัญชีนี้ถูกระงับการใช้งาน",
+  ACCOUNT_NOT_VERIFIED:
+    "บัญชีนี้ยังไม่ได้ยืนยันอีเมล กรุณายืนยันรหัส OTP ที่ส่งไปตอนสมัครก่อนเข้าสู่ระบบ",
 } as const;
 
 export const ACADEMIC_ERRORS = {

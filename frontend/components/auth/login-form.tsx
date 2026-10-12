@@ -1,11 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { User, Lock, Loader2 } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
+import Link from "next/link"
+import { ArrowRight, AtSign, Loader2, User } from "lucide-react"
+import { AMBER_BUTTON } from "@/components/denim/denim-ui"
+import { AuthError, AuthIconInput, AuthLabel, AuthPasswordInput } from "@/components/auth/auth-shell"
+import { ACCOUNT_NOT_VERIFIED_HINT, useAuth } from "@/lib/auth-context"
+import { cn } from "@/lib/utils"
 
 export function LoginForm() {
     const { login } = useAuth()
@@ -34,61 +35,68 @@ export function LoginForm() {
         }
     }
 
+    const needsVerification = error.includes(ACCOUNT_NOT_VERIFIED_HINT)
+
     return (
-        // โครงเดียวกับ register-form เพื่อให้ปุ่มอยู่ตำแหน่งเดียวกันทั้ง 2 แท็บ
-        <form onSubmit={handleSubmit} className="flex min-h-full flex-col gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
             {error && (
-                <div className="bg-danger-bg border border-danger/20 text-danger text-sm rounded-lg p-3">
+                <AuthError>
                     {error}
-                </div>
+                    {needsVerification && (
+                        <Link
+                            href={`/auth/verify?email=${encodeURIComponent(identifier)}`}
+                            className="mt-1.5 block font-semibold underline underline-offset-4"
+                        >
+                            ไปหน้ายืนยัน OTP
+                        </Link>
+                    )}
+                </AuthError>
             )}
 
-            <div className="space-y-2">
-                <Label htmlFor="identifier">Username</Label>
-                <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-fg-subtle" />
-                    <Input
-                        id="identifier"
-                        type="text"
-                        className="pl-10"
-                        value={identifier}
-                        onChange={(e) => setIdentifier(e.target.value)}
-                        disabled={loading}
-                    />
-                </div>
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-fg-subtle" />
-                    <Input
-                        id="password"
-                        type="password"
-                        className="pl-10"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        disabled={loading}
-                    />
-                </div>
-            </div>
-            {/* ใช้โครงเดียวกับ register-form เพื่อให้ปุ่มอยู่ตำแหน่งเดียวกันทั้ง 2 แท็บ ไม่กระโดด */}
-            <div className="sticky bottom-0 -mx-6 mt-auto border-t border-border bg-bg px-6 py-4 sm:-mx-8 sm:px-8">
-                <Button
-                    type="submit"
-                    size="lg"
-                    className="w-full bg-gradient-to-r from-brand-500 to-brand-700 hover:opacity-90"
+            <div>
+                <AuthLabel htmlFor="identifier">Username</AuthLabel>
+                <AuthIconInput
+                    id="identifier"
+                    icon={User}
+                    type="text"
+                    autoComplete="username"
+                    placeholder="yourname@kkumail.com"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
                     disabled={loading}
-                >
-                    {loading ? (
-                        <>
-                            <Loader2 className="animate-spin" />
-                            กำลังเข้าสู่ระบบ...
-                        </>
-                    ) : (
-                        "เข้าสู่ระบบ"
-                    )}
-                </Button>
+                    aria-describedby="identifier-hint"
+                />
+                <p id="identifier-hint" className="mt-2 flex items-center gap-1.5 text-xs text-denim-muted">
+                    <AtSign className="size-3.5 shrink-0" aria-hidden="true" />
+                    นักศึกษา: กรอกอีเมล <strong className="font-semibold text-denim-deep">@kkumail.com</strong> ของคุณ
+                </p>
             </div>
+
+            <div>
+                <AuthLabel htmlFor="password">Password</AuthLabel>
+                <AuthPasswordInput
+                    id="password"
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                />
+            </div>
+
+            <button type="submit" disabled={loading} className={cn(AMBER_BUTTON, "mt-1 w-full disabled:cursor-wait disabled:opacity-80")}>
+                {loading ? (
+                    <>
+                        <Loader2 className="size-5 animate-spin" aria-hidden="true" />
+                        กำลังเข้าสู่ระบบ...
+                    </>
+                ) : (
+                    <>
+                        เข้าสู่ระบบ
+                        <ArrowRight className="size-5" aria-hidden="true" />
+                    </>
+                )}
+            </button>
         </form>
     )
 }

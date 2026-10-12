@@ -11,7 +11,8 @@ import { Toast } from "@/components/ui/toast"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { AlertTriangle, Loader2 } from "lucide-react"
 import { activitiesAPI, registrationsAPI, Activity, RegistrationAnswerBody } from "@/lib/api"
-import { resolveEventImageUrl } from "@/lib/event-image"
+import { eventImagePathFor } from "@/lib/event-image"
+import { referenceCode } from "@/components/denim/denim-ui"
 import { useAuth } from "@/lib/auth-context"
 import { formatActivitySchedule, pickMyRegistration } from "@/lib/activity-view"
 import { ActivityRegistrationView } from "@/components/activity/activity-registration-view"
@@ -142,11 +143,6 @@ export default function StudentActivityDetailsPage() {
         }
     }
 
-    const handleShare = () => {
-        navigator.clipboard.writeText(`${window.location.origin}/student/activities/${event?.id}`)
-        showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")
-    }
-
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault()
         setFormError("")
@@ -273,7 +269,8 @@ export default function StudentActivityDetailsPage() {
     return (
         <ActivityRegistrationView
             title={event.name}
-            imageUrl={resolveEventImageUrl(event)}
+            imagePath={eventImagePathFor(event)}
+            code={referenceCode("ACT", event.id)}
             organizerName={event.organizer?.name}
             activities={[event]}
             activeId={event.id}
@@ -281,8 +278,14 @@ export default function StudentActivityDetailsPage() {
             myRegistrations={myRegistrations}
             onRegister={openRegisterDialog}
             onCancel={() => setCancelConfirmOpen(true)}
+<<<<<<< HEAD
             onShare={handleShare}
             backHref={backHref}
+=======
+            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${event.id}`}
+            onShareCopied={() => showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")}
+            backHref="/student/events"
+>>>>>>> organize
         >
             <Dialog open={isRegisterOpen} onOpenChange={(open) => { setIsRegisterOpen(open); if (open) openRegisterDialog(); }}>
                 <DialogContent className="sm:max-w-[480px]">

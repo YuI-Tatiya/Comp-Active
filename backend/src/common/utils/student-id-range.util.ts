@@ -1,3 +1,5 @@
+import { bangkokParts } from './time.util';
+
 /**
  * รหัสนักศึกษาของวิทยาลัยการคอมพิวเตอร์มีรูปแบบ YY3380NNN-N (ดู STUDENT_ID_REGEX ใน common/constants)
  * โดย YY คือ 2 หลักท้ายของปี พ.ศ. ที่เข้าศึกษา (เช่น 65 = เข้าปี 2565)
@@ -63,8 +65,10 @@ export function currentYearLevel(studentId: string | null | undefined, now: Date
   const admissionYear = admissionYearFromStudentId(studentId);
   if (admissionYear === null) return null;
 
-  const currentBEYear = now.getFullYear() + 543;
-  const currentAcademicYear = now.getMonth() + 1 >= ACADEMIC_YEAR_ROLLOVER_MONTH ? currentBEYear : currentBEYear - 1;
+  // ปี/เดือนตามปฏิทินไทย ไม่ใช่ของ process (container เป็น UTC — คืนวันที่ 31 พ.ค. หลัง 17:00 จะยังไม่ข้ามปีการศึกษา)
+  const { year, month } = bangkokParts(now);
+  const currentBEYear = year + 543;
+  const currentAcademicYear = month >= ACADEMIC_YEAR_ROLLOVER_MONTH ? currentBEYear : currentBEYear - 1;
 
   const level = currentAcademicYear - admissionYear + 1;
   return level >= 1 ? level : null;

@@ -3,19 +3,25 @@
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Container } from "@/components/layout/container"
 import { formatEventDate } from "@/components/ui/event-card"
-import { Share2, ArrowLeft, Edit, CheckSquare, Loader2 } from "lucide-react"
+import { ShareMenu } from "@/components/ui/share-menu"
+import { Calendar, Edit, CheckSquare, Loader2, MapPin, XCircle } from "lucide-react"
 import Link from "next/link"
-import { activitiesAPI, isCancelledByOrganizer, Activity, API_BASE_URL } from "@/lib/api"
+import { activitiesAPI, isCancelledByOrganizer, Activity } from "@/lib/api"
 import { ActivityParticipantManager, type RegistrationRow } from "@/components/activity/activity-participant-manager"
-import { ActivityHeroCard } from "@/components/activity/activity-hero-card"
 import { EventSurveyResults } from "@/components/activity/event-survey-results"
-import { categoryLabel } from "@/lib/categories"
+import { categoryTag, referenceCode } from "@/components/denim/denim-ui"
+import {
+    HERO_DANGER_BUTTON,
+    HERO_OUTLINE_BUTTON,
+    HERO_PRIMARY_BUTTON,
+    HeroCoverPill,
+    OrganizerActivityHero,
+} from "@/components/organizer/organizer-activity-hero"
 
 export default function OrganizerActivityDetailsPage() {
     const params = useParams()
@@ -28,13 +34,6 @@ export default function OrganizerActivityDetailsPage() {
 
     const [isCancelOpen, setIsCancelOpen] = useState(false)
     const [cancelReason, setCancelReason] = useState("")
-
-    const handleShare = () => {
-        if (!event) return
-        const publicUrl = `${window.location.origin}/events/activities/${event.id}`
-        navigator.clipboard.writeText(publicUrl)
-        alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")
-    }
 
     useEffect(() => {
         if (id) fetchEventDetails(id)
@@ -123,7 +122,21 @@ export default function OrganizerActivityDetailsPage() {
         ? `/organizer/manage/${event.eventId}/edit`
         : `/organizer/activities/${event.id}/edit`
 
+    const cancelled = isCancelledByOrganizer(event.approvalStatus)
+    const tag = categoryTag(event.categories)
+    // สถานะบนปก — ยกเลิก > จบแล้ว > รออนุมัติ > เปิด/ปิดรับสมัคร
+    const statusPill = cancelled
+        ? { dot: "bg-red-500", label: "กิจกรรมถูกยกเลิก" }
+        : event.status === "completed"
+          ? { dot: "bg-slate-400", label: "จบแล้ว" }
+          : event.approvalStatus === "pending_approval"
+            ? { dot: "bg-amber", label: "รออนุมัติ" }
+            : event.status === "open"
+              ? { dot: "bg-emerald-500", label: "เปิดรับสมัคร" }
+              : { dot: "bg-slate-400", label: "ปิดรับสมัคร" }
+
     return (
+<<<<<<< HEAD
         <div className="bg-surface pb-12">
             <Container className="space-y-6 py-8">
                 <Link href="/organizer/manage" className="inline-flex items-center text-sm text-fg-muted transition-colors hover:text-fg">
@@ -179,9 +192,64 @@ export default function OrganizerActivityDetailsPage() {
 
                 <p className="text-fg-muted whitespace-pre-line">{event.description || "ไม่มีรายละเอียด"}</p>
 
+=======
+        <div className="bg-surface pb-16">
+            <OrganizerActivityHero
+                backHref="/organizer/manage"
+                prompt={`~/organizer/activities/${event.id} $ manage`}
+                imagePath={event.imageUrl}
+                imageAlt={event.name}
+                categories={event.categories}
+                pills={
+                    <>
+                        <HeroCoverPill dot={statusPill.dot}>{statusPill.label}</HeroCoverPill>
+                        {tag && <HeroCoverPill>{tag}</HeroCoverPill>}
+                    </>
+                }
+                byline="จัดโดยคุณ"
+                title={event.name}
+                description={event.description}
+                meta={[
+                    { icon: Calendar, label: `${formatEventDate(event.date)} · ${event.startTime}–${event.endTime} น.` },
+                    { icon: MapPin, label: event.location || "-" },
+                ]}
+                actions={
+                    <>
+                        {/* กิจกรรมย่อยของงานต้องแก้ผ่าน wizard ของงานแม่ (/organizer/manage/[eventId]/edit)
+                            เพราะข้อมูลอย่างแบบสำรวจ/วันปิดรับสมัคร/กลุ่มเป้าหมายอยู่ระดับงาน แก้ผ่านฟอร์มกิจกรรมเดี่ยวไม่ได้
+                            — ส่ง Event id ไม่ใช่ Activity id เข้า route นี้ ส่วนกิจกรรมเดี่ยวยังใช้ route ของตัวเองตามเดิม */}
+                        <Link href={editHref} className={HERO_PRIMARY_BUTTON}>
+                            <Edit className="size-4" aria-hidden="true" /> แก้ไขกิจกรรม
+                        </Link>
+                        {!cancelled && event.status !== "completed" && (
+                            <button type="button" onClick={handleMarkCompleted} disabled={submitting} className={HERO_OUTLINE_BUTTON}>
+                                <CheckSquare className="size-4" aria-hidden="true" /> จบกิจกรรม
+                            </button>
+                        )}
+                        <ShareMenu
+                            url={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${event.id}`}
+                            title={event.name}
+                            onCopied={() => alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")}
+                            variant="ghost"
+                            className={HERO_OUTLINE_BUTTON}
+                            label="แชร์กิจกรรม"
+                        />
+                    </>
+                }
+                danger={
+                    <button type="button" onClick={() => setIsCancelOpen(true)} disabled={cancelled} className={HERO_DANGER_BUTTON}>
+                        <XCircle className="size-4" aria-hidden="true" /> {cancelled ? "ยกเลิกแล้ว" : "ยกเลิกกิจกรรม"}
+                    </button>
+                }
+            />
+
+            <Container>
+>>>>>>> organize
                 <ActivityParticipantManager
                     activity={event}
                     onRefetch={() => fetchEventDetails(id, true)}
+                    scopeCode={referenceCode("ACT", event.id)}
+                    showActivityImage={false}
                 />
 
                 <EventSurveyResults

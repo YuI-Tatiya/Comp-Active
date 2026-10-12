@@ -25,6 +25,44 @@ export class AuthRepository {
     return this.prisma.user.create({ data: data as any });
   }
 
+  /**
+   * เขียนทับคำขอสมัครที่ยังไม่ยืนยัน — เงื่อนไข isVerified:false อยู่ใน where เดียวกับการเขียน
+   * บัญชีที่เพิ่งยืนยันเสร็จไปก่อนหน้าเสี้ยววินาทีจึงไม่ถูกดึงกลับเป็นไม่ยืนยัน (คืน null)
+   */
+  async overwritePendingRegistration(id: number, data: Record<string, any>) {
+    const { count } = await this.prisma.user.updateMany({
+      where: { id, isVerified: false },
+      data,
+    });
+    return count === 1 ? this.findUserById(id) : null;
+  }
+
+  /**
+   * ยืนยันการสมัครแบบ compare-and-set — สำเร็จเฉพาะเมื่อแถวยังเป็นคำขอเดิมที่เพิ่งตรวจ OTP + รหัสผ่านผ่าน
+   * (มีคนสมัครทับระหว่างนั้น = รหัสผ่าน/OTP บนแถวเปลี่ยนแล้ว → null) และล้าง OTP ทิ้งในการเขียนครั้งเดียวกัน
+   */
+  async markRegistrationVerified(
+    id: number,
+    passwordHash: string,
+    otp: string,
+  ) {
+    const { count } = await this.prisma.user.updateMany({
+      where: {
+        id,
+        isVerified: false,
+        password: passwordHash,
+        verificationOtp: otp,
+      },
+      data: {
+        isVerified: true,
+        verificationOtp: null,
+        verificationOtpExpiresAt: null,
+        verificationOtpAttempts: 0,
+      },
+    });
+    return count === 1 ? this.findUserById(id) : null;
+  }
+
   findAdminInviteByTokenHash(tokenHash: string) {
     return this.prisma.adminInvite.findUnique({ where: { tokenHash } });
   }

@@ -20,4 +20,12 @@ else
   npx prisma db push
 fi
 
+# ซ่อมข้อมูลหลังปรับ schema — ทุกไฟล์ใน prisma/backfills ต้องปลอดภัยต่อการรันซ้ำ (idempotent) เพราะรันทุกครั้งที่
+# container นี้สตาร์ท (โปรเจกต์ใช้ db push ไม่มีประวัติ migration ให้จำว่าไฟล์ไหนรันไปแล้ว)
+for f in prisma/backfills/*.sql; do
+  [ -e "$f" ] || continue
+  echo "[migrate] backfill: $f"
+  npx prisma db execute --file "$f"
+done
+
 echo "[migrate] เรียบร้อย"

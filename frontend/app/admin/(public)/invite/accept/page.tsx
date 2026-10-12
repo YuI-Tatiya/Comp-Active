@@ -55,34 +55,34 @@ function AcceptInviteForm() {
     }
 
     return (
-        <div className="min-h-screen bg-blue-50/30 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-denim-paper flex items-center justify-center p-4">
             <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden p-8">
                 {loadState === "loading" && (
                     <div className="flex flex-col items-center py-10 text-center">
-                        <Loader2 className="w-8 h-8 animate-spin text-slate-500 mb-4" />
-                        <p className="text-slate-500">กำลังตรวจสอบคำเชิญ...</p>
+                        <Loader2 className="w-8 h-8 animate-spin text-fg-muted mb-4" />
+                        <p className="text-fg-muted">กำลังตรวจสอบคำเชิญ...</p>
                     </div>
                 )}
 
                 {loadState === "invalid" && (
                     <div className="flex flex-col items-center py-10 text-center">
-                        <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-5">
-                            <XCircle className="w-8 h-8 text-red-600" />
+                        <div className="w-16 h-16 rounded-full bg-danger-bg flex items-center justify-center mb-5">
+                            <XCircle className="w-8 h-8 text-danger" />
                         </div>
-                        <h2 className="text-xl font-bold text-gray-900 mb-2">ลิงก์ไม่ถูกต้องหรือหมดอายุแล้ว</h2>
-                        <p className="text-gray-500 text-sm">กรุณาติดต่อผู้ดูแลระบบเพื่อขอคำเชิญใหม่</p>
+                        <h2 className="text-xl font-bold text-fg mb-2">ลิงก์ไม่ถูกต้องหรือหมดอายุแล้ว</h2>
+                        <p className="text-fg-muted text-sm">กรุณาติดต่อผู้ดูแลระบบเพื่อขอคำเชิญใหม่</p>
                     </div>
                 )}
 
                 {loadState === "valid" && submitState === "done" && (
                     <div className="flex flex-col items-center py-10 text-center">
-                        <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-5">
-                            <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                        <div className="w-16 h-16 rounded-full bg-success-bg flex items-center justify-center mb-5">
+                            <CheckCircle2 className="w-8 h-8 text-success" />
                         </div>
-                        <h2 className="text-xl font-bold text-gray-900 mb-2">ตั้งรหัสผ่านสำเร็จ</h2>
-                        <p className="text-gray-500 text-sm mb-6">บัญชี Admin ของคุณพร้อมใช้งานแล้ว</p>
+                        <h2 className="text-xl font-bold text-fg mb-2">ตั้งรหัสผ่านสำเร็จ</h2>
+                        <p className="text-fg-muted text-sm mb-6">บัญชี Admin ของคุณพร้อมใช้งานแล้ว</p>
                         <Link href="/login" className="w-full">
-                            <Button className="w-full bg-slate-800 hover:bg-slate-900">เข้าสู่ระบบ</Button>
+                            <Button className="w-full">เข้าสู่ระบบ</Button>
                         </Link>
                     </div>
                 )}
@@ -90,16 +90,16 @@ function AcceptInviteForm() {
                 {loadState === "valid" && submitState !== "done" && (
                     <>
                         <div className="text-center mb-8">
-                            <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                                <ShieldCheck className="w-7 h-7 text-slate-700" />
+                            <div className="w-14 h-14 rounded-full bg-surface-2 flex items-center justify-center mx-auto mb-4">
+                                <ShieldCheck className="w-7 h-7 text-fg" />
                             </div>
-                            <h2 className="text-xl font-bold text-gray-900 mb-1">ตั้งรหัสผ่าน Admin</h2>
-                            <p className="text-gray-500 text-sm">สำหรับบัญชี <span className="font-medium text-slate-700">{email}</span></p>
+                            <h2 className="text-xl font-bold text-fg mb-1">ตั้งรหัสผ่าน Admin</h2>
+                            <p className="text-fg-muted text-sm">สำหรับบัญชี <span className="font-medium text-fg">{email}</span></p>
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
                             {error && (
-                                <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg p-3">
+                                <div className="bg-danger-bg border border-danger/20 text-danger text-sm rounded-lg p-3">
                                     {error}
                                 </div>
                             )}
@@ -107,7 +107,7 @@ function AcceptInviteForm() {
                             <div className="space-y-2">
                                 <Label htmlFor="password">รหัสผ่านใหม่</Label>
                                 <div className="relative">
-                                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Lock className="absolute left-3 top-3 h-4 w-4 text-fg-subtle" />
                                     <Input
                                         id="password"
                                         type="password"
@@ -122,7 +122,7 @@ function AcceptInviteForm() {
                             <div className="space-y-2">
                                 <Label htmlFor="confirm-password">ยืนยันรหัสผ่าน</Label>
                                 <div className="relative">
-                                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Lock className="absolute left-3 top-3 h-4 w-4 text-fg-subtle" />
                                     <Input
                                         id="confirm-password"
                                         type="password"
@@ -135,7 +135,7 @@ function AcceptInviteForm() {
                                 </div>
                             </div>
 
-                            <Button type="submit" className="w-full bg-slate-800 hover:bg-slate-900" disabled={submitState === "submitting"}>
+                            <Button type="submit" className="w-full" disabled={submitState === "submitting"}>
                                 {submitState === "submitting" ? (
                                     <>
                                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />

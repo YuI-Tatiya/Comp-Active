@@ -1,9 +1,8 @@
 "use client"
 
 import { useRef } from "react"
-import { CalendarClock, CheckCircle2, Users } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import type { SessionTag } from "@/lib/activity-view"
+import { Check } from "lucide-react"
+import { roundLabel, type SessionTag } from "@/lib/activity-view"
 import { cn } from "@/lib/utils"
 
 export interface SessionItem {
@@ -12,17 +11,18 @@ export interface SessionItem {
     tag: SessionTag
     /** "10 ม.ค. · 09:00–12:00 น." */
     schedule: string
-    /** "เหลือ 12/40" */
+    /** "ไม่จำกัด" / "เหลือ 12/40" / "เต็มแล้ว" (seatInfo().shortLabel) */
     seats: string
 }
 
-const TAG_BADGE: Partial<Record<SessionTag, { label: string; className: string }>> = {
-    attended: { label: "เข้าร่วมแล้ว", className: "bg-info-bg text-info" },
-    registered: { label: "✓ ลงทะเบียนแล้ว", className: "bg-success-bg text-success-fg" },
-    pending: { label: "รอยืนยัน", className: "bg-warning-bg text-warning" },
-    low: { label: "เหลือน้อย", className: "bg-warning-bg text-warning" },
-    full: { label: "เต็มแล้ว", className: "bg-surface-2 text-fg-muted" },
-    closed: { label: "ปิดรับสมัคร", className: "bg-surface-2 text-fg-muted" },
+/** ป้ายสถานะบนการ์ดรอบ — คู่สีสำหรับพื้นขาว (light) และการ์ดที่ถูกเลือกซึ่งเป็นพื้นกรมท่า (dark) */
+const TAG_BADGE: Partial<Record<SessionTag, { label: string; light: string; dark: string }>> = {
+    attended: { label: "เข้าร่วมแล้ว", light: "bg-sky-50 text-sky-800", dark: "bg-sky-300/20 text-sky-100" },
+    registered: { label: "✓ ลงทะเบียนแล้ว", light: "bg-emerald-50 text-emerald-800", dark: "bg-emerald-300/20 text-emerald-100" },
+    pending: { label: "รอยืนยัน", light: "bg-amber/15 text-amber-ink", dark: "bg-amber/25 text-amber" },
+    low: { label: "เหลือน้อย", light: "bg-amber/15 text-amber-ink", dark: "bg-amber/25 text-amber" },
+    full: { label: "เต็มแล้ว", light: "bg-denim-chip text-denim-muted", dark: "bg-white/15 text-denim-on" },
+    closed: { label: "ปิดรับสมัคร", light: "bg-denim-chip text-denim-muted", dark: "bg-white/15 text-denim-on" },
 }
 
 interface SessionSelectorProps {
@@ -32,9 +32,9 @@ interface SessionSelectorProps {
 }
 
 /**
- * เลือกกิจกรรมที่จะสมัคร — เห็นสถานะของทุกกิจกรรมโดยไม่ต้องกดเข้าไปดู (เต็ม/ปิด/สมัครแล้ว/รอยืนยัน)
- * เป็น radio group จริง: ลูกศรซ้าย-ขวา/ขึ้น-ลงเลื่อนได้ และกิจกรรมที่เต็ม/ปิดแล้วยังกดดูรายละเอียดได้
- * (จางลงแต่ไม่ถูกปิดใช้งาน เพราะนักศึกษาอาจแค่อยากดูว่าจัดเมื่อไหร่)
+ * เลือกรอบที่จะสมัคร (การ์ด ROUND_01, ROUND_02, … เรียงตามที่ผู้จัดสร้าง) — เห็นสถานะของทุกรอบโดยไม่ต้องกดเข้าไปดู
+ * (เต็ม/ปิด/สมัครแล้ว/รอยืนยัน) เป็น radio group จริง: ลูกศรซ้าย-ขวา/ขึ้น-ลงเลื่อนได้ และรอบที่เต็ม/ปิดแล้วยังกดดู
+ * รายละเอียดได้ (จางลงแต่ไม่ถูกปิดใช้งาน เพราะนักศึกษาอาจแค่อยากดูว่าจัดเมื่อไหร่)
  */
 export function SessionSelector({ sessions, activeId, onSelect }: SessionSelectorProps) {
     const refs = useRef<(HTMLButtonElement | null)[]>([])
@@ -56,11 +56,7 @@ export function SessionSelector({ sessions, activeId, onSelect }: SessionSelecto
     }
 
     return (
-        <div
-            role="radiogroup"
-            aria-label="เลือกกิจกรรมที่ต้องการสมัคร"
-            className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2"
-        >
+        <div role="radiogroup" aria-label="เลือกรอบกิจกรรมที่ต้องการสมัคร" className="grid gap-3 sm:grid-cols-2">
             {sessions.map((s, index) => {
                 const selected = s.id === activeId
                 const badge = TAG_BADGE[s.tag]
@@ -79,27 +75,31 @@ export function SessionSelector({ sessions, activeId, onSelect }: SessionSelecto
                         onClick={() => onSelect(s.id)}
                         onKeyDown={(e) => onKeyDown(e, index)}
                         className={cn(
-                            "relative flex min-w-[220px] max-w-[300px] flex-1 shrink-0 snap-start flex-col gap-2 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2",
+                            "relative flex min-h-[7.5rem] flex-col gap-1.5 rounded-2xl border-[1.5px] p-4 text-left transition-[background-color,border-color,box-shadow] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim",
                             selected
-                                ? "border-2 border-brand-600 bg-brand-50 shadow-sm"
-                                : "border-border bg-bg hover:border-brand-300",
+                                ? "border-denim-deep bg-denim-deep text-white shadow-[0_12px_28px_-16px_rgb(18_34_61/0.8)]"
+                                : "border-denim-line bg-white text-denim-deep hover:border-denim-dash",
                             dimmed && !selected && "opacity-70"
                         )}
                     >
-                        <div className="flex items-start justify-between gap-2">
-                            <span className="line-clamp-2 text-sm font-bold text-fg">{s.name}</span>
-                            {selected && <CheckCircle2 className="size-5 shrink-0 text-brand-600" aria-hidden="true" />}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs text-fg-muted">
-                            <CalendarClock className="size-3.5 shrink-0" aria-hidden="true" />
-                            <span className="truncate">{s.schedule}</span>
-                        </div>
-                        <div className="mt-auto flex items-center justify-between gap-2">
-                            <span className="flex items-center gap-1.5 text-xs text-fg-muted">
-                                <Users className="size-3.5 shrink-0" aria-hidden="true" /> {s.seats}
+                        <span className={cn("font-code text-[11px] font-semibold tracking-[0.06em]", selected ? "text-amber" : "text-denim-accent")}>
+                            {roundLabel(index)}
+                        </span>
+                        {selected && (
+                            <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full bg-amber text-denim-deep" aria-hidden="true">
+                                <Check className="size-3.5" strokeWidth={3} />
                             </span>
-                            {badge && <Badge className={cn("shrink-0", badge.className)}>{badge.label}</Badge>}
-                        </div>
+                        )}
+                        <span className="line-clamp-2 pr-7 text-sm font-semibold leading-snug">{s.name}</span>
+                        <span className={cn("text-xs", selected ? "text-denim-on" : "text-denim-muted")}>{s.schedule}</span>
+                        <span className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
+                            <span className={cn("text-xs", selected ? "text-denim-on" : "text-denim-muted")}>ที่นั่ง{s.seats}</span>
+                            {badge && (
+                                <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", selected ? badge.dark : badge.light)}>
+                                    {badge.label}
+                                </span>
+                            )}
+                        </span>
                     </button>
                 )
             })}

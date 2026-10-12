@@ -2,72 +2,27 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
-import type { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import { Toast } from "@/components/ui/toast"
-import { Container } from "@/components/layout/container"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
-import { formatEventDate } from "@/components/ui/event-card"
-import { cn } from "@/lib/utils"
-import { Calendar, Clock, MapPin, Users, Share2, ArrowLeft, AlertTriangle, Loader2, CalendarClock, Layers } from "lucide-react"
-import Link from "next/link"
-import { eventsAPI, isUnlimitedCapacity, EventSummary } from "@/lib/api"
-import { resolveEventImageUrl } from "@/lib/event-image"
-import {
-    ActivityAboutPanel,
-    ActivityRegistrationPanel,
-    ActivityRewardsPanel,
-} from "@/components/activity/activity-info-panels"
+import { AlertTriangle, Loader2 } from "lucide-react"
+import { eventsAPI, EventSummary } from "@/lib/api"
+import { eventImagePathFor } from "@/lib/event-image"
+import { referenceCode } from "@/components/denim/denim-ui"
+import { ActivityRegistrationView } from "@/components/activity/activity-registration-view"
 
 type EventActivity = EventSummary["activities"][number]
 
-function formatDateTime(iso: string | null | undefined): string {
-    if (!iso) return "-"
-    const d = new Date(iso)
-    if (Number.isNaN(d.getTime())) return "-"
-    return d.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })
-}
-
-const QUICK_FACT_TONES = {
-    brand: "bg-brand-50 text-brand-600",
-    success: "bg-success-bg text-success",
-    warning: "bg-warning-bg text-warning",
-    danger: "bg-danger-bg text-danger",
-} as const
-
-/** การ์ดข้อมูลย่อยขนาดเท่ากัน 4 ช่อง — วันที่/เวลา/สถานที่/ที่นั่งเหลือ */
-function QuickFact({
-    icon: Icon,
-    label,
-    value,
-    tone = "brand",
-}: {
-    icon: LucideIcon
-    label: string
-    value: React.ReactNode
-    tone?: keyof typeof QUICK_FACT_TONES
-}) {
-    return (
-        <div className="rounded-2xl border border-border bg-bg p-4 shadow-xs">
-            <div className={cn("mb-3 flex size-10 items-center justify-center rounded-xl", QUICK_FACT_TONES[tone])}>
-                <Icon className="size-5" aria-hidden="true" />
-            </div>
-            <div className="text-xs text-fg-muted">{label}</div>
-            <div
-                className="mt-0.5 truncate text-sm font-semibold text-fg"
-                title={typeof value === "string" ? value : undefined}
-            >
-                {value}
-            </div>
-        </div>
-    )
-}
-
-/** หน้ารายละเอียดงานสำหรับผู้เยี่ยมชมทั่วไป (ไม่ต้องล็อกอิน) — คู่กับ /student/events/[id] */
+/**
+ * หน้ารายละเอียดงานสำหรับผู้เยี่ยมชมทั่วไป (ไม่ต้องล็อกอิน) — คู่กับ /student/events/[id]
+ *
+ * ใช้ ActivityRegistrationView ชุดเดียวกับฝั่งนักศึกษา (เดิมหน้านี้มีหน้าตาของตัวเองแยกต่างหาก
+ * ก่อนที่ /student/events/[id] จะย้ายไปใช้คอมโพเนนต์ร่วมนี้ ทำให้สองหน้าเพี้ยนออกจากกัน) ต่างกันแค่
+ * myRegistrations เป็น [] เสมอ (ผู้เยี่ยมชมไม่เคยลงทะเบียนอะไรเลย — describeAction จึงตกไปที่
+ * เส้นทาง "ยังไม่ได้สมัคร" เองโดยอัตโนมัติ ไม่ต้องเขียนเงื่อนไขแยก) และ onRegister พาไปหน้า login
+ * แทนที่จะเปิดฟอร์มลงทะเบียนจริง — ปุ่ม "ยกเลิกการลงทะเบียน" จึงไม่มีทางถูกกดได้ (ไม่มี mine ให้ตรงเงื่อนไข)
+ */
 export default function PublicEventDetailsPage() {
     const params = useParams()
     const router = useRouter()
@@ -93,16 +48,6 @@ export default function PublicEventDetailsPage() {
         toastTimer.current = setTimeout(() => setToast((prev) => ({ ...prev, open: false })), 2500)
     }
 
-    const handleShare = () => {
-        navigator.clipboard.writeText(`${window.location.origin}/events/${event?.id}`)
-        showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")
-    }
-
-    const handleRegisterClick = () => {
-        alert("กรุณาเข้าสู่ระบบก่อนทำการลงทะเบียน")
-        router.push("/auth")
-    }
-
     useEffect(() => {
         if (params.id) {
             fetchEventDetails(Number(params.id))
@@ -123,7 +68,10 @@ export default function PublicEventDetailsPage() {
         }
     }
 
-    const activeActivity: EventActivity | undefined = event?.activities.find((a) => a.id === activeActivityId)
+    const handleRegisterClick = () => {
+        alert("กรุณาเข้าสู่ระบบก่อนทำการลงทะเบียน")
+        router.push("/auth")
+    }
 
     if (loading) {
         return (
@@ -155,18 +103,12 @@ export default function PublicEventDetailsPage() {
         )
     }
 
-    const capacity = activeActivity?.capacity ?? null
-    const registeredCount = activeActivity?.registeredCount ?? 0
-    const unlimited = isUnlimitedCapacity(capacity)
-    const seatsRemaining = !unlimited && capacity ? Math.max(capacity - registeredCount, 0) : null
-    const percent = !unlimited && capacity ? Math.min((registeredCount / capacity) * 100, 100) : 0
-    const urgency: "success" | "warning" | "danger" = percent >= 100 ? "danger" : percent >= 80 ? "warning" : "success"
-    const urgencyBar = { success: "bg-success", warning: "bg-warning", danger: "bg-danger" }[urgency]
-    const urgencyText = { success: "text-fg-subtle", warning: "text-warning", danger: "text-danger" }[urgency]
+    const activeActivity: EventActivity | undefined = event.activities.find((a) => a.id === activeActivityId)
 
     return (
-        <div className="min-h-screen bg-surface font-sans flex flex-col">
+        <div className="flex min-h-screen flex-col bg-surface">
             <SiteHeader />
+<<<<<<< HEAD
 
             <Container className="py-8 flex-1 pb-12">
                 <div className="mb-6">
@@ -329,6 +271,29 @@ export default function PublicEventDetailsPage() {
 
             <Toast open={toast.open} message={toast.message} description={toast.description} />
 
+=======
+            <ActivityRegistrationView
+                title={event.name}
+                imagePath={eventImagePathFor(event, activeActivity)}
+                code={referenceCode("EVT", event.id)}
+                organizerName={activeActivity?.organizer?.name ?? event.activities[0]?.organizer?.name}
+                intro={event.description}
+                activities={event.activities}
+                activeId={activeActivityId}
+                onSelectActivity={setActiveActivityId}
+                registrationOpenAt={event.registrationOpenAt}
+                registrationCloseAt={event.registrationCloseAt}
+                myRegistrations={[]}
+                onRegister={handleRegisterClick}
+                onCancel={() => {}}
+                shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.id}`}
+                onShareCopied={() => showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")}
+                backHref="/events"
+                showActivityImage
+            >
+                <Toast open={toast.open} message={toast.message} description={toast.description} />
+            </ActivityRegistrationView>
+>>>>>>> organize
             <SiteFooter />
         </div>
     )

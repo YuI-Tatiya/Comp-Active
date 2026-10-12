@@ -1,4 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { verifyCheckinToken } from '../../../common/utils/checkin-token.util';
+import { APP_TIME_ZONE } from '../../../common/utils/time.util';
 import { RegistrationsRepository } from './registrations.repository';
 import { EvaluationsService } from './evaluation.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -11,7 +14,7 @@ import {
   SurveyQuestionType,
   RegistrationType,
 } from '../../../common/enums/status.enum';
-import { isViewerEligibleForEvent, type Viewer } from '../events/event-visibility.util';
+import { canViewerSeeEvent, type Viewer } from '../events/event-visibility.util';
 import { MailService } from '../mail/mail.service';
 import { maskUnapprovedEvaluation } from './evaluation-visibility.util';
 import { UserRole } from '../../../common/enums/role.enum';
@@ -51,6 +54,7 @@ export class RegistrationsService {
     private readonly evaluationsService: EvaluationsService,
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
+    private readonly config: ConfigService,
   ) {}
 
   async create(
@@ -65,8 +69,8 @@ export class RegistrationsService {
 
     if (!activity) throw new NotFoundException('ไม่พบกิจกรรม');
 
-    // Defense in depth — ป้องกันการ POST ตรงข้าม ID กิจกรรม restricted ที่ frontend ไม่ได้แสดงให้เห็น
-    if (!isViewerEligibleForEvent(viewer, (activity as any).event)) {
+    // Defense in depth — ป้องกันการ POST ตรงข้าม ID กิจกรรม restricted หรือของงานที่ไม่เผยแพร่ ที่ frontend ไม่ได้แสดงให้เห็น
+    if (!canViewerSeeEvent(viewer, (activity as any).event)) {
       throw new NotFoundException('ไม่พบกิจกรรม');
     }
 
@@ -292,7 +296,7 @@ export class RegistrationsService {
         full.student.email,
         full.student.name,
         full.activity.name,
-        new Date(full.activity.date).toLocaleDateString('th-TH', { dateStyle: 'long' }),
+        new Date(full.activity.date).toLocaleDateString('th-TH', { dateStyle: 'long', timeZone: APP_TIME_ZONE }),
         `${full.activity.startTime} - ${full.activity.endTime}`,
         full.activity.location,
       );
@@ -315,7 +319,7 @@ export class RegistrationsService {
    * เช็คอินด้วยตัวเอง — นักศึกษาสแกน QR code ที่ organizer แสดงหน้างาน แล้วเช็คอินเข้ากิจกรรมของตัวเองทันที
    * ไม่ต้องมี organizer คอยกดให้ ต่างจาก checkIn() ที่เป็นฝั่ง organizer กดแทน
    */
-  async checkInSelf(studentId: number, activityId: number) {
+  async checkInSelf(studentId: number, activityId: number, token: string) {
     const registration = await this.registrationsRepository.findActiveByStudentAndActivityWithSoftSkills(
       studentId,
       activityId,
@@ -325,9 +329,26 @@ export class RegistrationsService {
       throw new NotFoundException('ไม่พบการลงทะเบียนของคุณสำหรับกิจกรรมนี้ หรือถูกยกเลิกไปแล้ว');
     }
 
-    // สแกนซ้ำ (เช่น เน็ตหลุดตอนกดครั้งแรก) ต้องไม่ error — ถือว่าเช็คอินสำเร็จอยู่แล้ว
+    // สแกนซ้ำ (เช่น เน็ตหลุดตอนกดครั้งแรก) ต้องไม่ error — ถือว่าเช็คอินสำเร็จอยู่แล้ว ไม่ว่ากิจกรรมจะปิดเช็คอิน/จบไปแล้วหรือยัง
     if (registration.attendance === AttendanceStatus.ATTENDED) {
       return { ...registration, alreadyCheckedIn: true as const };
+    }
+
+    // ผู้จัดต้องกด "เปิดการเช็คอิน" ไว้ก่อนเสมอ — ปิดสวิตช์นี้เมื่อไร สแกนไม่ติดทันทีไม่ว่า token จะถูกหรือไม่
+    if (!registration.activity.selfCheckInEnabled) {
+      throw new BadRequestException('ผู้จัดยังไม่เปิดให้เช็คอินในขณะนี้ กรุณาติดต่อผู้จัดกิจกรรม');
+    }
+
+    // QR หมุนรหัสใหม่ทุก 5 นาที (ดู checkin-token.util.ts) — กันแคปภาพ/ส่งลิงก์ต่อให้คนที่ไม่ได้มาหน้างาน
+    const secret = this.config.get<string>('jwt.secret')!;
+    if (!verifyCheckinToken(secret, activityId, token)) {
+      throw new BadRequestException('QR code หมดอายุหรือไม่ถูกต้อง กรุณาสแกนใหม่อีกครั้ง');
+    }
+
+    // กัน QR/ลิงก์เก่าของกิจกรรมที่จบไปแล้ว (auto-complete ปิดให้อัตโนมัติเมื่อเลยเวลา หรือผู้จัดกดจบเอง) —
+    // เฉพาะทางนี้ (สแกนเอง ไม่มีผู้จัดยืนยันตัวตนคนเช็คอิน) เท่านั้น checkIn() ที่ผู้จัดกดแทนยังแก้ย้อนหลังได้ตามเดิม
+    if (registration.activity.status === ActivityStatus.COMPLETED) {
+      throw new BadRequestException('กิจกรรมนี้จบไปแล้ว ไม่สามารถเช็คอินได้');
     }
 
     const saved = await this.performCheckIn(registration);

@@ -1,5 +1,6 @@
 "use client"
 
+<<<<<<< HEAD
 import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -19,128 +20,24 @@ import {
     type FilterableItem,
 } from "@/lib/events-filter"
 import { CalendarDays, Compass, Loader2, Search, SlidersHorizontal, Users } from "lucide-react"
+=======
+import { EventsBrowser } from "@/components/events/events-browser"
+>>>>>>> organize
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 
-function nearestUpcomingActivity(ev: EventSummary) {
-    return [...ev.activities].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
+// ค่าคงที่ระดับโมดูล — EventsBrowser ใช้เป็น dependency ของ useMemo
+const HREFS = {
+    event: (id: number) => `/events/${id}`,
+    activity: (id: number) => `/events/activities/${id}`,
 }
 
-function eventRegisteredCount(ev: EventSummary): number {
-    return ev.activities.reduce((sum, a) => sum + (a.registeredCount ?? 0), 0)
-}
-
-function eventCapacity(ev: EventSummary): number | null {
-    if (ev.activities.some((a) => a.capacity == null)) return null
-    return ev.activities.reduce((sum, a) => sum + (a.capacity ?? 0), 0)
-}
-
-/** ที่นั่งคงเหลือรวมของงาน — null = ไม่จำกัด ใช้เรียงลำดับ "ที่นั่งเหลือมาก" */
-function seatsLeft(ev: EventSummary): number | null {
-    const cap = eventCapacity(ev)
-    if (cap == null) return null
-    return Math.max(cap - eventRegisteredCount(ev), 0)
-}
-
-function isOpen(ev: EventSummary): boolean {
-    return ev.activities.some((a) => a.status === "open")
-}
-
-function hasVolunteerCert(ev: EventSummary): boolean {
-    return ev.activities.some((a) => !!a.volunteerRole)
-}
-
-/** หมวดหมู่ทั้งหมดที่กิจกรรมย่อยของงานนี้ระบุไว้ — ใช้ให้การ์ดงานโผล่ในทุกหมวดที่เกี่ยวข้อง ไม่ใช่แค่หมวดเดียว */
-function eventCategories(ev: EventSummary): string[] {
-    return Array.from(new Set(ev.activities.flatMap((a) => a.categories)))
-}
-
-/** วันจัดกิจกรรมย่อยที่เร็วที่สุดของงาน — ใช้เรียงลำดับ "ใกล้ถึงก่อน" */
-function earliestDate(ev: EventSummary): number {
-    const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
-    return times.length ? Math.min(...times) : Number.POSITIVE_INFINITY
-}
-
-/** การ์ดข้อมูลรวมที่ใช้แสดงผล — งาน (หลายกิจกรรมย่อย) และกิจกรรมเดี่ยว normalize มาเป็นรูปแบบเดียวกัน */
-interface CardItem extends FilterableItem {
-    key: string
-    imageUrl?: string | null
-    description?: string | null
-    href: string
-}
-
-/** หน้ารายการงานสาธารณะ — จัดกลุ่มตามหมวดหมู่ เลื่อนซ้าย-ขวาได้ในแต่ละแถว (คู่กับ /student/events) */
+/** หน้ารายการกิจกรรมสาธารณะ — หน้าตาเดียวกับ /student/events (EventsBrowser) ต่างแค่ข้อความสำหรับผู้ที่ยังไม่ได้เข้าสู่ระบบ */
 export default function EventsPage() {
-    const [events, setEvents] = useState<EventSummary[]>([])
-    const [standalone, setStandalone] = useState<Activity[]>([])
-    const [loading, setLoading] = useState(true)
-    const [filters, setFilters] = useState<EventsFilterValues>(INITIAL_FILTERS)
-    const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
-
-    useEffect(() => {
-        loadEvents()
-    }, [])
-
-    async function loadEvents() {
-        try {
-            setLoading(true)
-            // ดึงกิจกรรมเดี่ยว (eventId = null) มาด้วย ไม่งั้นกิจกรรมรุ่นเก่าจะหายไปจากสายตาผู้เยี่ยมชม
-            const [eventData, activityData] = await Promise.all([
-                eventsAPI.getAllPublic(),
-                activitiesAPI.getAll().catch(() => [] as Activity[]),
-            ])
-            setEvents(Array.isArray(eventData) ? eventData : [])
-            setStandalone(Array.isArray(activityData) ? activityData.filter((a) => !a.eventId) : [])
-        } catch (err) {
-            console.error(err)
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    function resetFilters() {
-        setFilters(INITIAL_FILTERS)
-    }
-
-    const allItems = useMemo<CardItem[]>(() => {
-        const fromEvents = events.map((ev): CardItem => {
-            const fa = nearestUpcomingActivity(ev)
-            return {
-                key: `event-${ev.id}`,
-                name: ev.name,
-                imageUrl: ev.imageUrl ?? fa?.imageUrl,
-                description: ev.description,
-                categories: eventCategories(ev),
-                status: isOpen(ev) ? "open" : "closed",
-                href: `/events/${ev.id}`,
-                searchText: [ev.name, ...ev.activities.map((a) => a.name)].join(" ").toLowerCase(),
-                sortDate: earliestDate(ev),
-                createdAt: new Date(ev.createdAt).getTime(),
-                seats: seatsLeft(ev),
-                hasCert: hasVolunteerCert(ev),
-            }
-        })
-
-        const fromStandalone = standalone.map((a): CardItem => ({
-            ...activityFilterFields(a),
-            key: `activity-${a.id}`,
-            imageUrl: a.imageUrl,
-            description: a.description,
-            href: `/events/activities/${a.id}`,
-        }))
-
-        return [...fromEvents, ...fromStandalone]
-    }, [events, standalone])
-
-    const filteredAndSorted = useMemo(() => filterAndSortItems(allItems, filters), [allItems, filters])
-
-    const groupedByCategory = useMemo(() => groupByCategory(filteredAndSorted), [filteredAndSorted])
-
-    const totalCount = filteredAndSorted.length
-
     return (
-        <div className="min-h-screen bg-surface font-sans flex flex-col">
+        <div className="flex min-h-screen flex-col bg-surface font-sans">
             <SiteHeader />
+<<<<<<< HEAD
 
             {/* หัวเรื่องแบบเดียวกับ /student/events — ข้อความสำหรับผู้เยี่ยมชมที่ยังไม่ได้เข้าสู่ระบบ */}
             <PageHeader
@@ -243,6 +140,15 @@ export default function EventsPage() {
                 </div>
             </Container>
 
+=======
+            <main className="flex-1">
+                <EventsBrowser
+                    prompt="~/comp-active $ ls events/"
+                    subtitle="สำรวจกิจกรรมของวิทยาลัยการคอมพิวเตอร์ได้โดยไม่ต้องเข้าสู่ระบบ หากต้องการลงทะเบียนเข้าร่วมและสะสมคะแนน Soft Skills กรุณาเข้าสู่ระบบด้วยบัญชีนักศึกษา"
+                    hrefs={HREFS}
+                />
+            </main>
+>>>>>>> organize
             <SiteFooter />
         </div>
     )
