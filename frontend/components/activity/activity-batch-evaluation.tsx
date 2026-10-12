@@ -13,7 +13,7 @@ import { SoftSkillRubricLink } from "./soft-skill-rubric-link"
 
 type Scores = Record<string, number>
 
-const isTier = (v: number | undefined): v is 1 | 2 | 3 => v === 1 || v === 2 || v === 3
+const isTier = (v: number | undefined): v is 2 | 3 | 5 => v === 2 || v === 3 || v === 5
 
 interface Props {
     activityId: number
@@ -22,7 +22,7 @@ interface Props {
 }
 
 /**
- * ประเมินรายฝ่าย (Batch & Exception) สำหรับกิจกรรม Tier 3
+ * ประเมินรายฝ่าย (Batch & Exception) สำหรับกิจกรรมสตาฟฟ์ Tier 3
  * ตั้งระดับของทั้งฝ่ายในคลิกเดียว แล้วแก้เฉพาะคนที่เป็นข้อยกเว้น (ต้องมีเหตุผลเสมอ)
  * กิจกรรมที่ไม่เข้าเงื่อนไข server จะบอกมาเองว่า eligible=false — หน้านี้แค่แสดงเหตุผล ไม่ตัดสินเอง
  */

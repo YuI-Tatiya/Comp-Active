@@ -12,7 +12,7 @@ interface Props {
 const RADIO_CLASS = "mt-0.5 size-4 shrink-0 border-border text-brand-600 focus:ring-brand-500"
 
 /**
- * เลือกรูปแบบการประเมินของกิจกรรม Tier 3: ผู้จัดประเมินฝั่งเดียว หรือประเมินรอบด้าน (นักศึกษาประเมินตนเอง + เพื่อน)
+ * เลือกรูปแบบการประเมินของกิจกรรมสตาฟฟ์ Tier 3: ผู้จัดประเมินฝั่งเดียว หรือประเมินรอบด้าน (นักศึกษาประเมินตนเอง + เพื่อน)
  * เลือกแล้วบันทึกทันที — server เป็นผู้ตัดสินว่ากิจกรรมนี้เข้าเงื่อนไขหรือไม่ (ไม่เข้าเงื่อนไข: ไม่แสดงอะไร
  * เพราะหน้าประเมินรายฝ่ายด้านล่างแสดงเหตุผลอยู่แล้ว)
  *
@@ -83,7 +83,7 @@ export function ActivityAssessmentMode({ activityId }: Props) {
         <section className="space-y-4 rounded-2xl border border-border bg-bg p-5">
             <div>
                 <h3 className="text-sm font-bold text-fg">รูปแบบการประเมิน</h3>
-                <p className="mt-0.5 text-xs text-fg-muted">เลือกว่าคะแนนของผู้เข้าร่วมมาจากผู้จัดคนเดียว หรือมีเสียงของนักศึกษาด้วย</p>
+                <p className="mt-0.5 text-xs text-fg-muted">เลือกว่าคะแนนของสตาฟฟ์มาจากผู้จัดคนเดียว หรือมีเสียงของนักศึกษาด้วย</p>
             </div>
 
             <div className="space-y-3">

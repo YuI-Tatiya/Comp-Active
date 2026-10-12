@@ -20,8 +20,6 @@ export interface EventFormState {
     imageFile: File | null
     imagePreview: string | null
     isPublic: boolean
-    // <input type="datetime-local"> value — ว่าง = ไม่กำหนดวันเปิดรับสมัคร (เปิดทันทีที่เผยแพร่)
-    registrationOpenAt: string
     // <input type="datetime-local"> value — ว่าง = ไม่กำหนดวันปิดรับสมัคร
     registrationCloseAt: string
     surveyQuestions: BuilderQuestion[]
@@ -89,7 +87,6 @@ export function createEmptyEvent(): EventFormState {
         imageFile: null,
         imagePreview: null,
         isPublic: true,
-        registrationOpenAt: "",
         registrationCloseAt: "",
         // ค่าเริ่มต้นของแบบสำรวจ — แก้ไข/ลบ/เพิ่มได้ทั้งหมดในขั้นตอนที่ 3
         surveyQuestions: [
@@ -183,7 +180,7 @@ export function duplicateActivity(source: ActivityFormState): ActivityFormState 
     }
 }
 
-export type EventFormErrors = Partial<Record<"name" | "description" | "registrationCloseAt", string>>
+export type EventFormErrors = Partial<Record<"name" | "description", string>>
 
 export type ActivityFormErrors = Partial<Record<
     "name" | "categories" | "description" | "startAt" | "endAt" | "location" | "capacity"

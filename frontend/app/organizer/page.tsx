@@ -76,17 +76,17 @@ interface CardItem {
   registeredCount: number
 }
 
-/** สถานะแยกเป็นแท็บทรงแคปซูลต่างหาก (เหมือน /organizer/manage) ไม่ใช่ dropdown ในชุดตัวกรอง —
- *  ตัวกรองที่เหลือ 5 ตัวพอดีกับ auto-fill grid แถวเดียวที่ xl+ ถ้ายัด status เป็นตัวที่ 6 เข้าไปด้วย
- *  จะดันให้ grid ล้นไปอีกแถว แล้ว items-end จะดันช่องค้นหาลงไปเรียงกับแถวที่ล้นนั้นแทน ดูเหมือนหน้าตาพัง */
-const STATUS_TABS: { value: string; label: string }[] = [
-  { value: "", label: "ทั้งหมด" },
-  { value: "open", label: "เปิดรับสมัคร" },
-  { value: "closed", label: "ปิดแล้ว" },
-  { value: "cancelled", label: "ยกเลิก" },
-]
-
 const FILTERS: FilterSpec[] = [
+  {
+    key: "status",
+    label: "สถานะ",
+    options: [
+      { value: "", label: "ทั้งหมด" },
+      { value: "open", label: "เปิดรับสมัคร" },
+      { value: "closed", label: "ปิดแล้ว" },
+      { value: "cancelled", label: "ยกเลิก" },
+    ],
+  },
   {
     key: "visibility",
     label: "การเผยแพร่",
@@ -222,13 +222,6 @@ export default function OrganizerDashboardPage() {
     return [...fromEvents, ...fromStandalone]
   }, [events, standaloneActivities])
 
-  /** จำนวนรายการต่อแท็บสถานะ — นับจาก allItems ดิบ (ไม่ผ่านตัวกรองอื่น/คำค้นหา) ให้ตัวเลขนิ่งเหมือน /organizer/manage */
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = { "": allItems.length, open: 0, closed: 0, cancelled: 0 }
-    for (const item of allItems) counts[item.status]++
-    return counts
-  }, [allItems])
-
   const filteredActivities = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     const list = allItems.filter((item) => {
@@ -316,37 +309,6 @@ export default function OrganizerDashboardPage() {
             />
 
             <div className="mt-5">
-              {/* แท็บสถานะทรงแคปซูล — หน้าตาเดียวกับ /organizer/manage ให้สองหน้านี้ดูเป็นชุดเดียวกัน */}
-              <div className="mb-4 overflow-x-auto">
-                <div className="inline-flex items-center gap-1 rounded-full bg-surface p-1">
-                  {STATUS_TABS.map((tab) => {
-                    const active = values.status === tab.value
-                    return (
-                      <button
-                        key={tab.value}
-                        type="button"
-                        onClick={() => setFilter("status", tab.value)}
-                        aria-current={active ? "page" : undefined}
-                        className={cn(
-                          "flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm transition-colors",
-                          active ? "bg-bg font-semibold text-brand-600 shadow-xs" : "text-fg-muted hover:text-fg"
-                        )}
-                      >
-                        {tab.label}
-                        <span
-                          className={cn(
-                            "rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums",
-                            active ? "bg-brand-50 text-brand-600" : "bg-border text-fg-subtle"
-                          )}
-                        >
-                          {statusCounts[tab.value] ?? 0}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
               <FilterBar
                 searchValue={searchQuery}
                 onSearchChange={setSearchQuery}

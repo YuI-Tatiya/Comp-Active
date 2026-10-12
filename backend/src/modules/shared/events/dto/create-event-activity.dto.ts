@@ -23,10 +23,10 @@ class SoftSkillRateDto {
   @IsIn(Object.values(SoftSkillType))
   skillType: SoftSkillType;
 
-  @ApiProperty({ example: 2, minimum: 1, maximum: 3, description: 'น้ำหนักคะแนนของทักษะนี้สำหรับกิจกรรมนี้ (1=ผ่าน, 2=ดี, 3=ดีเยี่ยม)' })
+  @ApiProperty({ example: 3, minimum: 0, maximum: 5, description: 'น้ำหนักคะแนนของทักษะนี้สำหรับกิจกรรมนี้ (0-5)' })
   @IsInt()
-  @Min(1)
-  @Max(3)
+  @Min(0)
+  @Max(5)
   rate: number;
 }
 

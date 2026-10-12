@@ -16,8 +16,7 @@ export class RegistrationsRepository {
           select: {
             visibility: true,
             visibilityStudentIdFilter: true,
-            // create() ใช้บังคับช่วงเวลารับสมัคร — ถ้าไม่ select มา ค่าจะเป็น undefined แล้วการเช็คไม่ทำงานโดยไม่มี error
-            registrationOpenAt: true,
+            // create() ใช้บังคับวันปิดรับสมัคร — ถ้าไม่ select มา ค่าจะเป็น undefined แล้วการเช็คไม่ทำงานโดยไม่มี error
             registrationCloseAt: true,
             visibilityProgram: { select: { programCode: true } },
             visibilityYears: { select: { year: true } },

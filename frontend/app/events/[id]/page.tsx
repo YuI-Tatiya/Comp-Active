@@ -265,11 +265,7 @@ export default function PublicEventDetailsPage() {
 
                             <ActivityAboutPanel activity={activeActivity} showActivityImage />
                             <ActivityRewardsPanel activity={activeActivity} />
-                            <ActivityRegistrationPanel
-                                activity={activeActivity}
-                                registrationOpenAt={event.registrationOpenAt}
-                                registrationCloseAt={event.registrationCloseAt}
-                            />
+                            <ActivityRegistrationPanel activity={activeActivity} registrationCloseAt={event.registrationCloseAt} />
                         </div>
 
                         <div className="lg:col-span-1">
@@ -294,13 +290,6 @@ export default function PublicEventDetailsPage() {
                                                 </>
                                             )}
                                         </div>
-
-                                        {event.registrationOpenAt && (
-                                            <div className="flex items-center gap-2 rounded-xl bg-surface px-3 py-2.5 text-xs text-fg-muted">
-                                                <CalendarClock className="size-4 shrink-0" aria-hidden="true" />
-                                                เปิดรับสมัคร {formatDateTime(event.registrationOpenAt)}
-                                            </div>
-                                        )}
 
                                         {event.registrationCloseAt && (
                                             <div className="flex items-center gap-2 rounded-xl bg-surface px-3 py-2.5 text-xs text-fg-muted">

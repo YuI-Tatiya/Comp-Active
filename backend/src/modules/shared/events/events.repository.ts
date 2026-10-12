@@ -46,7 +46,6 @@ export interface PreparedEventData {
   description: string;
   imageUrl?: string;
   isPublic: boolean;
-  registrationOpenAt?: Date;
   registrationCloseAt?: Date;
   activities: PreparedActivityData[];
   surveyQuestions: PreparedSurveyQuestionData[];
@@ -66,7 +65,6 @@ export interface PreparedEventUpdateData {
   description: string;
   imageUrl?: string;
   isPublic: boolean;
-  registrationOpenAt?: Date;
   registrationCloseAt?: Date;
   activities: PreparedActivityUpdateData[];
   /** ไม่ส่งมา = ไม่แตะแบบสำรวจเดิม (ป้องกันการเผลอลบคำถาม+คำตอบทิ้งทั้งชุด) */
@@ -125,7 +123,6 @@ export class EventsRepository {
           description: data.description,
           imageUrl: data.imageUrl,
           isPublic: data.isPublic,
-          registrationOpenAt: data.registrationOpenAt,
           registrationCloseAt: data.registrationCloseAt,
           surveyQuestions: {
             create: data.surveyQuestions.map((q, sortOrder) => ({
@@ -197,7 +194,6 @@ export class EventsRepository {
           description: source.description,
           imageUrl: source.imageUrl,
           isPublic: false, // สำเนาใหม่ไม่เผยแพร่อัตโนมัติเสมอ แม้ต้นฉบับจะเผยแพร่อยู่
-          registrationOpenAt: source.registrationOpenAt,
           registrationCloseAt: source.registrationCloseAt,
           visibility: source.visibility,
           visibilityStudentIdFilter: source.visibilityStudentIdFilter,
@@ -273,7 +269,6 @@ export class EventsRepository {
           description: data.description,
           imageUrl: data.imageUrl,
           isPublic: data.isPublic,
-          registrationOpenAt: data.registrationOpenAt,
           registrationCloseAt: data.registrationCloseAt,
           visibility: data.visibility as any,
           visibilityStudentIdFilter: data.visibilityStudentIdFilter,

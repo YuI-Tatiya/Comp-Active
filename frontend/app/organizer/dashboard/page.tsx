@@ -12,7 +12,6 @@ import { formatEventDate } from "@/components/ui/event-card"
 import { activitiesAPI, isUnlimitedCapacity, isCancelledByOrganizer, Activity } from "@/lib/api"
 import { CATEGORIES, categoryLabel } from "@/lib/categories"
 import { RANGE_OPTIONS, withinRange } from "@/lib/events-filter"
-import { cn } from "@/lib/utils"
 import {
     Calendar,
     Users,
@@ -72,16 +71,18 @@ const ACTION_OPTIONS = [
     { value: "empty", label: "ยังไม่มีคนสมัคร" },
 ]
 
-// แท็บสถานะทรงแคปซูล — หน้าตาเดียวกับ /organizer และ /organizer/manage (ดู statusCounts ด้านล่าง)
-const STATUS_TABS: { value: string; label: string }[] = [
-    { value: "", label: "ทั้งหมด" },
-    { value: "open", label: "เปิดรับสมัคร" },
-    { value: "closed", label: "ปิดรับสมัคร" },
-    { value: "completed", label: "จบแล้ว" },
-]
-
 const FILTERS: FilterSpec[] = [
     { key: "action", label: "ต้องดำเนินการ", options: ACTION_OPTIONS },
+    {
+        key: "status",
+        label: "สถานะกิจกรรม",
+        options: [
+            { value: "", label: "ทั้งหมด" },
+            { value: "open", label: "เปิดรับสมัคร" },
+            { value: "closed", label: "ปิดรับสมัคร" },
+            { value: "completed", label: "จบแล้ว" },
+        ],
+    },
     {
         key: "approval",
         label: "การอนุมัติ",
@@ -208,13 +209,6 @@ export default function OrganizerDashboard() {
         })
     }, [activities, searchQuery, values])
 
-    /** จำนวนรายการต่อแท็บสถานะ — นับจาก activities ดิบ (ไม่ผ่านตัวกรองอื่น/คำค้นหา) ให้ตัวเลขนิ่งเหมือน /organizer, /organizer/manage */
-    const statusCounts = useMemo(() => {
-        const counts: Record<string, number> = { "": activities.length, open: 0, closed: 0, completed: 0 }
-        for (const a of activities) counts[a.status] = (counts[a.status] ?? 0) + 1
-        return counts
-    }, [activities])
-
     // ตัวเลขที่ต้องลงมือทำ — ไม่มีที่หน้าอื่น
     const pendingConfirmations = activities.reduce((sum, a) => {
         const pending = a.registrations?.filter((r: Registration) => r.status === "pending").length || 0
@@ -296,49 +290,17 @@ export default function OrganizerDashboard() {
                 </div>
 
                 {!loading && activities.length > 0 && (
-                    <>
-                        <div className="overflow-x-auto">
-                            <div className="inline-flex items-center gap-1 rounded-full bg-surface p-1">
-                                {STATUS_TABS.map((tab) => {
-                                    const active = values.status === tab.value
-                                    return (
-                                        <button
-                                            key={tab.value}
-                                            type="button"
-                                            onClick={() => setFilter("status", tab.value)}
-                                            aria-current={active ? "page" : undefined}
-                                            className={cn(
-                                                "flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm transition-colors",
-                                                active ? "bg-bg font-semibold text-brand-600 shadow-xs" : "text-fg-muted hover:text-fg"
-                                            )}
-                                        >
-                                            {tab.label}
-                                            <span
-                                                className={cn(
-                                                    "rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums",
-                                                    active ? "bg-brand-50 text-brand-600" : "bg-border text-fg-subtle"
-                                                )}
-                                            >
-                                                {statusCounts[tab.value] ?? 0}
-                                            </span>
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
-
-                        <FilterBar
-                            searchValue={searchQuery}
-                            onSearchChange={setSearchQuery}
-                            searchPlaceholder="ค้นหาชื่อกิจกรรมหรือสถานที่..."
-                            filters={FILTERS}
-                            values={values}
-                            onFilterChange={setFilter}
-                            onReset={resetFilters}
-                            resultCount={filteredActivities.length}
-                            resultUnit="กิจกรรม"
-                        />
-                    </>
+                    <FilterBar
+                        searchValue={searchQuery}
+                        onSearchChange={setSearchQuery}
+                        searchPlaceholder="ค้นหาชื่อกิจกรรมหรือสถานที่..."
+                        filters={FILTERS}
+                        values={values}
+                        onFilterChange={setFilter}
+                        onReset={resetFilters}
+                        resultCount={filteredActivities.length}
+                        resultUnit="กิจกรรม"
+                    />
                 )}
 
                 {/* ตารางกิจกรรม */}

@@ -67,10 +67,10 @@ describe("เกณฑ์การประเมินระดับ Soft Skil
 })
 
 describe("RUBRIC_LEVELS — คำอธิบาย 3 ระดับและเงื่อนไขการให้", () => {
-    test("เรียง ผ่าน → ดี → ดีเยี่ยม ค่าที่เก็บ 1/2/3 ตรงกับ SOFT_SKILL_TIERS", () => {
+    test("เรียง ผ่าน → ดี → ดีเยี่ยม ค่าที่เก็บ 2/3/5 ตรงกับ SOFT_SKILL_TIERS", () => {
         assert.deepEqual(
             RUBRIC_LEVELS.map((l) => [l.key, l.value, l.label]),
-            [["pass", 1, "ผ่าน"], ["good", 2, "ดี"], ["excellent", 3, "ดีเยี่ยม"]]
+            [["pass", 2, "ผ่าน"], ["good", 3, "ดี"], ["excellent", 5, "ดีเยี่ยม"]]
         )
     })
 
@@ -81,9 +81,10 @@ describe("RUBRIC_LEVELS — คำอธิบาย 3 ระดับและ�
         }
     })
 
-    test("เงื่อนไขของระดับดีเยี่ยมระบุ 2 วันขึ้นไป ไม่จำกัดประเภทการรับสมัคร (ตรงกับ maxSoftSkillLevel)", () => {
+    test("เงื่อนไขของระดับดีเยี่ยมระบุสตาฟฟ์/จิตอาสา และ >3 วัน หรือโครงการ (ตรงกับ maxSoftSkillLevel)", () => {
         const excellent = RUBRIC_LEVELS.find((l) => l.key === "excellent")!
-        assert.match(excellent.whenAllowed, /2 วัน/)
-        assert.doesNotMatch(excellent.whenAllowed, /สตาฟฟ์/)
+        assert.match(excellent.whenAllowed, /สตาฟฟ์/)
+        assert.match(excellent.whenAllowed, /3 วัน/)
+        assert.match(excellent.whenAllowed, /โครงการ/)
     })
 })

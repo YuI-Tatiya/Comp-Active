@@ -39,11 +39,6 @@ export class CreateEventDto {
   @IsBoolean()
   isPublic?: boolean;
 
-  @ApiPropertyOptional({ example: '2026-03-01T00:00:00.000Z', description: 'วันเปิดรับสมัคร — ก่อนถึงเวลานี้ลงทะเบียนไม่ได้แม้เผยแพร่งานแล้ว' })
-  @IsOptional()
-  @IsDateString()
-  registrationOpenAt?: string;
-
   @ApiPropertyOptional({ example: '2026-04-01T23:59:59.000Z', description: 'วันปิดรับสมัคร' })
   @IsOptional()
   @IsDateString()

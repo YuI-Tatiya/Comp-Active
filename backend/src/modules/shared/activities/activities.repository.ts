@@ -310,24 +310,6 @@ export class ActivitiesRepository {
     });
   }
 
-  /**
-   * ผู้สมัครกว้างๆ ระดับ DB สำหรับงานปิดกิจกรรมอัตโนมัติ (ดู ActivitiesService.autoCompleteOverdueActivities)
-   * คัดเฉพาะ status เปิดอยู่ที่ยังไม่ถูกยกเลิก/ปฏิเสธ — เวลาสิ้นสุดจริง (endAt หรือ date+endTime ของกิจกรรม
-   * รุ่นเก่าที่ไม่มี endAt) คำนวณและกรองซ้ำที่ชั้น service เพราะ Prisma เทียบ date+string เวลาในคอลัมน์เดียว
-   * ตรงๆ ไม่ได้ — ที่กรอง endAt ไว้คร่าวๆ ที่นี่ (เลยเวลาแล้ว หรือไม่มีค่าเลย) ก็เพื่อตัดกิจกรรมที่ยังไม่ถึงเวลา
-   * ส่วนใหญ่ออกไปก่อน ไม่ต้องดึงมาคำนวณซ้ำทุกแถวทุกรอบ
-   */
-  findOpenPastEnd(now: Date) {
-    return this.prisma.activity.findMany({
-      where: {
-        status: ActivityStatus.OPEN as any,
-        approvalStatus: { notIn: [ApprovalStatus.CANCELLED, ApprovalStatus.REJECTED] as any },
-        OR: [{ endAt: { lte: now } }, { endAt: null }],
-      },
-      select: { id: true, name: true, endAt: true, date: true, endTime: true },
-    });
-  }
-
   /** ผู้จัดยกเลิกกิจกรรมของตัวเอง — ใช้ CANCELLED ไม่ใช่ REJECTED (นั่นคือแอดมิน/ระบบปฏิเสธ) */
   cancelByOrganizer(activityId: number, reason: string) {
     return this.prisma.activity.update({

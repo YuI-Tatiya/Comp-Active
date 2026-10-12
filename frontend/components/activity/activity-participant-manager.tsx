@@ -96,8 +96,6 @@ function filterRegistrations(
 interface ActivityParticipantManagerProps {
     /** กิจกรรม (กิจกรรมย่อยของงาน หรือกิจกรรมเดี่ยว) — ต้องมี registrations แนบมาด้วยแล้ว */
     activity: Activity
-    /** วันเปิดรับสมัคร — มีเฉพาะกิจกรรมที่อยู่ในงาน (Event) กิจกรรมเดี่ยวไม่มีแนวคิดนี้ */
-    registrationOpenAt?: string | null
     /** วันปิดรับสมัคร — มีเฉพาะกิจกรรมที่อยู่ในงาน (Event) กิจกรรมเดี่ยวไม่มีแนวคิดนี้ */
     registrationCloseAt?: string | null
     /** ชื่องานแม่ — ใส่เฉพาะกิจกรรมย่อยของงาน เพื่อระบุในหัว CSV */
@@ -111,13 +109,7 @@ interface ActivityParticipantManagerProps {
  * และ /organizer/activities/[id] (กิจกรรมเดี่ยว) กันสองหน้านี้มีชุดฟีเจอร์เพี้ยนออกจากกัน
  * แสดง 3 แท็บ: รายละเอียด, ข้อมูลผู้เข้าร่วม (ค้นหา/กรอง/ยืนยันทั้งหมด/export CSV), คิวอาร์โค้ดลงทะเบียน (เช็คอิน)
  */
-export function ActivityParticipantManager({
-    activity,
-    registrationOpenAt,
-    registrationCloseAt,
-    eventName,
-    onRefetch,
-}: ActivityParticipantManagerProps) {
+export function ActivityParticipantManager({ activity, registrationCloseAt, eventName, onRefetch }: ActivityParticipantManagerProps) {
     const [activeTab, setActiveTab] = useState("details")
     const [confirmAllIds, setConfirmAllIds] = useState<number[] | null>(null)
     const [confirmingAll, setConfirmingAll] = useState(false)
@@ -264,7 +256,7 @@ export function ActivityParticipantManager({
     const filteredRegs = filterRegistrations(allRegs, participantSearch, participantFilters)
     const questions = activity.questions ?? []
     const pendingIdsInView = filteredRegs.filter((r) => r.status === "pending").map((r) => r.id)
-    // แท็บประเมินรายฝ่ายมีเฉพาะกิจกรรมที่เลือกทักษะไว้ — ว่ากิจกรรมนั้นเข้าเงื่อนไข Tier 3 จริงหรือไม่ server เป็นผู้ตัดสิน
+    // แท็บประเมินรายฝ่ายมีเฉพาะกิจกรรมสตาฟฟ์ที่เลือกทักษะไว้ — ว่ากิจกรรมนั้นเข้าเงื่อนไข Tier 3 จริงหรือไม่ server เป็นผู้ตัดสิน
     const showBatchEvaluation = activity.registrationType === "staff_volunteer" && (activity.softSkills?.length ?? 0) > 0
 
     const checkedIn = allRegs
@@ -596,11 +588,7 @@ export function ActivityParticipantManager({
                         )}
                     </Card>
 
-                    <ActivityRegistrationPanel
-                        activity={activity}
-                        registrationOpenAt={registrationOpenAt}
-                        registrationCloseAt={registrationCloseAt}
-                    />
+                    <ActivityRegistrationPanel activity={activity} registrationCloseAt={registrationCloseAt} />
                 </TabsContent>
 
                 {showBatchEvaluation && (

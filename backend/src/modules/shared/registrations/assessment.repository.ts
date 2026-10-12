@@ -16,9 +16,12 @@ export class AssessmentsRepository {
         organizerId: true,
         status: true,
         peerAssessmentEnabled: true,
+        registrationType: true,
         startAt: true,
         endAt: true,
         softSkills: { select: { skillType: true, rate: true } },
+        // จำนวนกิจกรรมย่อยของงานแม่ — ใช้ตัดสินว่าเป็น "โครงการ" (>1) เหมือนตอนสร้างกิจกรรม
+        event: { select: { _count: { select: { activities: true } } } },
       },
     });
   }

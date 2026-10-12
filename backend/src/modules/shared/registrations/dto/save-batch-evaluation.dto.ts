@@ -9,7 +9,7 @@ export class BatchSkillScoreDto {
   @IsIn(Object.values(SoftSkillType))
   skillType: SoftSkillType;
 
-  @ApiProperty({ enum: SOFT_SKILL_TIER_VALUES, example: 2, description: 'ผ่าน=1, ดี=2, ดีเยี่ยม=3' })
+  @ApiProperty({ enum: SOFT_SKILL_TIER_VALUES, example: 3, description: 'ผ่าน=2, ดี=3, ดีเยี่ยม=5' })
   @IsInt()
   @IsIn([...SOFT_SKILL_TIER_VALUES])
   score: number;

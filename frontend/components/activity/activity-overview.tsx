@@ -57,7 +57,7 @@ const REGISTRATION_STATUS_OPTIONS = [
 
 /**
  * สรุปสถานะต่อแถว 1 คน — แยก 2 โหมด:
- * โหมด BARS (showBars=true เฉพาะกิจกรรม Tier 3 ที่ตั้งทักษะไว้): ใช้ข้อมูล approval dashboard ถ้ามี
+ * โหมด BARS (showBars=true เฉพาะกิจกรรมสตาฟฟ์ Tier 3 ที่ตั้งทักษะไว้): ใช้ข้อมูล approval dashboard ถ้ามี
  * (ละเอียดกว่า แยก flag ได้) ไม่งั้น fallback ไปสถานะคร่าวๆ จาก evaluation.status ที่มากับทุก registration อยู่แล้ว
  * โหมดทั่วไป: โชว์สถานะการยืนยันลงทะเบียน (reg.status) แทน เพราะ BARS ไม่มีความหมายกับกิจกรรมประเภทนี้
  */
@@ -102,7 +102,7 @@ interface ActivityOverviewProps {
     activity: Activity
     /** registrations ทั้งหมดของกิจกรรม (ไม่กรอง) — คอมโพเนนต์นี้มีตัวกรอง/ค้นหา/แบ่งหน้าของตัวเอง แยกจากแท็บ "ข้อมูลผู้เข้าร่วม" */
     registrations: RegistrationRow[]
-    /** true เฉพาะกิจกรรม Tier 3 ที่ตั้งทักษะไว้แล้ว (= showBatchEvaluation ของ ActivityParticipantManager) — คุมว่าจะโชว์การ์ดทางลัด BARS + สถานะ BARS รายคนไหม */
+    /** true เฉพาะกิจกรรมสตาฟฟ์ Tier 3 ที่ตั้งทักษะไว้แล้ว (= showBatchEvaluation ของ ActivityParticipantManager) — คุมว่าจะโชว์การ์ดทางลัด BARS + สถานะ BARS รายคนไหม */
     showBars: boolean
     /** สลับแท็บของ ActivityParticipantManager (ควบคุม Tabs จากภายนอก) */
     onJumpToTab: (tab: OverviewTab) => void
@@ -111,7 +111,7 @@ interface ActivityOverviewProps {
 
 /**
  * ภาพรวมกิจกรรม — การ์ดสถิติ 3 ใบ + ตารางสถานะต่อคน (ค้นหา/กรอง/แบ่งหน้าในตัว) แสดงทุกกิจกรรม
- * เฉพาะกิจกรรม Tier 3 ที่ตั้งทักษะไว้ (showBars) จะมีการ์ดทางลัด BARS 2 ขั้นตอนเพิ่ม + คอลัมน์สถานะ
+ * เฉพาะกิจกรรมสตาฟฟ์ Tier 3 ที่ตั้งทักษะไว้ (showBars) จะมีการ์ดทางลัด BARS 2 ขั้นตอนเพิ่ม + คอลัมน์สถานะ
  * เป็น "สถานะ BARS" (ไม่งั้นคอลัมน์สถานะโชว์สถานะยืนยันลงทะเบียนแทน เพราะ BARS ไม่มีความหมายกับกิจกรรมแบบนี้)
  * ไม่ได้แทนที่แท็บ "ข้อมูลผู้เข้าร่วม" เดิม (ยืนยัน/ออกใบรับรอง/ดูคำตอบแบบฟอร์มยังอยู่ที่แท็บนั้นเหมือนเดิม)
  * ที่นี่เป็นจุดดูภาพรวมแล้วกดลัดไปทำงานต่อ
@@ -180,7 +180,7 @@ export function ActivityOverview({ activity, registrations, showBars, onJumpToTa
     const statusOptions = showBars ? BARS_STATUS_OPTIONS : REGISTRATION_STATUS_OPTIONS
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-5">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <StatTile
                     label="จำนวนผู้ลงทะเบียนทั้งหมด"
@@ -212,7 +212,7 @@ export function ActivityOverview({ activity, registrations, showBars, onJumpToTa
             </div>
 
             {showBars && (
-                <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4">
+                <div className="rounded-2xl border border-brand-100 bg-brand-50 p-5">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <h3 className="flex items-center gap-2 text-sm font-bold text-fg">
                             <Rocket className="size-4 text-brand-600" aria-hidden="true" /> ทางลัดประเมินทักษะ BARS 2 ขั้นตอน

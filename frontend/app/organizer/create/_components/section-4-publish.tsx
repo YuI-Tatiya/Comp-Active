@@ -5,23 +5,20 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Toggle } from "@/components/ui/toggle"
-import { FormField, fieldInputClass } from "@/components/ui/form-field"
 import { categoryLabel } from "@/lib/categories"
 import { softSkillLabel, softSkillTierLabel } from "@/lib/soft-skills"
 import { PROGRAMS } from "@/lib/programs"
 import { deriveVolunteerRole } from "@/lib/duty-shift"
 import { cn } from "@/lib/utils"
-import { Calendar, MapPin, Users, Award, Clock } from "lucide-react"
-import type { EventFormState, ActivityFormState, EventFormErrors } from "./types"
+import { Calendar, MapPin, Users, Award } from "lucide-react"
+import type { EventFormState, ActivityFormState } from "./types"
 
 const YEAR_OPTIONS = [1, 2, 3, 4, 5, 6]
 
 interface Props {
     event: EventFormState
     activities: ActivityFormState[]
-    errors: EventFormErrors
     onChangeEvent: (patch: Partial<EventFormState>) => void
-    onFieldBlur: (field: keyof EventFormErrors) => void
 }
 
 function formatDateTimeLocal(value: string): string {
@@ -31,7 +28,7 @@ function formatDateTimeLocal(value: string): string {
     return d.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })
 }
 
-export function SectionPublish({ event, activities, errors, onChangeEvent, onFieldBlur }: Props) {
+export function SectionPublish({ event, activities, onChangeEvent }: Props) {
     return (
         <div className="space-y-8">
             <div>
@@ -46,8 +43,7 @@ export function SectionPublish({ event, activities, errors, onChangeEvent, onFie
                     <div>
                         <Label>เผยแพร่งานนี้</Label>
                         <p className="mt-0.5 text-xs text-fg-muted">
-                            ปิด = นักศึกษาจะไม่เห็นงานนี้เลย ไม่ว่าจะถึงวันเปิดรับสมัครแล้วหรือยัง · เปิด = นักศึกษาเห็นงานนี้ทันทีที่ได้รับอนุมัติ
-                            (แต่จะกดลงทะเบียนได้ก็ต่อเมื่อถึงช่วงเวลารับสมัครด้านล่างแล้วเท่านั้น)
+                            เมื่อเปิด นักศึกษาจะเห็นและลงทะเบียนงานนี้ได้ทันทีที่ได้รับอนุมัติ
                         </p>
                     </div>
                     <Toggle checked={event.isPublic} onCheckedChange={(v) => onChangeEvent({ isPublic: v })} />
@@ -78,6 +74,15 @@ export function SectionPublish({ event, activities, errors, onChangeEvent, onFie
                             </button>
                         ))}
                     </div>
+                </div>
+
+                <div className="max-w-xs space-y-2">
+                    <Label>วันปิดรับสมัคร (ถ้ามี)</Label>
+                    <Input
+                        type="datetime-local"
+                        value={event.registrationCloseAt}
+                        onChange={(e) => onChangeEvent({ registrationCloseAt: e.target.value })}
+                    />
                 </div>
 
                 {event.visibility === "restricted" && (
@@ -151,44 +156,6 @@ export function SectionPublish({ event, activities, errors, onChangeEvent, onFie
                         </div>
                     </div>
                 )}
-            </div>
-
-            <div className="space-y-4 border-b border-border pb-8">
-                <div>
-                    <p className="flex items-center gap-1.5 text-sm font-bold text-fg">
-                        <Clock className="size-4 shrink-0" aria-hidden="true" />
-                        ช่วงเวลารับสมัคร
-                    </p>
-                    <p className="mt-0.5 text-xs text-fg-muted">
-                        ก่อนถึงวันเปิดรับสมัคร นักศึกษาจะเห็นงานนี้ได้ (ถ้าเผยแพร่ไว้) แต่กดลงทะเบียนไม่ได้ — ระบบจะแจ้งว่า
-                        &quot;ยังไม่อยู่ในเวลาเปิดรับสมัคร&quot;
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                        <Label>วันเปิดรับสมัคร (ถ้ามี)</Label>
-                        <Input
-                            type="datetime-local"
-                            value={event.registrationOpenAt}
-                            onChange={(e) => onChangeEvent({ registrationOpenAt: e.target.value })}
-                            // เช็คซ้ำฝั่งวันปิดด้วย — แก้วันเปิดทีหลังจนย้อนวันปิดที่เคยกรอกไว้ถูกต้อง ก็ต้องขึ้น error ทันที ไม่ใช่รอกด "สร้างงาน"
-                            onBlur={() => onFieldBlur("registrationCloseAt")}
-                        />
-                        <p className="text-xs text-fg-subtle">ไม่ระบุ = เปิดรับสมัครได้ทันทีที่เผยแพร่</p>
-                    </div>
-
-                    <FormField name="registrationCloseAt" label="วันปิดรับสมัคร (ถ้ามี)" error={errors.registrationCloseAt}>
-                        <Input
-                            type="datetime-local"
-                            value={event.registrationCloseAt}
-                            onChange={(e) => onChangeEvent({ registrationCloseAt: e.target.value })}
-                            onBlur={() => onFieldBlur("registrationCloseAt")}
-                            className={fieldInputClass(errors.registrationCloseAt)}
-                        />
-                        <p className="text-xs text-fg-subtle">ไม่ระบุ = ไม่มีวันหมดเขต เปิดรับสมัครได้ตลอด</p>
-                    </FormField>
-                </div>
             </div>
 
             <div className="space-y-4">
