@@ -1,19 +1,13 @@
-import { IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, Matches, MinLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ACADEMIC_ERRORS,
   EDUCATION_LEVELS,
   EducationLevelCode,
-  PASSWORD_ERRORS,
-  PASSWORD_MAX_LENGTH,
-  PASSWORD_MIN_LENGTH,
-  PASSWORD_PATTERN,
-  PROFILE_ERRORS,
   PROGRAM_CODES,
   STUDENT_ID_FACULTY_CODE,
   STUDENT_ID_REGEX,
   THAI_MOBILE_REGEX,
-  USERNAME_REGEX,
 } from '../../../../common/constants';
 
 const EDUCATION_LEVEL_CODES = EDUCATION_LEVELS.map((l) => l.code);
@@ -23,15 +17,6 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   name?: string;
-
-  @ApiPropertyOptional({
-    example: 'org-event2026',
-    description: 'ชื่อผู้ใช้สำหรับเข้าสู่ระบบ (เฉพาะ organizer) — พิมพ์เล็กล้วน 3-32 ตัวอักษร',
-  })
-  @IsString()
-  @IsOptional()
-  @Matches(USERNAME_REGEX, { message: PROFILE_ERRORS.USERNAME_INVALID })
-  username?: string;
 
   @ApiPropertyOptional({
     example: '653380123-4',
@@ -61,9 +46,7 @@ export class UpdateUserDto {
   @ApiPropertyOptional({ description: 'รหัสผ่านใหม่' })
   @IsString()
   @IsOptional()
-  @MinLength(PASSWORD_MIN_LENGTH, { message: PASSWORD_ERRORS.WEAK })
-  @MaxLength(PASSWORD_MAX_LENGTH, { message: PASSWORD_ERRORS.TOO_LONG })
-  @Matches(PASSWORD_PATTERN, { message: PASSWORD_ERRORS.WEAK })
+  @MinLength(6)
   newPassword?: string;
 
   @ApiPropertyOptional({ description: 'รหัสผ่านปัจจุบัน (สำหรับยืนยัน)' })

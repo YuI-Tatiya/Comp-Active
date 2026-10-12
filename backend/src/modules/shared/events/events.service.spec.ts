@@ -64,7 +64,7 @@ describe('EventsService.create — soft skill cap', () => {
       description: 'd',
       categories: ['Technology'],
       startAt: '2027-01-01T09:00:00.000Z',
-      endAt: '2027-01-01T12:00:00.000Z', // 3h → cap = 1 (ผ่าน)
+      endAt: '2027-01-01T12:00:00.000Z', // 3h — Tier 1, cap = 2
       location: 'Room 1',
       ...overrides,
     };
@@ -91,11 +91,11 @@ describe('EventsService.create — soft skill cap', () => {
   });
 
   it('rejects a rate above the duration-based cap for a short activity', async () => {
-    // 3h activity -> cap = 1
+    // 3h activity -> Tier 1 cap = 2
     const dto = {
       name: 'Camp',
       description: 'desc',
-      activities: [activityDto({ softSkillRates: [{ skillType: 'leadership', rate: 3 }] })],
+      activities: [activityDto({ softSkillRates: [{ skillType: 'leadership', rate: 5 }] })],
     } as any;
 
     await expect(service.create(7, dto)).rejects.toThrow(BadRequestException);
@@ -106,14 +106,14 @@ describe('EventsService.create — soft skill cap', () => {
     const dto = {
       name: 'Camp',
       description: 'desc',
-      activities: [activityDto({ softSkillRates: [{ skillType: 'leadership', rate: 1 }] })],
+      activities: [activityDto({ softSkillRates: [{ skillType: 'leadership', rate: 2 }] })],
     } as any;
 
     await service.create(7, dto);
     expect(repo.create).toHaveBeenCalled();
   });
 
-  it('does NOT unlock level 3 for a short sub-activity of a multi-activity event — the old per-project shortcut was removed, only duration matters now', async () => {
+  it('unlocks level 5 for a staff_volunteer sub-activity of a multi-activity event, even if individually short', async () => {
     const dto = {
       name: 'Camp',
       description: 'desc',
@@ -121,92 +121,31 @@ describe('EventsService.create — soft skill cap', () => {
         activityDto({
           registrationType: 'staff_volunteer',
           dutyRoleOptions: ['ลงทะเบียนหน้างาน'],
-          softSkillRates: [{ skillType: 'leadership', rate: 3 }],
+          softSkillRates: [{ skillType: 'leadership', rate: 5 }],
         }),
         activityDto({ name: 'A2', startAt: '2027-01-02T09:00:00.000Z', endAt: '2027-01-02T12:00:00.000Z' }),
-      ],
-    } as any;
-
-    await expect(service.create(7, dto)).rejects.toThrow(BadRequestException);
-    expect(repo.create).not.toHaveBeenCalled();
-  });
-
-  it('does NOT unlock level 3 for a short activity standing alone either (duration is still what matters)', async () => {
-    const dto = {
-      name: 'Camp',
-      description: 'desc',
-      activities: [
-        activityDto({
-          dutyRoleOptions: ['ลงทะเบียนหน้างาน'],
-          softSkillRates: [{ skillType: 'leadership', rate: 3 }],
-        }),
-      ],
-    } as any;
-
-    await expect(service.create(7, dto)).rejects.toThrow(BadRequestException);
-    expect(repo.create).not.toHaveBeenCalled();
-  });
-
-  it('unlocks level 3 for any activity 2 days or longer (≥48h), regardless of registration type', async () => {
-    const dto = {
-      name: 'Camp',
-      description: 'desc',
-      activities: [
-        activityDto({
-          startAt: '2027-01-01T09:00:00.000Z',
-          endAt: '2027-01-03T09:00:00.000Z', // 48h
-          softSkillRates: [{ skillType: 'leadership', rate: 3 }],
-        }),
       ],
     } as any;
 
     await service.create(7, dto);
     expect(repo.create).toHaveBeenCalled();
   });
-});
 
-describe('EventsService.create — registration window (registrationOpenAt / registrationCloseAt)', () => {
-  let service: EventsService;
-  let repo: { create: jest.Mock };
-
-  beforeEach(async () => {
-    repo = { create: jest.fn().mockResolvedValue({ id: 1, name: 'Camp', activities: [] }) };
-    const module = await Test.createTestingModule({
-      providers: [EventsService, { provide: EventsRepository, useValue: repo }],
-    }).compile();
-    service = module.get(EventsService);
-  });
-
-  it('rejects when the open date is on or after the close date — no window left to register in', async () => {
-    const dto = makeDto();
-    dto.registrationOpenAt = '2027-01-01T00:00:00.000Z';
-    dto.registrationCloseAt = '2027-01-01T00:00:00.000Z'; // เท่ากันพอดี
+  it('does NOT unlock level 5 for a short staff_volunteer activity standing alone (not a project)', async () => {
+    const dto = {
+      name: 'Camp',
+      description: 'desc',
+      activities: [
+        activityDto({
+          registrationType: 'staff_volunteer',
+          dutyRoleOptions: ['ลงทะเบียนหน้างาน'],
+          softSkillRates: [{ skillType: 'leadership', rate: 5 }],
+        }),
+      ],
+    } as any;
 
     await expect(service.create(7, dto)).rejects.toThrow(BadRequestException);
-    await expect(service.create(7, dto)).rejects.toThrow('วันเปิดรับสมัครต้องอยู่ก่อนวันปิดรับสมัคร');
     expect(repo.create).not.toHaveBeenCalled();
-  });
-
-  it('accepts and maps both dates when the open date is before the close date', async () => {
-    const dto = makeDto();
-    dto.registrationOpenAt = '2026-12-01T00:00:00.000Z';
-    dto.registrationCloseAt = '2027-01-01T00:00:00.000Z';
-
-    await expect(service.create(7, dto)).resolves.toBeDefined();
-    expect(repo.create).toHaveBeenCalledWith(
-      7,
-      expect.objectContaining({
-        registrationOpenAt: new Date('2026-12-01T00:00:00.000Z'),
-        registrationCloseAt: new Date('2027-01-01T00:00:00.000Z'),
-      }),
-    );
-  });
-
-  it('accepts when only one of the two dates is set (nothing to compare)', async () => {
-    const dto = makeDto();
-    dto.registrationOpenAt = '2026-12-01T00:00:00.000Z';
-
-    await expect(service.create(7, dto)).resolves.toBeDefined();
   });
 });
 

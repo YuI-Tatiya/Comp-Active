@@ -64,11 +64,6 @@ export class UpdateEventDto {
   @IsBoolean()
   isPublic?: boolean;
 
-  @ApiPropertyOptional({ description: 'วันเปิดรับสมัคร — ก่อนถึงเวลานี้ลงทะเบียนไม่ได้แม้เผยแพร่งานแล้ว' })
-  @IsOptional()
-  @IsDateString()
-  registrationOpenAt?: string;
-
   @ApiPropertyOptional()
   @IsOptional()
   @IsDateString()

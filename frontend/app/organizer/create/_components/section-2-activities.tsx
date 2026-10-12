@@ -31,6 +31,9 @@ export function SectionActivities({
     onRemove,
     onDuplicate,
 }: Props) {
+    // "ทำโครงการ" สำหรับปลดล็อกเพดาน Soft Skills ระดับสูง — ต้องตรงกับ isProject ฝั่ง backend
+    // (EventsService.create/update ใช้ dto.activities.length > 1 เป๊ะ)
+    const isProject = activities.length > 1
     // registrationType เลือกครั้งเดียวระดับงาน เหมือนกันทุกกิจกรรมย่อยเสมอ — เช็คจากตัวแรกตัวเดียวพอ
     const isStaffVolunteer = activities[0]?.registrationType === "staff_volunteer"
     const isContestant = activities[0]?.registrationType === "contestant"
@@ -49,6 +52,7 @@ export function SectionActivities({
                 <ActivityTabForm
                     activity={a}
                     errors={errorsByKey[a.key] ?? {}}
+                    isProject={isProject}
                     isMultiActivity={false}
                     onChange={(patch) => onChangeActivity(a.key, patch)}
                     onFieldBlur={(field, patch) => onFieldBlur(a.key, field, patch)}
@@ -124,6 +128,7 @@ export function SectionActivities({
                         <ActivityTabForm
                             activity={a}
                             errors={errorsByKey[a.key] ?? {}}
+                            isProject={isProject}
                             isMultiActivity
                             onChange={(patch) => onChangeActivity(a.key, patch)}
                             onFieldBlur={(field, patch) => onFieldBlur(a.key, field, patch)}

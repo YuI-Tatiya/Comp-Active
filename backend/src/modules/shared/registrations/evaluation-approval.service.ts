@@ -89,7 +89,7 @@ export class EvaluationApprovalService {
   }
 
   /** เงื่อนไขที่ต้องผ่านก่อนอนุมัติได้ — ไม่ผ่านคืนเหตุผลให้หน้าจอบอกทางไปต่อ */
-  private availability(activity: ApprovalActivity): { available: boolean; reason?: string; cap: 1 | 2 | 3 } {
+  private availability(activity: ApprovalActivity): { available: boolean; reason?: string; cap: 2 | 3 | 5 } {
     const { eligible, reason, cap } = assessTier3Eligibility(activity);
     if (!eligible) return { available: false, reason, cap };
     if (!activity.peerAssessmentEnabled) {
@@ -154,7 +154,7 @@ export class EvaluationApprovalService {
       const unknown = given.filter((skill) => !skills.includes(skill));
       if (unknown.length > 0) throw new BadRequestException(`กิจกรรมนี้ไม่ได้ประเมินทักษะ ${unknown.join(', ')}`);
       if (given.length !== skills.length) throw new BadRequestException('กรุณาระบุค่าสุดท้ายให้ครบทุกทักษะ');
-      // ระดับต้องเป็น 1/2/3 (ตรวจที่ DTO) และกิจกรรมที่ใช้โหมดนี้ได้เป็น Tier 3 ซึ่งเพดาน = 3 เสมอ จึงไม่ต้องตรวจเพดานซ้ำที่นี่
+      // ระดับต้องเป็น 2/3/5 (ตรวจที่ DTO) และกิจกรรมที่ใช้โหมดนี้ได้เป็น Tier 3 ซึ่งเพดาน = 5 เสมอ จึงไม่ต้องตรวจเพดานซ้ำที่นี่
       finals = Object.fromEntries(dto.scores.map((s) => [s.skillType, s.score as Tier]));
     }
 

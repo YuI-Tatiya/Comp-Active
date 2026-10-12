@@ -10,27 +10,26 @@ function activity(overrides: Record<string, unknown> = {}) {
   return {
     id: ACTIVITY_ID,
     organizerId: OWNER_ID,
-    // 96 ชม. (≥48) → ปลดล็อกระดับ 3 (Tier 3) — ใช้ได้ทุกประเภทการรับสมัคร
+    registrationType: 'staff_volunteer',
+    // 96 ชม. (>72) → ปลดล็อกระดับ 5 โดยไม่ต้องเป็นโครงการ
     startAt: new Date('2027-01-01T09:00:00.000Z'),
     endAt: new Date('2027-01-05T09:00:00.000Z'),
     dutyRoleOptions: ['ฝ่ายA', 'ฝ่ายB'],
     softSkills: [
-      { skillType: 'leadership', rate: 2 },
-      { skillType: 'communication', rate: 1 },
+      { skillType: 'leadership', rate: 3 },
+      { skillType: 'communication', rate: 2 },
     ],
+    event: null,
     ...overrides,
   };
 }
-
-/** กิจกรรมสั้น (2 ชม. < 48) → cap ไม่ถึง 3 เลยไม่เข้าเงื่อนไข Tier 3 — ใช้แทนการปรับ registrationType เดิม */
-const SHORT_DURATION = { endAt: new Date('2027-01-01T11:00:00.000Z') };
 
 function registration(id: number, dutyRole: string | null, overrides: Record<string, unknown> = {}) {
   return {
     id,
     dutyRole,
     student: { name: `Student ${id}`, studentId: `65338000${id}-1` },
-    evaluation: { leadership: 2, communication: 1 },
+    evaluation: { leadership: 3, communication: 2 },
     evaluationExceptions: [],
     ...overrides,
   };
@@ -78,31 +77,32 @@ describe('EvaluationBatchService', () => {
     });
   });
 
-  describe('eligibility (Tier 3 — ยาว 2 วันขึ้นไป, ทุกประเภทการรับสมัคร)', () => {
-    it('is not eligible for a short activity (< 2 days, auto-graded instead)', async () => {
-      repo.findActivityForBatch.mockResolvedValue(activity(SHORT_DURATION));
+  describe('eligibility (Tier 3 staff only)', () => {
+    it('is not eligible for a non-staff activity', async () => {
+      repo.findActivityForBatch.mockResolvedValue(activity({ registrationType: 'participant' }));
       const result = await service.getBatch(OWNER_ID, UserRole.ORGANIZER, ACTIVITY_ID);
       expect(result.eligible).toBe(false);
       expect(result.groups).toEqual([]);
     });
 
-    it('is not eligible for a short standalone activity just under 2 days (47h)', async () => {
+    it('is not eligible for a short standalone staff activity (auto-graded instead)', async () => {
       repo.findActivityForBatch.mockResolvedValue(
-        activity({ startAt: new Date('2027-01-01T09:00:00.000Z'), endAt: new Date('2027-01-03T08:00:00.000Z') }),
+        activity({ startAt: new Date('2027-01-01T09:00:00.000Z'), endAt: new Date('2027-01-02T09:00:00.000Z') }),
       );
       const result = await service.getBatch(OWNER_ID, UserRole.ORGANIZER, ACTIVITY_ID);
       expect(result.eligible).toBe(false);
     });
 
-    it('is NOT eligible for a short sub-activity inside a multi-activity project — the old project shortcut was removed, only duration matters now', async () => {
+    it('is eligible for a short staff sub-activity inside a multi-activity project', async () => {
       repo.findActivityForBatch.mockResolvedValue(
         activity({
           startAt: new Date('2027-01-01T09:00:00.000Z'),
           endAt: new Date('2027-01-01T12:00:00.000Z'),
+          event: { _count: { activities: 2 } },
         }),
       );
       const result = await service.getBatch(OWNER_ID, UserRole.ORGANIZER, ACTIVITY_ID);
-      expect(result.eligible).toBe(false);
+      expect(result.eligible).toBe(true);
     });
 
     it('is not eligible when the activity has no exact start/end (legacy activity)', async () => {
@@ -118,7 +118,7 @@ describe('EvaluationBatchService', () => {
     });
 
     it('rejects saving for an ineligible activity', async () => {
-      repo.findActivityForBatch.mockResolvedValue(activity(SHORT_DURATION));
+      repo.findActivityForBatch.mockResolvedValue(activity({ registrationType: 'participant' }));
       await expect(
         service.saveBatch(OWNER_ID, UserRole.ORGANIZER, ACTIVITY_ID, { groups: [], exceptions: [] }),
       ).rejects.toThrow(BadRequestException);
@@ -133,11 +133,11 @@ describe('EvaluationBatchService', () => {
       const result: any = await service.getBatch(OWNER_ID, UserRole.ORGANIZER, ACTIVITY_ID);
 
       expect(result.groups.map((g: any) => g.dutyRole)).toEqual(['ฝ่ายA', 'ฝ่ายB']);
-      expect(result.groups[0].baseline).toEqual({ leadership: 2, communication: 1 });
+      expect(result.groups[0].baseline).toEqual({ leadership: 3, communication: 2 });
     });
 
     it('prefers a persisted baseline and reports exceptions with their reason', async () => {
-      repo.findBaselinesByActivity.mockResolvedValue([{ dutyRole: 'ฝ่ายA', skillType: 'leadership', score: 3 }]);
+      repo.findBaselinesByActivity.mockResolvedValue([{ dutyRole: 'ฝ่ายA', skillType: 'leadership', score: 5 }]);
       repo.findAttendedForBatch.mockResolvedValue([
         registration(1, 'ฝ่ายA', {
           evaluationExceptions: [{ skillType: 'leadership', score: 2, reason: 'ขาดงาน' }],
@@ -146,7 +146,7 @@ describe('EvaluationBatchService', () => {
 
       const result: any = await service.getBatch(OWNER_ID, UserRole.ORGANIZER, ACTIVITY_ID);
 
-      expect(result.groups[0].baseline.leadership).toBe(3);
+      expect(result.groups[0].baseline.leadership).toBe(5);
       expect(result.groups[0].members[0].exceptions.leadership).toEqual({ score: 2, reason: 'ขาดงาน' });
     });
 
@@ -161,7 +161,7 @@ describe('EvaluationBatchService', () => {
   describe('saveBatch — score precedence: exception > group baseline > activity default', () => {
     it('writes computed scores for every checked-in registration in one repository call', async () => {
       await service.saveBatch(OWNER_ID, UserRole.ORGANIZER, ACTIVITY_ID, {
-        groups: [{ dutyRole: 'ฝ่ายA', scores: [{ skillType: 'leadership', score: 3 }] }],
+        groups: [{ dutyRole: 'ฝ่ายA', scores: [{ skillType: 'leadership', score: 5 }] }],
         exceptions: [
           { registrationId: 2, scores: [{ skillType: 'leadership', score: 2 }], reason: '  ขาดงาน 1 จาก 4 วัน ' },
         ],
@@ -171,16 +171,16 @@ describe('EvaluationBatchService', () => {
       const [activityId, updatedById, baselines, exceptions, updates] = repo.replaceBatchState.mock.calls[0];
       expect(activityId).toBe(ACTIVITY_ID);
       expect(updatedById).toBe(OWNER_ID);
-      expect(baselines).toEqual([{ dutyRole: 'ฝ่ายA', skillType: 'leadership', score: 3 }]);
+      expect(baselines).toEqual([{ dutyRole: 'ฝ่ายA', skillType: 'leadership', score: 5 }]);
       // เหตุผลถูก trim ก่อนเก็บ
       expect(exceptions).toEqual([
         { registrationId: 2, skillType: 'leadership', score: 2, reason: 'ขาดงาน 1 จาก 4 วัน' },
       ]);
 
       const byId = Object.fromEntries(updates.map((u: any) => [u.registrationId, u.scores]));
-      expect(byId[1]).toEqual({ leadership: 3, communication: 1 }); // ฐานของฝ่าย + ค่าเริ่มต้นของทักษะที่ไม่ได้ตั้งฐาน
-      expect(byId[2]).toEqual({ leadership: 2, communication: 1 }); // ข้อยกเว้นชนะฐานของฝ่าย
-      expect(byId[3]).toEqual({ leadership: 2, communication: 1 }); // ฝ่าย B ไม่มีฐาน → ค่าเริ่มต้นของกิจกรรม
+      expect(byId[1]).toEqual({ leadership: 5, communication: 2 }); // ฐานของฝ่าย + ค่าเริ่มต้นของทักษะที่ไม่ได้ตั้งฐาน
+      expect(byId[2]).toEqual({ leadership: 2, communication: 2 }); // ข้อยกเว้นชนะฐานของฝ่าย
+      expect(byId[3]).toEqual({ leadership: 3, communication: 2 }); // ฝ่าย B ไม่มีฐาน → ค่าเริ่มต้นของกิจกรรม
     });
 
     it('skips a checked-in registration that somehow has no Evaluation row', async () => {
@@ -218,8 +218,8 @@ describe('EvaluationBatchService', () => {
             {
               dutyRole: 'ฝ่ายA',
               scores: [
-                { skillType: 'leadership', score: 2 },
                 { skillType: 'leadership', score: 3 },
+                { skillType: 'leadership', score: 5 },
               ],
             },
           ],
@@ -255,7 +255,7 @@ describe('EvaluationBatchService', () => {
 
   describe('ค่าที่อนุมัติแล้ว (360°) ถูกล็อก', () => {
     const locked = (id: number) =>
-      registration(id, 'ฝ่ายA', { evaluation: { leadership: 3, communication: 2, approval: { id: 9 } } });
+      registration(id, 'ฝ่ายA', { evaluation: { leadership: 5, communication: 3, approval: { id: 9 } } });
 
     it('saveBatch ไม่เขียนทับคนที่ผ่านการอนุมัติแล้ว แต่ยังคำนวณให้คนอื่นตามปกติ', async () => {
       repo.findAttendedForBatch.mockResolvedValue([registration(1, 'ฝ่ายA'), locked(2)]);
@@ -276,7 +276,7 @@ describe('EvaluationBatchService', () => {
     });
 
     it('กิจกรรมที่ไม่เข้าเงื่อนไข: approvedCount = 0', async () => {
-      repo.findActivityForBatch.mockResolvedValue(activity(SHORT_DURATION));
+      repo.findActivityForBatch.mockResolvedValue(activity({ registrationType: 'participant' }));
       const result: any = await service.getBatch(OWNER_ID, UserRole.ORGANIZER, ACTIVITY_ID);
       expect(result.approvedCount).toBe(0);
     });

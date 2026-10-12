@@ -7,7 +7,7 @@ interface TierButtonsProps {
     value: number | undefined
     /** ระดับที่เกินเพดานของกิจกรรมจะถูกล็อก */
     cap: number
-    onChange: (tier: 1 | 2 | 3) => void
+    onChange: (tier: 2 | 3 | 5) => void
     label: string
     disabled?: boolean
 }

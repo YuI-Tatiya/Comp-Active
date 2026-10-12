@@ -126,7 +126,7 @@ export default function OrganizerEventDetailsPage() {
 
     return (
         <div className="bg-surface pb-12">
-            <Container className="space-y-4 py-6">
+            <Container className="space-y-6 py-8">
                 <Link href="/organizer/manage" className="inline-flex items-center text-sm text-fg-muted transition-colors hover:text-fg">
                     <ArrowLeft className="w-4 h-4 mr-2" /> กลับสู่หน้าจัดการ
                 </Link>
@@ -144,7 +144,6 @@ export default function OrganizerEventDetailsPage() {
                     }
                     title={event.name}
                     byline="จัดโดยคุณ"
-                    description={event.description}
                     date={activeActivity ? formatEventDate(activeActivity.date) : "-"}
                     startTime={activeActivity?.startTime ?? "-"}
                     endTime={activeActivity?.endTime ?? "-"}
@@ -173,6 +172,8 @@ export default function OrganizerEventDetailsPage() {
                         </>
                     }
                 />
+
+                <p className="text-fg-muted whitespace-pre-line">{event.description}</p>
 
                 {/* กลุ่มเป้าหมายที่ตั้งไว้ตอนสร้าง — เดิมดูย้อนไม่ได้เลย ต้องเปิด wizard แก้ไขถึงจะเห็น */}
                 {event.visibility === "restricted" && (
@@ -218,7 +219,6 @@ export default function OrganizerEventDetailsPage() {
                         <TabsContent key={a.id} value={String(a.id)}>
                             <ActivityParticipantManager
                                 activity={a}
-                                registrationOpenAt={event.registrationOpenAt}
                                 registrationCloseAt={event.registrationCloseAt}
                                 eventName={event.name}
                                 onRefetch={() => fetchEventDetails(id, true)}

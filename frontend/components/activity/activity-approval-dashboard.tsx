@@ -18,7 +18,7 @@ const FLAG_LABEL: Record<ApprovalFlag, string> = {
     has_exception: "ผู้จัดตั้งข้อยกเว้นไว้",
 }
 
-const isTier = (v: number | null | undefined): v is 1 | 2 | 3 => v === 1 || v === 2 || v === 3
+const isTier = (v: number | null | undefined): v is 2 | 3 | 5 => v === 2 || v === 3 || v === 5
 
 /** ระดับเป็นป้ายพฤติกรรม; ค่าเฉลี่ยของเพื่อนที่ไม่ตรงระดับ (เช่น 2.5) แสดงเป็นตัวเลข */
 function levelText(value: number | null): string {

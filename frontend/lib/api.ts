@@ -94,7 +94,7 @@ export interface Activity<T = unknown> {
   status: string;
   /** เหตุผลที่ผู้จัดยกเลิกกิจกรรม — แสดงให้นักศึกษาเห็นเมื่อกิจกรรมถูกยกเลิก */
   cancellationReason?: string | null;
-  /** เปิดโหมดประเมินรอบด้าน (นักศึกษาประเมินตนเอง + เพื่อน) — เฉพาะกิจกรรม Tier 3 */
+  /** เปิดโหมดประเมินรอบด้าน (นักศึกษาประเมินตนเอง + เพื่อน) — เฉพาะกิจกรรมสตาฟฟ์ Tier 3 */
   peerAssessmentEnabled?: boolean;
   tags: Tag[];
   conditions: Condition[];
@@ -237,7 +237,6 @@ export const usersAPI = {
   //    ห้ามเติม email — backend ไม่รับ และ forbidNonWhitelisted จะตีกลับเป็น 400
   updateMe: (body: {
     name?: string;
-    username?: string;
     studentId?: string;
     phone?: string;
     educationLevel?: string;
@@ -359,7 +358,6 @@ export interface CreateEventBody {
   description: string;
   imageUrl?: string;
   isPublic?: boolean;
-  registrationOpenAt?: string;
   registrationCloseAt?: string;
   activities: CreateEventActivityBody[];
   surveyQuestions?: SurveyQuestionBody[];
@@ -420,7 +418,6 @@ export interface EventSummary {
   description: string;
   imageUrl?: string | null;
   isPublic: boolean;
-  registrationOpenAt?: string | null;
   registrationCloseAt?: string | null;
   visibility: string;
   visibilityStudentIdFilter?: string | null;
@@ -586,7 +583,7 @@ export interface SkillsData {
   }[];
 }
 
-// ── Batch Evaluation (ประเมินรายฝ่าย — กิจกรรม Tier 3) ───────────────────────
+// ── Batch Evaluation (ประเมินรายฝ่าย — กิจกรรมสตาฟฟ์ Tier 3) ───────────────────────
 
 export interface EvaluationBatchMember {
   registrationId: number;
@@ -600,7 +597,7 @@ export interface EvaluationBatchMember {
 
 export interface EvaluationBatchGroup {
   dutyRole: string;
-  /** คะแนนฐานของฝ่ายต่อทักษะ (ถ้ายังไม่เคยตั้งจะเป็นค่าเริ่มต้นของกิจกรรม ซึ่งอาจไม่ใช่ 1/2/3) */
+  /** คะแนนฐานของฝ่ายต่อทักษะ (ถ้ายังไม่เคยตั้งจะเป็นค่าเริ่มต้นของกิจกรรม ซึ่งอาจไม่ใช่ 2/3/5) */
   baseline: Record<string, number>;
   members: EvaluationBatchMember[];
 }
@@ -609,7 +606,7 @@ export interface EvaluationBatch {
   /** false = กิจกรรมนี้ให้คะแนนอัตโนมัติตอนเช็คอิน ไม่ใช้หน้านี้ (server เป็นผู้ตัดสิน) */
   eligible: boolean;
   reason?: string;
-  cap: 1 | 2 | 3;
+  cap: 2 | 3 | 5;
   skills: string[];
   defaults: Record<string, number>;
   groups: EvaluationBatchGroup[];

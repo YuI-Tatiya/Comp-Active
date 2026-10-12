@@ -40,6 +40,8 @@ function FormSection({ title, first, children }: { title: string; first?: boolea
 interface Props {
     activity: ActivityFormState
     errors: ActivityFormErrors
+    /** กิจกรรมนี้เป็นส่วนหนึ่งของโครงการหลายกิจกรรมหรือไม่ — ใช้ปลดล็อกเพดาน Soft Skills ระดับสูงสุด (ดู maxSoftSkillLevel) */
+    isProject?: boolean
     /** งานประเภท "หลายกิจกรรมย่อย" (event.type !== "single") — กิจกรรมสตาฟฟ์/จิตอาสาในโหมดนี้ใช้ฟอร์ม "1 บทบาทต่อแท็บ" (ดู isNewRoleMode ด้านล่าง) */
     isMultiActivity?: boolean
     onChange: (patch: Partial<ActivityFormState>) => void
@@ -83,10 +85,10 @@ function computeDutyDates(dutyDate: string, mode: ActivityFormState["dutyShiftMo
     return { startAt: toDateTimeLocal(dutyDate, earliestStart), endAt: toDateTimeLocal(dutyDate, latestEnd) }
 }
 
-export function ActivityTabForm({ activity, errors, isMultiActivity, onChange, onFieldBlur }: Props) {
+export function ActivityTabForm({ activity, errors, isProject, isMultiActivity, onChange, onFieldBlur }: Props) {
     const hoursPreview = computeHoursPreview(activity.startAt, activity.endAt)
     const durationHours = hoursPreview ? parseFloat(hoursPreview) : null
-    const softSkillCap = maxSoftSkillLevel(durationHours ?? 0)
+    const softSkillCap = maxSoftSkillLevel(durationHours ?? 0, activity.registrationType, !!isProject)
     const selectedSkillCount = Object.keys(activity.softSkillRates).length
     const atMaxSkills = selectedSkillCount >= MAX_SOFT_SKILLS_PER_ACTIVITY
 
@@ -627,11 +629,11 @@ export function ActivityTabForm({ activity, errors, isMultiActivity, onChange, o
                                     ? isNewRoleMode
                                         ? "กรอกวันที่และเวลาปฏิบัติหน้าที่ในหัวข้อ \"เงื่อนไขการรับสมัคร\" ด้านบนก่อน เพื่อคำนวณระดับสูงสุดที่ปลดล็อกได้"
                                         : "กรอกวันเวลาเริ่ม-สิ้นสุดในหัวข้อ \"วันเวลา/สถานที่\" ด้านบนก่อน เพื่อคำนวณระดับสูงสุดที่ปลดล็อกได้"
-                                    : softSkillCap === 1
+                                    : softSkillCap === 2
                                         ? `กิจกรรมนี้ (${durationHours} ชม.) ให้ได้สูงสุดระดับ "ผ่าน" — กิจกรรมที่ยาวขึ้นจะปลดล็อกระดับสูงกว่านี้`
-                                        : softSkillCap === 2
-                                            ? `กิจกรรมนี้ (${durationHours} ชม.) ให้ได้สูงสุดระดับ "ดี" — ยาวครบ 2 วัน (48 ชม.) ขึ้นไปจะปลดล็อกระดับสูงสุด`
-                                            : `กิจกรรมนี้ (${durationHours} ชม.) ให้ได้ถึงระดับ "ดีเยี่ยม"`}
+                                        : softSkillCap === 3
+                                            ? `กิจกรรมนี้ (${durationHours} ชม.) ให้ได้สูงสุดระดับ "ดี"`
+                                            : `กิจกรรมนี้ (${durationHours} ชม., สตาฟฟ์/จิตอาสา) ให้ได้ถึงระดับ "ดีเยี่ยม"`}
                             </p>
                             <SoftSkillRubricLink />
                         </div>

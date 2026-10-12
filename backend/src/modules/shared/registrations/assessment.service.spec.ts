@@ -14,19 +14,18 @@ function activity(overrides: Record<string, unknown> = {}) {
     organizerId: OWNER_ID,
     status: 'completed',
     peerAssessmentEnabled: true,
-    // 96 ชม. (≥48) → ปลดล็อกระดับ 3 = Tier 3
+    registrationType: 'staff_volunteer',
+    // 96 ชม. (>72) → ปลดล็อกระดับ 5 โดยไม่ต้องเป็นโครงการ = Tier 3
     startAt: new Date('2027-01-01T09:00:00.000Z'),
     endAt: new Date('2027-01-05T09:00:00.000Z'),
     softSkills: [
-      { skillType: 'leadership', rate: 2 },
-      { skillType: 'communication', rate: 1 },
+      { skillType: 'leadership', rate: 3 },
+      { skillType: 'communication', rate: 2 },
     ],
+    event: null,
     ...overrides,
   };
 }
-
-/** กิจกรรมสั้น (2 ชม. < 48) → cap ไม่ถึง 3 เลยไม่เข้าเงื่อนไข Tier 3 — ใช้แทนการปรับ registrationType เดิม */
-const SHORT_DURATION = { endAt: new Date('2027-01-01T11:00:00.000Z') };
 
 function attended(id: number, dutyRole: string | null = 'ฝ่ายA') {
   return { id, dutyRole, student: { name: `Student ${id}` } };
@@ -163,13 +162,13 @@ describe('AssessmentsService', () => {
     });
 
     it('กิจกรรมที่ไม่ใช่ Tier 3 เปิดไม่ได้ (BadRequest พร้อมเหตุผล)', async () => {
-      repo.findActivityForAssessment.mockResolvedValue(activity(SHORT_DURATION));
+      repo.findActivityForAssessment.mockResolvedValue(activity({ registrationType: 'participant' }));
       await expect(service.setEnabled(OWNER_ID, UserRole.ORGANIZER, ACTIVITY_ID, true)).rejects.toThrow(BadRequestException);
       expect(repo.setEnabled).not.toHaveBeenCalled();
     });
 
     it('ปิดโหมดได้เสมอแม้กิจกรรมไม่เข้าเงื่อนไขแล้ว (เช่น ผู้จัดแก้ระยะเวลาภายหลัง)', async () => {
-      repo.findActivityForAssessment.mockResolvedValue(activity({ ...SHORT_DURATION, peerAssessmentEnabled: true }));
+      repo.findActivityForAssessment.mockResolvedValue(activity({ registrationType: 'participant', peerAssessmentEnabled: true }));
       await service.setEnabled(OWNER_ID, UserRole.ORGANIZER, ACTIVITY_ID, false);
       expect(repo.setEnabled).toHaveBeenCalledWith(ACTIVITY_ID, false);
     });
@@ -187,7 +186,7 @@ describe('AssessmentsService', () => {
     });
 
     it('กิจกรรมไม่เข้าเงื่อนไข → eligible:false พร้อมเหตุผล และไม่แตะใบงาน', async () => {
-      repo.findActivityForAssessment.mockResolvedValue(activity(SHORT_DURATION));
+      repo.findActivityForAssessment.mockResolvedValue(activity({ registrationType: 'participant' }));
       const state = await service.getOrganizerState(OWNER_ID, UserRole.ORGANIZER, ACTIVITY_ID);
 
       expect(state.eligible).toBe(false);
@@ -289,9 +288,9 @@ describe('AssessmentsService', () => {
 
   describe('submit', () => {
     const scores = (...pairs: [string, number][]) => ({ scores: pairs.map(([skillType, score]) => ({ skillType, score })) }) as any;
-    const full = scores(['leadership', 2], ['communication', 3]);
+    const full = scores(['leadership', 3], ['communication', 5]);
 
-    it('ส่งครบทุกทักษะ ระดับ 1/2/3 → บันทึกสำเร็จ', async () => {
+    it('ส่งครบทุกทักษะ ระดับ 2/3/5 → บันทึกสำเร็จ', async () => {
       await expect(service.submit(STUDENT_ID, 7, full)).resolves.toEqual({ message: 'ส่งแบบประเมินสำเร็จ' });
       expect(repo.submitAssignment).toHaveBeenCalledWith(7, full.scores);
     });

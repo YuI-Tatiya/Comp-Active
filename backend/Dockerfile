@@ -32,14 +32,9 @@ COPY package*.json ./
 
 # --legacy-peer-deps จำเป็นจริง ๆ ไม่ใช่ใส่ตามใจ:
 # @prisma/client ประกาศ prisma (CLI) เป็น optional peerDependency ("prisma": "*")
-# npm บางรุ่นจึงติดตั้ง peer ให้อัตโนมัติ ทำให้ prisma CLI + mysql2 หลุดเข้ามาใน
-# อิมเมจ production แม้จะสั่ง --omit=dev แล้วก็ตาม flag นี้ปิดการติดตั้ง peer อัตโนมัติ
-#
-# แต่ --legacy-peer-deps เพียงอย่างเดียวพึ่งพาไม่ได้ข้ามรุ่น npm: ทดสอบตรงแล้วพบว่า
-# node:20-alpine มากับ npm 10.8.2 ซึ่งหลุด prisma+mysql2 เข้ามาแม้ตั้ง flag นี้แล้วก็ตาม
-# (311 packages) ส่วน npm 11.12.1 กับ lockfile เดียวกันเป๊ะกลับกรองออกถูกต้อง (176 packages)
-# จึงต้องอัปเกรด npm ในอิมเมจก่อนเสมอ ห้ามพึ่งเวอร์ชันที่มากับ base image ตรงๆ
-RUN npm install -g npm@11.12.1
+# npm รุ่นใหม่จึงติดตั้ง peer ให้อัตโนมัติ ทำให้ prisma CLI + mysql2 หลุดเข้ามาใน
+# อิมเมจ production แม้จะสั่ง --omit=dev แล้วก็ตาม
+# flag นี้ปิดการติดตั้ง peer อัตโนมัติ → 306 packages เหลือ 172
 RUN npm ci --omit=dev --legacy-peer-deps
 
 # runtime ใช้ client ที่คอมไพล์แล้วใน dist/generated เท่านั้น (ตรวจสอบแล้วว่าบูตได้
