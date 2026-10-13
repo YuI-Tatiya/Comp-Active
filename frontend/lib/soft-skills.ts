@@ -143,7 +143,7 @@ export const SOFT_SKILLS: SoftSkillMeta[] = [
 ]
 
 // ระดับ 3 ระดับ (ผ่าน/ดี/ดีเยี่ยม) อยู่ใน soft-skill-tiers.ts (ไม่ผูก icon) — re-export ให้ import จากที่นี่ได้เหมือนเดิม
-export { SOFT_SKILL_TIERS, softSkillTierLabel } from "./soft-skill-tiers"
+export { SOFT_SKILL_TIERS, MAX_SOFT_SKILL_LEVEL, softSkillTierLabel } from "./soft-skill-tiers"
 
 export const MAX_SOFT_SKILLS_PER_ACTIVITY = 3
 

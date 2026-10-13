@@ -11,6 +11,9 @@ export const SOFT_SKILL_TIERS: { value: 1 | 2 | 3; label: string; hint: string }
     { value: 3, label: "ดีเยี่ยม", hint: "รับผิดชอบผลลัพธ์ภาพรวม นำ/มอบหมายงานให้ผู้อื่นได้" },
 ]
 
+/** ระดับสูงสุดที่บันทึกได้ (ดีเยี่ยม) — เต็มของแถบ/กราฟคะแนนเฉลี่ยต่อทักษะ */
+export const MAX_SOFT_SKILL_LEVEL = Math.max(...SOFT_SKILL_TIERS.map((t) => t.value))
+
 /** ป้ายพฤติกรรมของระดับที่บันทึกไว้ — ใช้แสดงผลใน summary/badge ต่างๆ แทนตัวเลขดิบ */
 export function softSkillTierLabel(rate: number): string {
     return SOFT_SKILL_TIERS.find((t) => t.value === rate)?.label ?? `ระดับ ${rate}`

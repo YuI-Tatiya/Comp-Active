@@ -117,6 +117,29 @@ export function DenimSectionHeading({
     )
 }
 
+/** แผงเนื้อหาพื้นขาวขอบมน (หน้าหลักและโปรไฟล์นักศึกษา) — labelledBy = id ของหัวข้อในแผง */
+export function DenimPanel({
+    labelledBy,
+    className,
+    children,
+}: {
+    labelledBy: string
+    className?: string
+    children: React.ReactNode
+}) {
+    return (
+        <section
+            aria-labelledby={labelledBy}
+            className={cn(
+                "rounded-[24px] border border-denim-line bg-white p-5 shadow-[0_14px_34px_-28px_rgb(18_34_61/0.45)] sm:p-7",
+                className
+            )}
+        >
+            {children}
+        </section>
+    )
+}
+
 /** ปุ่มกลมขาวมีลูกศร — เลื่อนสไลด์/หน้าถัดไป */
 export function RoundIconButton({
     label,
@@ -194,83 +217,98 @@ export function OrganizerStatCards({
             <Container>
                 {/* มือถือ 2x2 แทนเรียงเดี่ยว 4 ใบ (ใบละ ~170px = กินจอไปเกือบ 700px ก่อนถึงรายการกิจกรรม) */}
                 <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-                    {stats.map(({ code, label, value, icon: Icon, highlight, attention, caption, progress }) => (
-                        <div
-                            key={code}
-                            className={cn(
-                                "relative flex min-w-0 flex-col gap-2.5 rounded-[20px] px-4 py-4 sm:px-6 sm:py-[22px]",
-                                // เว้นที่ขวาให้วงแหวน ข้อความไม่วิ่งลอดใต้วงแหวนบนการ์ดแคบ (มือถือ 2 คอลัมน์)
-                                progress !== undefined && "pr-[4.75rem] sm:pr-24",
-                                highlight
-                                    ? "denim-weave text-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.6)]"
-                                    : "border bg-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.5)]",
-                                !highlight && (attention ? "border-amber ring-2 ring-amber/30" : "border-denim-line")
-                            )}
-                        >
-                            <div className="flex items-center justify-between gap-2">
-                                <span
-                                    className={cn(
-                                        "min-w-0 truncate font-code text-[11px] tracking-[0.04em] sm:text-xs",
-                                        highlight ? "text-denim-on-soft" : "text-denim-muted"
-                                    )}
-                                >
-                                    {code}
-                                </span>
-                                {progress === undefined && (
-                                    <span
-                                        className={cn(
-                                            "grid size-9 shrink-0 place-items-center rounded-xl sm:size-10",
-                                            highlight || attention ? "bg-amber" : "bg-denim-chip"
-                                        )}
-                                    >
-                                        <Icon
-                                            className={cn("size-5", highlight || attention ? "text-denim-deep" : "text-denim")}
-                                            strokeWidth={highlight ? 2.2 : 2}
-                                            aria-hidden="true"
-                                        />
-                                    </span>
-                                )}
-                            </div>
-                            <div
-                                className={cn(
-                                    "font-display text-[36px] font-bold leading-none tabular-nums sm:text-[44px]",
-                                    highlight ? "text-white" : "text-denim-deep"
-                                )}
-                            >
-                                {value}
-                            </div>
-                            {progress !== undefined && (
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 sm:right-6">
-                                    <ProgressRing value={progress} onDark={!!highlight} />
-                                </span>
-                            )}
-                            <div>
-                                <div
-                                    className={cn(
-                                        "text-sm",
-                                        (caption || strongLabels) && "font-semibold",
-                                        highlight
-                                            ? caption || strongLabels
-                                                ? "text-white"
-                                                : "text-denim-on"
-                                            : caption || strongLabels
-                                              ? "text-denim-deep"
-                                              : "text-denim-ink"
-                                    )}
-                                >
-                                    {label}
-                                </div>
-                                {caption && (
-                                    <div className={cn("mt-0.5 text-xs", highlight ? "text-denim-on-soft" : "text-denim-muted")}>
-                                        {caption}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                    {stats.map((stat) => (
+                        <DenimStatCard key={stat.code} stat={stat} strongLabel={strongLabels} />
                     ))}
                 </div>
             </Container>
         </section>
+    )
+}
+
+/** การ์ดสถิติหนึ่งใบ — OrganizerStatCards จัดกริด 4 ใบทับแถบหัวหน้า หน้าอื่นจัดกริดเองได้ (เช่นโปรไฟล์ 3 ใบ) */
+export function DenimStatCard({
+    stat: { label, value, icon: Icon, highlight, attention, caption, progress, code },
+    strongLabel: strong = false,
+    className,
+}: {
+    stat: OrganizerStat
+    strongLabel?: boolean
+    className?: string
+}) {
+    return (
+        <div
+            className={cn(
+                "relative flex min-w-0 flex-col gap-2.5 rounded-[20px] px-4 py-4 sm:px-6 sm:py-[22px]",
+                // เว้นที่ขวาให้วงแหวน ข้อความไม่วิ่งลอดใต้วงแหวนบนการ์ดแคบ (มือถือ 2 คอลัมน์)
+                progress !== undefined && "pr-[4.75rem] sm:pr-24",
+                highlight
+                    ? "denim-weave text-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.6)]"
+                    : "border bg-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.5)]",
+                !highlight && (attention ? "border-amber ring-2 ring-amber/30" : "border-denim-line"),
+                className
+            )}
+        >
+            <div className="flex items-center justify-between gap-2">
+                <span
+                    className={cn(
+                        "min-w-0 truncate font-code text-[11px] tracking-[0.04em] sm:text-xs",
+                        highlight ? "text-denim-on-soft" : "text-denim-muted"
+                    )}
+                >
+                    {code}
+                </span>
+                {progress === undefined && (
+                    <span
+                        className={cn(
+                            "grid size-9 shrink-0 place-items-center rounded-xl sm:size-10",
+                            highlight || attention ? "bg-amber" : "bg-denim-chip"
+                        )}
+                    >
+                        <Icon
+                            className={cn("size-5", highlight || attention ? "text-denim-deep" : "text-denim")}
+                            strokeWidth={highlight ? 2.2 : 2}
+                            aria-hidden="true"
+                        />
+                    </span>
+                )}
+            </div>
+            <div
+                className={cn(
+                    "font-display text-[36px] font-bold leading-none tabular-nums sm:text-[44px]",
+                    highlight ? "text-white" : "text-denim-deep"
+                )}
+            >
+                {value}
+            </div>
+            {progress !== undefined && (
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 sm:right-6">
+                    <ProgressRing value={progress} onDark={!!highlight} />
+                </span>
+            )}
+            <div>
+                <div
+                    className={cn(
+                        "text-sm",
+                        (caption || strong) && "font-semibold",
+                        highlight
+                            ? caption || strong
+                                ? "text-white"
+                                : "text-denim-on"
+                            : caption || strong
+                              ? "text-denim-deep"
+                              : "text-denim-ink"
+                    )}
+                >
+                    {label}
+                </div>
+                {caption && (
+                    <div className={cn("mt-0.5 text-xs", highlight ? "text-denim-on-soft" : "text-denim-muted")}>
+                        {caption}
+                    </div>
+                )}
+            </div>
+        </div>
     )
 }
 
@@ -329,7 +367,8 @@ export function StatusTabs({ tabs, value, counts, onChange, className }: StatusT
 
 /* ── แผงค้นหา + ตัวกรอง ──────────────────────────────────────────────────── */
 
-const FIELD =
+/** ช่องกรอก/เลือกบนพื้นขาวของธีม — แผงตัวกรองและตัวกรองในหน้าโปรไฟล์ใช้ร่วมกัน */
+export const DENIM_FIELD =
     "min-h-11 h-11 rounded-xl border-[1.5px] border-denim-field bg-white text-sm text-denim-deep hover:border-denim-dash focus-visible:border-denim focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-denim"
 
 interface FilterPanelProps {
@@ -372,7 +411,7 @@ export function FilterPanel({
                         placeholder={searchPlaceholder}
                         value={searchValue}
                         onChange={(e) => onSearchChange(e.target.value)}
-                        className={cn(FIELD, "w-full pl-[38px] pr-3 placeholder:text-denim-muted/80")}
+                        className={cn(DENIM_FIELD, "w-full pl-[38px] pr-3 placeholder:text-denim-muted/80")}
                     />
                 </div>
             </div>
@@ -384,7 +423,7 @@ export function FilterPanel({
                     </label>
                     <Select
                         id={`organizer-filter-${f.key}`}
-                        className={FIELD}
+                        className={DENIM_FIELD}
                         value={values[f.key] ?? f.neutralValue ?? ""}
                         onChange={(e) => onFilterChange(f.key, e.target.value)}
                     >

@@ -8,7 +8,7 @@ import { TerminalPrompt, coverPattern } from "@/components/denim/denim-ui"
 import type { SkillScores } from "@/lib/api"
 import { categoriesBadgeLabel, getCategory } from "@/lib/categories"
 import { registrationBucket } from "@/lib/registration-bucket"
-import { SOFT_SKILLS } from "@/lib/soft-skills"
+import { MAX_SOFT_SKILL_LEVEL, SOFT_SKILLS } from "@/lib/soft-skills"
 import {
     activityStart,
     calendarDaysUntil,
@@ -80,19 +80,6 @@ export function StudentHomeHero({ name, daysToNext }: { name: string; daysToNext
                     />
                 </div>
             </Container>
-        </section>
-    )
-}
-
-/* ── แผงเนื้อหา (พื้นขาว) ───────────────────────────────────────────────────── */
-
-export function HomePanel({ labelledBy, children }: { labelledBy: string; children: React.ReactNode }) {
-    return (
-        <section
-            aria-labelledby={labelledBy}
-            className="rounded-[24px] border border-denim-line bg-white p-5 shadow-[0_14px_34px_-28px_rgb(18_34_61/0.45)] sm:p-7"
-        >
-            {children}
         </section>
     )
 }
@@ -221,8 +208,10 @@ export function UpcomingEmpty() {
 
 /* ── ทักษะ 12 ด้าน ───────────────────────────────────────────────────────── */
 
-/** ระดับสูงสุดของแต่ละทักษะ (ดีเยี่ยม = 5) — ความยาวแถบ = ค่าเฉลี่ย / 5 */
-const MAX_LEVEL = 5
+/** ความยาวแถบ = ค่าเฉลี่ย / ระดับสูงสุด (ดีเยี่ยม) — ใช้ร่วมกับตารางทักษะในหน้าโปรไฟล์ */
+export function skillBarPercent(v: number): number {
+    return Math.max(0, Math.min((v / MAX_SOFT_SKILL_LEVEL) * 100, 100))
+}
 
 function formatScore(v: number): string {
     return Number.isInteger(v) ? String(v) : v.toFixed(1)
@@ -273,7 +262,7 @@ export function SkillTiles({ average }: { average?: SkillScores }) {
                         >
                             <span
                                 className="block h-full rounded-full bg-denim transition-[width] duration-700"
-                                style={{ width: `${Math.min((v / MAX_LEVEL) * 100, 100)}%` }}
+                                style={{ width: `${skillBarPercent(v)}%` }}
                             />
                         </span>
                     </li>

@@ -173,6 +173,9 @@ Shared UI in `components/ui/` (Radix + Tailwind + CVA) and auth UI in `component
     - A row with an evaluation stays **evaluated** even if the activity is cancelled later.
   - **Student home (`/student`):** the stat cards reuse `OrganizerStatCards`, and the "แนะนำ" row is `PublicActivityCard` plus a `DashedLinkTile`.
     - "กำลังจะถึง" and the mascot's countdown both come from `selectUpcoming` (`lib/student-home.ts`). It keeps only the `pending`/`confirmed` buckets, drops `completed` activities, and counts days on the Bangkok calendar, so it agrees with "กิจกรรมของฉัน".
+  - **Student profile (`/student/profile`):** pieces live in `components/student/profile-ui.tsx`. The tab bar sits inside the hero, and the stat cards are `DenimStatCard` in a 3-column grid.
+    - The skill table shows each skill's **average**, to 2 decimals, the same number the PDF transcript prints. The radar spokes are numbered like the table rows.
+- **Soft-skill scale is 1/2/3** (ผ่าน/ดี/ดีเยี่ยม; `SOFT_SKILL_TIER_VALUES` in the backend, `SOFT_SKILL_TIERS` in the frontend). Scale bars and radars with `MAX_SOFT_SKILL_LEVEL`, never a literal 5: the scale used to be 0–5, and the home skill bars briefly divided by 5.
 - **Focus rings:** amber only on denim backgrounds. On white it is ~2:1, below the 3:1 a focus indicator needs, so use denim there.
 - **News:** the public home `/` shows text slides from `lib/news.ts`. `/student` dropped them in its redesign.
 
