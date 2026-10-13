@@ -26,10 +26,10 @@ describe('ChatbotService.reply', () => {
     delete (global as any).fetch;
   });
 
-  it('ไม่ได้ตั้งค่า GEMINI_API_KEY — คืนข้อความแจ้งว่ายังไม่เปิดใช้งาน ไม่เรียก fetch เลย', async () => {
+  it('ไม่ได้ตั้งค่า CHATBOT_API_KEY — คืนข้อความแจ้งว่ายังไม่เปิดใช้งาน ไม่เรียก fetch เลย', async () => {
     const fetchSpy = jest.fn();
     (global as any).fetch = fetchSpy;
-    const service = new ChatbotService(makeConfig({ GEMINI_API_KEY: undefined }), makeActivitiesService());
+    const service = new ChatbotService(makeConfig({ CHATBOT_API_KEY: undefined }), makeActivitiesService());
 
     const reply = await service.reply('สวัสดี', [], null);
 
@@ -37,28 +37,25 @@ describe('ChatbotService.reply', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('เรียก Gemini สำเร็จ — แกะข้อความจาก candidates[0].content.parts มาต่อกัน', async () => {
+  it('เรียก Chatbot API สำเร็จ — แกะข้อความจาก choices[0].message.content', async () => {
     mockFetchOnce({
       ok: true,
-      json: () =>
-        Promise.resolve({
-          candidates: [{ content: { parts: [{ text: 'ลงทะเบียนได้ที่หน้า ' }, { text: 'กิจกรรม' }] } }],
-        }),
+      json: () => Promise.resolve({ choices: [{ message: { role: 'assistant', content: 'ลงทะเบียนได้ที่หน้ากิจกรรม' } }] }),
     });
-    const service = new ChatbotService(makeConfig({ GEMINI_API_KEY: 'test-key' }), makeActivitiesService());
+    const service = new ChatbotService(makeConfig({ CHATBOT_API_KEY: 'test-key' }), makeActivitiesService());
 
     const reply = await service.reply('ลงทะเบียนยังไง', [], 'student');
 
-    expect(reply).toBe('ลงทะเบียนได้ที่หน้า กิจกรรม');
+    expect(reply).toBe('ลงทะเบียนได้ที่หน้ากิจกรรม');
   });
 
-  it('ส่ง history + system instruction + ใช้ model จาก GEMINI_MODEL (ไม่ใช้ default) + ฝัง key ใน URL', async () => {
+  it('ส่ง history + system prompt (ข้อความแรก) + ใช้ model จาก CHATBOT_MODEL (ไม่ใช้ default) + ใช้ Authorization: Bearer', async () => {
     const fetchSpy = mockFetchOnce({
       ok: true,
-      json: () => Promise.resolve({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }),
+      json: () => Promise.resolve({ choices: [{ message: { content: 'ok' } }] }),
     });
     const service = new ChatbotService(
-      makeConfig({ GEMINI_API_KEY: 'my-key', GEMINI_MODEL: 'gemini-custom' }),
+      makeConfig({ CHATBOT_API_KEY: 'my-key', CHATBOT_MODEL: 'custom-model' }),
       makeActivitiesService(),
     );
 
@@ -66,34 +63,64 @@ describe('ChatbotService.reply', () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0];
-    expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-custom:generateContent?key=my-key');
+    expect(url).toBe('https://gen.ai.kku.ac.th/api/v1/chat/completions');
+    expect(init.headers.Authorization).toBe('Bearer my-key');
     const body = JSON.parse(init.body);
-    expect(body.contents).toEqual([
-      { role: 'user', parts: [{ text: 'สวัสดี' }] },
-      { role: 'model', parts: [{ text: 'สวัสดีค่ะ' }] },
-      { role: 'user', parts: [{ text: 'ขอบคุณ' }] },
+    expect(body.model).toBe('custom-model');
+    expect(body.messages[0].role).toBe('system');
+    expect(body.messages[0].content).toContain('Comp Active');
+    expect(body.messages[0].content).toContain('ผู้จัดกิจกรรม');
+    expect(body.messages.slice(1)).toEqual([
+      { role: 'user', content: 'สวัสดี' },
+      { role: 'assistant', content: 'สวัสดีค่ะ' }, // role 'model' (ของ DTO เดิม) แปลงเป็น 'assistant' ตามรูปแบบ OpenAI
+      { role: 'user', content: 'ขอบคุณ' },
     ]);
-    expect(body.systemInstruction.parts[0].text).toContain('Comp Active');
-    expect(body.systemInstruction.parts[0].text).toContain('ผู้จัดกิจกรรม');
   });
 
-  it('ไม่ตั้ง GEMINI_MODEL — ใช้ค่า default gemini-3.8-flash', async () => {
+  it('ไม่ตั้ง CHATBOT_MODEL — ใช้ค่า default gemini-2.5-flash-lite', async () => {
     const fetchSpy = mockFetchOnce({
       ok: true,
-      json: () => Promise.resolve({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }),
+      json: () => Promise.resolve({ choices: [{ message: { content: 'ok' } }] }),
     });
-    const service = new ChatbotService(makeConfig({ GEMINI_API_KEY: 'my-key' }), makeActivitiesService());
+    const service = new ChatbotService(makeConfig({ CHATBOT_API_KEY: 'my-key' }), makeActivitiesService());
 
     await service.reply('หวัดดี', [], null);
 
-    const [url] = fetchSpy.mock.calls[0];
-    expect(url).toContain('/models/gemini-3.8-flash:generateContent');
+    const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
+    expect(body.model).toBe('gemini-2.5-flash-lite');
+  });
+
+  it('ไม่ตั้ง CHATBOT_BASE_URL — ใช้ gen.ai.kku.ac.th เป็นค่า default', async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: () => Promise.resolve({ choices: [{ message: { content: 'ok' } }] }),
+    });
+    const service = new ChatbotService(makeConfig({ CHATBOT_API_KEY: 'my-key' }), makeActivitiesService());
+
+    await service.reply('หวัดดี', [], null);
+
+    expect(fetchSpy.mock.calls[0][0]).toBe('https://gen.ai.kku.ac.th/api/v1/chat/completions');
+  });
+
+  it('ตั้ง CHATBOT_BASE_URL เอง (มี / ท้ายด้วย) — ตัด / ซ้ำแล้วต่อ /chat/completions ให้ถูก', async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: () => Promise.resolve({ choices: [{ message: { content: 'ok' } }] }),
+    });
+    const service = new ChatbotService(
+      makeConfig({ CHATBOT_API_KEY: 'my-key', CHATBOT_BASE_URL: 'https://example.internal/v1/' }),
+      makeActivitiesService(),
+    );
+
+    await service.reply('หวัดดี', [], null);
+
+    expect(fetchSpy.mock.calls[0][0]).toBe('https://example.internal/v1/chat/completions');
   });
 
   it('fetch throw (เครือข่ายล่ม) — ลองซ้ำจนครบ 3 ครั้งแล้วคืนข้อความ fallback ไม่ throw ต่อ', async () => {
     const fetchSpy = jest.fn().mockRejectedValue(new Error('network down'));
     (global as any).fetch = fetchSpy;
-    const service = new ChatbotService(makeConfig({ GEMINI_API_KEY: 'test-key' }), makeActivitiesService());
+    const service = new ChatbotService(makeConfig({ CHATBOT_API_KEY: 'test-key' }), makeActivitiesService());
 
     const reply = await service.reply('สวัสดี', [], null);
 
@@ -101,9 +128,9 @@ describe('ChatbotService.reply', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
-  it('Gemini ตอบ 503 ติดกันทุกครั้ง (โมเดลแน่น) — ลองซ้ำจนครบ 3 ครั้งแล้วคืนข้อความ fallback', async () => {
+  it('ต้นทางตอบ 503 ติดกันทุกครั้ง (แน่นชั่วคราว) — ลองซ้ำจนครบ 3 ครั้งแล้วคืนข้อความ fallback', async () => {
     const fetchSpy = mockFetchOnce({ ok: false, status: 503, text: () => Promise.resolve('model overloaded') });
-    const service = new ChatbotService(makeConfig({ GEMINI_API_KEY: 'test-key' }), makeActivitiesService());
+    const service = new ChatbotService(makeConfig({ CHATBOT_API_KEY: 'test-key' }), makeActivitiesService());
 
     const reply = await service.reply('สวัสดี', [], null);
 
@@ -111,9 +138,9 @@ describe('ChatbotService.reply', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
-  it('429 (เกินโควตา) ไม่ retry — retryDelay ที่ Gemini แนะนำมักเป็นหลักสิบวินาที ลองซ้ำทันทีไม่มีทางช่วย', async () => {
-    const fetchSpy = mockFetchOnce({ ok: false, status: 429, text: () => Promise.resolve('quota exceeded, retry in 53s') });
-    const service = new ChatbotService(makeConfig({ GEMINI_API_KEY: 'test-key' }), makeActivitiesService());
+  it('429 (เกินโควตา/rate limit) ไม่ retry — รอบปกติมักต้องรอเป็นสิบวินาที ลองซ้ำทันทีไม่มีทางช่วย', async () => {
+    const fetchSpy = mockFetchOnce({ ok: false, status: 429, text: () => Promise.resolve('rate limit exceeded') });
+    const service = new ChatbotService(makeConfig({ CHATBOT_API_KEY: 'test-key' }), makeActivitiesService());
 
     const reply = await service.reply('สวัสดี', [], null);
 
@@ -128,10 +155,10 @@ describe('ChatbotService.reply', () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ candidates: [{ content: { parts: [{ text: 'ลองใหม่สำเร็จ' }] } }] }),
+        json: () => Promise.resolve({ choices: [{ message: { content: 'ลองใหม่สำเร็จ' } }] }),
       });
     (global as any).fetch = fetchSpy;
-    const service = new ChatbotService(makeConfig({ GEMINI_API_KEY: 'test-key' }), makeActivitiesService());
+    const service = new ChatbotService(makeConfig({ CHATBOT_API_KEY: 'test-key' }), makeActivitiesService());
 
     const reply = await service.reply('สวัสดี', [], null);
 
@@ -153,7 +180,7 @@ describe('ChatbotService.reply', () => {
         });
       });
       (global as any).fetch = fetchSpy;
-      const service = new ChatbotService(makeConfig({ GEMINI_API_KEY: 'test-key' }), makeActivitiesService());
+      const service = new ChatbotService(makeConfig({ CHATBOT_API_KEY: 'test-key' }), makeActivitiesService());
 
       const replyPromise = service.reply('สวัสดี', [], null);
       await jest.advanceTimersByTimeAsync(50_000); // เกินเพดานเลวร้ายสุด (3×15s+1.1s ≈ 46.1s) ให้ครบทั้ง 3 attempt
@@ -169,7 +196,7 @@ describe('ChatbotService.reply', () => {
 
   it('สถานะที่ retry ไม่ช่วย (เช่น 400 คำขอผิดรูปแบบ) — ไม่ลองซ้ำ คืน fallback จากความพยายามครั้งเดียว', async () => {
     const fetchSpy = mockFetchOnce({ ok: false, status: 400, text: () => Promise.resolve('bad request') });
-    const service = new ChatbotService(makeConfig({ GEMINI_API_KEY: 'test-key' }), makeActivitiesService());
+    const service = new ChatbotService(makeConfig({ CHATBOT_API_KEY: 'test-key' }), makeActivitiesService());
 
     const reply = await service.reply('สวัสดี', [], null);
 
@@ -177,9 +204,9 @@ describe('ChatbotService.reply', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('ตอบ 200 แต่ไม่มี candidates (เช่น ถูก safety filter บล็อก) — คืนข้อความ fallback แทนสตริงว่าง', async () => {
-    mockFetchOnce({ ok: true, json: () => Promise.resolve({ promptFeedback: { blockReason: 'SAFETY' } }) });
-    const service = new ChatbotService(makeConfig({ GEMINI_API_KEY: 'test-key' }), makeActivitiesService());
+  it('ตอบ 200 แต่ไม่มี choices (เช่น ถูก content filter บล็อก) — คืนข้อความ fallback แทนสตริงว่าง', async () => {
+    mockFetchOnce({ ok: true, json: () => Promise.resolve({ choices: [] }) });
+    const service = new ChatbotService(makeConfig({ CHATBOT_API_KEY: 'test-key' }), makeActivitiesService());
 
     const reply = await service.reply('สวัสดี', [], null);
 
@@ -188,7 +215,7 @@ describe('ChatbotService.reply', () => {
 
   it('แปลงเป็น JSON ไม่สำเร็จ — คืนข้อความ fallback ไม่ throw ต่อ', async () => {
     mockFetchOnce({ ok: true, json: () => Promise.reject(new Error('bad json')) });
-    const service = new ChatbotService(makeConfig({ GEMINI_API_KEY: 'test-key' }), makeActivitiesService());
+    const service = new ChatbotService(makeConfig({ CHATBOT_API_KEY: 'test-key' }), makeActivitiesService());
 
     const reply = await service.reply('สวัสดี', [], null);
 
@@ -196,10 +223,10 @@ describe('ChatbotService.reply', () => {
   });
 
   describe('ข้อมูลกิจกรรมที่เปิดรับสมัครอยู่ตอนนี้ (grounding context)', () => {
-    it('มีกิจกรรมเปิดรับสมัคร — แปะรายชื่อ (ชื่อ/หมวดหมู่/วันที่/เวลา/สถานที่) ลงท้าย system instruction', async () => {
+    it('มีกิจกรรมเปิดรับสมัคร — แปะรายชื่อ (ชื่อ/หมวดหมู่/วันที่/เวลา/สถานที่) ลงท้าย system prompt', async () => {
       const fetchSpy = mockFetchOnce({
         ok: true,
-        json: () => Promise.resolve({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }),
+        json: () => Promise.resolve({ choices: [{ message: { content: 'ok' } }] }),
       });
       const activitiesService = makeActivitiesService([
         {
@@ -211,13 +238,13 @@ describe('ChatbotService.reply', () => {
           location: 'โรงเรียนบ้านหนองแวง',
         },
       ]);
-      const service = new ChatbotService(makeConfig({ GEMINI_API_KEY: 'test-key' }), activitiesService);
+      const service = new ChatbotService(makeConfig({ CHATBOT_API_KEY: 'test-key' }), activitiesService);
 
       await service.reply('ช่วงนี้มีกิจกรรมอะไรเปิดรับสมัครบ้าง', [], null);
 
       expect(activitiesService.findOpenForChatbot).toHaveBeenCalledTimes(1);
       const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
-      const prompt = body.systemInstruction.parts[0].text;
+      const prompt = body.messages[0].content;
       expect(prompt).toContain('ค่ายอาสาพัฒนาโรงเรียน');
       expect(prompt).toContain('อาสาสมัคร');
       expect(prompt).toContain('2026-11-01');
@@ -228,31 +255,31 @@ describe('ChatbotService.reply', () => {
     it('ไม่มีกิจกรรมเปิดรับสมัครเลย — บอกโมเดลตรงๆ ว่าไม่มี ไม่ปล่อยให้เดา', async () => {
       const fetchSpy = mockFetchOnce({
         ok: true,
-        json: () => Promise.resolve({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }),
+        json: () => Promise.resolve({ choices: [{ message: { content: 'ok' } }] }),
       });
-      const service = new ChatbotService(makeConfig({ GEMINI_API_KEY: 'test-key' }), makeActivitiesService([]));
+      const service = new ChatbotService(makeConfig({ CHATBOT_API_KEY: 'test-key' }), makeActivitiesService([]));
 
       await service.reply('ช่วงนี้มีกิจกรรมอะไรเปิดรับสมัครบ้าง', [], null);
 
       const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
-      expect(body.systemInstruction.parts[0].text).toContain('ไม่มีกิจกรรมที่เปิดรับสมัครอยู่เลยในขณะนี้');
+      expect(body.messages[0].content).toContain('ไม่มีกิจกรรมที่เปิดรับสมัครอยู่เลยในขณะนี้');
     });
 
-    it('findOpenForChatbot พัง (DB ล่ม ฯลฯ) — ไม่ทำให้ทั้งคำขอพัง ยังเรียก Gemini ต่อได้ตามปกติ', async () => {
+    it('findOpenForChatbot พัง (DB ล่ม ฯลฯ) — ไม่ทำให้ทั้งคำขอพัง ยังเรียก Chatbot API ต่อได้ตามปกติ', async () => {
       const fetchSpy = mockFetchOnce({
         ok: true,
-        json: () => Promise.resolve({ candidates: [{ content: { parts: [{ text: 'ตอบได้ตามปกติ' }] } }] }),
+        json: () => Promise.resolve({ choices: [{ message: { content: 'ตอบได้ตามปกติ' } }] }),
       });
       const activitiesService = {
         findOpenForChatbot: jest.fn().mockRejectedValue(new Error('db down')),
       } as any;
-      const service = new ChatbotService(makeConfig({ GEMINI_API_KEY: 'test-key' }), activitiesService);
+      const service = new ChatbotService(makeConfig({ CHATBOT_API_KEY: 'test-key' }), activitiesService);
 
       const reply = await service.reply('สวัสดี', [], null);
 
       expect(reply).toBe('ตอบได้ตามปกติ');
       const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
-      expect(body.systemInstruction.parts[0].text).toContain('ดึงข้อมูลไม่สำเร็จชั่วคราว');
+      expect(body.messages[0].content).toContain('ดึงข้อมูลไม่สำเร็จชั่วคราว');
     });
   });
 });
