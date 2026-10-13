@@ -1,6 +1,3 @@
-import { writeFileSync, existsSync, mkdirSync, rmSync } from "fs";
-import { join } from "path";
-import { tmpdir } from "os";
 import { escapeHtml, sanitizeHeaderValue } from "./html.util";
 import {
   assertRealFileType,
@@ -37,15 +34,6 @@ describe("การป้องกันฝั่งความปลอดภ�
   });
 
   describe("upload — A05: ตรวจไฟล์จริง ไม่ใช่แค่ชื่อไฟล์", () => {
-    const dir = join(tmpdir(), "compactive-upload-test");
-
-    beforeAll(() => {
-      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-    });
-    afterAll(() => {
-      rmSync(dir, { recursive: true, force: true });
-    });
-
     it("นามสกุลที่เก็บลงดิสก์มาจาก mimetype ไม่ใช่ชื่อไฟล์ที่ผู้ใช้ส่งมา", () => {
       expect(safeExtensionFor(IMAGE_UPLOAD, "image/png")).toBe(".png");
       expect(safeExtensionFor(IMAGE_UPLOAD, "text/html")).toBeNull();
@@ -91,38 +79,28 @@ describe("การป้องกันฝั่งความปลอดภ�
       );
     });
 
-    it("ลบไฟล์ทิ้งเมื่อเนื้อไฟล์จริงไม่ใช่รูป แม้จะผ่านด่านนามสกุล/mimetype มาแล้ว", () => {
-      const fake = join(dir, "fake.png");
+    it("ปฏิเสธเมื่อเนื้อไฟล์จริงไม่ใช่รูป แม้จะผ่านด่านนามสกุล/mimetype มาแล้ว", () => {
       // ไฟล์ HTML ที่ตั้งชื่อ .png และประกาศ mimetype เป็น image/png
-      writeFileSync(
-        fake,
+      const fake = Buffer.from(
         "<html><script>alert(document.domain)</script></html>",
       );
 
       expect(() => assertRealFileType(IMAGE_UPLOAD, fake)).toThrow();
-      expect(existsSync(fake)).toBe(false); // ต้องถูกลบทิ้ง ไม่ค้างบนเซิร์ฟเวอร์
     });
 
     it("ปล่อยผ่านเมื่อ magic bytes เป็น PNG จริง", () => {
-      const real = join(dir, "real.png");
-      writeFileSync(
-        real,
-        Buffer.from([
-          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00,
-        ]),
-      );
+      const real = Buffer.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00,
+      ]);
 
       expect(() => assertRealFileType(IMAGE_UPLOAD, real)).not.toThrow();
-      expect(existsSync(real)).toBe(true);
     });
 
     it("ตรวจ magic bytes ของเอกสารได้ด้วย (PDF จริง vs ปลอม)", () => {
-      const realPdf = join(dir, "real.pdf");
-      writeFileSync(realPdf, Buffer.from("%PDF-1.7\n"));
+      const realPdf = Buffer.from("%PDF-1.7\n");
       expect(() => assertRealFileType(DOCUMENT_UPLOAD, realPdf)).not.toThrow();
 
-      const fakePdf = join(dir, "fake.pdf");
-      writeFileSync(fakePdf, Buffer.from("MZ\x90\x00 executable"));
+      const fakePdf = Buffer.from("MZ\x90\x00 executable");
       expect(() => assertRealFileType(DOCUMENT_UPLOAD, fakePdf)).toThrow();
     });
   });

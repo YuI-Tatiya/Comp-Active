@@ -27,11 +27,17 @@ export function resolveApiBaseUrl(raw: string | undefined): string {
 }
 
 /**
- * แปลง URL รูปที่แสดงอยู่ในฟอร์ม (imagePreview) กลับเป็น path ที่ backend เก็บ เช่น /uploads/activities/x.png
+ * แปลง URL รูปที่แสดงอยู่ในฟอร์ม (imagePreview) กลับเป็น path/URL ที่ backend เก็บจริง
  * คืน undefined ถ้าไม่ใช่ไฟล์ที่อัปโหลดขึ้น backend แล้ว (เช่น blob: ของไฟล์ที่เพิ่งเลือก ยังไม่ได้อัปโหลด)
  *
- * รับได้ทั้ง path สัมพัทธ์ และ URL เต็มจาก origin ใดก็ได้ — ฉบับร่างที่บันทึกไว้ก่อนเปลี่ยนมาใช้ same-origin
- * เก็บ imagePreview เป็น http://api.localhost/uploads/... ไว้ ต้องยังเปิดต่อได้
+ * backend เก็บค่านี้ได้ 2 แบบแล้วแต่ว่าตั้งค่า R2 ไว้หรือไม่ (ดู backend storage.config.ts):
+ * - path สัมพัทธ์ /uploads/... (ยังไม่ได้ตั้ง R2 — ไฟล์อยู่บนดิสก์ served same-origin)
+ * - URL เต็มของโดเมน R2/CDN (ตั้ง R2 แล้ว) — คืนค่าตามนั้นตรง ๆ ไม่ตัดเหลือแค่ pathname อีกต่อไป
+ *   เพราะ pathname เพียวๆ ใช้ต่อ URL ไม่ได้ (คนละ origin กับหน้าเว็บ)
+ *
+ * ข้อยกเว้นเดียว: preview ที่เป็น URL เต็มแต่ pathname ขึ้นต้นด้วย /uploads/ คือฉบับร่างเก่าก่อนเปลี่ยน
+ * มาใช้ same-origin (เคยเก็บ imagePreview เป็น http://api.localhost/uploads/... ไว้) — ลดเหลือ path
+ * สัมพัทธ์เหมือนเดิม ไม่ใช่ URL เต็มของ origin เก่าที่อาจใช้ไม่ได้แล้ว
  */
 export function uploadPathFromPreview(preview: string | null | undefined): string | undefined {
     if (!preview) return undefined
@@ -43,5 +49,18 @@ export function uploadPathFromPreview(preview: string | null | undefined): strin
         return undefined
     }
     if (url.protocol !== "http:" && url.protocol !== "https:") return undefined
-    return url.pathname.startsWith("/uploads/") ? url.pathname : undefined
+    if (url.pathname.startsWith("/uploads/")) return url.pathname
+    return preview
+}
+
+/**
+ * เติม API_BASE_URL ให้ path ที่ backend เก็บ เพื่อใช้เป็น src/href ตรง ๆ
+ * - URL เต็มอยู่แล้ว (R2/CDN) → คืนตามนั้น ไม่ต่อ API_BASE_URL ซ้ำ (ต่อซ้ำแล้วพังทันทีถ้า
+ *   API_BASE_URL ไม่ใช่ค่าว่าง เช่นตอน `npm run dev` เปล่า ๆ ที่ API_BASE_URL = http://localhost:3001)
+ * - path สัมพัทธ์ /uploads/... → ต่อ API_BASE_URL ตามเดิม
+ */
+export function buildUploadUrl(path: string | null | undefined, apiBaseUrl: string): string | null {
+    if (!path) return null
+    if (/^https?:\/\//i.test(path)) return path
+    return `${apiBaseUrl}${path}`
 }

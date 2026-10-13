@@ -1,7 +1,7 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
-import { API_BASE_URL, capacityLabel, isCancelledByOrganizer, type Activity } from "@/lib/api"
+import { resolveUploadUrl, capacityLabel, isCancelledByOrganizer, type Activity } from "@/lib/api"
 import { categoryLabel } from "@/lib/categories"
 import { BenefitsSection } from "@/components/activity/benefits-section"
 import type { ScheduleLabel } from "@/lib/activity-view"
@@ -130,7 +130,7 @@ export function ActivityAboutPanel({ activity, showActivityImage = false, hideMe
                 <div className="aspect-video w-full overflow-hidden rounded-xl border border-border bg-surface-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                        src={`${API_BASE_URL}${activity.imageUrl}`}
+                        src={resolveUploadUrl(activity.imageUrl)!}
                         alt={activity.name}
                         className="size-full object-cover"
                     />
@@ -176,7 +176,7 @@ export function ActivityAboutPanel({ activity, showActivityImage = false, hideMe
                 <div className="pt-4 border-t border-border">
                     <h4 className="text-sm font-semibold mb-3 text-fg">เอกสารแนบ</h4>
                     <a
-                        href={`${API_BASE_URL}${activity.attachmentUrl}`}
+                        href={resolveUploadUrl(activity.attachmentUrl)!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-medium text-brand-700 transition-colors hover:border-brand-600 hover:bg-brand-50"

@@ -21,15 +21,13 @@ import {
   ApiConsumes,
   ApiBody,
 } from "@nestjs/swagger";
-import { diskStorage } from "multer";
+import { memoryStorage } from "multer";
 import {
   assertRealFileType,
   DOCUMENT_UPLOAD,
   makeFileFilter,
-  safeExtensionFor,
 } from "../../common/utils";
-import { join } from "path";
-import * as crypto from "crypto";
+import { StorageService } from "../shared/storage/storage.service";
 import { EventsService } from "../shared/events/events.service";
 import { EventDraftService } from "../shared/events/event-draft.service";
 import { CreateEventDto } from "../shared/events/dto/create-event.dto";
@@ -52,6 +50,7 @@ export class EventsOrganizerController {
   constructor(
     private readonly eventsService: EventsService,
     private readonly eventDraftService: EventDraftService,
+    private readonly storageService: StorageService,
   ) {}
 
   /**
@@ -155,21 +154,31 @@ export class EventsOrganizerController {
    * PATCH /api/events/:id/activities-status - เปิด/ปิดรับสมัครกิจกรรมย่อยทั้งหมดในงานนี้ชั่วคราว (เจ้าของ / Admin)
    */
   @Patch(":id/activities-status")
-  @ApiOperation({ summary: "เปิด/ปิดรับสมัครกิจกรรมย่อยทั้งหมดในงานนี้ชั่วคราว (เจ้าของ / Admin)" })
+  @ApiOperation({
+    summary:
+      "เปิด/ปิดรับสมัครกิจกรรมย่อยทั้งหมดในงานนี้ชั่วคราว (เจ้าของ / Admin)",
+  })
   async setActivitiesStatus(
     @Param("id", ParseIntPipe) id: number,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
     @Body() dto: SetActivityStatusDto,
   ) {
-    return this.eventsService.setActivitiesStatus(userId, userRole, id, dto.status);
+    return this.eventsService.setActivitiesStatus(
+      userId,
+      userRole,
+      id,
+      dto.status,
+    );
   }
 
   /**
    * POST /api/events/:id/duplicate - คัดลอกงานทั้งงานพร้อมกิจกรรมย่อยเป็นงานใหม่ (เจ้าของ / Admin)
    */
   @Post(":id/duplicate")
-  @ApiOperation({ summary: "คัดลอกงานทั้งงานพร้อมกิจกรรมย่อยเป็นงานใหม่ (เจ้าของ / Admin)" })
+  @ApiOperation({
+    summary: "คัดลอกงานทั้งงานพร้อมกิจกรรมย่อยเป็นงานใหม่ (เจ้าของ / Admin)",
+  })
   async duplicate(
     @Param("id", ParseIntPipe) id: number,
     @CurrentUser("id") userId: number,
@@ -217,14 +226,7 @@ export class EventsOrganizerController {
   })
   @UseInterceptors(
     FileInterceptor("file", {
-      storage: diskStorage({
-        destination: "./public/uploads/attachments",
-        filename: (req, file, cb) => {
-          const ext = safeExtensionFor(DOCUMENT_UPLOAD, file.mimetype);
-          if (!ext) return cb(new Error("ชนิดไฟล์ไม่รองรับ"), "");
-          cb(null, `${crypto.randomUUID()}${ext}`);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: makeFileFilter(DOCUMENT_UPLOAD),
       limits: {
         fileSize: 10 * 1024 * 1024, // 10MB
@@ -238,14 +240,22 @@ export class EventsOrganizerController {
       );
     }
 
-    assertRealFileType(
+    assertRealFileType(DOCUMENT_UPLOAD, file.buffer);
+
+    // ไฟล์แนบต้องบังคับดาวน์โหลดเสมอ ไม่ใช่เปิดในเบราว์เซอร์ (เดิมตั้งที่ ServeStaticModule
+    // ตาม path /uploads/attachments/* — ย้ายมาตั้งเป็น object metadata ตอนอัปโหลดแทน เพราะ R2
+    // ไม่ได้ผ่าน ServeStaticModule ของเราอีกต่อไป)
+    const saved = await this.storageService.save(
+      file.buffer,
       DOCUMENT_UPLOAD,
-      join(process.cwd(), "public", "uploads", "attachments", file.filename),
+      file.mimetype,
+      "attachments",
+      "attachment",
     );
 
     return {
       message: "อัปโหลดไฟล์แนบสำเร็จ",
-      attachmentUrl: `/uploads/attachments/${file.filename}`,
+      attachmentUrl: saved.url,
     };
   }
 }

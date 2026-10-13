@@ -23,6 +23,20 @@ const apiOrigin = (() => {
 // รูป fallback ใน components/ui/event-card.tsx ยังชี้ไป Unsplash อยู่ ถ้าเลิกใช้เมื่อไร ลบออกจาก img-src ได้เลย
 const externalImgHosts = ["https://images.unsplash.com"];
 
+// โดเมนสาธารณะของ R2/CDN เมื่อ backend ตั้งค่า storage ไว้ (ดู backend/src/config/storage.config.ts) —
+// ไฟล์อัปโหลด (รูปกิจกรรม) จะเป็น URL เต็มของโดเมนนี้แทน path สัมพัทธ์ /uploads/... เดิม
+// ต้องเป็น build-time env เหมือน NEXT_PUBLIC_API_URL เพราะ CSP header ถูกคำนวณตอน build
+const uploadsOrigin = (() => {
+  const raw = (process.env.NEXT_PUBLIC_UPLOADS_ORIGIN ?? "").trim();
+  if (!raw) return "";
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return "";
+  }
+})();
+if (uploadsOrigin) externalImgHosts.push(uploadsOrigin);
+
 const csp = [
   `default-src 'self'`,
   // Next ฝัง bootstrap script แบบ inline จึงต้องมี 'unsafe-inline'; 'unsafe-eval' จำเป็นเฉพาะ HMR ตอน dev

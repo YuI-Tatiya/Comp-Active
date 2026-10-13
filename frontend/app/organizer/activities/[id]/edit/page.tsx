@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Check, Plus, X, ArrowLeft, Loader2, Edit, CheckSquare, Star } from "lucide-react"
-import { activitiesAPI, Activity, API_BASE_URL } from "@/lib/api"
+import { activitiesAPI, Activity, resolveUploadUrl } from "@/lib/api"
 import { SOFT_SKILLS, softSkillLabel } from "@/lib/soft-skills"
 import { CATEGORIES, categoryLabel } from "@/lib/categories"
 import { toggleInArray } from "@/lib/utils"
@@ -98,7 +98,7 @@ export default function EditActivityPage() {
                         : [],
                 });
                 if (data.imageUrl) {
-                    setImagePreview(`${API_BASE_URL}${data.imageUrl}`);
+                    setImagePreview(resolveUploadUrl(data.imageUrl));
                 }
             } catch (err) {
                 console.error("Failed to fetch activity", err);

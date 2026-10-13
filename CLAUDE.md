@@ -100,7 +100,13 @@ Helmet notes: `crossOriginResourcePolicy` is set to `cross-origin` on purpose �
 
 Swagger docs are auto-generated from decorators and served at `/api` (`ApiTags`/`ApiOperation`/`ApiBearerAuth`) — **disabled when `NODE_ENV=production`**, and Nginx 404s `/api`, `/api-json`, `/api-yaml` as a second layer.
 
-Static/uploaded files (activity images) are served from `backend/public` via `ServeStaticModule`, which stamps `X-Content-Type-Options: nosniff` on everything and `Content-Disposition: attachment` on `uploads/attachments/*` so user-supplied files can never render as HTML on the API origin. File uploads use multer (`diskStorage` + `FileInterceptor`) — see the upload rule under Security.
+Static/uploaded files (activity images, event attachments) go through `StorageService` (`modules/shared/storage/`), which picks its backend from whether `R2_*` env vars are set (`storage.config.ts`):
+- **Not set (default, dev):** writes to `backend/public` same as before, served via `ServeStaticModule`, which stamps `X-Content-Type-Options: nosniff` on everything and `Content-Disposition: attachment` on `uploads/attachments/*`. Returned URL is the old relative `/uploads/<folder>/<file>`.
+- **Set (production target: Cloudflare R2):** uploads go straight to the R2 bucket via `@aws-sdk/client-s3` (R2 speaks S3), with `ContentDisposition: 'attachment'` set as object metadata at upload time for attachments (there's no `ServeStaticModule` in front of R2 to stamp it after the fact). Returned URL is the bucket's full public URL (`R2_PUBLIC_URL`-based), not a relative path.
+
+Either way, multer uses `memoryStorage()` (not `diskStorage()`) so the same code path validates the upload's magic bytes from the in-memory buffer before `StorageService.save()` decides where it lands — see the upload rule under Security.
+
+**Frontend never string-concatenates `API_BASE_URL` with a stored upload path directly** (`${API_BASE_URL}${path}` broke the moment a path could also be a full R2 URL) — use `resolveUploadUrl()` (`lib/api.ts`, backed by `buildUploadUrl()` in `lib/api-base.ts`), which passes an already-absolute URL through untouched and only prefixes a relative `/uploads/...` path. `uploadPathFromPreview` (same file) got the matching update: a full external URL round-trips as-is now, not just a `/uploads/`-shaped pathname. A deployment using R2 must also set `NEXT_PUBLIC_UPLOADS_ORIGIN` (frontend build arg) to the bucket's public origin, or the CSP `img-src` blocks the images.
 
 Enums (`UserRole`, `ActivityStatus`, `ApprovalStatus`, `RegistrationStatus`, `AttendanceStatus`, `SoftSkillType`) are defined in `schema.prisma` and mirrored in `common/enums/`.
 
@@ -253,6 +259,7 @@ Requires `PORT`, `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `FRONTEND_URL`,
 - **`PRISMA_ACCEPT_DATA_LOSS`** (default `false`) — used by the `migrate` service, see Docker above.
 - `ADMIN_IP_ALLOWLIST_ENABLED` / `ADMIN_IP_ALLOWLIST` / `TRUST_PROXY_HOPS` gate `AdminIpGuard`.
 - **`CHATBOT_API_KEY`** (optional) — the chat assistant (`modules/shared/chatbot/chatbot.service.ts`) calls KKU IntelSphere (`CHATBOT_BASE_URL`, default `https://gen.ai.kku.ac.th/api/v1`), an OpenAI-Chat-Completions-compatible gateway — `POST {base}/chat/completions` with `Authorization: Bearer`, not a provider-native API. `CHATBOT_MODEL` defaults to `gemini-2.5-flash-lite`. Missing key fails closed (a fixed Thai "not configured" reply, never a crash); never send this key to the frontend.
+- **`R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` / `R2_PUBLIC_URL`** (optional, all-or-nothing — `storage.config.ts`) — Cloudflare R2 for uploaded files. Unlike `JWT_SECRET`, missing these is *not* a misconfiguration to fail closed on: `StorageService` falls back to the original disk-based upload (fine for dev or any host with persistent disk); only a host with an ephemeral filesystem (Railway, etc.) actually needs this set. See "Static/uploaded files" above.
 
 ### Frontend `.env`
 
@@ -260,6 +267,7 @@ Requires `NEXT_PUBLIC_API_URL`: `same-origin` behind Nginx (Docker), or a full U
 
 - **`ADMIN_HOSTS`** (default `admin.localhost,admin.compactive.com`) — exact-match allowlist used by `proxy.ts`.
 - **`ENABLE_HTTPS`** (default `false`) — turns on HSTS and `upgrade-insecure-requests`. Only set it once TLS actually terminates at Nginx; enabling it over plain HTTP makes browsers rewrite API calls to `https://` and the app stops working.
+- **`NEXT_PUBLIC_UPLOADS_ORIGIN`** (optional) — the R2 bucket's public origin, when the backend has R2 configured. Only feeds the CSP `img-src` at build time; the actual URLs come from the backend response, not from this value.
 
 ## Developer Guidelines & Strict Rules
 
@@ -280,7 +288,7 @@ Requires `NEXT_PUBLIC_API_URL`: `same-origin` behind Nginx (Docker), or a full U
 These exist because each one closed a real hole. Follow them rather than re-deriving them.
 
 - **Never trust client-supplied routing headers.** `x-forwarded-host`, `x-original-url`, `x-rewrite-url` are attacker-controlled unless Nginx overwrites them. Decide from `Host`, and match against an allowlist rather than a prefix (`admin.evil.com` passes `startsWith('admin.')`).
-- **Uploads are validated three times:** declared mimetype → extension → **magic bytes read back off disk**, via `common/utils/upload.util.ts`. The stored filename is a UUID plus an extension derived from the *allowlisted mimetype*, never from `file.originalname`. A filename regex alone is trivially bypassed by editing the multipart body.
+- **Uploads are validated three times:** declared mimetype → extension → **magic bytes read from the in-memory buffer**, via `common/utils/upload.util.ts` (`assertRealFileType` takes the multer `Buffer` directly, not a disk path — there's no guaranteed disk once `StorageService` can target R2). The stored filename is a UUID plus an extension derived from the *allowlisted mimetype*, never from `file.originalname`. A filename regex alone is trivially bypassed by editing the multipart body.
 - **Escape user data in outbound email.** Use `escapeHtml()` for anything interpolated into HTML bodies and `sanitizeHeaderValue()` for subject/recipient (`common/utils/html.util.ts`). Activity names and rejection reasons are free text; unescaped, they turn our mail server into a phishing relay.
 - **Rate-limit every credential-accepting endpoint.** `@UseGuards(AuthThrottlerGuard)` + `@Throttle(...)` for anything taking a password, OTP, or invite token.
 - **Secrets and randomness:** anything a user must not guess (OTPs, tokens) comes from `crypto.randomInt`/`randomBytes`, never `Math.random()`. Compare secrets with `timingSafeEqual`, and give failed lookups the same cost as successful ones (see the dummy bcrypt compare in `auth.service.ts`) so response timing does not leak which accounts exist.

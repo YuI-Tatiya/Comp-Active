@@ -20,15 +20,13 @@ import {
   ApiConsumes,
   ApiBody,
 } from "@nestjs/swagger";
-import { diskStorage } from "multer";
-import { join } from "path";
-import * as crypto from "crypto";
+import { memoryStorage } from "multer";
 import {
   assertRealFileType,
   IMAGE_UPLOAD,
   makeFileFilter,
-  safeExtensionFor,
 } from "../../common/utils";
+import { StorageService } from "../shared/storage/storage.service";
 import { ActivitiesService } from "../shared/activities/activities.service";
 import { CreateActivityDto } from "../shared/activities/dto/create-activity.dto";
 import { UpdateActivityDto } from "../shared/activities/dto/update-activity.dto";
@@ -46,7 +44,10 @@ import { UserRole } from "../../common/enums/role.enum";
 @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
 @ApiBearerAuth()
 export class ActivitiesOrganizerController {
-  constructor(private readonly activitiesService: ActivitiesService) {}
+  constructor(
+    private readonly activitiesService: ActivitiesService,
+    private readonly storageService: StorageService,
+  ) {}
 
   /**
    * GET /api/activities/my - ดูกิจกรรมที่ฉันสร้าง (Organizer)
@@ -125,7 +126,9 @@ export class ActivitiesOrganizerController {
    * POST /api/activities/:id/duplicate - คัดลอกกิจกรรมเดี่ยวทั้งใบเป็นกิจกรรมใหม่ (เจ้าของ / Admin)
    */
   @Post(":id/duplicate")
-  @ApiOperation({ summary: "คัดลอกกิจกรรมเดี่ยวทั้งใบเป็นกิจกรรมใหม่ (เจ้าของ / Admin)" })
+  @ApiOperation({
+    summary: "คัดลอกกิจกรรมเดี่ยวทั้งใบเป็นกิจกรรมใหม่ (เจ้าของ / Admin)",
+  })
   async duplicate(
     @Param("id", ParseIntPipe) id: number,
     @CurrentUser("id") userId: number,
@@ -138,7 +141,9 @@ export class ActivitiesOrganizerController {
    * PATCH /api/activities/:id/status - เปิด/ปิดรับสมัครกิจกรรมชั่วคราว (เจ้าของ / Admin)
    */
   @Patch(":id/status")
-  @ApiOperation({ summary: "เปิด/ปิดรับสมัครกิจกรรมชั่วคราว (เจ้าของ / Admin)" })
+  @ApiOperation({
+    summary: "เปิด/ปิดรับสมัครกิจกรรมชั่วคราว (เจ้าของ / Admin)",
+  })
   async setStatus(
     @Param("id", ParseIntPipe) id: number,
     @CurrentUser("id") userId: number,
@@ -152,7 +157,9 @@ export class ActivitiesOrganizerController {
    * GET /api/activities/:id/self-checkin - ดูสถานะ + โทเค็น QR เช็คอินปัจจุบัน (เจ้าของ / Admin)
    */
   @Get(":id/self-checkin")
-  @ApiOperation({ summary: "ดูสถานะ + โทเค็น QR เช็คอินปัจจุบัน (เจ้าของ / Admin)" })
+  @ApiOperation({
+    summary: "ดูสถานะ + โทเค็น QR เช็คอินปัจจุบัน (เจ้าของ / Admin)",
+  })
   async getCheckInSession(
     @Param("id", ParseIntPipe) id: number,
     @CurrentUser("id") userId: number,
@@ -165,14 +172,21 @@ export class ActivitiesOrganizerController {
    * PATCH /api/activities/:id/self-checkin - เปิด/ปิดการเช็คอินด้วยตัวเองผ่าน QR (เจ้าของ / Admin)
    */
   @Patch(":id/self-checkin")
-  @ApiOperation({ summary: "เปิด/ปิดการเช็คอินด้วยตัวเองผ่าน QR (เจ้าของ / Admin)" })
+  @ApiOperation({
+    summary: "เปิด/ปิดการเช็คอินด้วยตัวเองผ่าน QR (เจ้าของ / Admin)",
+  })
   async setSelfCheckIn(
     @Param("id", ParseIntPipe) id: number,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
     @Body() dto: SetSelfCheckInDto,
   ) {
-    return this.activitiesService.setSelfCheckIn(id, userId, userRole, dto.enabled);
+    return this.activitiesService.setSelfCheckIn(
+      id,
+      userId,
+      userRole,
+      dto.enabled,
+    );
   }
 
   /**
@@ -189,15 +203,7 @@ export class ActivitiesOrganizerController {
   })
   @UseInterceptors(
     FileInterceptor("file", {
-      storage: diskStorage({
-        destination: "./public/uploads/activities",
-        filename: (req, file, cb) => {
-          // นามสกุลมาจาก mimetype ที่ผ่าน allowlist ไม่ใช่จากชื่อไฟล์ที่ผู้ใช้ส่งมา
-          const ext = safeExtensionFor(IMAGE_UPLOAD, file.mimetype);
-          if (!ext) return cb(new Error("ชนิดไฟล์ไม่รองรับ"), "");
-          cb(null, `${crypto.randomUUID()}${ext}`);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: makeFileFilter(IMAGE_UPLOAD),
       limits: {
         fileSize: 5 * 1024 * 1024, // 5MB
@@ -211,15 +217,19 @@ export class ActivitiesOrganizerController {
       );
     }
 
-    // ด่านสุดท้าย: อ่าน magic bytes จากไฟล์จริงบนดิสก์ ปลอมด้วย header ไม่ได้
-    assertRealFileType(
+    // ด่านสุดท้าย: อ่าน magic bytes จากเนื้อไฟล์จริงใน memory ปลอมด้วย header ไม่ได้
+    assertRealFileType(IMAGE_UPLOAD, file.buffer);
+
+    const saved = await this.storageService.save(
+      file.buffer,
       IMAGE_UPLOAD,
-      join(process.cwd(), "public", "uploads", "activities", file.filename),
+      file.mimetype,
+      "activities",
     );
 
     return {
       message: "อัปโหลดรูปภาพสำเร็จ",
-      imageUrl: `/uploads/activities/${file.filename}`,
+      imageUrl: saved.url,
     };
   }
 

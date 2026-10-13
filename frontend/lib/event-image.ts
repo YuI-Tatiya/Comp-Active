@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "./api"
+import { resolveUploadUrl } from "./api"
 
 interface ImageSource {
     imageUrl?: string | null
@@ -10,7 +10,7 @@ interface ImageSource {
  */
 export function resolveEventImageUrl(event: ImageSource | null | undefined, activity?: ImageSource | null): string {
     const raw = eventImagePathFor(event, activity)
-    return raw ? `${API_BASE_URL}${raw}` : "/activity-placeholder.svg"
+    return resolveUploadUrl(raw) ?? "/activity-placeholder.svg"
 }
 
 /**

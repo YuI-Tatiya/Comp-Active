@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import type { LucideIcon } from "lucide-react"
-import { API_BASE_URL } from "@/lib/api"
+import { resolveUploadUrl } from "@/lib/api"
 import { formatCompactDateSpan } from "@/lib/date-span"
 import { cn } from "@/lib/utils"
 import { EVENT_CARD_HEIGHT } from "./event-card-layout"
@@ -257,11 +257,7 @@ export function EventCard({
                 {badgeRight && <div className="absolute right-4 top-4 z-10">{badgeRight}</div>}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                    src={
-                        activity.imageUrl
-                            ? `${API_BASE_URL}${activity.imageUrl}`
-                            : "/activity-placeholder.svg"
-                    }
+                    src={resolveUploadUrl(activity.imageUrl) ?? "/activity-placeholder.svg"}
                     alt={activity.name}
                     className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
                     onError={(e) => {

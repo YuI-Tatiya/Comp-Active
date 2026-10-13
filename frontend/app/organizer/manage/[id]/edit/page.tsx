@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { ArrowLeft, Loader2, Edit } from "lucide-react"
-import { activitiesAPI, eventsAPI, API_BASE_URL, type CreateEventActivityBody, type QuestionBody, type SurveyQuestionBody, type EventSummary } from "@/lib/api"
+import { activitiesAPI, eventsAPI, resolveUploadUrl, type CreateEventActivityBody, type QuestionBody, type SurveyQuestionBody, type EventSummary } from "@/lib/api"
 import { uploadPathFromPreview } from "@/lib/api-base"
 import { buildDutyShiftOptions, deriveVolunteerRole, parseDutyShiftOptions, resolveDutyRoleOptions } from "@/lib/duty-shift"
 import { scrollToFirstError } from "@/components/ui/form-field"
@@ -47,7 +47,7 @@ function eventToFormState(event: EventSummary): EventFormState {
         name: event.name,
         description: event.description,
         imageFile: null,
-        imagePreview: event.imageUrl ? `${API_BASE_URL}${event.imageUrl}` : null,
+        imagePreview: resolveUploadUrl(event.imageUrl),
         isPublic: event.isPublic,
         registrationOpenAt: event.registrationOpenAt ? toLocalDatetimeValue(event.registrationOpenAt) : "",
         registrationCloseAt: event.registrationCloseAt ? toLocalDatetimeValue(event.registrationCloseAt) : "",
@@ -80,7 +80,7 @@ function activityToFormState(a: EventSummary["activities"][number]): ActivityFor
         description: a.description,
         categories: a.categories,
         imageFile: null,
-        imagePreview: a.imageUrl ? `${API_BASE_URL}${a.imageUrl}` : null,
+        imagePreview: resolveUploadUrl(a.imageUrl),
         attachmentFile: null,
         attachmentName: a.attachmentUrl ? a.attachmentUrl.split("/").pop() ?? null : null,
         attachmentUrl: a.attachmentUrl ?? null,
