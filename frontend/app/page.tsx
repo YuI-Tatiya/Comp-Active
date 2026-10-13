@@ -6,17 +6,11 @@ import { ArrowRight, CalendarX } from "lucide-react"
 import { Container } from "@/components/layout/container"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
-<<<<<<< HEAD
-import { EventCard, EventCardBadge } from "@/components/ui/event-card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { EmptyState } from "@/components/ui/empty-state"
-=======
 import { ACTIVITY_GRID, ActivityCardSkeleton, DenimSectionHeading } from "@/components/denim/denim-ui"
 import { PublicHero } from "@/components/home/home-hero"
 import { PublicActivityCard } from "@/components/denim/public-activity-card"
 import { NewsShowcase } from "@/components/home/news-showcase"
 import { SkillsShowcase } from "@/components/home/skills-showcase"
->>>>>>> organize
 import { activitiesAPI, eventsAPI, Activity } from "@/lib/api"
 import { CATEGORIES } from "@/lib/categories"
 import { buildFeaturedCards, type FeaturedCardItem } from "@/lib/events-filter"
@@ -111,37 +105,15 @@ export default function RootPage() {
             </div>
 
             {loading ? (
-<<<<<<< HEAD
-              <div className="flex flex-wrap gap-5">
-=======
               <div className={ACTIVITY_GRID}>
->>>>>>> organize
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-[340px] w-64 max-w-full rounded-[28px]" />
+                  <ActivityCardSkeleton key={i} />
                 ))}
               </div>
             ) : filteredItems.length > 0 ? (
-<<<<<<< HEAD
-              <div className="flex flex-wrap gap-5">
-                {filteredItems.map((item) => (
-                  <Link key={item.key} href={item.href} className="block w-64 max-w-full">
-                    <EventCard
-                      compact
-                      activity={{ name: item.name, imageUrl: item.imageUrl }}
-                      description={item.description}
-                      badgeLeft={item.categories.length > 0 && <EventCardBadge variant="light">{categoriesBadgeLabel(item.categories)}</EventCardBadge>}
-                      badgeRight={
-                        <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
-                          {item.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}
-                        </EventCardBadge>
-                      }
-                    />
-                  </Link>
-=======
               <div className={ACTIVITY_GRID}>
                 {filteredItems.map((item) => (
                   <PublicActivityCard key={item.key} item={item} />
->>>>>>> organize
                 ))}
               </div>
             ) : (

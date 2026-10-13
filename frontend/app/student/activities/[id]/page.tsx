@@ -31,8 +31,6 @@ export default function StudentActivityDetailsPage() {
     const params = useParams()
     const router = useRouter()
     const searchParams = useSearchParams()
-    // กลับไปหน้าที่ผู้ใช้มาจริง — whitelist เท่านั้น ไม่รับ path จาก query ตรงๆ
-    const backHref = searchParams.get("from") === "my-registrations" ? "/student/my-registrations" : "/student/events"
     const [event, setEvent] = useState<Activity | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
@@ -278,14 +276,9 @@ export default function StudentActivityDetailsPage() {
             myRegistrations={myRegistrations}
             onRegister={openRegisterDialog}
             onCancel={() => setCancelConfirmOpen(true)}
-<<<<<<< HEAD
-            onShare={handleShare}
-            backHref={backHref}
-=======
             shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${event.id}`}
             onShareCopied={() => showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")}
             backHref="/student/events"
->>>>>>> organize
         >
             <Dialog open={isRegisterOpen} onOpenChange={(open) => { setIsRegisterOpen(open); if (open) openRegisterDialog(); }}>
                 <DialogContent className="sm:max-w-[480px]">

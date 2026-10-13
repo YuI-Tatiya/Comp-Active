@@ -101,7 +101,7 @@ export interface Activity<T = unknown> {
   status: string;
   /** เหตุผลที่ผู้จัดยกเลิกกิจกรรม — แสดงให้นักศึกษาเห็นเมื่อกิจกรรมถูกยกเลิก */
   cancellationReason?: string | null;
-  /** เปิดโหมดประเมินรอบด้าน (นักศึกษาประเมินตนเอง + เพื่อน) — เฉพาะกิจกรรมสตาฟฟ์ Tier 3 */
+  /** เปิดโหมดประเมินรอบด้าน (นักศึกษาประเมินตนเอง + เพื่อน) — เฉพาะกิจกรรม Tier 3 */
   peerAssessmentEnabled?: boolean;
   /** เปิดให้เช็คอินเองผ่าน QR ที่หมุนรหัสทุก 5 นาที — ปิดเป็นค่าเริ่มต้นเสมอ ดู activitiesAPI.getCheckInSession */
   selfCheckInEnabled?: boolean;
@@ -264,6 +264,7 @@ export const usersAPI = {
   //    ห้ามเติม email — backend ไม่รับ และ forbidNonWhitelisted จะตีกลับเป็น 400
   updateMe: (body: {
     name?: string;
+    username?: string;
     studentId?: string;
     phone?: string;
     educationLevel?: string;
@@ -397,6 +398,7 @@ export interface CreateEventBody {
   description: string;
   imageUrl?: string;
   isPublic?: boolean;
+  registrationOpenAt?: string;
   registrationCloseAt?: string;
   activities: CreateEventActivityBody[];
   surveyQuestions?: SurveyQuestionBody[];
@@ -457,6 +459,7 @@ export interface EventSummary {
   description: string;
   imageUrl?: string | null;
   isPublic: boolean;
+  registrationOpenAt?: string | null;
   registrationCloseAt?: string | null;
   visibility: string;
   visibilityStudentIdFilter?: string | null;
@@ -633,7 +636,7 @@ export interface SkillsData {
   }[];
 }
 
-// ── Batch Evaluation (ประเมินรายฝ่าย — กิจกรรมสตาฟฟ์ Tier 3) ───────────────────────
+// ── Batch Evaluation (ประเมินรายฝ่าย — กิจกรรม Tier 3) ───────────────────────
 
 export interface EvaluationBatchMember {
   registrationId: number;

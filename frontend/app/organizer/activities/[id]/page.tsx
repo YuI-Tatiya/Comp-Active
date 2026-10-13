@@ -136,63 +136,6 @@ export default function OrganizerActivityDetailsPage() {
               : { dot: "bg-slate-400", label: "ปิดรับสมัคร" }
 
     return (
-<<<<<<< HEAD
-        <div className="bg-surface pb-12">
-            <Container className="space-y-6 py-8">
-                <Link href="/organizer/manage" className="inline-flex items-center text-sm text-fg-muted transition-colors hover:text-fg">
-                    <ArrowLeft className="w-4 h-4 mr-2" /> กลับสู่หน้าจัดการ
-                </Link>
-
-                <ActivityHeroCard
-                    imageUrl={event.imageUrl ? `${API_BASE_URL}${event.imageUrl}` : "/activity-placeholder.svg"}
-                    imageAlt={event.name}
-                    badges={
-                        <>
-                            {event.categories.map((c) => <Badge key={c} variant="default">{categoryLabel(c)}</Badge>)}
-                            <Badge variant={event.status === 'open' ? "success" : "neutral"}>
-                                {event.status === 'open' ? 'เปิดรับสมัคร' : 'ปิดรับสมัคร'}
-                            </Badge>
-                            {event.approvalStatus === 'pending_approval' && <Badge variant="warning">รออนุมัติ</Badge>}
-                            {isCancelledByOrganizer(event.approvalStatus) && <Badge variant="danger">กิจกรรมถูกยกเลิก</Badge>}
-                        </>
-                    }
-                    title={event.name}
-                    byline="จัดโดยคุณ"
-                    date={formatEventDate(event.date)}
-                    startTime={event.startTime}
-                    endTime={event.endTime}
-                    location={event.location}
-                    actions={
-                        <>
-                            {/* กิจกรรมย่อยของงานต้องแก้ผ่าน wizard ของงานแม่ (/organizer/manage/[eventId]/edit)
-                                เพราะข้อมูลอย่างแบบสำรวจ/วันปิดรับสมัคร/กลุ่มเป้าหมายอยู่ระดับงาน แก้ผ่านฟอร์มกิจกรรมเดี่ยวไม่ได้
-                                — ส่ง Event id ไม่ใช่ Activity id เข้า route นี้ ส่วนกิจกรรมเดี่ยวยังใช้ route ของตัวเองตามเดิม */}
-                            <Link href={editHref}>
-                                <Button variant="outline" size="sm"><Edit className="w-4 h-4 mr-2" /> แก้ไขกิจกรรม</Button>
-                            </Link>
-                            {!isCancelledByOrganizer(event.approvalStatus) && event.status !== 'completed' && (
-                                <Button variant="outline" size="sm" onClick={handleMarkCompleted} disabled={submitting}>
-                                    <CheckSquare className="w-4 h-4 mr-2" /> จบกิจกรรม
-                                </Button>
-                            )}
-                            <Button variant="outline" size="sm" onClick={handleShare}>
-                                <Share2 className="w-4 h-4 mr-2" /> แชร์กิจกรรม
-                            </Button>
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => setIsCancelOpen(true)}
-                                disabled={isCancelledByOrganizer(event.approvalStatus)}
-                            >
-                                {isCancelledByOrganizer(event.approvalStatus) ? 'ยกเลิกแล้ว' : 'ยกเลิกกิจกรรม'}
-                            </Button>
-                        </>
-                    }
-                />
-
-                <p className="text-fg-muted whitespace-pre-line">{event.description || "ไม่มีรายละเอียด"}</p>
-
-=======
         <div className="bg-surface pb-16">
             <OrganizerActivityHero
                 backHref="/organizer/manage"
@@ -244,7 +187,6 @@ export default function OrganizerActivityDetailsPage() {
             />
 
             <Container>
->>>>>>> organize
                 <ActivityParticipantManager
                     activity={event}
                     onRefetch={() => fetchEventDetails(id, true)}

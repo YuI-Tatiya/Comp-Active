@@ -1,23 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ADMIN_HOSTS, hostnameOf } from './lib/admin-host';
 
 const ADMIN_PREFIX = '/admin';
-
-// โฮสต์ที่ถือเป็น "โซนแอดมิน" — ตั้งทับได้ด้วย ADMIN_HOSTS (คั่นด้วยจุลภาค)
-// ใช้เทียบแบบตรงตัว ไม่ใช่ startsWith('admin.') เพราะโดเมนอย่าง admin.evil.com
-// ก็ผ่าน startsWith ได้เหมือนกัน
-const ADMIN_HOSTS = (process.env.ADMIN_HOSTS ?? 'admin.localhost,admin.compactive.com')
-  .split(',')
-  .map((h) => h.trim().toLowerCase())
-  .filter(Boolean);
 
 // ที่อยู่ภายในของตัว server เอง — คำขอจากผู้ใช้จริงจะไม่มีทางมาด้วย Host พวกนี้
 // เพราะ nginx ส่ง `Host $host` (app.localhost / admin.localhost) มาให้เสมอ
 // และ container frontend ก็ไม่ได้ publish port ออกนอก (ดู docker-compose.yml)
 const INTERNAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', 'frontend']);
-
-function hostnameOf(value: string | null): string {
-  return (value ?? '').split(',')[0].trim().toLowerCase().split(':')[0];
-}
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

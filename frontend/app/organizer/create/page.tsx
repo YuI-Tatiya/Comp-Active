@@ -346,6 +346,7 @@ export default function CreateEventPage() {
                 description: event.description,
                 imageUrl: eventImageUrl,
                 isPublic: event.isPublic,
+                registrationOpenAt: event.registrationOpenAt ? new Date(event.registrationOpenAt).toISOString() : undefined,
                 registrationCloseAt: event.registrationCloseAt
                     ? new Date(event.registrationCloseAt).toISOString()
                     : undefined,
@@ -474,7 +475,13 @@ export default function CreateEventPage() {
                                     )}
                                     {step === 3 && <SectionSurvey event={event} onChange={patchEvent} />}
                                     {step === 4 && (
-                                        <SectionPublish event={event} activities={activities} onChangeEvent={patchEvent} />
+                                        <SectionPublish
+                                            event={event}
+                                            activities={activities}
+                                            errors={eventErrors}
+                                            onChangeEvent={patchEvent}
+                                            onFieldBlur={handleEventFieldBlur}
+                                        />
                                     )}
                                 </div>
 

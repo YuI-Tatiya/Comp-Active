@@ -185,111 +185,6 @@ export default function OrganizerEventDetailsPage() {
     const categories = Array.from(new Set(event.activities.flatMap((a) => a.categories)))
 
     return (
-<<<<<<< HEAD
-        <div className="bg-surface pb-12">
-            <Container className="space-y-6 py-8">
-                <Link href="/organizer/manage" className="inline-flex items-center text-sm text-fg-muted transition-colors hover:text-fg">
-                    <ArrowLeft className="w-4 h-4 mr-2" /> กลับสู่หน้าจัดการ
-                </Link>
-
-                {/* รูป/วันเวลา/สถานที่อิงกิจกรรมย่อยที่เลือกอยู่ในแท็บด้านล่าง (activeActivity) — ชื่อ/คำอธิบาย/รูปเริ่มต้นอิงระดับงาน
-                    สลับแท็บแล้วส่วนนี้จะอัปเดตตาม เพราะงานหนึ่งมีได้หลายกิจกรรมย่อย วันเวลาจึงไม่ใช่ค่าเดียวของทั้งงาน */}
-                <ActivityHeroCard
-                    imageUrl={resolveEventImageUrl(event, activeActivity)}
-                    imageAlt={event.name}
-                    badges={
-                        <>
-                            <Badge variant={event.isPublic ? "success" : "neutral"}>{event.isPublic ? "เผยแพร่แล้ว" : "ไม่เผยแพร่"}</Badge>
-                            {event.activities.length > 1 && <Badge variant="default">{event.activities.length} กิจกรรมย่อย</Badge>}
-                        </>
-                    }
-                    title={event.name}
-                    byline="จัดโดยคุณ"
-                    date={activeActivity ? formatEventDate(activeActivity.date) : "-"}
-                    startTime={activeActivity?.startTime ?? "-"}
-                    endTime={activeActivity?.endTime ?? "-"}
-                    location={activeActivity?.location ?? "-"}
-                    actions={
-                        <>
-                            <Link href={`/organizer/manage/${event.id}/edit`}>
-                                <Button variant="outline" size="sm"><Edit className="w-4 h-4 mr-2" /> แก้ไขงาน</Button>
-                            </Link>
-                            {activeActivity && !isCancelledByOrganizer(activeActivity.approvalStatus) && activeActivity.status !== "completed" && (
-                                <Button variant="outline" size="sm" onClick={handleMarkCompleted} disabled={submitting}>
-                                    <CheckSquare className="w-4 h-4 mr-2" /> จบกิจกรรม
-                                </Button>
-                            )}
-                            <Button variant="outline" size="sm" onClick={handleShare}><Share2 className="w-4 h-4 mr-2" /> แชร์งานนี้</Button>
-                            {activeActivity && !isCancelledByOrganizer(activeActivity.approvalStatus) && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-danger-fg hover:border-danger/40 hover:bg-danger-bg hover:text-danger-fg"
-                                    onClick={() => setIsCancelOpen(true)}
-                                >
-                                    <XCircle className="w-4 h-4 mr-2" /> ยกเลิกกิจกรรม
-                                </Button>
-                            )}
-                        </>
-                    }
-                />
-
-                <p className="text-fg-muted whitespace-pre-line">{event.description}</p>
-
-                {/* กลุ่มเป้าหมายที่ตั้งไว้ตอนสร้าง — เดิมดูย้อนไม่ได้เลย ต้องเปิด wizard แก้ไขถึงจะเห็น */}
-                {event.visibility === "restricted" && (
-                    <div className="rounded-xl border border-border bg-surface p-4">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-fg">
-                            <Users className="size-4 text-brand-600" aria-hidden="true" /> เห็นเฉพาะกลุ่มที่กำหนด
-                        </div>
-                        <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-                            <div>
-                                <dt className="text-xs text-fg-muted">สาขา</dt>
-                                <dd className="text-fg">
-                                    {event.visibilityProgram?.length
-                                        ? event.visibilityProgram.map((p) => programLabel(p.programCode)).join(", ")
-                                        : "ทุกสาขา"}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-xs text-fg-muted">ชั้นปี</dt>
-                                <dd className="text-fg">
-                                    {event.visibilityYears?.length
-                                        ? event.visibilityYears.map((y) => `ปี ${y.year}`).join(", ")
-                                        : "ทุกชั้นปี"}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-xs text-fg-muted">ตัวกรองรหัสนักศึกษา</dt>
-                                <dd className="whitespace-pre-line break-words font-mono text-xs text-fg">
-                                    {event.visibilityStudentIdFilter || "ไม่กำหนด"}
-                                </dd>
-                            </div>
-                        </dl>
-                    </div>
-                )}
-
-                <Tabs value={activeActivityId ? String(activeActivityId) : undefined} onValueChange={(v) => setActiveActivityId(Number(v))}>
-                    <TabsList className="h-auto flex-wrap justify-start gap-1 bg-surface-2 p-1 mb-6">
-                        {event.activities.map((a) => (
-                            <TabsTrigger key={a.id} value={String(a.id)}>{a.name}</TabsTrigger>
-                        ))}
-                    </TabsList>
-
-                    {event.activities.map((a) => (
-                        <TabsContent key={a.id} value={String(a.id)}>
-                            <ActivityParticipantManager
-                                activity={a}
-                                registrationCloseAt={event.registrationCloseAt}
-                                eventName={event.name}
-                                onRefetch={() => fetchEventDetails(id, true)}
-                            />
-                        </TabsContent>
-                    ))}
-                </Tabs>
-
-                {/* แบบสำรวจเป็นข้อมูลระดับงาน ไม่ผูกกับกิจกรรมย่อยตัวใดตัวหนึ่ง จึงอยู่นอกแท็บ */}
-=======
         <div className="bg-surface pb-16">
             {/* วันเวลา/สถานที่อิงกิจกรรมย่อยที่เลือกอยู่ (activeActivity) — ชื่อ/คำอธิบาย/รูปอิงระดับงาน
                 สลับกิจกรรมย่อยแล้วส่วนนี้อัปเดตตาม เพราะงานหนึ่งมีได้หลายกิจกรรมย่อย วันเวลาจึงไม่ใช่ค่าเดียวของทั้งงาน
@@ -400,7 +295,6 @@ export default function OrganizerEventDetailsPage() {
                 )}
 
                 {/* แบบสำรวจเป็นข้อมูลระดับงาน ไม่ผูกกับกิจกรรมย่อยตัวใดตัวหนึ่ง จึงอยู่นอกตัวจัดการกิจกรรมย่อย */}
->>>>>>> organize
                 <EventSurveyResults
                     id={event.id}
                     fetchResults={eventsAPI.getSurveyResults}

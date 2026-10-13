@@ -120,8 +120,6 @@ describe('ActivitiesService.markCompleted', () => {
   });
 });
 
-<<<<<<< HEAD
-=======
 describe('ActivitiesService.autoCompleteOverdueActivities', () => {
   let service: ActivitiesService;
   let repo: { findOpenPastEnd: jest.Mock; markCompleted: jest.Mock };
@@ -246,7 +244,6 @@ describe('ActivitiesService.autoCompleteOverdueActivities', () => {
   });
 });
 
->>>>>>> organize
 /** ปล่อยให้ microtask ของ `void this.notifyX(...)` (fire-and-forget) รันจนจบก่อน assert */
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -560,8 +557,6 @@ describe('ActivitiesService.setStatus', () => {
     expect(activitiesRepo.updateStatus).not.toHaveBeenCalled();
   });
 });
-<<<<<<< HEAD
-=======
 
 describe('ActivitiesService.getCheckInSession / setSelfCheckIn — QR เช็คอินหมุนรหัส', () => {
   let service: ActivitiesService;
@@ -791,4 +786,3 @@ describe('ActivitiesService public reads — unpublished events and organizer em
     await expect(service.findById(2)).resolves.toMatchObject({ id: 2 });
   });
 });
->>>>>>> organize

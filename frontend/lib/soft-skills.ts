@@ -149,14 +149,13 @@ export const MAX_SOFT_SKILLS_PER_ACTIVITY = 3
 
 /**
  * เพดานระดับ Soft Skills ตามระยะเวลากิจกรรม — พรีวิวฝั่ง client เท่านั้น server ตรวจซ้ำเสมอ
+ * ใช้ได้กับกิจกรรมทุกประเภทการรับสมัครเหมือนกันหมด (ไม่แยกสตาฟฟ์/ผู้เข้าร่วมทั่วไป — คุมด้วยระยะเวลาอย่างเดียว)
  * (ต้องตรงกับ backend/src/common/utils/soft-skill-cap.util.ts เป๊ะ ห้ามแก้ที่เดียว)
  */
-export function maxSoftSkillLevel(durationHours: number, registrationType: string, isProject: boolean): 2 | 3 | 5 {
-    // เช็คเงื่อนไขปลดล็อกระดับสูงสุดก่อนเสมอ — "ทำโครงการ" ต้องปลดล็อกได้แม้กิจกรรมย่อยตัวนั้นจะสั้น
-    if (registrationType === "staff_volunteer" && (durationHours > 72 || isProject)) return 5
-    if (durationHours <= 4) return 2
-    if (durationHours <= 48) return 3
-    return 3
+export function maxSoftSkillLevel(durationHours: number): 1 | 2 | 3 {
+    if (durationHours <= 4) return 1
+    if (durationHours >= 48) return 3
+    return 2
 }
 
 const BY_VALUE = new Map(SOFT_SKILLS.map((s) => [s.value, s]))

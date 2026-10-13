@@ -86,17 +86,17 @@ interface CardItem {
   registeredCount: number
 }
 
+/** สถานะแยกเป็นแท็บทรงแคปซูลต่างหาก (เหมือน /organizer/manage) ไม่ใช่ dropdown ในชุดตัวกรอง —
+ *  ตัวกรองที่เหลือ 5 ตัวพอดีกับ auto-fill grid แถวเดียวที่ xl+ ถ้ายัด status เป็นตัวที่ 6 เข้าไปด้วย
+ *  จะดันให้ grid ล้นไปอีกแถว แล้ว items-end จะดันช่องค้นหาลงไปเรียงกับแถวที่ล้นนั้นแทน ดูเหมือนหน้าตาพัง */
+const STATUS_TABS: { value: string; label: string }[] = [
+  { value: "", label: "ทั้งหมด" },
+  { value: "open", label: "เปิดรับสมัคร" },
+  { value: "closed", label: "ปิดแล้ว" },
+  { value: "cancelled", label: "ยกเลิก" },
+]
+
 const FILTERS: FilterSpec[] = [
-  {
-    key: "status",
-    label: "สถานะ",
-    options: [
-      { value: "", label: "ทั้งหมด" },
-      { value: "open", label: "เปิดรับสมัคร" },
-      { value: "closed", label: "ปิดแล้ว" },
-      { value: "cancelled", label: "ยกเลิก" },
-    ],
-  },
   {
     key: "visibility",
     label: "การเผยแพร่",
@@ -240,6 +240,13 @@ export default function OrganizerDashboardPage() {
     return [...fromEvents, ...fromStandalone]
   }, [events, standaloneActivities])
 
+  /** จำนวนรายการต่อแท็บสถานะ — นับจาก allItems ดิบ (ไม่ผ่านตัวกรองอื่น/คำค้นหา) ให้ตัวเลขนิ่งเหมือน /organizer/manage */
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { "": allItems.length, open: 0, closed: 0, cancelled: 0 }
+    for (const item of allItems) counts[item.status]++
+    return counts
+  }, [allItems])
+
   const filteredActivities = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     const list = allItems.filter((item) => {
@@ -319,83 +326,6 @@ export default function OrganizerDashboardPage() {
       <OrganizerStatCards stats={heroStats} />
 
       {/* ── กิจกรรมทั้งหมดในระบบ ────────────────────────────────────────── */}
-<<<<<<< HEAD
-      <section>
-        <Container className="py-10">
-          <div>
-            <SectionHeading
-              title="กิจกรรมทั้งหมด"
-              description={loading ? undefined : `${allItems.length} รายการ`}
-              action={
-                <Button variant="link" asChild className="px-0">
-                  <Link href="/organizer/manage">
-                    จัดการกิจกรรมของฉัน
-                    <ArrowRight />
-                  </Link>
-                </Button>
-              }
-            />
-
-            <div className="mt-5">
-              <FilterBar
-                searchValue={searchQuery}
-                onSearchChange={setSearchQuery}
-                searchPlaceholder="ค้นหาชื่อกิจกรรม..."
-                filters={FILTERS}
-                values={values}
-                onFilterChange={setFilter}
-                onReset={resetFilters}
-                resultCount={loading ? undefined : filteredActivities.length}
-                resultUnit="รายการ"
-              />
-
-              {loading ? (
-                <div className={EVENT_CARD_GRID}>
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <ActivityCardSkeleton key={i} />
-                  ))}
-                </div>
-              ) : filteredActivities.length > 0 ? (
-                <div className={EVENT_CARD_GRID}>
-                  {filteredActivities.map((item) => (
-                    <Link key={item.key} href={item.href} className="block">
-                      <EventCard
-                        activity={{ name: item.name, imageUrl: item.imageUrl }}
-                        description={item.description}
-                        badgeLeft={<EventCardBadge variant="light">{categoriesBadgeLabel(item.categories)}</EventCardBadge>}
-                        badgeRight={
-                          <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
-                            {item.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}
-                          </EventCardBadge>
-                        }
-                      />
-                    </Link>
-                  ))}
-                </div>
-              ) : allItems.length === 0 ? (
-                <EmptyState
-                  icon={CalendarPlus}
-                  title="ยังไม่มีกิจกรรมในระบบ"
-                  description="รอกิจกรรมใหม่เปิดรับสมัครเร็วๆ นี้ หรือเริ่มสร้างกิจกรรมของคุณเอง"
-                  action={
-                    <Button asChild>
-                      <Link href="/organizer/create">สร้างกิจกรรมใหม่</Link>
-                    </Button>
-                  }
-                />
-              ) : (
-                <EmptyState
-                  icon={Search}
-                  title="ไม่พบกิจกรรมที่ค้นหา"
-                  description="ลองใช้คำค้นหาอื่น หรือล้างตัวกรองเพื่อดูกิจกรรมทั้งหมด"
-                  action={
-                    <Button variant="outline" onClick={resetFilters}>
-                      ล้างตัวกรอง
-                    </Button>
-                  }
-                />
-              )}
-=======
       <section aria-labelledby="organizer-activities-heading">
         <Container className="flex flex-col gap-6 pb-[88px] pt-16">
           <div className="flex flex-wrap items-end justify-between gap-4">
@@ -409,7 +339,6 @@ export default function OrganizerDashboardPage() {
               >
                 กิจกรรมทั้งหมด
               </h2>
->>>>>>> organize
             </div>
             <Link
               href="/organizer/manage"

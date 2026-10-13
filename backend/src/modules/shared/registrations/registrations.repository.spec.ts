@@ -9,8 +9,6 @@ describe('RegistrationsRepository.findActivityWithActiveCount', () => {
 
     expect(findUnique.mock.calls[0][0].include.event.select.registrationCloseAt).toBe(true);
   });
-<<<<<<< HEAD
-=======
 
   it('selects Event.registrationOpenAt — without it the not-yet-open check in create() would silently never fire', async () => {
     const findUnique = jest.fn().mockResolvedValue(null);
@@ -31,5 +29,4 @@ describe('RegistrationsRepository.findActivityWithActiveCount', () => {
     expect(select.isPublic).toBe(true);
     expect(select.organizerId).toBe(true);
   });
->>>>>>> organize
 });

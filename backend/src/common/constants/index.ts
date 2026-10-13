@@ -21,6 +21,19 @@ export const ACADEMIC_ERRORS = {
   STUDENT_ID_INVALID: "รหัสนักศึกษาไม่ถูกต้อง",
 } as const;
 
+export const PROFILE_ERRORS = {
+  USERNAME_INVALID:
+    "ชื่อผู้ใช้ต้องมีความยาว 3-32 ตัวอักษร ขึ้นต้นด้วยตัวอักษร และใช้ได้เฉพาะตัวอักษรภาษาอังกฤษพิมพ์เล็ก ตัวเลข ขีดกลาง (-) และขีดล่าง (_)",
+  USERNAME_TAKEN: "ชื่อผู้ใช้นี้มีคนใช้แล้ว กรุณาเลือกชื่ออื่น",
+} as const;
+
+/**
+ * Username ที่ผู้ใช้ตั้งเอง — บังคับพิมพ์เล็กล้วน (ชุดเดียวกับที่ generateUsername สุ่มให้ตอนสมัคร)
+ * เพราะ login (auth.service.ts) หา username แบบ exact-match ไม่ lowercase ให้เหมือนอีเมล
+ * ถ้ายอมพิมพ์ใหญ่ได้ ผู้ใช้ที่ตั้ง "MyOrg" แล้วพิมพ์ "myorg" ตอน login จะเข้าไม่ได้
+ */
+export const USERNAME_REGEX = /^[a-z][a-z0-9_-]{2,31}$/;
+
 /** เบอร์มือถือไทย 10 หลัก ขึ้นต้น 06 / 08 / 09 */
 export const THAI_MOBILE_REGEX = /^0[689]\d{8}$/;
 

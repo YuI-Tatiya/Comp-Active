@@ -3,24 +3,9 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Container } from "@/components/layout/container"
-<<<<<<< HEAD
-import { FilterBar, type FilterSpec } from "@/components/ui/filter-bar"
-import { EventCard, EventCardBadge, formatEventDate } from "@/components/ui/event-card"
-import { EVENT_CARD_GRID } from "@/components/ui/event-card-layout"
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Toast } from "@/components/ui/toast"
-import { eventsAPI, activitiesAPI, EventSummary, Activity, type EventDraftResponse } from "@/lib/api"
-import { uploadPathFromPreview } from "@/lib/api-base"
-import { CATEGORIES } from "@/lib/categories"
-import { RANGE_OPTIONS, withinRange } from "@/lib/events-filter"
-import { closedReason, type RegistrationWindow } from "@/lib/activity-view"
-import { cn } from "@/lib/utils"
-=======
-import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu"
-import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { Toast } from "@/components/ui/toast"
->>>>>>> organize
 import {
     ACTIVITY_GRID,
     ActivityCardSkeleton,
@@ -41,12 +26,6 @@ import { formatCompactDateSpan } from "@/lib/date-span"
 import { eventImagePath } from "@/lib/events-filter"
 import {
     Search,
-<<<<<<< HEAD
-    Plus,
-    CalendarPlus,
-    Layers,
-=======
->>>>>>> organize
     Pencil,
     Eye,
     EyeOff,
@@ -197,16 +176,10 @@ function earliestDate(ev: EventSummary): number {
     return times.length ? Math.min(...times) : Number.POSITIVE_INFINITY
 }
 
-<<<<<<< HEAD
-/** งานมีใบรับรองจิตอาสาถ้ากิจกรรมย่อยตัวใดตัวหนึ่งออกใบรับรอง */
-function eventHasCert(ev: EventSummary): boolean {
-    return ev.activities.some((a) => !!a.volunteerRole)
-=======
 /** วันจัดกิจกรรมย่อยวันสุดท้าย — คู่กับ earliestDate ใช้แสดงช่วงวันที่ในช่อง DATE */
 function latestDate(ev: EventSummary): number {
     const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
     return times.length ? Math.max(...times) : Number.NEGATIVE_INFINITY
->>>>>>> organize
 }
 
 interface SortableFields {
@@ -239,11 +212,12 @@ function compareBySort(sort: string, a: SortableFields, b: SortableFields): numb
 
 /**
  * แท็บสถานะทรงแคปซูล — หน้าตาเดียวกับเมนู pill บน AppHeader (rounded-full bg-surface p-1 + แท็บที่เลือกเป็น bg-bg)
- * แยกออกมาจาก FilterBar เพราะผู้ใช้อยากเห็นเป็นแท็บเลือกได้ชัดเจน ไม่ใช่ dropdown ซ่อนอยู่ในตัวกรอง
+ * เป็นตัวกรองเดียวที่เหลืออยู่ในหน้านี้ (เดิมมี FilterBar แยกต่างหาก — ผู้ใช้ให้เอาออก เหลือไว้แค่แท็บสถานะ)
  * แท็บ "จบแล้ว" ผู้ใช้ยืนยันให้รวมกิจกรรมที่ยกเลิก (cancelled) เข้ากับกิจกรรมที่ดำเนินจบแล้ว (completed)
  * เป็นก้อนเดียว ไม่แยกเป็น "สิ้นสุดไปแล้ว"/"จบไปแล้ว" สองแท็บเหมือนที่เคยลองทำ — ดู matchesStatusFilter
  */
 const STATUS_TABS: { value: string; label: string }[] = [
+    { value: "", label: "ทั้งหมด" },
     { value: "open", label: "กำลังเปิดรับสมัคร" },
     { value: "closed", label: "ปิดรับสมัคร" },
     { value: "completed", label: "กิจกรรมจบแล้ว" },
@@ -257,61 +231,9 @@ function matchesStatusFilter(bucket: StatusBucket, filterValue: string): boolean
     return bucket === filterValue
 }
 
-const FILTERS: FilterSpec[] = [
-    {
-        key: "visibility",
-        label: "การเผยแพร่",
-        options: [
-            { value: "", label: "ทั้งหมด" },
-            { value: "public", label: "เผยแพร่แล้ว" },
-            { value: "private", label: "ไม่เผยแพร่" },
-        ],
-    },
-    {
-        key: "category",
-        label: "หมวดหมู่",
-        options: [{ value: "", label: "ทุกหมวดหมู่" }, ...CATEGORIES.map((c) => ({ value: c.value, label: c.label }))],
-    },
-    {
-        key: "cert",
-        label: "ใบรับรอง",
-        options: [
-            { value: "", label: "ทั้งหมด" },
-            { value: "yes", label: "มีใบรับรองจิตอาสา" },
-            { value: "no", label: "ไม่มีใบรับรองจิตอาสา" },
-        ],
-    },
-    {
-        key: "range",
-        label: "ช่วงเวลาจัดงาน",
-        options: RANGE_OPTIONS,
-    },
-    {
-        key: "sort",
-        label: "เรียงลำดับ",
-        neutralValue: "newest",
-        options: [
-            { value: "newest", label: "วันที่สร้าง: ล่าสุดก่อน" },
-            { value: "oldest", label: "วันที่สร้าง: เก่าสุดก่อน" },
-            { value: "soon", label: "วันจัดงาน: ใกล้ถึงก่อน" },
-            { value: "latest", label: "วันจัดงาน: ไกลสุดก่อน" },
-            { value: "registrations_desc", label: "ยอดลงทะเบียน: มากไปน้อย" },
-            { value: "registrations_asc", label: "ยอดลงทะเบียน: น้อยไปมาก" },
-            { value: "name", label: "ชื่องาน: ก → ฮ" },
-        ],
-    },
-]
-
-const INITIAL_VALUES: Record<string, string> = {
-    // ไม่มีแท็บ "ทั้งหมด" แล้ว (ดู STATUS_TABS) ค่าเริ่มต้นจึงต้องเป็นแท็บแรกจริงๆ ไม่ใช่ "" เฉยๆ
-    // ไม่งั้นตอนโหลดหน้าครั้งแรก/กดล้างตัวกรอง จะไม่มีแท็บไหนถูกไฮไลต์ว่าเลือกอยู่เลย
-    status: "open",
-    visibility: "",
-    category: "",
-    cert: "",
-    range: "",
-    sort: "newest",
-}
+// แท็บเริ่มต้นคือ "ทั้งหมด" — เดิมเริ่มที่ "open" ตรงๆ (ตอนนั้นไม่มีแท็บ "ทั้งหมด") ทำให้ผู้จัดที่ไม่มี
+// กิจกรรมเปิดรับสมัครอยู่ตอนนี้เปิดหน้ามาแล้วเจอ "ไม่พบกิจกรรมในแท็บนี้" ทั้งที่มีกิจกรรมอยู่จริงในแท็บอื่น
+const DEFAULT_STATUS = ""
 
 type DeleteTarget =
     | { kind: "event"; id: number; name: string }
@@ -339,8 +261,7 @@ export default function OrganizerManagePage() {
     const [loading, setLoading] = useState(true)
     // โหลดไม่สำเร็จ ≠ ไม่มีงาน — เดิม catch แล้วตั้งรายการว่าง ผู้ใช้จึงเห็น "ยังไม่มีงาน" ทั้งที่งานยังอยู่
     const [loadError, setLoadError] = useState<string | null>(null)
-    const [searchQuery, setSearchQuery] = useState("")
-    const [values, setValues] = useState<Record<string, string>>(INITIAL_VALUES)
+    const [status, setStatus] = useState(DEFAULT_STATUS)
     const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
     const [deleting, setDeleting] = useState(false)
     const [statusConfirm, setStatusConfirm] = useState<StatusConfirm | null>(null)
@@ -371,51 +292,13 @@ export default function OrganizerManagePage() {
         }
     }
 
-    function setFilter(key: string, value: string) {
-        setValues((prev) => ({ ...prev, [key]: value }))
+    function resetToDefaultTab() {
+        setStatus(DEFAULT_STATUS)
     }
 
-    function resetFilters() {
-        setSearchQuery("")
-        setValues(INITIAL_VALUES)
-    }
-
-<<<<<<< HEAD
-    /**
-     * สถานะรวมของงาน — เปิดถ้ามีกิจกรรมย่อยอย่างน้อยหนึ่งตัวยังเปิดอยู่, ยกเลิกถ้าทุกตัวถูกยกเลิก,
-     * จบแล้วถ้า (ที่ไม่ถูกยกเลิก) ทุกตัวถูกทำเครื่องหมายว่าจบ, นอกนั้นถือว่าปิดรับสมัคร
-     */
-    function eventStatus(ev: EventSummary, now: Date): StatusBucket {
-        const buckets = ev.activities.map((a) =>
-            statusBucket({ status: a.status, approvalStatus: a.approvalStatus, registrationCloseAt: ev.registrationCloseAt }, now)
-        )
-        if (buckets.length === 0) return "closed"
-        if (buckets.every((b) => b === "cancelled")) return "cancelled"
-        if (buckets.some((b) => b === "open")) return "open"
-        const relevant = buckets.filter((b) => b !== "cancelled")
-        if (relevant.length > 0 && relevant.every((b) => b === "completed")) return "completed"
-        return "closed"
-    }
-
-=======
     // ถือสถานะ (bucket) ไปด้วยเลย การ์ดใช้ต่อทำป้ายสถานะ/ลายปก ไม่ต้องคำนวณซ้ำตอนวาด
->>>>>>> organize
     const filteredEvents = useMemo(() => {
-        const q = searchQuery.trim().toLowerCase()
         const now = new Date()
-<<<<<<< HEAD
-        const list = events.filter((ev) => {
-            const matchesSearch =
-                !q || ev.name.toLowerCase().includes(q) || ev.activities.some((a) => a.name.toLowerCase().includes(q))
-            const matchesStatus = matchesStatusFilter(eventStatus(ev, now), values.status)
-            const matchesVisibility =
-                !values.visibility || (values.visibility === "public" ? ev.isPublic : !ev.isPublic)
-            const matchesCategory = !values.category || ev.activities.some((a) => a.categories.includes(values.category))
-            const matchesCert = !values.cert || (values.cert === "yes" ? eventHasCert(ev) : !eventHasCert(ev))
-            const matchesRange = withinRange(earliestDate(ev), values.range)
-            return matchesSearch && matchesStatus && matchesVisibility && matchesCategory && matchesCert && matchesRange
-        })
-=======
         const list = events
             .map((ev) => ({ ev, bucket: eventStatus(ev, now) }))
             .filter(({ bucket }) => matchesStatusFilter(bucket, status))
@@ -434,56 +317,21 @@ export default function OrganizerManagePage() {
         const list = standaloneActivities
             .map((a) => ({ a, bucket: standaloneStatus(a, now) }))
             .filter(({ bucket }) => matchesStatusFilter(bucket, status))
->>>>>>> organize
 
         return list.sort((x, y) =>
             compareBySort(
-<<<<<<< HEAD
-                values.sort,
-                { createdAt: new Date(a.createdAt).getTime(), eventDate: earliestDate(a), registered: eventRegisteredCount(a), name: a.name },
-                { createdAt: new Date(b.createdAt).getTime(), eventDate: earliestDate(b), registered: eventRegisteredCount(b), name: b.name }
-            )
-        )
-    }, [events, searchQuery, values])
-
-    const filteredStandalone = useMemo(() => {
-        const q = searchQuery.trim().toLowerCase()
-        const now = new Date()
-        const list = standaloneActivities.filter((a) => {
-            const matchesSearch = !q || a.name.toLowerCase().includes(q)
-            // กิจกรรมเดี่ยวไม่มี registrationCloseAt ของตัวเอง (ฟิลด์นี้อยู่ระดับ Event เท่านั้น)
-            const status = statusBucket({ status: a.status, approvalStatus: a.approvalStatus, registrationCloseAt: null }, now)
-            const matchesStatus = matchesStatusFilter(status, values.status)
-            const matchesCategory = !values.category || a.categories.includes(values.category)
-            const matchesCert = !values.cert || (values.cert === "yes" ? !!a.volunteerRole : !a.volunteerRole)
-            const matchesRange = withinRange(new Date(a.date).getTime(), values.range)
-            // กิจกรรมเดี่ยวไม่มีแนวคิดการเผยแพร่ระดับงาน จึงซ่อนเมื่อผู้ใช้กรองด้วยเงื่อนไขนี้
-            const matchesVisibility = !values.visibility
-            return matchesSearch && matchesStatus && matchesCategory && matchesVisibility && matchesCert && matchesRange
-        })
-
-        return [...list].sort((a, b) =>
-            compareBySort(
-                values.sort,
-                { createdAt: new Date(a.createdAt ?? a.date).getTime(), eventDate: new Date(a.date).getTime(), registered: a.registeredCount ?? 0, name: a.name },
-                { createdAt: new Date(b.createdAt ?? b.date).getTime(), eventDate: new Date(b.date).getTime(), registered: b.registeredCount ?? 0, name: b.name }
-=======
                 "newest",
                 { createdAt: new Date(x.a.createdAt ?? x.a.date).getTime(), eventDate: new Date(x.a.date).getTime(), registered: x.a.registeredCount ?? 0, name: x.a.name },
                 { createdAt: new Date(y.a.createdAt ?? y.a.date).getTime(), eventDate: new Date(y.a.date).getTime(), registered: y.a.registeredCount ?? 0, name: y.a.name }
->>>>>>> organize
             )
         )
-    }, [standaloneActivities, searchQuery, values])
+    }, [standaloneActivities, status])
 
-    // ฉบับร่างไม่มีหมวดหมู่/วันที่/ใบรับรองให้กรองแบบงานจริง — เคารพแค่ตัวกรองสถานะกับคำค้นหา ส่วนตัวกรองอื่นไม่เกี่ยวข้อง
+    // ฉบับร่างไม่มีสถานะแบบงานจริง — นับเป็นของแท็บ "ฉบับร่าง" เท่านั้น
     const draftMatches = useMemo(() => {
         if (!draft) return false
-        if (values.status && values.status !== "draft") return false
-        const q = searchQuery.trim().toLowerCase()
-        if (q && !draftDisplayName(draft.payload).toLowerCase().includes(q)) return false
-        return true
-    }, [draft, values.status, searchQuery])
+        return !status || status === "draft"
+    }, [draft, status])
 
     const totalCount = filteredEvents.length + filteredStandalone.length + (draftMatches ? 1 : 0)
 
@@ -795,38 +643,6 @@ export default function OrganizerManagePage() {
                 />
             </Container>
 
-<<<<<<< HEAD
-                {/* แท็บสถานะทรงแคปซูล — กดสลับได้ทันทีโดยไม่ต้องเปิด dropdown เหมือนเมนู pill บน AppHeader */}
-                <div className="mb-6 overflow-x-auto">
-                    <div className="inline-flex items-center gap-1 rounded-full bg-surface p-1">
-                        {STATUS_TABS.map((tab) => {
-                            const active = values.status === tab.value
-                            return (
-                                <button
-                                    key={tab.value}
-                                    type="button"
-                                    onClick={() => setFilter("status", tab.value)}
-                                    aria-current={active ? "page" : undefined}
-                                    className={cn(
-                                        "flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm transition-colors",
-                                        active ? "bg-bg font-semibold text-brand-600 shadow-xs" : "text-fg-muted hover:text-fg"
-                                    )}
-                                >
-                                    {tab.label}
-                                    <span
-                                        className={cn(
-                                            "rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums",
-                                            active ? "bg-brand-50 text-brand-600" : "bg-border text-fg-subtle"
-                                        )}
-                                    >
-                                        {statusCounts[tab.value] ?? 0}
-                                    </span>
-                                </button>
-                            )
-                        })}
-                    </div>
-                </div>
-=======
             <Container className="flex flex-col gap-6 pb-[88px] pt-6">
                 <p className="font-code text-[13px] text-denim-muted" aria-live="polite">
                     {loading ? (
@@ -840,19 +656,6 @@ export default function OrganizerManagePage() {
                         </>
                     )}
                 </p>
->>>>>>> organize
-
-                <FilterBar
-                    searchValue={searchQuery}
-                    onSearchChange={setSearchQuery}
-                    searchPlaceholder="ค้นหาชื่องานหรือกิจกรรม..."
-                    filters={FILTERS}
-                    values={values}
-                    onFilterChange={setFilter}
-                    onReset={resetFilters}
-                    resultCount={loading ? undefined : totalCount}
-                    resultUnit="รายการ"
-                />
 
                 {loading ? (
                     <div className={ACTIVITY_GRID}>
@@ -911,54 +714,6 @@ export default function OrganizerManagePage() {
                             </section>
                         )}
 
-<<<<<<< HEAD
-                        {filteredEvents.length > 0 && (
-                            <div className={EVENT_CARD_GRID}>
-                                {filteredEvents.map((ev) => {
-                                    const fa = firstActivity(ev)
-                                    return (
-                                        <EventCard
-                                            key={`event-${ev.id}`}
-                                            activity={{ name: ev.name, imageUrl: ev.imageUrl ?? fa?.imageUrl }}
-                                            description={ev.description}
-                                            badgeLeft={
-                                                <div className="flex flex-col items-start gap-1.5">
-                                                    <EventCardBadge
-                                                        variant="glass"
-                                                        className={ev.isPublic ? "bg-success/75" : "bg-fg/60"}
-                                                        dotClassName={ev.isPublic ? "bg-success" : "bg-fg-subtle"}
-                                                    >
-                                                        {ev.isPublic ? "เผยแพร่แล้ว" : "ไม่เผยแพร่"}
-                                                    </EventCardBadge>
-                                                    {ev.activities.length > 1 && (
-                                                        <EventCardBadge variant="light">
-                                                            <Layers className="mr-1 inline size-3" aria-hidden="true" />
-                                                            {ev.activities.length} กิจกรรมย่อย
-                                                        </EventCardBadge>
-                                                    )}
-                                                </div>
-                                            }
-                                            actions={
-                                                <>
-                                                    <Link href={`/organizer/events/${ev.id}`} className="flex-1">
-                                                        <Button variant="secondary" size="sm" className="w-full gap-1.5 rounded-lg text-xs font-medium">
-                                                            <ClipboardList className="size-3.5" aria-hidden="true" />
-                                                            รายละเอียดเพิ่มเติม
-                                                        </Button>
-                                                    </Link>
-                                                    <ActionMenu
-                                                        items={eventMenuItems(ev)}
-                                                        label={`ตัวเลือกของ ${ev.name}`}
-                                                        className="size-9 shrink-0 rounded-lg bg-surface-2 hover:bg-border"
-                                                    />
-                                                </>
-                                            }
-                                        >
-                                            <CardInfoRow dateLabel={eventDateLabel(ev)} seatsLabel={eventSeatsLabel(ev)} />
-                                        </EventCard>
-                                    )
-                                })}
-=======
                         {showEventsGrid && (
                             <div className={ACTIVITY_GRID}>
                                 {filteredEvents.map(({ ev, bucket }) => (
@@ -988,7 +743,6 @@ export default function OrganizerManagePage() {
                                     />
                                 ))}
                                 {!createTileInStandalone && <CreateActivityTile />}
->>>>>>> organize
                             </div>
                         )}
 
@@ -1032,38 +786,6 @@ export default function OrganizerManagePage() {
                         )}
                     </div>
                 ) : (
-<<<<<<< HEAD
-                    <div className="py-32 text-center bg-bg rounded-3xl border border-border shadow-sm mt-8">
-                        <div className="w-20 h-20 bg-surface rounded-full flex items-center justify-center mx-auto mb-6">
-                            {events.length === 0 && standaloneActivities.length === 0
-                                ? <Plus className="w-10 h-10 text-fg-subtle" />
-                                : <Search className="w-10 h-10 text-fg-subtle" />}
-                        </div>
-                        {events.length === 0 && standaloneActivities.length === 0 ? (
-                            <>
-                                <h3 className="text-xl font-bold text-fg mb-2">ยังไม่มีงาน</h3>
-                                <p className="text-fg-muted">เริ่มต้นด้วยการสร้างงานแรกของคุณ</p>
-                                <Button asChild className="mt-6 gap-2 rounded-lg px-8 shadow-lg shadow-brand-500/30">
-                                    <Link href="/organizer/create">
-                                        <CalendarPlus className="size-4" aria-hidden="true" />
-                                        สร้างงานใหม่
-                                    </Link>
-                                </Button>
-                            </>
-                        ) : (
-                            <>
-                                <h3 className="text-xl font-bold text-fg mb-2">ไม่พบกิจกรรมที่ค้นหา</h3>
-                                <p className="text-fg-muted">ลองใช้คำค้นหาอื่น หรือล้างตัวกรองเพื่อดูกิจกรรมทั้งหมด</p>
-                                <Button
-                                    variant="outline"
-                                    className="mt-6 rounded-full px-8"
-                                    onClick={resetFilters}
-                                >
-                                    ล้างตัวกรอง
-                                </Button>
-                            </>
-                        )}
-=======
                     <div className="flex flex-col items-center justify-center gap-3 rounded-[22px] border-2 border-dashed border-denim-dash bg-white px-6 py-16 text-center">
                         <span className="grid size-12 place-items-center rounded-full bg-denim-chip">
                             <Search className="size-6 text-denim" aria-hidden="true" />
@@ -1073,7 +795,6 @@ export default function OrganizerManagePage() {
                         <button type="button" onClick={resetToDefaultTab} className={OUTLINE_BUTTON}>
                             กลับไปแท็บเริ่มต้น
                         </button>
->>>>>>> organize
                     </div>
                 )}
             </Container>

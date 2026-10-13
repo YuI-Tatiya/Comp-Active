@@ -16,15 +16,11 @@ export class RegistrationsRepository {
           select: {
             visibility: true,
             visibilityStudentIdFilter: true,
-<<<<<<< HEAD
-            // create() ใช้บังคับวันปิดรับสมัคร — ถ้าไม่ select มา ค่าจะเป็น undefined แล้วการเช็คไม่ทำงานโดยไม่มี error
-=======
             // canViewerSeeEvent ต้องใช้ (fail-closed: ไม่ select มา = ถือว่าไม่เผยแพร่ ลงทะเบียนไม่ได้)
             isPublic: true,
             organizerId: true,
             // create() ใช้บังคับช่วงเวลารับสมัคร — ถ้าไม่ select มา ค่าจะเป็น undefined แล้วการเช็คไม่ทำงานโดยไม่มี error
             registrationOpenAt: true,
->>>>>>> organize
             registrationCloseAt: true,
             visibilityProgram: { select: { programCode: true } },
             visibilityYears: { select: { year: true } },

@@ -220,8 +220,6 @@ interface EventCardProps {
     actions?: React.ReactNode
     /** เพิ่ม class บนกรอบนอกสุด เช่น ทำการ์ดฉบับร่างให้จางลง (opacity) — ไม่ส่งมาก็ไม่กระทบของเดิม */
     className?: string
-    /** การ์ดเล็ก มุมมนมาก — ใช้เฉพาะ /student/events (เล็กกว่ามาตรฐานทั้งเว็บ) ไม่ส่งมาก็ขนาดเดิม */
-    compact?: boolean
 }
 
 /**
@@ -243,21 +241,20 @@ export function EventCard({
     children,
     actions,
     className,
-    compact = false,
 }: EventCardProps) {
     const hasFooter = Boolean(children) || Boolean(actions)
 
     return (
         <div
             className={cn(
-                "group flex w-full flex-col overflow-hidden border border-border bg-bg transition-all duration-300 hover:-translate-y-1",
-                compact ? "h-[340px] rounded-[28px] shadow-xs hover:shadow-md" : cn("rounded-2xl shadow-sm hover:shadow-xl", EVENT_CARD_HEIGHT),
+                "group flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-bg shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl",
+                EVENT_CARD_HEIGHT,
                 className
             )}
         >
-            <div className={cn("relative shrink-0 overflow-hidden bg-surface", compact ? "h-36" : "h-44")}>
-                {badgeLeft && <div className={cn("absolute z-10", compact ? "left-3 top-3" : "left-4 top-4")}>{badgeLeft}</div>}
-                {badgeRight && <div className={cn("absolute z-10", compact ? "right-3 top-3" : "right-4 top-4")}>{badgeRight}</div>}
+            <div className="relative h-44 shrink-0 overflow-hidden bg-surface">
+                {badgeLeft && <div className="absolute left-4 top-4 z-10">{badgeLeft}</div>}
+                {badgeRight && <div className="absolute right-4 top-4 z-10">{badgeRight}</div>}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                     src={
@@ -273,9 +270,9 @@ export function EventCard({
                 />
             </div>
 
-            <div className={cn("flex min-h-0 flex-1 flex-col", compact ? "p-4" : "p-5")}>
+            <div className="flex min-h-0 flex-1 flex-col p-5">
                 {/* min-h-[2.5em] = 2 บรรทัดของ leading-tight — ชื่อบรรทัดเดียวก็จองที่ไว้เท่ากัน */}
-                <h3 className={cn("line-clamp-2 min-h-[2.5em] font-bold leading-tight text-fg transition-colors group-hover:text-brand-600", compact ? "text-base" : "text-xl")}>
+                <h3 className="line-clamp-2 min-h-[2.5em] text-xl font-bold leading-tight text-fg transition-colors group-hover:text-brand-600">
                     {activity.name}
                 </h3>
 

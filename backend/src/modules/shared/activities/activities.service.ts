@@ -1,11 +1,8 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
-<<<<<<< HEAD
-=======
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { generateCheckinToken } from '../../../common/utils/checkin-token.util';
 import { APP_UTC_OFFSET } from '../../../common/utils/time.util';
->>>>>>> organize
 import { ActivitiesRepository } from './activities.repository';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
@@ -346,11 +343,7 @@ export class ActivitiesService {
       throw new BadRequestException('กิจกรรมนี้ถูกยกเลิกไปแล้ว ไม่สามารถจบกิจกรรมได้');
     }
 
-    // endAt เป็น null สำหรับกิจกรรมรุ่นเก่า จึงถอยไปใช้ date + endTime แทน
-    const endsAt = activity.endAt
-      ? new Date(activity.endAt)
-      : new Date(`${new Date(activity.date).toISOString().slice(0, 10)}T${activity.endTime || '23:59'}:00`);
-
+    const endsAt = this.computeEndsAt(activity);
     if (!Number.isNaN(endsAt.getTime()) && endsAt.getTime() > Date.now()) {
       throw new BadRequestException('ยังไม่ถึงเวลาสิ้นสุดกิจกรรม ยังจบกิจกรรมไม่ได้');
     }
@@ -363,8 +356,6 @@ export class ActivitiesService {
     return saved;
   }
 
-<<<<<<< HEAD
-=======
   /** endAt เป็น null สำหรับกิจกรรมรุ่นเก่า จึงถอยไปใช้ date + endTime แทน — ใช้ร่วมกันทั้ง markCompleted
    *  แบบกดเองและ autoCompleteOverdueActivities (งานอัตโนมัติ) กันสูตรเพี้ยนไม่ตรงกันระหว่างสองทาง */
   private computeEndsAt(activity: { endAt: Date | null; date: Date; endTime: string | null }): Date {
@@ -414,7 +405,6 @@ export class ActivitiesService {
     return completedCount;
   }
 
->>>>>>> organize
   private async notifyActivityCompleted(activityId: number, activityName: string) {
     try {
       const registrations = await this.registrationsRepository.findByActivity(activityId);
@@ -465,9 +455,6 @@ export class ActivitiesService {
     ]);
 
     const totalActivities = activities.length;
-<<<<<<< HEAD
-    const activeActivities = activities.filter((a) => a.approvalStatus === ApprovalStatus.APPROVED).length;
-=======
     // "กำลังเปิดรับ" ต้องแปลว่าเปิดรับสมัครอยู่จริง (status) ไม่ใช่แค่ผ่านการอนุมัติ (approvalStatus) —
     // เดิมนับจาก approvalStatus === APPROVED ทำให้ตัวเลขบนการ์ดสถิติไม่ตรงกับแท็บสถานะ "เปิดรับสมัคร"
     // ของหน้าเดียวกัน (กิจกรรมที่อนุมัติแล้วแต่ถูกปิดรับสมัคร/จบไปแล้ว ก็ยังถูกนับว่า "active" อยู่)
@@ -476,7 +463,6 @@ export class ActivitiesService {
     const activeActivities = activities.filter(
       (a) => a.status === ActivityStatus.OPEN && a.approvalStatus === ApprovalStatus.APPROVED,
     ).length;
->>>>>>> organize
     const totalRegistrations = activities.reduce((sum, a) => sum + a._count.registrations, 0);
 
     return { totalActivities, activeActivities, totalRegistrations, totalStudents, pendingRegistrations };

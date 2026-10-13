@@ -649,8 +649,6 @@ describe('RegistrationsService.create — registration deadline (Event.registrat
   });
 });
 
-<<<<<<< HEAD
-=======
 describe('RegistrationsService.create — registration open date (Event.registrationOpenAt)', () => {
   let service: RegistrationsService;
   let repo: { findActivityWithActiveCount: jest.Mock; findActiveByStudentAndActivity: jest.Mock; create: jest.Mock };
@@ -796,4 +794,3 @@ describe('RegistrationsService.create — unpublished event (Event.isPublic = fa
     await expect(service.create(5, 1, student, [], {}, {})).resolves.toEqual({ id: 99 });
   });
 });
->>>>>>> organize

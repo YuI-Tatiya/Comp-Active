@@ -19,13 +19,7 @@ export const EVENT_CARD_HEIGHT = "h-[420px]"
 /**
  * กริดรายการการ์ด — ช่องกว้างเท่าการ์ดพอดี (ไม่ยืดตามจอ) จำนวนคอลัมน์ปรับตามความกว้างที่มี
  * จอกว้างชิดซ้ายให้ตรงกับหัวข้อ, จอแคบ (คอลัมน์เดียว) จัดกึ่งกลาง
-<<<<<<< HEAD
- */
-export const EVENT_CARD_GRID =
-    "grid justify-center gap-5 sm:justify-start grid-cols-[repeat(auto-fill,minmax(min(100%,20rem),20rem))]"
-=======
  * ระยะห่าง gap-14 (เดิม gap-5 → gap-8 → gap-14 ตามที่ขอเพิ่ม) — การ์ดใหญ่ (320x420) ต้องการที่หายใจเยอะ
  */
 export const EVENT_CARD_GRID =
     "grid justify-center gap-14 sm:justify-start grid-cols-[repeat(auto-fill,minmax(min(100%,20rem),20rem))]"
->>>>>>> organize
