@@ -145,7 +145,8 @@ export interface OrganizerStat {
     /** ป้ายตัวพิมพ์ใหญ่แบบโค้ด เช่น ALL_EVENTS */
     code: string
     label: string
-    value: string | number
+    /** ReactNode เผื่อหน่วยตัวเล็กต่อท้ายตัวเลข เช่น "12 ชม." */
+    value: React.ReactNode
     icon: LucideIcon
     /** การ์ดเด่น (พื้นยีนส์) — ดีไซน์ใช้กับ "กำลังเปิดรับสมัคร" ใบเดียว */
     highlight?: boolean
@@ -617,21 +618,41 @@ export const ACTIVITY_GRID = "grid grid-cols-[repeat(auto-fill,minmax(min(300px,
 export const ACTIVITY_GRID_COLUMN =
     "w-[100cqw] @min-[624px]:w-[calc((100cqw-1.5rem)/2)] @min-[948px]:w-[calc((100cqw-3rem)/3)]"
 
-/** ช่องเส้นประท้ายกริด — ทางลัดไปสร้างกิจกรรม (ช่องเดียวที่เหลือเมื่อยังไม่มีกิจกรรมเลย) */
-export function CreateActivityTile() {
+/** ช่องเส้นประท้ายกริดการ์ด — ทางลัดไปหน้าอื่น (สร้างกิจกรรมฝั่งผู้จัด / สำรวจกิจกรรมฝั่งนักศึกษา) */
+export function DashedLinkTile({
+    href,
+    icon: Icon,
+    title,
+    description,
+}: {
+    href: string
+    icon: LucideIcon
+    title: string
+    description: string
+}) {
     return (
         <Link
-            href="/organizer/create"
+            href={href}
             className="flex min-h-[300px] flex-col items-center justify-center gap-3.5 rounded-[22px] border-2 border-dashed border-denim-dash bg-white p-6 text-center text-denim transition-colors hover:border-denim hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
         >
             <span className="denim-weave grid size-16 place-items-center rounded-[20px]">
-                <Plus className="size-7 text-amber" strokeWidth={2.4} aria-hidden="true" />
+                <Icon className="size-7 text-amber" strokeWidth={2.4} aria-hidden="true" />
             </span>
-            <span className="font-display text-xl font-bold">สร้างกิจกรรมใหม่</span>
-            <span className="max-w-[220px] text-sm leading-normal text-denim-muted">
-                เปิดรับสมัคร ออกใบรับรอง และติดตามผู้เข้าร่วมได้ในที่เดียว
-            </span>
+            <span className="font-display text-xl font-bold">{title}</span>
+            <span className="max-w-[220px] text-sm leading-normal text-denim-muted">{description}</span>
         </Link>
+    )
+}
+
+/** ช่องสร้างกิจกรรมท้ายกริดของผู้จัด (ช่องเดียวที่เหลือเมื่อยังไม่มีกิจกรรมเลย) */
+export function CreateActivityTile() {
+    return (
+        <DashedLinkTile
+            href="/organizer/create"
+            icon={Plus}
+            title="สร้างกิจกรรมใหม่"
+            description="เปิดรับสมัคร ออกใบรับรอง และติดตามผู้เข้าร่วมได้ในที่เดียว"
+        />
     )
 }
 

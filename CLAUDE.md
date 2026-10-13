@@ -166,13 +166,15 @@ Shared UI in `components/ui/` (Radix + Tailwind + CVA) and auth UI in `component
     - When there is no image, or it fails to load, the cover falls back to the theme pattern. The pattern always sits underneath, so a slow or broken image never leaves a blank cover.
     - A navy gradient scrim plus a text shadow keep the white date and labels readable on bright photos. Check new overlay text against a near-white image.
     - Card images are plain `<img loading="lazy">`, because uploads are served from the backend `/uploads` and do not go through Next's image optimizer. They count toward the Nginx `general` burst, so keep them lazy.
-  - `PageHeader` is the denim band used by list pages.
+  - `PageHeader` (`components/ui/page-header.tsx`) is the older denim band with a dashed frame. No page uses it at the moment; the student pages use a plain denim band instead.
   - Page-specific parts live in `components/organizer/*`, `components/home/*` (public `/`), `components/about/*` and `components/student/*`.
   - **My activities (`/student/my-registrations`):** the four status cards and their counts both come from `registrationBucket` (`lib/registration-bucket.ts`), so a count always matches its list.
     - An organizer-cancelled activity counts as **cancelled** even though its registration row stays `pending`/`confirmed`, because `cancelByOrganizer` doesn't touch registrations.
     - A row with an evaluation stays **evaluated** even if the activity is cancelled later.
+  - **Student home (`/student`):** the stat cards reuse `OrganizerStatCards`, and the "แนะนำ" row is `PublicActivityCard` plus a `DashedLinkTile`.
+    - "กำลังจะถึง" and the mascot's countdown both come from `selectUpcoming` (`lib/student-home.ts`). It keeps only the `pending`/`confirmed` buckets, drops `completed` activities, and counts days on the Bangkok calendar, so it agrees with "กิจกรรมของฉัน".
 - **Focus rings:** amber only on denim backgrounds. On white it is ~2:1, below the 3:1 a focus indicator needs, so use denim there.
-- **News:** both `/` and `/student` show text slides from `lib/news.ts`.
+- **News:** the public home `/` shows text slides from `lib/news.ts`. `/student` dropped them in its redesign.
 
 **Request budget:** a cold page load (first visit or hard refresh) must stay well under the burst of Nginx's `general` zone (60), and font files count. Preload only the weights pages actually use — Sarabun used to preload 32 files on every page, which pushed `/organizer` to 72 requests; the trailing API calls got 429 and rendered as empty lists. Today a cold load is 40-53 requests with at most 11 font files. Measure with `performance.getEntriesByType('resource')` after a no-cache load. Weight counts too: `next/image` does not optimize SVGs, so raster art belongs in a PNG/JPG it can resize — the home hero's 20 MB `college.svg` (a photo wrapped in SVG) made the page 16.5 MB; `college-building.png` brought it to 1.4 MB.
 

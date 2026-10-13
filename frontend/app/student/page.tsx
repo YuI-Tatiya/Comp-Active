@@ -1,19 +1,30 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { CalendarCheck, Clock, Search, TrendingUp, Trophy } from "lucide-react"
 import { Container } from "@/components/layout/container"
-import { PageHeader } from "@/components/ui/page-header"
-import { ACTIVITY_GRID, ActivityCardSkeleton } from "@/components/denim/denim-ui"
+import {
+  ACTIVITY_GRID,
+  ActivityCardSkeleton,
+  DashedLinkTile,
+  DenimSectionHeading,
+  OrganizerStatCards,
+  type OrganizerStat,
+} from "@/components/denim/denim-ui"
 import { PublicActivityCard } from "@/components/denim/public-activity-card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { EmptyState } from "@/components/ui/empty-state"
-import { SectionHeading } from "@/components/ui/section-heading"
-import { StatTile } from "@/components/ui/stat-tile"
-import { SkillRadar, SkillScoreList } from "@/components/ui/skill-radar"
-import { UpcomingItem, type UpcomingActivity } from "@/components/ui/upcoming-item"
-import { NewsShowcase } from "@/components/home/news-showcase"
+import {
+  HeadingLink,
+  HomePanel,
+  NoSkillScoresNotice,
+  SkillTiles,
+  SkillTilesSkeleton,
+  StudentHomeHero,
+  UpcomingCard,
+  UpcomingCardSkeleton,
+  UpcomingEmpty,
+  scoredSkillCount,
+  type HomeRegistration,
+} from "@/components/student/student-home-ui"
 import {
   activitiesAPI,
   eventsAPI,
@@ -24,25 +35,24 @@ import {
   SkillsData,
 } from "@/lib/api"
 import { buildFeaturedCards, type FeaturedCardItem } from "@/lib/events-filter"
+import { activityStart, calendarDaysUntil, selectUpcoming } from "@/lib/student-home"
 import { useAuth } from "@/lib/auth-context"
-import { ArrowRight, CalendarCheck, CalendarX, Clock, Trophy, TrendingUp, Star } from "lucide-react"
 
-interface MyRegistration {
-  id: number
-  status: string
-  activity: UpcomingActivity
-}
-
-const XP_PER_LEVEL = 5000
+/** การ์ด "กำลังจะถึง" สูงสุด 2 แถว (กริด 2 คอลัมน์) — ที่เหลือดูต่อในหน้ากิจกรรมของฉัน */
+const UPCOMING_LIMIT = 4
+/** การ์ดแนะนำ 2 ใบ + ช่องสำรวจกิจกรรม = เต็มแถวเดียวพอดีบนจอกว้าง (ACTIVITY_GRID 3 คอลัมน์) */
+const RECOMMENDED_LIMIT = 2
 
 export default function StudentDashboardPage() {
   const { user } = useAuth()
   const [recommended, setRecommended] = useState<FeaturedCardItem[]>([])
-  const [registrations, setRegistrations] = useState<MyRegistration[]>([])
+  const [registrations, setRegistrations] = useState<HomeRegistration[]>([])
   const [skills, setSkills] = useState<SkillsData | null>(null)
   const [totalVolunteerHours, setTotalVolunteerHours] = useState<number | null>(null)
   const [loadingActivities, setLoadingActivities] = useState(true)
   const [loadingMine, setLoadingMine] = useState(true)
+  // เวลาอ้างอิงตอนเปิดหน้า — ใช้นับวันถึงกิจกรรม (ตามปฏิทินไทย) ทั้งหน้าให้ตรงกัน
+  const [now] = useState(() => new Date())
 
   useEffect(() => {
     // งานหนึ่งงาน (มีกิจกรรมย่อยกี่ตัวก็ตาม) ต้องแสดงเป็นการ์ดเดียว จึงต้องดึงทั้ง Event และ
@@ -55,8 +65,12 @@ export default function StudentDashboardPage() {
           { event: (id) => `/student/events/${id}`, activity: (id) => `/student/activities/${id}` }
         )
         // หัวข้อบอกว่า "กิจกรรมที่กำลังเปิดรับสมัคร" — เอาเฉพาะที่เปิดอยู่จริง (กติกาเดียวกับหน้าแรก public)
-        // เดิมเรียงตามวันแล้วตัด 3 อันแรกโดยไม่ดูสถานะ งานที่ปิดไปแล้ว (วันจัดเร็วสุด) จึงขึ้นมาแทน
-        setRecommended(all.filter((i) => i.status === "open").sort((a, b) => a.sortDate - b.sortDate).slice(0, 3))
+        setRecommended(
+          all
+            .filter((i) => i.status === "open")
+            .sort((a, b) => a.sortDate - b.sortDate)
+            .slice(0, RECOMMENDED_LIMIT)
+        )
       })
       .catch((err) => console.error(err))
       .finally(() => setLoadingActivities(false))
@@ -70,7 +84,7 @@ export default function StudentDashboardPage() {
     ])
       .then(([regRes, skillRes, certRes]) => {
         if (regRes.status === "fulfilled" && Array.isArray(regRes.value)) {
-          setRegistrations(regRes.value as MyRegistration[])
+          setRegistrations(regRes.value as HomeRegistration[])
         }
         if (skillRes.status === "fulfilled") setSkills(skillRes.value)
         if (certRes.status === "fulfilled" && Array.isArray(certRes.value)) {
@@ -81,232 +95,133 @@ export default function StudentDashboardPage() {
       .finally(() => setLoadingMine(false))
   }, [])
 
-  // กิจกรรมที่ยังไม่ถึงวันจัด เรียงจากใกล้สุด
-  const startOfToday = new Date()
-  startOfToday.setHours(0, 0, 0, 0)
-  const upcoming = registrations
-    .filter((r) => {
-      if (r.status === "cancelled" || !r.activity?.date) return false
-      const d = new Date(r.activity.date)
-      return !Number.isNaN(d.getTime()) && d >= startOfToday
-    })
-    .sort((a, b) => +new Date(a.activity.date) - +new Date(b.activity.date))
-    .slice(0, 3)
+  const allUpcoming = selectUpcoming(registrations, now)
+  const upcoming = allUpcoming.slice(0, UPCOMING_LIMIT)
+  const daysToNext = loadingMine
+    ? undefined
+    : allUpcoming.length > 0
+      ? calendarDaysUntil(activityStart(allUpcoming[0].activity), now)
+      : null
 
-  const level = skills?.level ?? 1
-  const points = skills?.points ?? 0
-  const xpInLevel = points % XP_PER_LEVEL
-  const xpPercent = (xpInLevel / XP_PER_LEVEL) * 100
+  const scored = scoredSkillCount(skills?.average)
+
+  const stats: OrganizerStat[] = [
+    {
+      code: "JOINED",
+      label: "กิจกรรมที่เข้าร่วม",
+      value: loadingMine ? "–" : (skills?.count ?? 0),
+      icon: CalendarCheck,
+    },
+    {
+      code: "SCORE",
+      label: "คะแนนสะสม",
+      value: loadingMine ? "–" : (skills?.totalScore ?? 0).toLocaleString("th-TH"),
+      icon: TrendingUp,
+    },
+    {
+      code: "RANK",
+      label: "อันดับในระบบ",
+      value: loadingMine || !skills ? "–" : `#${skills.rank}`,
+      caption: loadingMine || !skills ? undefined : `จากนักศึกษาทั้งหมด ${skills.totalStudents.toLocaleString("th-TH")} คน`,
+      icon: Trophy,
+      highlight: true,
+    },
+    {
+      code: "VOLUNTEER_HRS",
+      label: "ชั่วโมงจิตอาสา",
+      value:
+        totalVolunteerHours === null ? (
+          "–"
+        ) : (
+          <>
+            {totalVolunteerHours.toLocaleString("th-TH", { maximumFractionDigits: 2 })}
+            <span className="ml-1.5 text-lg font-semibold sm:text-2xl">ชม.</span>
+          </>
+        ),
+      icon: Clock,
+    },
+  ]
 
   return (
-    <>
-      {/* ── แถบทักทาย ────────────────────────────────────────────────────── */}
-      <PageHeader
-        prompt="~/comp-active/student $ whoami"
-        badge={loadingMine ? "กำลังโหลดข้อมูล..." : `ระดับ ${level}`}
-        title={`สวัสดี ${user?.name || "นักศึกษา"}`}
-        subtitle="เลือกกิจกรรมที่สนใจ สะสมคะแนน Soft Skills และติดตามการเติบโตของคุณ"
-        icons={[Trophy, Star, CalendarCheck]}
-      />
+    // ไม่ใส่ min-h-screen — app/student/layout.tsx จัดการให้แล้ว
+    <div className="bg-surface pb-16">
+      <StudentHomeHero name={user?.name || "นักศึกษา"} daysToNext={daysToNext} />
+      <OrganizerStatCards stats={stats} strongLabels />
 
-      {/* ── สถิติของฉัน ───────────────────────────────────────────────────── */}
-      <section className="border-b border-border">
-        <Container className="py-8">
-          <h2 className="mb-5 text-lg font-semibold text-fg">สถิติของฉัน</h2>
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-            <StatTile
-              label="กิจกรรมที่เข้าร่วม"
-              value={loadingMine ? "—" : (skills?.count ?? 0)}
-              icon={CalendarCheck}
-            />
-            <StatTile
-              label="คะแนนสะสม"
-              value={loadingMine ? "—" : (skills?.totalScore ?? 0).toLocaleString("th-TH")}
-              icon={TrendingUp}
-            />
-            <StatTile
-              label="อันดับในระบบ"
-              value={loadingMine || !skills ? "—" : `#${skills.rank}`}
-              caption={loadingMine || !skills ? undefined : `จากนักศึกษาทั้งหมด ${skills.totalStudents} คน`}
-              icon={Trophy}
-            />
-            <StatTile
-              label="ชั่วโมงจิตอาสา"
-              value={
-                totalVolunteerHours === null
-                  ? "—"
-                  : `${totalVolunteerHours.toLocaleString("th-TH", { maximumFractionDigits: 2 })} ชม.`
-              }
-              icon={Clock}
-            />
-          </div>
-        </Container>
-      </section>
-
-      {/* ── กำลังจะถึง + ระดับของคุณ ─────────────────────────────────────── */}
-      <section>
-        <Container className="grid gap-6 pt-10 lg:grid-cols-5">
-          {/* กำลังจะถึง */}
-          <div className="lg:col-span-3">
-            <SectionHeading
-              title="กำลังจะถึง"
-              description={
-                loadingMine
-                  ? undefined
-                  : upcoming.length > 0
-                    ? `${upcoming.length} กิจกรรมที่คุณลงทะเบียนไว้`
-                    : undefined
-              }
-              action={
-                <Button variant="link" asChild className="px-0">
-                  <Link href="/student/my-registrations">
-                    กิจกรรมของฉัน
-                    <ArrowRight />
-                  </Link>
-                </Button>
-              }
-            />
-
-            <div className="mt-5 space-y-3">
-              {loadingMine ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-20 w-full rounded-lg" />
-                ))
-              ) : upcoming.length > 0 ? (
-                upcoming.map((r) => (
-                  <UpcomingItem
-                    key={r.id}
-                    activity={r.activity}
-                    status={r.status}
-                    href={`/student/activities/${r.activity.id}`}
-                  />
-                ))
-              ) : (
-                <EmptyState
-                  icon={CalendarX}
-                  title="ยังไม่มีกิจกรรมที่จะถึง"
-                  description="ลงทะเบียนกิจกรรมที่สนใจเพื่อเริ่มสะสมคะแนนทักษะ"
-                  action={
-                    <Button asChild>
-                      <Link href="/student/events">ดูกิจกรรมทั้งหมด</Link>
-                    </Button>
-                  }
-                />
-              )}
-            </div>
-          </div>
-
-          {/* ระดับของคุณ */}
-          <div className="flex flex-col rounded-xl border border-border bg-bg p-5 shadow-xs sm:p-6 lg:col-span-2">
-            <h2 className="text-base font-semibold text-fg">ระดับของคุณ</h2>
-
-            {loadingMine ? (
-              <Skeleton className="mt-4 h-44 w-full rounded-lg" />
-            ) : (
-              <>
-                <div className="mt-4 flex items-center gap-4">
-                  <span className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-600 to-brand-500 text-2xl font-bold text-white shadow-md shadow-brand-600/25">
-                    {level}
-                  </span>
-                  <div>
-                    <p className="text-sm text-fg-muted">ระดับปัจจุบัน</p>
-                    <p className="text-xl font-semibold text-fg tabular-nums">
-                      {points.toLocaleString("th-TH")}{" "}
-                      <span className="text-sm font-normal text-fg-muted">XP</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5">
-                  <div className="mb-2 flex items-center justify-between text-xs text-fg-muted">
-                    <span>สู่ระดับ {level + 1}</span>
-                    <span className="tabular-nums">
-                      {xpInLevel.toLocaleString("th-TH")} / {XP_PER_LEVEL.toLocaleString("th-TH")} XP
-                    </span>
-                  </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-surface-2">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-500 transition-all"
-                      style={{ width: `${xpPercent}%` }}
-                    />
-                  </div>
-                  <p className="mt-2 text-xs text-fg-subtle">
-                    อีก {(XP_PER_LEVEL - xpInLevel).toLocaleString("th-TH")} XP ถึงระดับ {level + 1}
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
-        </Container>
-      </section>
-
-      {/* ── ทักษะของคุณ ──────────────────────────────────────────────────── */}
-      <section>
-        <Container className="pb-10 pt-6">
-          <div className="rounded-xl border border-border bg-bg p-5 shadow-xs sm:p-6">
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-base font-semibold text-fg">ทักษะของคุณ</h2>
-              <Link href="/student/profile" className="text-sm text-brand-600 hover:underline">
-                ดูรายละเอียด
-              </Link>
-            </div>
-
-            {loadingMine ? (
-              <Skeleton className="mt-4 h-56 w-full rounded-lg" />
-            ) : skills && skills.count > 0 ? (
-              <div className="mt-4 grid items-center gap-6 lg:grid-cols-2 lg:gap-10">
-                <SkillRadar average={skills.average} height={360} />
-                <SkillScoreList average={skills.average} columns={2} />
-              </div>
-            ) : (
-              <p className="mt-4 text-sm leading-relaxed text-fg-muted">
-                ยังไม่มีคะแนนทักษะ — เข้าร่วมกิจกรรมและรอผู้จัดประเมิน
-                คะแนนจะแสดงที่นี่โดยอัตโนมัติ
-              </p>
-            )}
-          </div>
-        </Container>
-      </section>
-
-      {/* ── แนะนำสำหรับคุณ ───────────────────────────────────────────────── */}
-      <section className="border-t border-border bg-surface">
-        <Container className="py-12">
-          <SectionHeading
-            title="แนะนำสำหรับคุณ"
-            description="กิจกรรมที่กำลังเปิดรับสมัคร"
-            action={
-              <Button variant="link" asChild className="px-0">
-                <Link href="/student/events">
-                  ดูทั้งหมด
-                  <ArrowRight />
-                </Link>
-              </Button>
+      <Container className="mt-8 flex flex-col gap-8">
+        {/* ── กำลังจะถึง ─────────────────────────────────────────────────── */}
+        <HomePanel labelledBy="upcoming-heading">
+          <DenimSectionHeading
+            id="upcoming-heading"
+            comment="upcoming"
+            title="กำลังจะถึง"
+            size="card"
+            description={
+              !loadingMine && allUpcoming.length > 0 ? `${allUpcoming.length} กิจกรรมที่คุณลงทะเบียนไว้` : undefined
             }
+            action={<HeadingLink href="/student/my-registrations">กิจกรรมของฉัน</HeadingLink>}
           />
-
-          <div className="mt-6">
-            {loadingActivities ? (
-              <div className={ACTIVITY_GRID}>
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <ActivityCardSkeleton key={i} />
-                ))}
+          <div className="mt-5">
+            {loadingMine ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                <UpcomingCardSkeleton />
+                <UpcomingCardSkeleton />
               </div>
-            ) : recommended.length > 0 ? (
-              // กริดและการ์ดชุดเดียวกับหน้าแรก public — การ์ดกิจกรรมทุกหน้าขนาดเท่ากัน
-              <div className={ACTIVITY_GRID}>
-                {recommended.map((item) => (
-                  <PublicActivityCard key={item.key} item={item} />
+            ) : upcoming.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {upcoming.map((r) => (
+                  <UpcomingCard key={r.id} reg={r} now={now} />
                 ))}
               </div>
             ) : (
-              <EmptyState icon={CalendarX} title="ยังไม่มีกิจกรรมเปิดรับสมัคร" />
+              <UpcomingEmpty />
             )}
           </div>
-        </Container>
-      </section>
+        </HomePanel>
 
-      {/* ── ข่าวสารและประกาศ ─────────────────────────────────────────────── */}
-      <NewsShowcase />
-    </>
+        {/* ── ทักษะของคุณ ────────────────────────────────────────────────── */}
+        <HomePanel labelledBy="skills-heading">
+          <DenimSectionHeading
+            id="skills-heading"
+            comment={loadingMine ? "skills[12]" : `skills[12] · มีคะแนนแล้ว ${scored}`}
+            title="ทักษะของคุณ"
+            size="card"
+            action={<HeadingLink href="/student/profile">ดูรายละเอียด</HeadingLink>}
+          />
+          <div className="mt-5 flex flex-col gap-4">
+            {!loadingMine && scored === 0 && <NoSkillScoresNotice />}
+            {loadingMine ? <SkillTilesSkeleton /> : <SkillTiles average={skills?.average} />}
+          </div>
+        </HomePanel>
+
+        {/* ── แนะนำสำหรับคุณ ─────────────────────────────────────────────── */}
+        <section aria-labelledby="recommended-heading" className="mt-2">
+          <DenimSectionHeading
+            id="recommended-heading"
+            comment="events.filter(open)"
+            title="แนะนำสำหรับคุณ"
+            size="card"
+            description={
+              !loadingActivities && recommended.length === 0
+                ? "ยังไม่มีกิจกรรมเปิดรับสมัครในตอนนี้"
+                : "กิจกรรมที่กำลังเปิดรับสมัคร"
+            }
+            action={<HeadingLink href="/student/events">ดูทั้งหมด</HeadingLink>}
+          />
+          {/* กริดและการ์ดชุดเดียวกับหน้าแรก public — การ์ดกิจกรรมทุกหน้าขนาดเท่ากัน */}
+          <div className={`mt-5 ${ACTIVITY_GRID}`}>
+            {loadingActivities
+              ? Array.from({ length: RECOMMENDED_LIMIT }).map((_, i) => <ActivityCardSkeleton key={i} />)
+              : recommended.map((item) => <PublicActivityCard key={item.key} item={item} />)}
+            <DashedLinkTile
+              href="/student/events"
+              icon={Search}
+              title="สำรวจกิจกรรมทั้งหมด"
+              description="กรองตามหมวดหมู่ สถานะ และใบรับรองจิตอาสา"
+            />
+          </div>
+        </section>
+      </Container>
+    </div>
   )
 }
