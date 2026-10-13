@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { UserRole } from '../../../common/enums/role.enum';
 
 export const ADMIN_SAFE_SELECT = {
   id: true,
@@ -30,10 +31,7 @@ export class UsersRepository {
   }
 
   findByEmail(email: string) {
-    return this.prisma.user.findUnique({
-      where: { email },
-      select: { id: true, name: true, email: true, role: true },
-    });
+    return this.prisma.user.findUnique({ where: { email }, select: { id: true, name: true, email: true, role: true } });
   }
 
   findByIdBasic(id: number) {
@@ -69,5 +67,9 @@ export class UsersRepository {
 
   countAll() {
     return this.prisma.user.count();
+  }
+
+  countActiveStudents() {
+    return this.prisma.user.count({ where: { role: UserRole.STUDENT, isBlocked: false } });
   }
 }

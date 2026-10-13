@@ -2,20 +2,42 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ActivityFilterDto } from './dto/activity-filter.dto';
 import { ActivityStatus, ApprovalStatus } from '../../../common/enums/status.enum';
+import { SoftSkillType } from '../../../common/enums/soft-skill.enum';
+import { STUDENT_CONTACT_SELECT } from '../../../common/constants/user-select';
 
 export const activityInclude = {
   tags: true,
   conditions: true,
   benefits: true,
   softSkills: true,
+  questions: { include: { options: true } },
+  surveyQuestions: { orderBy: { sortOrder: 'asc' } },
   organizer: { select: { id: true, name: true, email: true } },
+  event: {
+    select: {
+      visibility: true,
+      visibilityStudentIdFilter: true,
+      visibilityProgram: { select: { programCode: true } },
+      visibilityYears: { select: { year: true } },
+      // canViewerSeeEvent ต้องใช้ (fail-closed: ไม่ select มา = ถือว่าไม่เผยแพร่)
+      isPublic: true,
+      organizerId: true,
+    },
+  },
 } as const;
+
+interface SurveyQuestionData {
+  label: string;
+  type: string;
+  scaleMax: number;
+}
 
 interface RelationUpdate {
   tags?: string[];
   conditions?: string[];
   benefits?: string[];
-  softSkills?: string[];
+  softSkills?: SoftSkillType[];
+  surveyQuestions?: SurveyQuestionData[];
 }
 
 @Injectable()
@@ -33,29 +55,40 @@ export class ActivitiesRepository {
     return this.prisma.activity.findMany({
       where: {
         approvalStatus: ApprovalStatus.APPROVED as any,
-        ...(filterDto?.search && {
-          name: { contains: filterDto.search, mode: 'insensitive' },
-        }),
-        ...(filterDto?.category && { category: filterDto.category }),
+        ...(filterDto?.search && { name: { contains: filterDto.search, mode: 'insensitive' } }),
+        ...(filterDto?.category && { categories: { has: filterDto.category } }),
         ...(filterDto?.status && { status: filterDto.status as any }),
       },
-      include: {
-        ...activityInclude,
-        _count: { select: { registrations: true } },
-      },
+      include: { ...activityInclude, _count: { select: { registrations: true } } },
       orderBy: { date: 'asc' },
     });
   }
 
+  /** ใช้กับผู้ชมทั่วไป (public/student) — ไม่ส่งรายชื่อ/ข้อมูลติดต่อผู้ลงทะเบียนออกไป มีแค่จำนวนรวม */
   findById(id: number) {
+    return this.prisma.activity.findUnique({
+      where: { id },
+      include: { ...activityInclude, _count: { select: { registrations: true } } },
+    });
+  }
+
+  /** ใช้กับ organizer เจ้าของกิจกรรม/admin เท่านั้น — ส่งรายชื่อผู้ลงทะเบียนพร้อมคำตอบตอนลงทะเบียนมาด้วย */
+  findByIdForOrganizer(id: number) {
     return this.prisma.activity.findUnique({
       where: { id },
       include: {
         ...activityInclude,
         registrations: {
           include: {
-            student: true,
+            student: { select: STUDENT_CONTACT_SELECT },
             evaluation: true,
+            certificate: true,
+            answers: {
+              include: {
+                question: { select: { id: true, label: true } },
+                options: { include: { option: { select: { id: true, label: true } } } },
+              },
+            },
           },
         },
       },
@@ -70,9 +103,84 @@ export class ActivitiesRepository {
         conditions: true,
         benefits: true,
         softSkills: true,
+        // แดชบอร์ดผู้จัดต้องนับ "รอยืนยันผู้สมัคร" และ "รอประเมินทักษะ" ซึ่งดูจาก registration รายตัว
+        // ไม่ใช่แค่ยอดรวม — เดิม include มีแค่ _count ทำให้ตัวเลขสองช่องนั้นขึ้น 0 เสมอ
+        // select เฉพาะฟิลด์ที่ใช้จริง ไม่ดึงทั้งแถวเพราะผู้จัดรายเดียวอาจมีผู้ลงทะเบียนหลักพัน
+        registrations: {
+          select: {
+            id: true,
+            status: true,
+            attendance: true,
+            evaluation: { select: { id: true } },
+          },
+        },
         _count: { select: { registrations: true } },
       },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * คัดลอกกิจกรรมเดี่ยวทั้งใบ (รวม tags/conditions/benefits/softSkills/questions+options/surveyQuestions)
+   * เป็นแถวใหม่ทั้งหมด — ไม่แตะ/อ้างอิงของเดิมเลย, ไม่คัดลอก registrations/ผู้ลงทะเบียน
+   * คืน null ถ้าไม่พบต้นฉบับ (ผู้เรียกตรวจสิทธิ์ความเป็นเจ้าของเองอีกชั้นก่อนเรียกเมธอดนี้)
+   */
+  duplicate(activityId: number, organizerId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const source = await tx.activity.findUnique({ where: { id: activityId }, include: activityInclude });
+      if (!source) return null;
+
+      return tx.activity.create({
+        data: {
+          organizerId,
+          eventId: null, // คัดลอกกิจกรรมเดี่ยว ไม่ผูกกับ event เดิม (ถ้าต้นฉบับมี event แม่)
+          name: `${source.name} (สำเนา)`,
+          description: source.description,
+          categories: source.categories,
+          date: source.date,
+          startTime: source.startTime,
+          endTime: source.endTime,
+          startAt: source.startAt,
+          endAt: source.endAt,
+          location: source.location,
+          capacity: source.capacity,
+          status: 'open' as any,
+          approvalStatus: 'approved' as any, // เหมือน create() — กิจกรรมใหม่ไม่ผ่านคิวอนุมัติ
+          imageUrl: source.imageUrl,
+          attachmentUrl: source.attachmentUrl,
+          volunteerHours: source.volunteerHours,
+          volunteerRole: source.volunteerRole,
+          registrationType: source.registrationType,
+          dutyRoleOptions: source.dutyRoleOptions,
+          dutyShiftOptions: source.dutyShiftOptions,
+          teamSizeMin: source.teamSizeMin,
+          teamSizeMax: source.teamSizeMax,
+          competitionCategoryOptions: source.competitionCategoryOptions,
+          peerAssessmentEnabled: false, // โหมด 360° ต้องเปิดเองใหม่ ไม่ inherit มาด้วย
+          tags: { create: source.tags.map((t) => ({ tagName: t.tagName })) },
+          conditions: { create: source.conditions.map((c) => ({ conditionText: c.conditionText })) },
+          benefits: { create: source.benefits.map((b) => ({ benefitText: b.benefitText })) },
+          softSkills: { create: source.softSkills.map((s) => ({ skillType: s.skillType, rate: s.rate })) },
+          questions: {
+            create: source.questions.map((q) => ({
+              label: q.label,
+              type: q.type,
+              required: q.required,
+              sortOrder: q.sortOrder,
+              options: { create: q.options.map((o) => ({ label: o.label, sortOrder: o.sortOrder })) },
+            })),
+          },
+          surveyQuestions: {
+            create: source.surveyQuestions.map((q) => ({
+              label: q.label,
+              type: q.type,
+              scaleMax: q.scaleMax,
+              sortOrder: q.sortOrder,
+            })),
+          },
+        } as any,
+        include: { ...activityInclude, _count: { select: { registrations: true } } },
+      });
     });
   }
 
@@ -83,9 +191,7 @@ export class ActivitiesRepository {
       if (relations.tags !== undefined) {
         await tx.activityTag.deleteMany({ where: { activityId } });
         if (relations.tags.length) {
-          await tx.activityTag.createMany({
-            data: relations.tags.map((tagName) => ({ activityId, tagName })),
-          });
+          await tx.activityTag.createMany({ data: relations.tags.map((tagName) => ({ activityId, tagName })) });
         }
       }
 
@@ -111,8 +217,43 @@ export class ActivitiesRepository {
         await tx.activitySoftSkill.deleteMany({ where: { activityId } });
         if (relations.softSkills.length) {
           await tx.activitySoftSkill.createMany({
-            data: relations.softSkills.map((skillName) => ({ activityId, skillName })),
+            data: relations.softSkills.map((skillType) => ({ activityId, skillType })),
           });
+        }
+      }
+
+      // แบบสำรวจ — จับคู่ตามลำดับข้อแล้วอัปเดตทับแถวเดิม (ตรรกะเดียวกับ EventsRepository.update)
+      // ห้ามลบทั้งชุดแล้วสร้างใหม่ เพราะ RegistrationSurveyAnswer.questionId เป็น onDelete: Cascade
+      // คำตอบที่นักศึกษาตอบไว้จะหายทั้งหมดเพียงเพราะผู้จัดกดบันทึกหน้าแก้ไข
+      if (relations.surveyQuestions !== undefined) {
+        const existing = await tx.eventSurveyQuestion.findMany({
+          where: { activityId },
+          orderBy: { sortOrder: 'asc' },
+        });
+
+        for (const [sortOrder, q] of relations.surveyQuestions.entries()) {
+          const row = existing[sortOrder];
+          if (!row) {
+            await tx.eventSurveyQuestion.create({
+              data: { activityId, label: q.label, type: q.type as any, scaleMax: q.scaleMax, sortOrder },
+            });
+            continue;
+          }
+
+          // เปลี่ยนชนิดคำถาม = คำตอบเดิมใช้ไม่ได้แล้ว ลบเฉพาะข้อนั้น
+          if (row.type !== (q.type as any)) {
+            await tx.registrationSurveyAnswer.deleteMany({ where: { questionId: row.id } });
+          }
+
+          await tx.eventSurveyQuestion.update({
+            where: { id: row.id },
+            data: { label: q.label, type: q.type as any, scaleMax: q.scaleMax, sortOrder },
+          });
+        }
+
+        const surplus = existing.slice(relations.surveyQuestions.length);
+        if (surplus.length) {
+          await tx.eventSurveyQuestion.deleteMany({ where: { id: { in: surplus.map((r) => r.id) } } });
         }
       }
 
@@ -127,27 +268,26 @@ export class ActivitiesRepository {
     return this.prisma.activity.delete({ where: { id: activityId } });
   }
 
-  findPendingApproval() {
-    return this.prisma.activity.findMany({
-      where: { approvalStatus: ApprovalStatus.PENDING as any },
-      include: activityInclude,
-      orderBy: { createdAt: 'asc' },
-    });
-  }
-
-  approve(activityId: number) {
-    return this.prisma.activity.update({
-      where: { id: activityId },
-      data: { approvalStatus: ApprovalStatus.APPROVED as any, rejectionReason: null },
-      include: { ...activityInclude, registrations: true },
-    });
-  }
-
-  reject(activityId: number, reason: string) {
-    return this.prisma.activity.update({
-      where: { id: activityId },
-      data: { approvalStatus: ApprovalStatus.REJECTED as any, rejectionReason: reason },
-      include: { ...activityInclude, registrations: true },
+  findByIdWithSurveyAnswers(id: number) {
+    return this.prisma.activity.findUnique({
+      where: { id },
+      include: {
+        surveyQuestions: {
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            answers: {
+              include: {
+                registration: {
+                  include: {
+                    student: { select: { id: true, name: true, studentId: true } },
+                    activity: { select: { id: true, name: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
   }
 
@@ -155,45 +295,59 @@ export class ActivitiesRepository {
     return this.prisma.activity.count();
   }
 
-  countPending() {
-    return this.prisma.activity.count({ where: { approvalStatus: ApprovalStatus.PENDING as any } });
+  /** เปิด/ปิดรับสมัครชั่วคราว ย้อนกลับได้ — คนละอย่างกับ markCompleted/cancelByOrganizer ที่เป็นถาวร */
+  updateStatus(activityId: number, status: 'open' | 'closed') {
+    return this.prisma.activity.update({
+      where: { id: activityId },
+      data: { status: status as any },
+      include: { ...activityInclude, _count: { select: { registrations: true } } },
+    });
   }
 
-  closeAndReject(activityId: number, reason: string) {
+  /** เปิด/ปิดสวิตช์เช็คอินด้วยตัวเองผ่าน QR */
+  updateSelfCheckIn(activityId: number, enabled: boolean) {
+    return this.prisma.activity.update({
+      where: { id: activityId },
+      data: { selfCheckInEnabled: enabled },
+    });
+  }
+
+  /** ปิดกิจกรรมแบบ "จบแล้ว" — ต่างจาก cancelByOrganizer ตรงที่ไม่ใช่การยกเลิก */
+  markCompleted(activityId: number) {
+    return this.prisma.activity.update({
+      where: { id: activityId },
+      data: { status: ActivityStatus.COMPLETED as any },
+      include: { ...activityInclude, registrations: true },
+    });
+  }
+
+  /**
+   * ผู้สมัครกว้างๆ ระดับ DB สำหรับงานปิดกิจกรรมอัตโนมัติ (ดู ActivitiesService.autoCompleteOverdueActivities)
+   * คัดเฉพาะ status เปิดอยู่ที่ยังไม่ถูกยกเลิก/ปฏิเสธ — เวลาสิ้นสุดจริง (endAt หรือ date+endTime ของกิจกรรม
+   * รุ่นเก่าที่ไม่มี endAt) คำนวณและกรองซ้ำที่ชั้น service เพราะ Prisma เทียบ date+string เวลาในคอลัมน์เดียว
+   * ตรงๆ ไม่ได้ — ที่กรอง endAt ไว้คร่าวๆ ที่นี่ (เลยเวลาแล้ว หรือไม่มีค่าเลย) ก็เพื่อตัดกิจกรรมที่ยังไม่ถึงเวลา
+   * ส่วนใหญ่ออกไปก่อน ไม่ต้องดึงมาคำนวณซ้ำทุกแถวทุกรอบ
+   */
+  findOpenPastEnd(now: Date) {
+    return this.prisma.activity.findMany({
+      where: {
+        status: ActivityStatus.OPEN as any,
+        approvalStatus: { notIn: [ApprovalStatus.CANCELLED, ApprovalStatus.REJECTED] as any },
+        OR: [{ endAt: { lte: now } }, { endAt: null }],
+      },
+      select: { id: true, name: true, endAt: true, date: true, endTime: true },
+    });
+  }
+
+  /** ผู้จัดยกเลิกกิจกรรมของตัวเอง — ใช้ CANCELLED ไม่ใช่ REJECTED (นั่นคือแอดมิน/ระบบปฏิเสธ) */
+  cancelByOrganizer(activityId: number, reason: string) {
     return this.prisma.activity.update({
       where: { id: activityId },
       data: {
-        approvalStatus: ApprovalStatus.REJECTED as any,
+        approvalStatus: ApprovalStatus.CANCELLED as any,
         status: ActivityStatus.CLOSED as any,
         cancellationReason: reason,
       },
-      include: { ...activityInclude, registrations: true },
-    });
-  }
-
-  requestCancellation(activityId: number, reason: string) {
-    return this.prisma.activity.update({
-      where: { id: activityId },
-      data: { approvalStatus: ApprovalStatus.PENDING_CANCEL as any, cancellationReason: reason },
-      include: { ...activityInclude, registrations: true },
-    });
-  }
-
-  findPendingCancellation() {
-    return this.prisma.activity.findMany({
-      where: { approvalStatus: ApprovalStatus.PENDING_CANCEL as any },
-      include: {
-        organizer: { select: { id: true, name: true, email: true } },
-        registrations: true,
-      },
-      orderBy: { createdAt: 'asc' },
-    });
-  }
-
-  approveCancellation(activityId: number) {
-    return this.prisma.activity.update({
-      where: { id: activityId },
-      data: { approvalStatus: ApprovalStatus.REJECTED as any, status: ActivityStatus.CLOSED as any },
       include: { ...activityInclude, registrations: true },
     });
   }
@@ -218,7 +372,7 @@ export class ActivitiesRepository {
   private static readonly NEWSFEED_SELECT = {
     id: true,
     name: true,
-    category: true,
+    categories: true,
     date: true,
     startTime: true,
     endTime: true,
@@ -227,9 +381,16 @@ export class ActivitiesRepository {
     organizer: { select: { name: true } },
   } as const;
 
+  // ไม่มี student identity ในเส้นทางนี้ (auth ด้วย API key) — งาน restricted จึงต้องไม่โผล่เด็ดขาด
+  /** newsfeed/แชทบอทไม่มีผู้ใช้ให้เช็คสิทธิ์ — ตัดกิจกรรมของงาน restricted และงานที่ไม่เผยแพร่ออกตั้งแต่ระดับ DB
+   *  (ต้องรวมไว้ใน NOT ตัวเดียว — กระจาย object ที่มี key NOT สองก้อนจะทับกันเหลือแค่ก้อนหลัง) */
+  private static readonly PUBLIC_EVENTS_ONLY = {
+    NOT: { event: { OR: [{ visibility: 'restricted' as any }, { isPublic: false }] } },
+  };
+
   findAllForNewsfeed() {
     return this.prisma.activity.findMany({
-      where: { approvalStatus: ApprovalStatus.APPROVED as any },
+      where: { approvalStatus: ApprovalStatus.APPROVED as any, ...ActivitiesRepository.PUBLIC_EVENTS_ONLY },
       select: ActivitiesRepository.NEWSFEED_SELECT,
       orderBy: { date: 'asc' },
     });
@@ -237,8 +398,23 @@ export class ActivitiesRepository {
 
   findByIdForNewsfeed(id: number) {
     return this.prisma.activity.findFirst({
-      where: { id, approvalStatus: ApprovalStatus.APPROVED as any },
+      where: { id, approvalStatus: ApprovalStatus.APPROVED as any, ...ActivitiesRepository.PUBLIC_EVENTS_ONLY },
       select: ActivitiesRepository.NEWSFEED_SELECT,
+    });
+  }
+
+  /** กิจกรรมที่เปิดรับสมัครอยู่ตอนนี้แบบย่อ (ต่างจาก newsfeed ที่คืนทุกสถานะ) — ใช้เป็นข้อมูลอ้างอิงให้
+   *  แชทบอทตอบคำถามแบบ "ตอนนี้มีกิจกรรมอะไรเปิดรับสมัครบ้าง" จำกัดจำนวนไว้กันพรอมต์ยาวเกินจำเป็นถ้ามีเปิดพร้อมกันเยอะ */
+  findOpenForChatbot() {
+    return this.prisma.activity.findMany({
+      where: {
+        approvalStatus: ApprovalStatus.APPROVED as any,
+        status: ActivityStatus.OPEN as any,
+        ...ActivitiesRepository.PUBLIC_EVENTS_ONLY,
+      },
+      select: ActivitiesRepository.NEWSFEED_SELECT,
+      orderBy: { date: 'asc' },
+      take: 10,
     });
   }
 }

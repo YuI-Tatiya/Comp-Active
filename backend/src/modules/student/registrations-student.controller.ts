@@ -1,7 +1,10 @@
-import { Controller, Get, Post, Delete, Body, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { RegistrationsService } from '../shared/registrations/registrations.service';
 import { CreateRegistrationDto } from '../shared/registrations/dto/create-registration.dto';
+import { SubmitSurveyDto } from '../shared/registrations/dto/submit-survey.dto';
+import { CheckInSelfDto } from '../shared/registrations/dto/check-in-self.dto';
+import type { Viewer } from '../shared/events/event-visibility.util';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -21,8 +24,29 @@ export class RegistrationsStudentController {
    */
   @Post()
   @ApiOperation({ summary: 'ลงทะเบียนเข้าร่วมกิจกรรม (Student)' })
-  async create(@CurrentUser('id') studentId: number, @Body() createDto: CreateRegistrationDto) {
-    return this.registrationsService.create(studentId, createDto.activityId);
+  async create(
+    @CurrentUser('id') studentId: number,
+    @CurrentUser() viewer: Viewer,
+    @Body() createDto: CreateRegistrationDto,
+  ) {
+    return this.registrationsService.create(
+      studentId,
+      createDto.activityId,
+      viewer,
+      createDto.answers,
+      {
+        wantsCertLoanFund: createDto.wantsCertLoanFund,
+        wantsCertScholarship: createDto.wantsCertScholarship,
+      },
+      {
+        dutyRole: createDto.dutyRole,
+        dutyShift: createDto.dutyShift,
+        teamName: createDto.teamName,
+        teamSize: createDto.teamSize,
+        competitionCategory: createDto.competitionCategory,
+        submissionLink: createDto.submissionLink,
+      },
+    );
   }
 
   /**
@@ -42,5 +66,36 @@ export class RegistrationsStudentController {
   @ApiOperation({ summary: 'ดูประวัติการลงทะเบียน (Student)' })
   async findMy(@CurrentUser('id') studentId: number) {
     return this.registrationsService.findByStudent(studentId);
+  }
+
+  /**
+   * PATCH /api/registrations/check-in-self - เช็คอินด้วยตัวเอง ผ่านการสแกน QR code ที่ผู้จัดแสดงหน้างาน (Student)
+   */
+  @Patch('check-in-self')
+  @ApiOperation({ summary: 'เช็คอินเข้าร่วมกิจกรรมด้วยตัวเองผ่าน QR code (Student)' })
+  async checkInSelf(@CurrentUser('id') studentId: number, @Body() dto: CheckInSelfDto) {
+    return this.registrationsService.checkInSelf(studentId, dto.activityId, dto.token);
+  }
+
+  /**
+   * GET /api/registrations/:id/survey-questions - ดูคำถามแบบสำรวจของงาน (Student, ต้องเช็คอินแล้ว)
+   */
+  @Get(':id/survey-questions')
+  @ApiOperation({ summary: 'ดูคำถามแบบสำรวจความพึงพอใจ (Student)' })
+  async getSurveyQuestions(@Param('id', ParseIntPipe) id: number, @CurrentUser('id') studentId: number) {
+    return this.registrationsService.getSurveyQuestions(id, studentId);
+  }
+
+  /**
+   * POST /api/registrations/:id/survey - ส่งแบบสำรวจความพึงพอใจ (Student, ครั้งเดียว)
+   */
+  @Post(':id/survey')
+  @ApiOperation({ summary: 'ส่งแบบสำรวจความพึงพอใจ (Student)' })
+  async submitSurvey(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') studentId: number,
+    @Body() dto: SubmitSurveyDto,
+  ) {
+    return this.registrationsService.submitSurvey(id, studentId, dto.answers);
   }
 }

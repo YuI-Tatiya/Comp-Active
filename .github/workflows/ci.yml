@@ -21,7 +21,9 @@ jobs:
       # prisma generate only needs a syntactically valid URL, not a live DB —
       # nothing in this job connects to Postgres.
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci
-      JWT_SECRET: ci-test-secret
+      # ต้องยาว >= 32 ตัวอักษรและไม่ใช่ค่าตัวอย่าง ไม่งั้น jwt.config.ts จะไม่ยอมบูต
+      # (ค่านี้ใช้เฉพาะใน CI ไม่ใช่ค่าที่ใช้จริงที่ไหน)
+      JWT_SECRET: ci-only-not-a-real-secret-0123456789abcdef
       JWT_EXPIRES_IN: 7d
     steps:
       - name: Checkout
@@ -73,3 +75,4 @@ jobs:
 
       - name: Build
         run: npm run build
+

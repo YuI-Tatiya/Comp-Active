@@ -27,12 +27,7 @@ export class AdminInvitesService {
     const expiresHours = Number(this.config.get<string>('ADMIN_INVITE_EXPIRES_HOURS', '48'));
     const expiresAt = new Date(Date.now() + expiresHours * 60 * 60 * 1000);
 
-    const invite = await this.adminInvitesRepository.create(
-      normalizedEmail,
-      hashToken(token),
-      invitedById,
-      expiresAt,
-    );
+    const invite = await this.adminInvitesRepository.create(normalizedEmail, hashToken(token), invitedById, expiresAt);
 
     const adminFrontendUrl = this.config.get<string>('gateway.adminFrontendUrl')!;
     const acceptUrl = `${adminFrontendUrl}/invite/accept?token=${token}`;

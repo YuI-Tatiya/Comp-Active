@@ -1,62 +1,123 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { X } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { X, Trophy, TrendingUp, CalendarCheck, Search } from "lucide-react"
+import { Toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Container } from "@/components/layout/container"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts"
-import { registrationsAPI, evaluationsAPI, SkillsData, Activity, usersAPI } from "@/lib/api"
+import {
+    DENIM_FIELD,
+    DenimPanel,
+    DenimSectionHeading,
+    DenimStatCard,
+    type OrganizerStat,
+} from "@/components/denim/denim-ui"
+import {
+    AssessmentRow,
+    AssessmentsEmpty,
+    ExportTranscriptButton,
+    IssuedTranscriptsPanel,
+    ProfileHero,
+    SkillRadarPanel,
+    profilePanelId,
+    profileTabId,
+    type ProfileTab,
+} from "@/components/student/profile-ui"
+import { evaluationsAPI, SkillsData, usersAPI } from "@/lib/api"
+import { SOFT_SKILLS } from "@/lib/soft-skills"
+import { Select } from "@/components/ui/select"
+import { EDUCATION_LEVELS, getProgramsByLevel } from "@/lib/programs"
+import { skillTranscriptsAPI } from "@/lib/api"
+import { formatTranscriptCode, type TranscriptListItem } from "@/lib/transcript"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { cn } from "@/lib/utils"
 
-interface Registration {
-    id: number;
-    activityId: number;
-    status: string;
-    activity?: Activity;
+const EMPTY_FORM = {
+    firstName: "",
+    lastName: "",
+    studentId: "",
+    email: "",
+    password: "",
+    phone: "",
+    educationLevel: "",
+    program: "",
 }
 
 export default function StudentProfilePage() {
-    const { user } = useAuth()
-    const [registrations, setRegistrations] = useState<Registration[]>([])
+    const { user, refreshUser } = useAuth()
+    const router = useRouter()
+    const [tab, setTab] = useState<ProfileTab>("softskills")
     const [skillsData, setSkillsData] = useState<SkillsData | null>(null)
     const [loading, setLoading] = useState(true)
 
-    // Edit Profile State
-    const [editForm, setEditForm] = useState({
-        firstName: '',
-        lastName: '',
-        studentId: '',
-        email: '',
-        password: ''
-    })
+    // เอกสารรับรองผล Soft Skills
+    const [transcripts, setTranscripts] = useState<TranscriptListItem[]>([])
+    const [exporting, setExporting] = useState(false)
+    const [revokeTarget, setRevokeTarget] = useState<string | null>(null)
+    const [revoking, setRevoking] = useState(false)
+
+    // ตัวกรอง "ผลการประเมิน Soft Skills ต่อกิจกรรม"
+    const [historySearch, setHistorySearch] = useState("")
+    const [historySkillFilter, setHistorySkillFilter] = useState("")
+    const [historySort, setHistorySort] = useState<"newest" | "oldest" | "name">("newest")
+
+    const [editForm, setEditForm] = useState(EMPTY_FORM)
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
     const [confirmPassword, setConfirmPassword] = useState("")
 
+    const [modalError, setModalError] = useState("")
+    const [submitting, setSubmitting] = useState(false)
+
+    // ป๊อปอัปแจ้งผลสำเร็จ แทนแบนเนอร์แจ้งเตือนแบบเดิม
+    const [toast, setToast] = useState<{ open: boolean; message: string; description?: string }>({
+        open: false,
+        message: "",
+    })
+    const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    const showToast = (message: string, description?: string) => {
+        setToast({ open: true, message, description })
+        if (toastTimer.current) clearTimeout(toastTimer.current)
+        toastTimer.current = setTimeout(() => setToast((prev) => ({ ...prev, open: false })), 2800)
+    }
+
     useEffect(() => {
-        if (user) {
-            setEditForm(prev => ({
-                ...prev,
-                firstName: user.name?.split(' ')[0] || '',
-                lastName: user.name?.split(' ').slice(1).join(' ') || '',
-                email: user.email || '',
-                studentId: (user as { studentId?: string }).studentId || user.email?.split('@')[0] || ''
-            }))
+        return () => {
+            if (toastTimer.current) clearTimeout(toastTimer.current)
         }
+    }, [])
+
+    /** ดึงค่าจาก user มาใส่ฟอร์ม — ใช้ทั้งตอนโหลดและตอนกดยกเลิก */
+    function formFromUser() {
+        return {
+            ...EMPTY_FORM,
+            firstName: user?.name?.split(" ")[0] || "",
+            lastName: user?.name?.split(" ").slice(1).join(" ") || "",
+            email: user?.email || "",
+            // ห้าม fallback เป็น prefix ของอีเมล — จะกลายเป็นรหัสปลอมที่ validate ไม่ผ่าน
+            studentId: user?.studentId || "",
+            phone: user?.phone || "",
+            educationLevel: user?.educationLevel || "",
+            program: user?.program || "",
+        }
+    }
+
+    useEffect(() => {
+        if (user) setEditForm(formFromUser())
         fetchData()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user])
 
+    // เดิมดึง registrationsAPI.getMy() มาด้วยแต่ไม่เคยใช้ผล — ตัดออก (นับรวมใน request budget ของ nginx)
     const fetchData = async () => {
         try {
             setLoading(true)
-            const [regData, skillsRes] = await Promise.all([
-                registrationsAPI.getMy() as Promise<Registration[]>,
-                evaluationsAPI.getMySkills()
-            ])
-            setRegistrations(regData)
-            setSkillsData(skillsRes)
+            setSkillsData(await evaluationsAPI.getMySkills())
         } catch (error) {
             console.error("Error fetching data:", error)
         } finally {
@@ -64,292 +125,545 @@ export default function StudentProfilePage() {
         }
     }
 
-    const chartData = skillsData ? [
-        { subject: 'Teamwork', A: skillsData.average.teamwork, fullMark: 10 },
-        { subject: 'Leadership', A: skillsData.average.leadership, fullMark: 10 },
-        { subject: 'Communication', A: skillsData.average.communication, fullMark: 10 },
-        { subject: 'Problem Solving', A: skillsData.average.problemSolving, fullMark: 10 },
-        { subject: 'Adaptability', A: skillsData.average.adaptability, fullMark: 10 },
-    ] : [
-        { subject: 'Teamwork', A: 0, fullMark: 10 },
-        { subject: 'Leadership', A: 0, fullMark: 10 },
-        { subject: 'Communication', A: 0, fullMark: 10 },
-        { subject: 'Problem Solving', A: 0, fullMark: 10 },
-        { subject: 'Adaptability', A: 0, fullMark: 10 },
-    ];
+    const loadTranscripts = async () => {
+        try {
+            setTranscripts(await skillTranscriptsAPI.mine())
+        } catch (error) {
+            console.error("Error fetching transcripts:", error)
+        }
+    }
+
+    useEffect(() => {
+        loadTranscripts()
+    }, [])
+
+    const openTranscript = (code: string) => {
+        const url = `/verify/${formatTranscriptCode(code)}/print`
+        const popup = window.open(url, "_blank")
+        if (!popup) router.push(url) // popup ถูกบล็อก → นำทางในแท็บเดิม
+    }
+
+    const handleExport = async () => {
+        // เปิดแท็บก่อน await — ถ้าเปิดหลังรอ API เบราว์เซอร์จะมองว่าไม่ได้มาจากการคลิกแล้วบล็อก popup
+        const popup = window.open("", "_blank")
+        setExporting(true)
+        try {
+            const { code } = await skillTranscriptsAPI.issue()
+            if (popup) popup.location.href = `/verify/${formatTranscriptCode(code)}/print`
+            else router.push(`/verify/${formatTranscriptCode(code)}/print`)
+            loadTranscripts()
+        } catch (error) {
+            popup?.close()
+            showToast("ออกเอกสารไม่สำเร็จ", error instanceof Error ? error.message : undefined)
+        } finally {
+            setExporting(false)
+        }
+    }
+
+    const handleRevoke = async () => {
+        if (!revokeTarget) return
+        setRevoking(true)
+        try {
+            await skillTranscriptsAPI.revoke(revokeTarget)
+            showToast("ยกเลิกเอกสารแล้ว", "เอกสารฉบับนี้จะตรวจสอบไม่ผ่านอีกต่อไป")
+            setRevokeTarget(null)
+            loadTranscripts()
+        } catch (error) {
+            showToast("ยกเลิกเอกสารไม่สำเร็จ", error instanceof Error ? error.message : undefined)
+        } finally {
+            setRevoking(false)
+        }
+    }
+
+    const canExport = !loading && (skillsData?.count ?? 0) > 0
+
+    const history = skillsData?.history ?? []
+    const historyQuery = historySearch.trim().toLowerCase()
+    const filteredHistory = history
+        .filter((entry) => !historyQuery || entry.activityName.toLowerCase().includes(historyQuery))
+        .filter((entry) => !historySkillFilter || (entry.scores[historySkillFilter as keyof typeof entry.scores] ?? 0) > 0)
+        .sort((a, b) => {
+            if (historySort === "name") return a.activityName.localeCompare(b.activityName, "th")
+            const da = new Date(a.date).getTime()
+            const db = new Date(b.date).getTime()
+            return historySort === "oldest" ? da - db : db - da
+        })
+
+    // เดิมนับ r.status === 'attended' ซึ่งเป็นไปไม่ได้ (attended อยู่ในฟิลด์ attendance) — ใช้จำนวนผลประเมินแทน
+    const stats: OrganizerStat[] = [
+        {
+            code: "RANK",
+            label: "อันดับในระบบ",
+            value: loading || !skillsData ? "–" : `#${skillsData.rank}`,
+            caption:
+                loading || !skillsData ? undefined : `จากนักศึกษาทั้งหมด ${skillsData.totalStudents.toLocaleString("th-TH")} คน`,
+            icon: Trophy,
+            highlight: true,
+        },
+        {
+            code: "POINTS",
+            label: "แต้มสะสมทั้งหมด",
+            value: loading ? "–" : (skillsData?.totalScore ?? 0).toLocaleString("th-TH"),
+            icon: TrendingUp,
+        },
+        {
+            code: "JOINED",
+            label: "กิจกรรมที่เข้าร่วม",
+            value: loading ? "–" : (skillsData?.count ?? 0),
+            icon: CalendarCheck,
+        },
+    ]
 
     const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target
-        setEditForm(prev => ({ ...prev, [name]: value }))
+        setEditForm((prev) => ({ ...prev, [name]: value }))
     }
 
     const handleSaveProfileClick = () => {
+        setModalError("")
+        setConfirmPassword("")
         setIsConfirmModalOpen(true)
+    }
+
+    /** ปิด Dialog แล้วล้างรหัสผ่านที่พิมพ์ค้างไว้ */
+    const closeConfirmModal = () => {
+        if (submitting) return
+        setIsConfirmModalOpen(false)
+        setConfirmPassword("")
+        setModalError("")
     }
 
     const handleConfirmSave = async () => {
         if (!confirmPassword) {
-            alert("กรุณากรอกรหัสผ่านปัจจุบันเพื่อยืนยัน")
+            setModalError("กรุณากรอกรหัสผ่านปัจจุบันเพื่อยืนยัน")
             return
         }
 
+        // ข้อมูลการศึกษาต้องส่งครบชุด backend ถึงจะรับ (validateAcademicInfo)
+        const hasAnyAcademic = Boolean(editForm.educationLevel || editForm.program)
+        const hasAllAcademic = Boolean(editForm.educationLevel && editForm.program)
+        if (hasAnyAcademic && !hasAllAcademic) {
+            setModalError("กรุณาเลือกระดับการศึกษาและหลักสูตรให้ครบ")
+            return
+        }
+
+        // ⚠️ กฎเดียวกับ backend/src/common/constants/index.ts
+        if (editForm.studentId && !/^\d{2}3380\d{3}-?\d$/.test(editForm.studentId)) {
+            setModalError("รหัสนักศึกษาไม่ถูกต้อง")
+            return
+        }
+
+        if (editForm.phone && !/^0[689]\d{8}$/.test(editForm.phone)) {
+            setModalError("เบอร์มือถือไม่ถูกต้อง")
+            return
+        }
+
+        setSubmitting(true)
+        setModalError("")
         try {
             const body = {
                 name: `${editForm.firstName} ${editForm.lastName}`.trim(),
-                studentId: editForm.studentId,
+                // ส่งเฉพาะตอนมีค่า — @IsOptional ข้ามให้แค่ undefined ไม่ข้าม "" ที่จะโดน @Matches ตีตก
+                ...(editForm.studentId ? { studentId: editForm.studentId } : {}),
+                ...(editForm.phone ? { phone: editForm.phone } : {}),
+                ...(hasAllAcademic
+                    ? { educationLevel: editForm.educationLevel, program: editForm.program }
+                    : {}),
                 ...(editForm.password ? { newPassword: editForm.password } : {}),
-                currentPassword: confirmPassword
+                currentPassword: confirmPassword,
+                // ⚠️ ห้ามส่ง email — backend ไม่รับ และ forbidNonWhitelisted จะตีกลับ 400
             }
             await usersAPI.updateMe(body)
-            alert("บันทึกข้อมูลส่วนตัวและรหัสผ่านเรียบร้อยแล้ว")
+
             setIsConfirmModalOpen(false)
             setConfirmPassword("")
-            setEditForm(prev => ({ ...prev, password: '' })) // Clear password field
-            
-            // Reload user data
+            setEditForm((prev) => ({ ...prev, password: "" }))
+            showToast("บันทึกข้อมูลสำเร็จ!", "ข้อมูลส่วนตัวของคุณได้รับการอัปเดตเรียบร้อยแล้ว")
+
+            // โหลด user ใหม่ ไม่งั้นชื่อบนหัวหน้าและ navbar ยังเป็นของเดิม
+            await refreshUser()
             fetchData()
         } catch (error: unknown) {
-            alert(error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการบันทึกข้อมูล")
+            setModalError(error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการบันทึกข้อมูล")
+        } finally {
+            setSubmitting(false)
         }
     }
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC] py-12 px-4 sm:px-6 lg:px-8 font-sans">
-            <div className="max-w-4xl mx-auto space-y-8">
+        // ไม่ใส่ min-h-screen — app/student/layout.tsx จัดการให้แล้ว
+        <div className="bg-surface pb-16">
+            <ProfileHero
+                name={user?.name || "ผู้ใช้งาน"}
+                studentId={user?.studentId}
+                email={user?.email}
+                tab={tab}
+                onTabChange={setTab}
+            />
 
-                {/* Profile Header Widget */}
-                <div className="bg-white rounded-[32px] p-8 md:p-12 shadow-sm border border-slate-100 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-
-                    <div className="relative z-10 w-28 h-28 shrink-0 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-full flex items-center justify-center text-white shadow-xl shadow-blue-500/20 ring-4 ring-white">
-                        <span className="text-4xl font-black">{user?.name?.charAt(0) || 'U'}</span>
-                    </div>
-
-                    <div className="relative z-10 flex-1 text-center md:text-left space-y-2">
-                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">{user?.name || 'ผู้ใช้งาน'}</h2>
-                        <div className="flex flex-col md:flex-row items-center md:items-start gap-2 md:gap-4 text-slate-500 font-medium">
-                            <span className="bg-slate-100 px-3 py-1 rounded-full text-sm">{editForm.studentId || 'ไม่ระบุรหัสนักศึกษา'}</span>
-                            <span className="bg-slate-100 px-3 py-1 rounded-full text-sm">{user?.email || 'ไม่ระบุอีเมล'}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Tabs Section */}
-                <Tabs defaultValue="softskills" className="w-full">
-                    <TabsList className="w-full h-auto p-1.5 bg-slate-200/60 rounded-full grid grid-cols-2 gap-1 shadow-inner mb-8 border border-slate-200/60">
-                        <TabsTrigger
-                            value="softskills"
-                            className="rounded-full py-3 text-sm font-bold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md transition-all"
-                        >
-                            Softskills
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="edit"
-                            className="rounded-full py-3 text-sm font-bold text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-md transition-all"
-                        >
-                            แก้ไขข้อมูลส่วนตัว
-                        </TabsTrigger>
-                    </TabsList>
-
-                    {/* SOFTSKILLS TAB */}
-                    <TabsContent value="softskills" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
-                        <div className="bg-white rounded-[32px] p-8 lg:p-12 shadow-sm border border-slate-100">
-                            <h3 className="text-2xl font-black text-slate-900 mb-1">Soft Skills Dashboard</h3>
-                            <p className="text-slate-500 text-sm font-medium mb-12">ติดตามและพัฒนาทักษะของคุณผ่านการเข้าร่วมกิจกรรม</p>
-
-                            {/* Stat Boxes */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                                <div className="h-28 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-3xl p-6 flex flex-col items-center justify-center text-white shadow-lg shadow-blue-500/20 relative overflow-hidden group">
-                                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                    <span className="font-black text-4xl mb-1 mt-auto z-10">LV {skillsData?.level || 1}</span>
-                                    <span className="text-xs font-bold text-blue-100 uppercase tracking-wider mt-auto z-10">นักศึกษาปัจจุบัน</span>
-                                </div>
-                                <div className="h-28 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-3xl p-6 flex flex-col items-center justify-center text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden group">
-                                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                    <span className="font-black text-4xl mb-1 mt-auto z-10">{skillsData?.points || 0}</span>
-                                    <span className="text-xs font-bold text-emerald-100 uppercase tracking-wider mt-auto z-10">แต้มสะสมทั้งหมด</span>
-                                </div>
-                                <div className="h-28 bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl p-6 flex flex-col items-center justify-center text-white shadow-lg shadow-orange-500/20 relative overflow-hidden group">
-                                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                    <span className="font-black text-4xl mb-1 mt-auto z-10">{registrations.filter(r => r.status === 'attended').length}</span>
-                                    <span className="text-xs font-bold text-orange-100 uppercase tracking-wider mt-auto z-10">กิจกรรมที่เข้าร่วม</span>
-                                </div>
-                            </div>
-
-                            {/* Radar Chart */}
-                            <div className="w-full h-[450px] bg-slate-50 rounded-3xl p-6 border border-slate-100 mb-12 shadow-inner">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
-                                        <PolarGrid stroke="#e2e8f0" />
-                                        <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} />
-                                        <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
-                                        <Radar name="Student Skills" dataKey="A" stroke="#8b5cf6" strokeWidth={2} fill="url(#colorUv)" fillOpacity={0.7} />
-                                        <defs>
-                                            <linearGradient id="colorUv" x1="0" y1="0" x2="1" y2="1">
-                                                <stop offset="0%" stopColor="#c084fc" stopOpacity={0.8} />
-                                                <stop offset="50%" stopColor="#60a5fa" stopOpacity={0.8} />
-                                                <stop offset="100%" stopColor="#34d399" stopOpacity={0.8} />
-                                            </linearGradient>
-                                        </defs>
-                                    </RadarChart>
-                                </ResponsiveContainer>
-                            </div>
-
-                            {/* Evaluation History per Activity */}
-                            <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
-                                <div className="flex items-center justify-between mb-8">
-                                    <h4 className="text-xl font-black text-slate-900">ผลการประเมิน Soft Skills ต่อกิจกรรม</h4>
-                                </div>
-                                <div className="space-y-4">
-                                    {loading ? (
-                                        <div className="text-center py-8 text-slate-500 font-medium animate-pulse">กำลังโหลดข้อมูล...</div>
-                                    ) : skillsData?.history && skillsData.history.length > 0 ? (
-                                        skillsData.history.map((entry) => {
-                                            const awarded = Object.entries(entry.scores)
-                                                .filter(([, v]) => v > 0)
-                                                .map(([k]) => ({
-                                                    teamwork: 'การทำงานเป็นทีม',
-                                                    leadership: 'ภาวะผู้นำ',
-                                                    communication: 'การสื่อสาร',
-                                                    problemSolving: 'การแก้ปัญหา',
-                                                    adaptability: 'การปรับตัว'
-                                                }[k] || k))
-                                            return (
-                                                <div key={entry.id} className="p-5 rounded-2xl border border-slate-100 flex flex-col md:flex-row justify-between md:items-start gap-4 hover:bg-slate-50 transition-colors">
-                                                    <div className="flex-1">
-                                                        <h5 className="font-bold text-slate-900 text-base mb-3">{entry.activityName}</h5>
-                                                        {awarded.length > 0 ? (
-                                                            <div className="flex flex-wrap gap-2">
-                                                                {awarded.map((skill, i) => (
-                                                                    <span key={i} className="bg-purple-50 text-purple-700 border border-purple-100 px-3 py-1 rounded-lg text-xs font-bold">
-                                                                        ✓ {skill}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-slate-400 text-xs">ไม่มีทักษะที่ได้รับในการประเมินนี้</span>
-                                                        )}
-                                                    </div>
-                                                    <div className="text-sm text-slate-400 font-bold whitespace-nowrap md:pl-4 md:border-l md:border-slate-100">
-                                                        {entry.date}
-                                                    </div>
-                                                </div>
-                                            )
-                                        })
-                                    ) : (
-                                        <div className="text-center py-12 text-slate-400 text-base font-bold bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-                                            ยังไม่มีผลประเมิน Soft Skills จากกิจกรรมใดๆ เลย
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </TabsContent>
-
-
-
-                    {/* EDIT PROFILE TAB */}
-                    <TabsContent value="edit" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
-                        <div className="bg-white rounded-[32px] p-8 lg:p-12 shadow-sm border border-slate-100">
-                            <h3 className="font-black text-slate-900 mb-8 border-b border-slate-100 pb-4">Profile</h3>
-
-                            <div className="space-y-6 max-w-2xl mx-auto">
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <Label className="text-sm font-bold text-slate-700">ชื่อ</Label>
-                                        <Input
-                                            name="firstName"
-                                            value={editForm.firstName}
-                                            onChange={handleEditChange}
-                                            className="h-12 rounded-xl border-slate-200 font-medium"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-sm font-bold text-slate-700">นามสกุล</Label>
-                                        <Input
-                                            name="lastName"
-                                            value={editForm.lastName}
-                                            onChange={handleEditChange}
-                                            className="h-12 rounded-xl border-slate-200 font-medium"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-bold text-slate-700">รหัสนักศึกษา</Label>
-                                    <Input
-                                        name="studentId"
-                                        value={editForm.studentId}
-                                        onChange={handleEditChange}
-                                        className="h-12 rounded-xl border-slate-200 font-medium"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-bold text-slate-700">email (เฉพาะ KKU mail เท่านั้น)</Label>
-                                    <Input
-                                        name="email"
-                                        type="email"
-                                        value={editForm.email}
-                                        onChange={handleEditChange}
-                                        className="h-12 rounded-xl border-slate-200 font-medium"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-bold text-slate-700">แก้ไขรหัสผ่าน</Label>
-                                    <Input
-                                        name="password"
-                                        type="password"
-                                        placeholder="••••••••"
-                                        value={editForm.password}
-                                        onChange={handleEditChange}
-                                        className="h-12 rounded-xl border-slate-200 font-medium"
-                                    />
-                                </div>
-
-                                <div className="pt-8 flex justify-end gap-4 border-t border-slate-100">
-                                    <Button variant="outline" className="h-12 px-8 rounded-xl font-bold border-slate-200 text-slate-600 hover:bg-slate-50">ยกเลิก</Button>
-                                    <Button onClick={handleSaveProfileClick} className="h-12 px-8 rounded-xl font-bold bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 shadow-sm">ยืนยันการแก้ไข</Button>
-                                </div>
-                            </div>
-                        </div>
-                    </TabsContent>
-                </Tabs>
-            </div>
-
-            {/* Confirmation Modal */}
-            <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
-                <DialogContent className="sm:max-w-md rounded-[24px] p-0 overflow-hidden bg-slate-200 border-none shadow-2xl">
-                    <div className="p-8 pb-10">
-                        <div className="flex justify-between items-start mb-6">
-                            <h2 className="text-xl font-black text-slate-800 tracking-tight">กรอกรหัสผ่านเพื่อเปลี่ยนแปลงข้อมูล</h2>
-                            <button onClick={() => setIsConfirmModalOpen(false)} className="text-slate-500 hover:text-slate-900 transition-colors">
-                                <X className="w-6 h-6" />
-                            </button>
-                        </div>
-
-                        <Input
-                            type="password"
-                            className="h-14 bg-white rounded-xl border-none shadow-inner text-center font-bold text-lg mb-8"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
+            <Container className="mt-8">
+                {tab === "softskills" ? (
+                    <div
+                        role="tabpanel"
+                        id={profilePanelId("softskills")}
+                        aria-labelledby={profileTabId("softskills")}
+                        className="flex flex-col gap-6"
+                    >
+                        <DenimSectionHeading
+                            id="dashboard-heading"
+                            comment="soft_skills.dashboard"
+                            title="Soft Skills Dashboard"
+                            description="ติดตามและพัฒนาทักษะของคุณผ่านการเข้าร่วมกิจกรรม"
+                            action={
+                                <ExportTranscriptButton
+                                    canExport={canExport}
+                                    loading={loading}
+                                    exporting={exporting}
+                                    onExport={handleExport}
+                                />
+                            }
                         />
 
-                        <div className="flex justify-center mb-10">
-                            <button className="text-sm font-bold text-slate-600 border-b border-slate-500 pb-0.5 hover:text-slate-900 hover:border-slate-900 transition-all">
-                                ยืนยันตัวตนด้วย KKU Mail
+                        {/* มือถือ: อันดับเต็มแถวบน แต้ม/กิจกรรมคู่กันแถวล่าง */}
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+                            {stats.map((stat) => (
+                                <DenimStatCard
+                                    key={stat.code}
+                                    stat={stat}
+                                    strongLabel
+                                    className={stat.highlight ? "col-span-2 sm:col-span-1" : undefined}
+                                />
+                            ))}
+                        </div>
+
+                        <SkillRadarPanel skills={skillsData} loading={loading} />
+
+                        {/* ประวัติการประเมินรายกิจกรรม */}
+                        <DenimPanel labelledBy="assessments-heading">
+                            <DenimSectionHeading
+                                id="assessments-heading"
+                                comment="assessments"
+                                title="ผลการประเมิน Soft Skills ต่อกิจกรรม"
+                                size="card"
+                            />
+
+                            {!loading && history.length > 0 && (
+                                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+                                    <div className="relative w-full sm:max-w-xs">
+                                        <Search
+                                            className="pointer-events-none absolute left-3 top-1/2 size-[18px] -translate-y-1/2 text-denim-muted"
+                                            aria-hidden="true"
+                                        />
+                                        <input
+                                            type="search"
+                                            aria-label="ค้นหาชื่อกิจกรรม"
+                                            placeholder="ค้นหาชื่อกิจกรรม..."
+                                            className={cn(DENIM_FIELD, "w-full pl-[38px] pr-3 placeholder:text-denim-muted/80")}
+                                            value={historySearch}
+                                            onChange={(e) => setHistorySearch(e.target.value)}
+                                        />
+                                    </div>
+                                    <Select
+                                        aria-label="กรองตามทักษะ"
+                                        className={cn(DENIM_FIELD, "sm:w-60")}
+                                        value={historySkillFilter}
+                                        onChange={(e) => setHistorySkillFilter(e.target.value)}
+                                    >
+                                        <option value="">ทุกทักษะ</option>
+                                        {SOFT_SKILLS.map((s) => (
+                                            <option key={s.field} value={s.field}>
+                                                {s.label}
+                                            </option>
+                                        ))}
+                                    </Select>
+                                    <Select
+                                        aria-label="เรียงลำดับ"
+                                        className={cn(DENIM_FIELD, "sm:w-44")}
+                                        value={historySort}
+                                        onChange={(e) => setHistorySort(e.target.value as typeof historySort)}
+                                    >
+                                        <option value="newest">ล่าสุดก่อน</option>
+                                        <option value="oldest">เก่าสุดก่อน</option>
+                                        <option value="name">ชื่อ ก-ฮ</option>
+                                    </Select>
+                                </div>
+                            )}
+
+                            <div className="mt-5">
+                                {loading ? (
+                                    <div className="h-24 animate-pulse rounded-[18px] bg-denim-paper" aria-hidden="true" />
+                                ) : history.length === 0 ? (
+                                    <AssessmentsEmpty />
+                                ) : filteredHistory.length === 0 ? (
+                                    <div className="flex flex-col items-center gap-3 rounded-[18px] border border-dashed border-denim-field px-5 py-8 text-center">
+                                        <p className="font-medium text-denim-muted">ไม่พบผลการประเมินที่ตรงกับตัวกรอง</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setHistorySearch("")
+                                                setHistorySkillFilter("")
+                                            }}
+                                            className="inline-flex min-h-10 items-center rounded-[10px] border-[1.5px] border-denim-field bg-white px-4 text-sm font-semibold text-denim-deep transition-colors hover:border-denim hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
+                                        >
+                                            ล้างตัวกรอง
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <ul className="flex flex-col gap-3">
+                                        {filteredHistory.map((entry) => (
+                                            <AssessmentRow key={entry.id} entry={entry} />
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </DenimPanel>
+
+                        <IssuedTranscriptsPanel items={transcripts} onOpen={openTranscript} onRevoke={setRevokeTarget} />
+                    </div>
+                ) : (
+                    <div role="tabpanel" id={profilePanelId("edit")} aria-labelledby={profileTabId("edit")}>
+                        <DenimPanel labelledBy="edit-heading">
+                            <DenimSectionHeading
+                                id="edit-heading"
+                                comment="profile.edit()"
+                                title="ข้อมูลส่วนตัว"
+                                description="แก้ไขแล้วต้องยืนยันด้วยรหัสผ่านปัจจุบันก่อนบันทึก"
+                                size="card"
+                            />
+
+                            {/* จอกว้าง 2 คอลัมน์: ซ้าย = ข้อมูลติดต่อ, ขวา = การศึกษา + รหัสผ่าน (คอลัมน์เดียว ช่องจะยืดยาวเกินอ่าน) */}
+                            <div className="mt-6 grid gap-6 lg:grid-cols-2 lg:gap-x-10">
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="firstName">ชื่อ</Label>
+                                            <Input
+                                                id="firstName"
+                                                name="firstName"
+                                                value={editForm.firstName}
+                                                onChange={handleEditChange}
+                                                className="h-12 rounded-xl"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="lastName">นามสกุล</Label>
+                                            <Input
+                                                id="lastName"
+                                                name="lastName"
+                                                value={editForm.lastName}
+                                                onChange={handleEditChange}
+                                                className="h-12 rounded-xl"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="studentId">รหัสนักศึกษา</Label>
+                                        <Input
+                                            id="studentId"
+                                            name="studentId"
+                                            placeholder="653380123-4"
+                                            value={editForm.studentId}
+                                            onChange={handleEditChange}
+                                            className="h-12 rounded-xl"
+                                        />
+                                    </div>
+
+                                    {/* อีเมลแก้ไม่ได้ — backend ไม่รับฟิลด์นี้ เดิมช่องนี้แก้ได้แต่ข้อมูลถูกทิ้งเงียบ ๆ */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="email">อีเมล</Label>
+                                        <Input
+                                            id="email"
+                                            name="email"
+                                            type="email"
+                                            value={editForm.email}
+                                            disabled
+                                            readOnly
+                                            className="h-12 rounded-xl"
+                                        />
+                                        <p className="text-xs text-denim-muted">
+                                            อีเมลใช้สำหรับเข้าสู่ระบบ เปลี่ยนเองไม่ได้ — ติดต่อผู้ดูแลระบบ
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="phone">เบอร์มือถือ</Label>
+                                        <Input
+                                            id="phone"
+                                            name="phone"
+                                            type="tel"
+                                            inputMode="numeric"
+                                            maxLength={10}
+                                            placeholder="0812345678"
+                                            value={editForm.phone}
+                                            onChange={(e) =>
+                                                setEditForm((prev) => ({
+                                                    ...prev,
+                                                    phone: e.target.value.replace(/\D/g, ""),
+                                                }))
+                                            }
+                                            className="h-12 rounded-xl"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-6">
+                                    {/* ── ข้อมูลการศึกษา ─────────────────────────── */}
+                                    <fieldset className="space-y-4 rounded-[18px] border border-denim-line bg-denim-paper/50 p-4 sm:p-5">
+                                        <legend className="px-1 text-sm font-semibold text-denim-deep">ข้อมูลการศึกษา</legend>
+
+                                        {(!editForm.educationLevel || !editForm.program) && (
+                                            <p className="rounded-xl bg-amber/15 p-3 text-sm text-amber-ink">
+                                                กรุณาเพิ่มข้อมูลการศึกษาให้ครบถ้วน (ต้องกรอกครบทั้ง 2 ช่อง)
+                                            </p>
+                                        )}
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="educationLevel">ระดับการศึกษา</Label>
+                                            <Select
+                                                id="educationLevel"
+                                                value={editForm.educationLevel}
+                                                onChange={(e) =>
+                                                    setEditForm((prev) => ({
+                                                        ...prev,
+                                                        educationLevel: e.target.value,
+                                                        program: "",
+                                                    }))
+                                                }
+                                                className="h-12 rounded-xl"
+                                            >
+                                                <option value="">เลือกระดับการศึกษา...</option>
+                                                {EDUCATION_LEVELS.map((lv) => (
+                                                    <option key={lv.code} value={lv.code}>
+                                                        {lv.label}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="program">หลักสูตร</Label>
+                                            <Select
+                                                id="program"
+                                                value={editForm.program}
+                                                onChange={(e) => setEditForm((prev) => ({ ...prev, program: e.target.value }))}
+                                                disabled={!editForm.educationLevel}
+                                                className="h-12 rounded-xl"
+                                            >
+                                                <option value="">เลือกหลักสูตร...</option>
+                                                {getProgramsByLevel(editForm.educationLevel).map((p) => (
+                                                    <option key={p.code} value={p.code}>
+                                                        {p.label}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                            {!editForm.educationLevel && (
+                                                <p className="text-xs text-denim-muted">เลือกระดับการศึกษาก่อน</p>
+                                            )}
+                                        </div>
+                                    </fieldset>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="password">แก้ไขรหัสผ่าน</Label>
+                                        <Input
+                                            id="password"
+                                            name="password"
+                                            type="password"
+                                            autoComplete="new-password"
+                                            placeholder="••••••••"
+                                            value={editForm.password}
+                                            onChange={handleEditChange}
+                                            className="h-12 rounded-xl"
+                                        />
+                                        <p className="text-xs text-denim-muted">เว้นว่างไว้ถ้าไม่ต้องการเปลี่ยน</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end gap-3 border-t border-denim-line pt-6 lg:col-span-2">
+                                    {/* เดิมปุ่มนี้ไม่มี onClick — กดแล้วไม่เกิดอะไรขึ้น */}
+                                    <Button
+                                        variant="outline"
+                                        className="h-12 rounded-xl px-6 font-bold sm:px-8"
+                                        onClick={() => setEditForm(formFromUser())}
+                                    >
+                                        ยกเลิก
+                                    </Button>
+                                    <Button onClick={handleSaveProfileClick} className="h-12 rounded-xl px-6 font-bold sm:px-8">
+                                        ยืนยันการแก้ไข
+                                    </Button>
+                                </div>
+                            </div>
+                        </DenimPanel>
+                    </div>
+                )}
+            </Container>
+
+            {/* Dialog ยืนยันด้วยรหัสผ่าน */}
+            <Dialog open={isConfirmModalOpen} onOpenChange={(open) => !open && closeConfirmModal()}>
+                <DialogContent className="overflow-hidden rounded-2xl p-0 sm:max-w-md">
+                    <div className="p-8">
+                        <div className="mb-6 flex items-start justify-between gap-4">
+                            <h2 className="text-xl font-bold tracking-tight text-fg">กรอกรหัสผ่านเพื่อเปลี่ยนแปลงข้อมูล</h2>
+                            <button
+                                type="button"
+                                onClick={closeConfirmModal}
+                                disabled={submitting}
+                                aria-label="ปิด"
+                                className="shrink-0 text-fg-subtle transition-colors hover:text-fg disabled:opacity-50"
+                            >
+                                <X className="size-5" aria-hidden="true" />
                             </button>
                         </div>
 
-                        <div className="flex justify-center gap-4">
-                            <Button variant="outline" onClick={() => setIsConfirmModalOpen(false)} className="h-12 w-32 rounded-xl font-bold bg-white/80 border-slate-300 text-slate-600 hover:bg-white hover:text-slate-900">ยกเลิก</Button>
-                            <Button onClick={handleConfirmSave} className="h-12 w-32 rounded-xl font-bold bg-white/80 border-slate-300 text-slate-800 hover:bg-white border">ยืนยันการแก้ไข</Button>
+                        {modalError && (
+                            <div role="alert" className="mb-4 rounded-xl border border-border bg-danger-bg p-3 text-sm text-danger">
+                                {modalError}
+                            </div>
+                        )}
+
+                        <div className="mb-8 space-y-2">
+                            <Label htmlFor="confirm-password">รหัสผ่านปัจจุบัน</Label>
+                            <Input
+                                id="confirm-password"
+                                type="password"
+                                autoComplete="current-password"
+                                placeholder="••••••••"
+                                className="h-12 rounded-xl"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                disabled={submitting}
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-3">
+                            <Button
+                                variant="outline"
+                                onClick={closeConfirmModal}
+                                disabled={submitting}
+                                className="h-12 w-32 rounded-xl font-bold"
+                            >
+                                ยกเลิก
+                            </Button>
+                            <Button onClick={handleConfirmSave} disabled={submitting} className="h-12 w-32 rounded-xl font-bold">
+                                {submitting ? "กำลังบันทึก..." : "ยืนยัน"}
+                            </Button>
                         </div>
                     </div>
                 </DialogContent>
             </Dialog>
 
+            <ConfirmDialog
+                open={revokeTarget !== null}
+                onOpenChange={(open) => !open && !revoking && setRevokeTarget(null)}
+                title="ยกเลิกเอกสารฉบับนี้?"
+                description={`เลขที่ ${revokeTarget ? formatTranscriptCode(revokeTarget) : ""} จะตรวจสอบไม่ผ่านทันที และไม่สามารถกู้คืนได้ (ออกเอกสารใหม่ได้ภายหลัง)`}
+                confirmLabel="ยกเลิกเอกสาร"
+                tone="danger"
+                loading={revoking}
+                onConfirm={handleRevoke}
+            />
+
+            <Toast open={toast.open} message={toast.message} description={toast.description} />
         </div>
     )
 }

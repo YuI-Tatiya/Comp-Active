@@ -3,18 +3,22 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-    "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+    "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
     {
         variants: {
             variant: {
-                default:
-                    "border-transparent bg-blue-600 text-white hover:bg-blue-600/80",
-                secondary:
-                    "border-transparent bg-gray-100 text-gray-900 hover:bg-gray-100/80",
-                destructive:
-                    "border-transparent bg-red-500 text-white hover:bg-red-500/80",
-                outline: "text-foreground",
-                success: "border-transparent bg-green-500 text-white hover:bg-green-500/80",
+                // brand
+                default: "bg-brand-50 text-brand-700",
+                // สถานะที่ผูกกับ enum ใน backend/prisma/schema.prisma
+                success: "bg-success-bg text-success",   // open / approved / confirmed
+                warning: "bg-warning-bg text-warning",   // pending_approval / pending
+                danger: "bg-danger-bg text-danger",      // rejected / cancelled
+                info: "bg-info-bg text-info",            // completed / closed
+                neutral: "bg-surface-2 text-fg-muted",
+                outline: "border border-border text-fg-muted",
+                // ชื่อเดิม — เก็บไว้ไม่ให้หน้าเก่าพัง
+                secondary: "bg-surface-2 text-fg-muted",
+                destructive: "bg-danger-bg text-danger",
             },
         },
         defaultVariants: {

@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { CertificatesRepository } from './certificate.repository';
 import { AttendanceStatus } from '../../../common/enums/status.enum';
 import { generateSecureToken } from '../../../common/utils';
@@ -14,15 +9,13 @@ export class CertificatesService {
 
   constructor(private readonly certificatesRepository: CertificatesRepository) {}
 
-  async issue(registrationId: number) {
+  async issue(registrationId: number, volunteerHoursOverride?: number) {
     const registration = await this.certificatesRepository.findRegistrationWithActivityAndStudent(registrationId);
 
     if (!registration) throw new NotFoundException('ไม่พบรายการลงทะเบียน');
 
     if (registration.attendance !== AttendanceStatus.ATTENDED) {
-      throw new BadRequestException(
-        'นักศึกษาต้องเช็คอินเข้าร่วมกิจกรรมก่อนจึงจะออกเกียรติบัตรได้',
-      );
+      throw new BadRequestException('นักศึกษาต้องเช็คอินเข้าร่วมกิจกรรมก่อนจึงจะออกเกียรติบัตรได้');
     }
 
     const existing = await this.certificatesRepository.findByRegistrationId(registrationId);
@@ -30,6 +23,13 @@ export class CertificatesService {
     if (existing) throw new BadRequestException('ออกเกียรติบัตรให้รายการนี้แล้ว');
 
     const certificateUrl = `/certificates/${registrationId}-${Date.now()}.pdf`;
+    // สแนปช็อตชั่วโมง/บทบาทจิตอาสาไว้ที่ใบเกียรติบัตร ณ เวลาออก — กันไม่ให้ค่าบนใบเปลี่ยนไปถ้ากิจกรรมถูกแก้ไขภายหลัง
+    // ผู้จัดปรับชั่วโมงเป็นรายคนได้ตอนออกใบรับรอง — ไม่ระบุ = ใช้ค่าเริ่มต้นที่คำนวณไว้ระดับกิจกรรม
+    const { volunteerRole } = registration.activity;
+    const volunteerHours =
+      volunteerHoursOverride != null
+        ? Math.round(volunteerHoursOverride * 100) / 100
+        : registration.activity.volunteerHours;
 
     let certificate;
     try {
@@ -37,6 +37,8 @@ export class CertificatesService {
         registrationId,
         certificateUrl,
         generateSecureToken(6).toUpperCase(),
+        volunteerHours,
+        volunteerRole,
       );
     } catch (error: any) {
       if (error?.code === 'P2002') {
@@ -45,6 +47,8 @@ export class CertificatesService {
           registrationId,
           certificateUrl,
           generateSecureToken(6).toUpperCase(),
+          volunteerHours,
+          volunteerRole,
         );
       } else {
         throw error;

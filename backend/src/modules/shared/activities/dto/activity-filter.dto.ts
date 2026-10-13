@@ -18,10 +18,7 @@ export class ActivityFilterDto {
   @IsOptional()
   status?: ActivityStatus;
 
-  @ApiPropertyOptional({
-    enum: ApprovalStatus,
-    description: 'กรองตามสถานะการอนุมัติ',
-  })
+  @ApiPropertyOptional({ enum: ApprovalStatus, description: 'กรองตามสถานะการอนุมัติ' })
   @IsEnum(ApprovalStatus)
   @IsOptional()
   approvalStatus?: ApprovalStatus;

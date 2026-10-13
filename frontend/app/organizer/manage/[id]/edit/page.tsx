@@ -3,561 +3,499 @@
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Check, Plus, X, ArrowLeft, Loader2, Edit, CheckSquare } from "lucide-react"
-import { activitiesAPI, Activity, API_BASE_URL } from "@/lib/api"
+import { Container } from "@/components/layout/container"
+import { ArrowLeft, Loader2, Edit } from "lucide-react"
+import { activitiesAPI, eventsAPI, API_BASE_URL, type CreateEventActivityBody, type QuestionBody, type SurveyQuestionBody, type EventSummary } from "@/lib/api"
+import { uploadPathFromPreview } from "@/lib/api-base"
+import { buildDutyShiftOptions, deriveVolunteerRole, parseDutyShiftOptions, resolveDutyRoleOptions } from "@/lib/duty-shift"
+import { scrollToFirstError } from "@/components/ui/form-field"
+import { StepperSidebar, type StepMeta } from "../../../create/_components/stepper-sidebar"
+import { SectionEventBasics } from "../../../create/_components/section-1-event-basics"
+import { SectionActivities } from "../../../create/_components/section-2-activities"
+import { SectionSurvey } from "../../../create/_components/section-3-survey"
+import { SectionPublish } from "../../../create/_components/section-4-publish"
+import { duplicateActivity, type EventFormState, type ActivityFormState, type EventFormErrors, type ActivityFormErrors } from "../../../create/_components/types"
+import {
+    validateEventFields,
+    validateAllActivities,
+    countErrors,
+} from "../../../create/_components/validation"
 
-// Types for form data
-interface ActivityFormData {
-    name: string
-    description: string
-    category: string
-    tags: string[]
-    date: string
-    startTime: string
-    endTime: string
-    location: string
-    capacity: string // Changed to string for easier input handling
-    conditions: string[]
-    benefits: string[]
-    softSkills: string[]
-    imageFile: File | null
+const STEPS: StepMeta[] = [
+    { number: 1, title: "ข้อมูลพื้นฐาน", subtitle: "ชื่อและรายละเอียดงาน" },
+    { number: 2, title: "กิจกรรมย่อย", subtitle: "รายละเอียดแต่ละกิจกรรม" },
+    { number: 3, title: "แบบสำรวจ", subtitle: "คำถามหลังจบกิจกรรม" },
+    { number: 4, title: "เผยแพร่", subtitle: "ตรวจสอบและยืนยัน" },
+]
+
+let activityKeySeq = 0
+function keyFor(activityId: number): string {
+    activityKeySeq += 1
+    return `activity-${activityId}-${activityKeySeq}`
 }
 
-const initialData: ActivityFormData = {
-    name: "",
-    description: "",
-    category: "",
-    tags: [],
-    date: "",
-    startTime: "",
-    endTime: "",
-    location: "",
-    capacity: "",
-    conditions: [],
-    benefits: [],
-    softSkills: [],
-    imageFile: null
+/** แปลง ISO UTC string จาก backend เป็นค่า local wall-clock ที่ <input type="datetime-local"> ต้องการ */
+function toLocalDatetimeValue(iso: string): string {
+    const d = new Date(iso)
+    const offsetMs = d.getTimezoneOffset() * 60000
+    return new Date(d.getTime() - offsetMs).toISOString().slice(0, 16)
 }
 
-const categories = ["Technology", "Academic", "Competition", "Sports", "Art & Culture", "Volunteer"]
-const suggestedTags = ["Programming", "Web Development", "AI", "Machine Learning", "Design", "UX", "UI", "Security", "Sports", "Music", "Volunteer", "Competition", "Workshop", "Seminar"]
-const softSkillOptions = [
-    { id: "teamwork", label: "การทำงานเป็นทีม (Teamwork)" },
-    { id: "leadership", label: "ภาวะผู้นำ (Leadership)" },
-    { id: "communication", label: "การสื่อสาร (Communication)" },
-    { id: "problemSolving", label: "การแก้ปัญหา (Problem Solving)" },
-    { id: "adaptability", label: "การปรับตัว (Adaptability)" },
-];
+/** map ข้อมูลจาก backend (EventSummary) กลับเป็น form state ของ wizard — ฝั่ง client เก็บ id ไว้ใน key ผ่าน map แยกต่างหาก */
+function eventToFormState(event: EventSummary): EventFormState {
+    return {
+        name: event.name,
+        description: event.description,
+        imageFile: null,
+        imagePreview: event.imageUrl ? `${API_BASE_URL}${event.imageUrl}` : null,
+        isPublic: event.isPublic,
+        registrationOpenAt: event.registrationOpenAt ? toLocalDatetimeValue(event.registrationOpenAt) : "",
+        registrationCloseAt: event.registrationCloseAt ? toLocalDatetimeValue(event.registrationCloseAt) : "",
+        surveyQuestions: (event.surveyQuestions ?? []).map((q) => ({
+            label: q.label,
+            type: q.type,
+            scaleMax: q.scaleMax,
+        })),
+        visibility: (event.visibility as "everyone" | "restricted") ?? "everyone",
+        visibilityPrograms: (event.visibilityProgram ?? []).map((p) => p.programCode),
+        visibilityYears: (event.visibilityYears ?? []).map((y) => y.year),
+        visibilityStudentIdFilter: event.visibilityStudentIdFilter ?? "",
+        // client-only, ไม่มีค่าจาก backend — ตั้งเป็น "project" เสมอเพื่อไม่ให้ UI ของงานหลายกิจกรรมย่อยที่มีอยู่แล้วถูกซ่อนไปโดยไม่ตั้งใจ
+        type: "project",
+        // client-only — ไม่มีฟิลด์นี้ระดับ Event ใน backend จริง อนุมานจากกิจกรรมแรกที่มีอยู่ (ปกติทุกกิจกรรมในงานเดียวกันควรเป็นประเภทเดียวกันอยู่แล้ว)
+        registrationType: event.activities[0]?.registrationType ?? "participant",
+    }
+}
 
-export default function EditActivityPage() {
+function activityToFormState(a: EventSummary["activities"][number]): ActivityFormState & { activityId: number } {
+    const softSkillRates: Record<string, number> = {}
+    for (const s of a.softSkills ?? []) {
+        if (s.rate !== undefined) softSkillRates[s.skillType] = s.rate
+    }
+    const { mode: dutyShiftMode, rows: dutyShiftRows } = parseDutyShiftOptions(a.dutyShiftOptions ?? [])
+    return {
+        key: keyFor(a.id),
+        activityId: a.id,
+        name: a.name,
+        description: a.description,
+        categories: a.categories,
+        imageFile: null,
+        imagePreview: a.imageUrl ? `${API_BASE_URL}${a.imageUrl}` : null,
+        attachmentFile: null,
+        attachmentName: a.attachmentUrl ? a.attachmentUrl.split("/").pop() ?? null : null,
+        attachmentUrl: a.attachmentUrl ?? null,
+        startAt: a.startAt ? toLocalDatetimeValue(a.startAt) : "",
+        endAt: a.endAt ? toLocalDatetimeValue(a.endAt) : "",
+        // ใช้เป็นค่าตั้งต้นของช่อง "วันที่ปฏิบัติหน้าที่" ในโหมดบทบาทต่อแท็บเท่านั้น (ดู activity-tab-form.tsx)
+        // กิจกรรมเดิมที่ปฏิบัติหน้าที่ข้ามวัน (startAt/endAt คนละวัน) ฟอร์มจะใช้ช่องวันเวลาเดิมแทนอัตโนมัติ ไม่เสียข้อมูล
+        dutyDate: a.startAt ? toLocalDatetimeValue(a.startAt).slice(0, 10) : "",
+        location: a.location,
+        capacityEnabled: a.capacity != null,
+        capacity: a.capacity != null ? String(a.capacity) : "",
+        certEnabled: !!a.volunteerRole,
+        softSkillsEnabled: Object.keys(softSkillRates).length > 0,
+        softSkillRates,
+        questionsEnabled: (a.questions?.length ?? 0) > 0,
+        questions: (a.questions ?? []).map((q) => ({
+            label: q.label,
+            type: q.type,
+            required: q.required,
+            options: q.options?.map((o) => o.label) ?? [],
+        })),
+        registrationType: a.registrationType ?? "participant",
+        dutyRoleOptions: a.dutyRoleOptions ?? [],
+        dutyShiftMode,
+        dutyShiftRows,
+        teamSizeMin: a.teamSizeMin != null ? String(a.teamSizeMin) : "",
+        teamSizeMax: a.teamSizeMax != null ? String(a.teamSizeMax) : "",
+        competitionCategoryOptions: a.competitionCategoryOptions ?? [],
+    }
+}
+
+export default function EditEventPage() {
     const router = useRouter()
     const params = useParams()
-    const id = Number(params?.id)
-    const [step, setStep] = useState(1)
-    const [formData, setFormData] = useState<ActivityFormData>(initialData)
-    const [loadingData, setLoadingData] = useState(true)
+    const eventId = Number(params?.id)
 
-    // Temporary state for adding list items
-    const [newCondition, setNewCondition] = useState("")
-    const [newBenefit, setNewBenefit] = useState("")
+    const [step, setStep] = useState(1)
+    const [loadingData, setLoadingData] = useState(true)
+    const [loadError, setLoadError] = useState("")
+    const [event, setEvent] = useState<EventFormState | null>(null)
+    // เก็บ activityId คู่กับ key เพื่อรู้ว่าแท็บไหนคือกิจกรรมเดิม (ส่ง id กลับไป) กับแท็บไหนเพิ่มใหม่ (ไม่ส่ง id)
+    const [activities, setActivities] = useState<(ActivityFormState & { activityId?: number })[]>([])
+    const [activeActivityKey, setActiveActivityKey] = useState("")
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState("")
-    const [imagePreview, setImagePreview] = useState<string | null>(null)
+    const [eventErrors, setEventErrors] = useState<EventFormErrors>({})
+    const [activityErrors, setActivityErrors] = useState<Record<string, ActivityFormErrors>>({})
 
     useEffect(() => {
-        if (!id || isNaN(id)) return;
+        if (!eventId || Number.isNaN(eventId)) return
+        eventsAPI
+            .getById(eventId)
+            .then((data) => {
+                setEvent(eventToFormState(data))
+                const mapped = data.activities.map(activityToFormState)
+                setActivities(mapped)
+                setActiveActivityKey(mapped[0]?.key ?? "")
+            })
+            .catch((err: unknown) => {
+                const e = err as Error
+                setLoadError(e.message || "โหลดข้อมูลงานไม่สำเร็จ")
+            })
+            .finally(() => setLoadingData(false))
+    }, [eventId])
 
-        const fetchActivity = async () => {
-            try {
-                const data: Activity = await activitiesAPI.getById(id);
-                setFormData({
-                    name: data.name || "",
-                    description: data.description || "",
-                    category: data.category || "",
-                    tags: data.tags ? data.tags.map((t: { tagName: string }) => t.tagName) : [],
-                    date: data.date || "",
-                    startTime: data.startTime || "",
-                    endTime: data.endTime || "",
-                    location: data.location || "",
-                    capacity: data.capacity ? String(data.capacity) : "",
-                    conditions: data.conditions ? data.conditions.map((c: { conditionText: string }) => c.conditionText) : [],
-                    benefits: data.benefits ? data.benefits.map((b: { benefitText: string }) => b.benefitText) : [],
-                    softSkills: data.softSkills ? data.softSkills.map((s: { skillName: string }) => s.skillName) : [],
-                    imageFile: null
-                });
-                if (data.imageUrl) {
-                    setImagePreview(`${API_BASE_URL}${data.imageUrl}`);
-                }
-            } catch (err) {
-                console.error("Failed to fetch activity", err);
-                setError("โหลดข้อมูลกิจกรรมไม่สำเร็จ");
-            } finally {
-                setLoadingData(false);
-            }
-        };
-
-        fetchActivity();
-    }, [id]);
-
-    const handleNext = () => setStep((prev) => Math.min(prev + 1, 4))
-    const handleBack = () => step === 1 ? router.back() : setStep((prev) => Math.max(prev - 1, 1))
-
-    const updateField = <K extends keyof ActivityFormData>(field: K, value: ActivityFormData[K]) => {
-        setFormData(prev => ({ ...prev, [field]: value }))
-    }
-
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (file) {
-            updateField('imageFile', file)
-            const reader = new FileReader()
-            reader.onloadend = () => setImagePreview(reader.result as string)
-            reader.readAsDataURL(file)
+    function patchEvent(patch: Partial<EventFormState>) {
+        setEvent((prev) => (prev ? { ...prev, ...patch } : prev))
+        // สลับมาเป็น "กิจกรรมเดี่ยว" ขณะมีหลายกิจกรรมย่อยอยู่แล้ว — เหลือไว้แค่รายการแรก
+        if (patch.type === "single") {
+            setActivities((prev) => (prev.length > 1 ? [prev[0]] : prev))
+        }
+        // ประเภทการรับสมัครเลือกครั้งเดียวระดับงาน — เปลี่ยนที่นี่ต้องสำเนาลงทุกกิจกรรมย่อยที่มีอยู่แล้วด้วย กันกิจกรรมเก่าค้างประเภทเดิม
+        if (patch.registrationType) {
+            const nextType = patch.registrationType
+            setActivities((prev) => prev.map((a) => ({ ...a, registrationType: nextType })))
         }
     }
 
-    const toggleTag = (tag: string) => {
-        setFormData(prev => {
-            const newTags = prev.tags.includes(tag)
-                ? prev.tags.filter(t => t !== tag)
-                : [...prev.tags, tag]
-            return { ...prev, tags: newTags }
-        })
+    function patchActivity(key: string, patch: Partial<ActivityFormState>) {
+        setActivities((prev) => prev.map((a) => (a.key === key ? { ...a, ...patch } : a)))
     }
 
-    const toggleSoftSkill = (skillLabel: string) => {
-        setFormData(prev => {
-            const newSkills = prev.softSkills.includes(skillLabel)
-                ? prev.softSkills.filter(s => s !== skillLabel)
-                : [...prev.softSkills, skillLabel]
-            return { ...prev, softSkills: newSkills }
-        })
+    function handleEventFieldBlur(field: keyof EventFormErrors) {
+        if (!event) return
+        const errs = validateEventFields(event)
+        setEventErrors((prev) => ({ ...prev, [field]: errs[field] }))
     }
 
-    const addListItem = (field: 'conditions' | 'benefits', value: string, setter: (val: string) => void) => {
-        if (!value.trim()) return
-        setFormData(prev => ({ ...prev, [field]: [...prev[field], value] }))
-        setter("")
+    function handleActivityFieldBlur(key: string, field: keyof ActivityFormErrors, patch?: Partial<ActivityFormState>) {
+        if (!event) return
+        const activity = activities.find((a) => a.key === key)
+        if (!activity) return
+        // patch: ค่าที่เพิ่งเปลี่ยนจาก onChange เดียวกัน (เช่น checkbox) — activities ใน state ยัง commit ไม่ทันตอนนี้
+        const merged = patch ? { ...activity, ...patch } : activity
+        const errs = validateAllActivities([merged], event.type !== "single")[key] ?? {}
+        setActivityErrors((prev) => ({ ...prev, [key]: { ...prev[key], [field]: errs[field] } }))
     }
 
-    const removeListItem = (field: 'conditions' | 'benefits', index: number) => {
-        setFormData(prev => ({ ...prev, [field]: prev[field].filter((_, i) => i !== index) }))
+    function handleAddActivity() {
+        activityKeySeq += 1
+        const next: ActivityFormState & { activityId?: number } = {
+            key: `activity-new-${activityKeySeq}`,
+            name: "",
+            description: "",
+            categories: [],
+            imageFile: null,
+            imagePreview: null,
+            attachmentFile: null,
+            attachmentName: null,
+            attachmentUrl: null,
+            startAt: "",
+            endAt: "",
+            dutyDate: "",
+            location: "",
+            capacityEnabled: false,
+            capacity: "",
+            certEnabled: false,
+            softSkillsEnabled: false,
+            softSkillRates: {},
+            questionsEnabled: false,
+            questions: [],
+            // ประเภทการรับสมัครตั้งค่าได้ที่ขั้นตอนที่ 1 เท่านั้น — กิจกรรมใหม่ต้องตามงานเสมอ กันปนกันหลายรูปแบบในงานเดียว
+            registrationType: event?.registrationType ?? "participant",
+            dutyRoleOptions: [],
+            dutyShiftMode: "single",
+            dutyShiftRows: [],
+            teamSizeMin: "",
+            teamSizeMax: "",
+            competitionCategoryOptions: [],
+        }
+        setActivities((prev) => [...prev, next])
+        setActiveActivityKey(next.key)
     }
 
-    // Stepper UI
-    const steps = [
-        { number: 1, title: "ข้อมูลพื้นฐาน", subtitle: "ชื่อและรายละเอียด" },
-        { number: 2, title: "วันที่และสถานที่", subtitle: "เวลาและสถานที่จัดงาน" },
-        { number: 3, title: "รายละเอียดเพิ่มเติม", subtitle: "เงื่อนไขและสิทธิประโยชน์" },
-        { number: 4, title: "ตรวจสอบและยืนยัน", subtitle: "ตรวจสอบข้อมูลก่อนบันทึก" },
-    ]
+    /** ทำซ้ำกิจกรรมหนึ่งเป็นแท็บใหม่ — แทรกต่อท้ายกิจกรรมต้นฉบับทันที แล้วสลับไปแท็บสำเนาให้แก้ไขต่อได้เลย
+     *  duplicateActivity คืน ActivityFormState ล้วนๆ ไม่มี activityId ติดมา (ดูคอมเมนต์ที่ types.ts) —
+     *  สำเนาจึงเป็นกิจกรรม "ใหม่" เสมอ ต่อให้ทำซ้ำจากกิจกรรมเดิมที่มี activityId อยู่แล้วก็ตาม */
+    function handleDuplicateActivity(key: string) {
+        const source = activities.find((a) => a.key === key)
+        if (!source) return
+        const copy = duplicateActivity(source)
+        const sourceIndex = activities.findIndex((a) => a.key === key)
+        setActivities((prev) => [...prev.slice(0, sourceIndex + 1), copy, ...prev.slice(sourceIndex + 1)])
+        setActiveActivityKey(copy.key)
+    }
+
+    function handleRemoveActivity(key: string) {
+        const next = activities.filter((a) => a.key !== key)
+        setActivities(next)
+        if (activeActivityKey === key) setActiveActivityKey(next[0]?.key ?? "")
+    }
+
+    function handleBack() {
+        if (step === 1) {
+            router.push("/organizer/manage")
+            return
+        }
+        setError("")
+        setStep((prev) => prev - 1)
+    }
+
+    function handleNext() {
+        if (!event) return
+        if (step === 1) {
+            const errs = validateEventFields(event)
+            setEventErrors(errs)
+            if (countErrors(errs) > 0) {
+                setError("กรุณากรอกข้อมูลให้ครบถ้วน")
+                scrollToFirstError(errs)
+                return
+            }
+        } else if (step === 2) {
+            if (activities.length === 0) {
+                setError("ต้องมีอย่างน้อย 1 กิจกรรม")
+                return
+            }
+            const errsByKey = validateAllActivities(activities, event.type !== "single")
+            setActivityErrors(errsByKey)
+            const total = Object.values(errsByKey).reduce((sum, e) => sum + countErrors(e), 0)
+            if (total > 0) {
+                setError("กรุณากรอกข้อมูลให้ครบถ้วน")
+                const firstKey = Object.keys(errsByKey)[0]
+                if (firstKey) setActiveActivityKey(firstKey)
+                scrollToFirstError(errsByKey[firstKey] ?? {})
+                return
+            }
+        }
+        setError("")
+        setStep((prev) => Math.min(prev + 1, STEPS.length))
+    }
+
+    async function handleSave() {
+        if (!event) return
+        const eventErrs = validateEventFields(event)
+        const activityErrsByKey = validateAllActivities(activities, event.type !== "single")
+        setEventErrors(eventErrs)
+        setActivityErrors(activityErrsByKey)
+        const total = countErrors(eventErrs) + Object.values(activityErrsByKey).reduce((sum, e) => sum + countErrors(e), 0)
+        if (total > 0) {
+            setError("กรุณากรอกข้อมูลให้ครบถ้วน")
+            return
+        }
+
+        setSubmitting(true)
+        setError("")
+        try {
+            let eventImageUrl: string | undefined = uploadPathFromPreview(event.imagePreview)
+            if (event.imageFile) {
+                const uploadRes = await activitiesAPI.uploadImage(event.imageFile)
+                eventImageUrl = uploadRes?.imageUrl
+            }
+
+            const activityBodies: (CreateEventActivityBody & { id?: number })[] = []
+            for (const a of activities) {
+                let imageUrl: string | undefined = uploadPathFromPreview(a.imagePreview)
+                if (a.imageFile) {
+                    const uploadRes = await activitiesAPI.uploadImage(a.imageFile)
+                    imageUrl = uploadRes?.imageUrl
+                }
+
+                // แก้บั๊กเดิม: ค่านี้เคยเป็น undefined เสมอไม่ว่า attachmentName จะมีหรือไม่ — ไฟล์แนบเดิมเลยหายทุกครั้งที่บันทึกแก้ไข
+                // ถ้าไม่ได้เลือกไฟล์ใหม่ ให้คงไฟล์แนบเดิมไว้ (a.attachmentUrl มาจาก activityToFormState ตอนโหลด หรือจากฉบับร่าง)
+                let attachmentUrl: string | undefined = a.attachmentUrl ?? undefined
+                if (a.attachmentFile) {
+                    const uploadRes = await eventsAPI.uploadAttachment(a.attachmentFile)
+                    attachmentUrl = uploadRes?.attachmentUrl
+                }
+
+                const questions: QuestionBody[] | undefined = a.questionsEnabled
+                    ? a.questions.map((q) => ({ label: q.label, type: q.type as QuestionBody["type"], required: q.required, options: q.options }))
+                    : undefined
+
+                activityBodies.push({
+                    id: (a as { activityId?: number }).activityId,
+                    name: a.name,
+                    description: a.description,
+                    categories: a.categories,
+                    imageUrl,
+                    attachmentUrl,
+                    startAt: new Date(a.startAt).toISOString(),
+                    endAt: new Date(a.endAt).toISOString(),
+                    location: a.location,
+                    capacity: a.capacityEnabled ? parseInt(a.capacity) : undefined,
+                    issueVolunteerCertificate:
+                        (a.registrationType === "staff_volunteer" && a.certEnabled) || undefined,
+                    // โหมดบทบาทต่อแท็บ (isMultiActivity) ไม่เก็บ dutyRoleOptions แล้ว — ใช้ชื่อกิจกรรม (= ชื่อบทบาทนั้น) แทน
+                    volunteerRole:
+                        a.registrationType === "staff_volunteer" && a.certEnabled
+                            ? deriveVolunteerRole(a.dutyRoleOptions) || a.name
+                            : undefined,
+                    softSkillRates: a.softSkillsEnabled
+                        ? Object.entries(a.softSkillRates).map(([skillType, rate]) => ({ skillType, rate }))
+                        : undefined,
+                    questions,
+                    registrationType: a.registrationType,
+                    dutyRoleOptions:
+                        a.registrationType === "staff_volunteer" ? resolveDutyRoleOptions(a.dutyRoleOptions, a.name) : [],
+                    dutyShiftOptions:
+                        a.registrationType === "staff_volunteer"
+                            ? buildDutyShiftOptions(a.dutyShiftMode, a.dutyShiftRows)
+                            : [],
+                    teamSizeMin: a.registrationType === "contestant" && a.teamSizeMin ? parseInt(a.teamSizeMin) : null,
+                    teamSizeMax: a.registrationType === "contestant" && a.teamSizeMax ? parseInt(a.teamSizeMax) : null,
+                    competitionCategoryOptions:
+                        a.registrationType === "contestant" ? a.competitionCategoryOptions.filter(Boolean) : [],
+                })
+            }
+
+            const surveyQuestions: SurveyQuestionBody[] = event.surveyQuestions.map((q) => ({
+                label: q.label,
+                type: q.type as SurveyQuestionBody["type"],
+                scaleMax: q.scaleMax,
+            }))
+
+            await eventsAPI.update(eventId, {
+                name: event.name,
+                description: event.description,
+                imageUrl: eventImageUrl,
+                isPublic: event.isPublic,
+                registrationOpenAt: event.registrationOpenAt ? new Date(event.registrationOpenAt).toISOString() : undefined,
+                registrationCloseAt: event.registrationCloseAt ? new Date(event.registrationCloseAt).toISOString() : undefined,
+                activities: activityBodies,
+                surveyQuestions,
+                visibility: event.visibility,
+                visibilityPrograms: event.visibility === "restricted" ? event.visibilityPrograms : undefined,
+                visibilityYears: event.visibility === "restricted" ? event.visibilityYears : undefined,
+                visibilityStudentIdFilter: event.visibility === "restricted" ? event.visibilityStudentIdFilter || undefined : undefined,
+            })
+
+            router.push("/organizer/manage")
+        } catch (err: unknown) {
+            const e = err as Error
+            setError(e.message || "บันทึกการแก้ไขไม่สำเร็จ")
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    if (loadingData) {
+        return (
+            <div className="bg-surface">
+                <Container className="flex flex-col items-center justify-center py-32">
+                    <Loader2 className="mb-4 size-12 animate-spin text-brand-600" />
+                    <p className="text-lg font-medium text-fg-muted">กำลังโหลดข้อมูลงาน...</p>
+                </Container>
+            </div>
+        )
+    }
+
+    if (loadError || !event) {
+        return (
+            <div className="bg-surface">
+                <Container className="flex flex-col items-center justify-center gap-4 py-32">
+                    <p className="font-medium text-danger">{loadError || "ไม่พบข้อมูลงาน"}</p>
+                    <Button variant="outline" asChild>
+                        <a href="/organizer/manage">กลับไปหน้าจัดการกิจกรรม</a>
+                    </Button>
+                </Container>
+            </div>
+        )
+    }
 
     return (
-        <div className="min-h-screen bg-gray-50 p-6">
-            <div className="max-w-4xl mx-auto">
-                {/* Header */}
-                <div className="flex items-center mb-8">
+        <div className="bg-surface">
+            <Container className="py-10">
+                <div className="mb-8 flex items-center">
                     <Button variant="ghost" onClick={handleBack} className="mr-4">
-                        <ArrowLeft className="w-4 h-4 mr-2" /> กลับ
+                        <ArrowLeft className="size-4" />
+                        กลับ
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-bold flex items-center gap-2">
-                            <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
-                                <Edit className="w-5 h-5" />
+                        <h1 className="flex items-center gap-2 text-2xl font-black text-fg">
+                            <div className="rounded-lg bg-brand-100 p-2 text-brand-600">
+                                <Edit className="size-5" />
                             </div>
-                            แก้ไขกิจกรรม
+                            แก้ไขงาน
                         </h1>
-                        <p className="text-gray-500 mt-1">อัปเดตข้อมูลกิจกรรมของคุณ</p>
+                        <p className="mt-1 text-fg-muted">แก้ไขข้อมูลงานและกิจกรรมย่อยทั้งหมด</p>
                     </div>
                 </div>
 
-                {loadingData ? (
-                    <div className="flex justify-center py-12">
-                        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                    </div>
-                ) : (
-                    <>
-                        {/* Stepper */}
-                        <div className="mb-12 relative flex justify-between">
-                            <div className="absolute top-5 left-0 w-full h-0.5 bg-gray-200 -z-10"></div>
-                            <div
-                                className="absolute top-5 left-0 h-0.5 bg-blue-600 -z-10 transition-all duration-300"
-                                style={{ width: `${((step - 1) / 3) * 100}%` }}
-                            ></div>
+                {/*
+                  md:items-start: ปล่อยให้ความสูงแต่ละคอลัมน์เป็นอิสระต่อกัน ไม่งั้น grid จะยืดทั้งคู่
+                  เท่าคอลัมน์ที่สูงที่สุด แล้ว sticky บนแถบขั้นตอนจะไม่มีระยะให้ขยับ (เห็นผลเหมือนไม่ sticky)
+                */}
+                <div className="grid grid-cols-1 gap-8 md:grid-cols-[220px_1fr] md:items-start">
+                    {/* top-24 เว้นระยะใต้ AppHeader (sticky top-0 h-16) ไม่ให้แถบขั้นตอนชนขอบบนพอดี */}
+                    <StepperSidebar steps={STEPS} currentStep={step} className="hidden md:sticky md:top-24 md:flex" />
 
-                            {steps.map((s) => (
-                                <div key={s.number} className="flex flex-col items-center bg-gray-50 px-4">
-                                    <div
-                                        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm mb-2 transition-colors duration-300 ${step >= s.number ? "bg-blue-600 text-white" : "bg-white border-2 border-gray-200 text-gray-400"
-                                            }`}
-                                    >
-                                        {step > s.number ? <Check className="w-5 h-5" /> : s.number}
-                                    </div>
-                                    <div className={`text-sm font-medium ${step >= s.number ? "text-gray-900" : "text-gray-400"}`}>{s.title}</div>
-                                    <div className="text-xs text-gray-500 hidden md:block">{s.subtitle}</div>
+                    <div>
+                        {/*
+                          การ์ดฟอร์มเลื่อนในตัวเอง (overflow-y-auto + max-h) แทนที่จะให้ทั้งหน้าเลื่อน —
+                          กันไม่ให้แถบขั้นตอนทางซ้ายหลุดจอเวลาฟอร์มยาว (รวม 4 หัวข้อย่อยในขั้นตอน "กิจกรรมย่อย" แล้วยาวมาก)
+                          contain-layout: ไม่งั้นตอนเนื้อหาในการ์ดเปลี่ยนความสูงมากๆ (เช่น เปิด toggle ทักษะที่กิจกรรม
+                          ช่วยพัฒนาที่ดึงรายการ 12 ทักษะมาแสดง) Chrome จะรายงาน documentElement.scrollHeight ผิด
+                          เกินจริงหลายร้อยพิกเซล ทำให้เลื่อนหน้าเว็บเกินเนื้อหาจริงไปเจอพื้นที่ว่างใต้ footer ได้
+                          (ยืนยันแล้วว่า Dialog ปลอดภัย เพราะ components/ui/dialog.tsx พอร์ทัลไป document.body แล้ว
+                          ไม่งั้น contain-layout จะทำให้ dialog ที่ซ้อนอยู่ข้างในถูกบีบให้เล็กเท่ากรอบการ์ดไปด้วย)
+                        */}
+                        <div className="contain-layout max-h-[calc(100vh-16rem)] min-h-[500px] overflow-y-auto rounded-2xl border border-border bg-bg p-8 shadow-xs">
+                            {error && (
+                                <div className="mb-6 rounded-lg border border-danger bg-danger-bg px-4 py-3 text-center text-sm text-danger">
+                                    {error}
                                 </div>
-                            ))}
-                        </div>
+                            )}
 
-                        {/* Content Card */}
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 min-h-[400px]">
-
-                            {/* STEP 1: Basic Info */}
                             {step === 1 && (
-                                <div className="space-y-6">
-                                    <div className="space-y-2">
-                                        <Label>ชื่อกิจกรรม <span className="text-red-500">*</span></Label>
-                                        <Input
-                                            value={formData.name}
-                                            onChange={(e) => updateField('name', e.target.value)}
-                                            placeholder="เช่น Workshop: การพัฒนา Web Application"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>รูปภาพกิจกรรม (Poster)</Label>
-                                        <Input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleImageChange}
-                                        />
-                                        {imagePreview && (
-                                            <div className="mt-2 w-full max-w-sm rounded-lg overflow-hidden border">
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img src={imagePreview} alt="Preview" className="w-full h-auto" />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>รายละเอียด <span className="text-red-500">*</span></Label>
-                                        <Textarea
-                                            value={formData.description}
-                                            onChange={(e) => updateField('description', e.target.value)}
-                                            placeholder="อธิบายเกี่ยวกับกิจกรรมของคุณ..."
-                                            className="min-h-[120px]"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>หมวดหมู่ <span className="text-red-500">*</span></Label>
-                                        <select
-                                            className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-950"
-                                            value={formData.category}
-                                            onChange={(e) => updateField('category', e.target.value)}
-                                        >
-                                            <option value="">เลือกหมวดหมู่</option>
-                                            {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>แท็ก</Label>
-                                        <div className="flex flex-wrap gap-2 mb-3">
-                                            {formData.tags.map(tag => (
-                                                <Badge key={tag} variant="secondary" className="px-3 py-1 flex items-center gap-1">
-                                                    {tag}
-                                                    <X className="w-3 h-3 cursor-pointer hover:text-red-500" onClick={() => toggleTag(tag)} />
-                                                </Badge>
-                                            ))}
-                                        </div>
-                                        <div className="flex flex-wrap gap-2 border-t pt-3">
-                                            {suggestedTags.map(tag => (
-                                                <button
-                                                    key={tag}
-                                                    onClick={() => toggleTag(tag)}
-                                                    className={`text-xs px-3 py-1 rounded-full border transition-colors ${formData.tags.includes(tag)
-                                                        ? "bg-blue-50 border-blue-200 text-blue-600"
-                                                        : "bg-white border-gray-200 text-gray-500 hover:border-blue-300"
-                                                        }`}
-                                                >
-                                                    {tag}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
+                                <SectionEventBasics data={event} errors={eventErrors} onChange={patchEvent} onFieldBlur={handleEventFieldBlur} />
                             )}
-
-                            {/* STEP 2: Date & Location */}
                             {step === 2 && (
-                                <div className="space-y-6">
-                                    <div className="space-y-2">
-                                        <Label>วันที่จัดกิจกรรม <span className="text-red-500">*</span></Label>
-                                        <Input
-                                            type="date"
-                                            value={formData.date}
-                                            onChange={(e) => updateField('date', e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label>เวลาเริ่ม <span className="text-red-500">*</span></Label>
-                                            <Input
-                                                type="time"
-                                                value={formData.startTime}
-                                                onChange={(e) => updateField('startTime', e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>เวลาสิ้นสุด <span className="text-red-500">*</span></Label>
-                                            <Input
-                                                type="time"
-                                                value={formData.endTime}
-                                                onChange={(e) => updateField('endTime', e.target.value)}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>สถานที่ <span className="text-red-500">*</span></Label>
-                                        <Input
-                                            value={formData.location}
-                                            onChange={(e) => updateField('location', e.target.value)}
-                                            placeholder="เช่น ห้องปฏิบัติการคอมพิวเตอร์ 301"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>จำนวนที่รับ (คน) <span className="text-red-500">*</span></Label>
-                                        <Input
-                                            type="number"
-                                            value={formData.capacity}
-                                            onChange={(e) => updateField('capacity', e.target.value)}
-                                            placeholder="เช่น 40"
-                                        />
-                                    </div>
-                                </div>
+                                <SectionActivities
+                                    activities={activities}
+                                    activeKey={activeActivityKey}
+                                    errorsByKey={activityErrors}
+                                    isSingleMode={event.type === "single"}
+                                    onActiveKeyChange={setActiveActivityKey}
+                                    onChangeActivity={patchActivity}
+                                    onFieldBlur={handleActivityFieldBlur}
+                                    onAdd={handleAddActivity}
+                                    onRemove={handleRemoveActivity}
+                                    onDuplicate={handleDuplicateActivity}
+                                />
                             )}
-
-                            {/* STEP 3: Additional Details */}
-                            {step === 3 && (
-                                <div className="space-y-8">
-                                    <div className="space-y-4">
-                                        <Label className="text-base">เงื่อนไขการเข้าร่วม</Label>
-                                        <div className="space-y-2">
-                                            {formData.conditions.map((item, i) => (
-                                                <div key={i} className="flex items-center gap-2 bg-gray-50 p-2 rounded-md">
-                                                    <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">{i + 1}</span>
-                                                    <span className="flex-1 text-sm">{item}</span>
-                                                    <Button variant="ghost" size="sm" onClick={() => removeListItem('conditions', i)}><X className="w-4 h-4 text-gray-400" /></Button>
-                                                </div>
-                                            ))}
-                                            <div className="flex gap-2">
-                                                <Input
-                                                    value={newCondition}
-                                                    onChange={(e) => setNewCondition(e.target.value)}
-                                                    placeholder="กรอกเงื่อนไข"
-                                                    onKeyDown={(e) => e.key === 'Enter' && addListItem('conditions', newCondition, setNewCondition)}
-                                                />
-                                                <Button variant="outline" onClick={() => addListItem('conditions', newCondition, setNewCondition)}><Plus className="w-4 h-4 mr-2" /> เพิ่ม</Button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <Label className="text-base">สิทธิประโยชน์</Label>
-                                        <div className="space-y-2">
-                                            {formData.benefits.map((item, i) => (
-                                                <div key={i} className="flex items-center gap-2 bg-gray-50 p-2 rounded-md">
-                                                    <Check className="w-4 h-4 text-green-500" />
-                                                    <span className="flex-1 text-sm">{item}</span>
-                                                    <Button variant="ghost" size="sm" onClick={() => removeListItem('benefits', i)}><X className="w-4 h-4 text-gray-400" /></Button>
-                                                </div>
-                                            ))}
-                                            <div className="flex gap-2">
-                                                <Input
-                                                    value={newBenefit}
-                                                    onChange={(e) => setNewBenefit(e.target.value)}
-                                                    placeholder="กรอกสิทธิประโยชน์"
-                                                    onKeyDown={(e) => e.key === 'Enter' && addListItem('benefits', newBenefit, setNewBenefit)}
-                                                />
-                                                <Button variant="outline" onClick={() => addListItem('benefits', newBenefit, setNewBenefit)}><Plus className="w-4 h-4 mr-2" /> เพิ่ม</Button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <Label className="text-base">Soft Skills ที่จะได้รับจากกิจกรรมนี้ (ตัวเลือกประเมิน)</Label>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-gray-50 p-4 rounded-lg border border-gray-100">
-                                            {softSkillOptions.map(skill => (
-                                                <div key={skill.id} className="flex items-center space-x-3">
-                                                    <input
-                                                        type="checkbox"
-                                                        id={`skill-${skill.id}`}
-                                                        checked={formData.softSkills.includes(skill.label)}
-                                                        onChange={() => toggleSoftSkill(skill.label)}
-                                                        className="w-5 h-5 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
-                                                    />
-                                                    <Label htmlFor={`skill-${skill.id}`} className="font-normal cursor-pointer text-sm">
-                                                        {skill.label}
-                                                    </Label>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <p className="text-xs text-gray-500">* ทักษะที่เลือกนี้จะถูกนำไปใช้เป็นเกณฑ์ในการประเมินนักศึกษาหลังจบกิจกรรม</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* STEP 4: Review */}
+                            {step === 3 && <SectionSurvey event={event} onChange={patchEvent} />}
                             {step === 4 && (
-                                <div className="space-y-6">
-                                    <div className="text-center mb-6">
-                                        <h3 className="text-xl font-semibold mb-2">ตรวจสอบข้อมูลกิจกรรม</h3>
-                                        <p className="text-gray-500">กรุณาตรวจสอบข้อมูลก่อนยืนยันการแก้ไขกิจกรรม</p>
-                                    </div>
-
-                                    {error && (
-                                        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm text-center">
-                                            {error}
-                                        </div>
-                                    )}
-
-                                    <div className="bg-gray-50 p-6 rounded-lg space-y-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div>
-                                                <Label className="text-gray-500 text-xs">ชื่อกิจกรรม</Label>
-                                                <div className="font-medium">{formData.name || "-"}</div>
-                                            </div>
-                                            <div>
-                                                <Label className="text-gray-500 text-xs">หมวดหมู่</Label>
-                                                <div className="font-medium">{formData.category || "-"}</div>
-                                            </div>
-                                            <div className="col-span-2">
-                                                <Label className="text-gray-500 text-xs">รายละเอียด</Label>
-                                                <div className="text-sm text-gray-700 mt-1">{formData.description || "-"}</div>
-                                            </div>
-                                            <div>
-                                                <Label className="text-gray-500 text-xs">วันที่</Label>
-                                                <div className="font-medium">{formData.date || "-"}</div>
-                                            </div>
-                                            <div>
-                                                <Label className="text-gray-500 text-xs">เวลา</Label>
-                                                <div className="font-medium">{formData.startTime} - {formData.endTime}</div>
-                                            </div>
-                                            <div>
-                                                <Label className="text-gray-500 text-xs">สถานที่</Label>
-                                                <div className="font-medium">{formData.location || "-"}</div>
-                                            </div>
-                                            <div>
-                                                <Label className="text-gray-500 text-xs">จำนวนที่รับ</Label>
-                                                <div className="font-medium">{formData.capacity || "-"} คน</div>
-                                            </div>
-
-                                            {/* Additional fields that were missing */}
-                                            {imagePreview && (
-                                                <div className="col-span-1 md:col-span-2">
-                                                    <Label className="text-gray-500 text-xs">รูปภาพกิจกรรม (Poster)</Label>
-                                                    <div className="mt-2 w-full max-w-xs rounded-lg overflow-hidden border">
-                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                        <img src={imagePreview} alt="Preview" className="w-full h-auto" />
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            <div className="col-span-1 md:col-span-2">
-                                                <Label className="text-gray-500 text-xs">แท็ก</Label>
-                                                <div className="flex flex-wrap gap-2 mt-1">
-                                                    {formData.tags?.length > 0 ? formData.tags.map(tag => (
-                                                        <Badge key={tag} variant="secondary" className="px-3 py-1 font-normal">{tag}</Badge>
-                                                    )) : <span className="text-sm text-gray-500">-</span>}
-                                                </div>
-                                            </div>
-
-                                            <div className="col-span-1 md:col-span-2">
-                                                <Label className="text-gray-500 text-xs">เงื่อนไขการเข้าร่วม</Label>
-                                                {formData.conditions?.length > 0 ? (
-                                                    <ul className="list-decimal pl-5 text-sm text-gray-700 mt-1 space-y-1">
-                                                        {formData.conditions.map((item, i) => <li key={i}>{item}</li>)}
-                                                    </ul>
-                                                ) : <div className="text-sm text-gray-500 mt-1">-</div>}
-                                            </div>
-
-                                            <div className="col-span-1 md:col-span-2">
-                                                <Label className="text-gray-500 text-xs">สิทธิประโยชน์</Label>
-                                                {formData.benefits?.length > 0 ? (
-                                                    <ul className="list-disc pl-5 text-sm text-gray-700 mt-1 space-y-1">
-                                                        {formData.benefits.map((item, i) => <li key={i}>{item}</li>)}
-                                                    </ul>
-                                                ) : <div className="text-sm text-gray-500 mt-1">-</div>}
-                                            </div>
-
-                                            <div className="col-span-1 md:col-span-2">
-                                                <Label className="text-gray-500 text-xs">Soft Skills ที่ประเมิน</Label>
-                                                {formData.softSkills?.length > 0 ? (
-                                                    <div className="flex flex-wrap gap-2 mt-2">
-                                                        {formData.softSkills.map((skill, i) => (
-                                                            <Badge key={i} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                                                                <CheckSquare className="w-3 h-3 mr-1" /> {skill}
-                                                            </Badge>
-                                                        ))}
-                                                    </div>
-                                                ) : <div className="text-sm text-gray-500 mt-1">ไม่ได้ระบุ</div>}
-                                            </div>
-
-                                        </div>
-                                    </div>
-                                </div>
+                                <SectionPublish
+                                    event={event}
+                                    activities={activities}
+                                    errors={eventErrors}
+                                    onChangeEvent={patchEvent}
+                                    onFieldBlur={handleEventFieldBlur}
+                                />
                             )}
-
                         </div>
 
-                        {/* Footer Actions */}
-                        <div className="flex justify-between mt-8">
+                        <div className="mt-6 flex justify-between">
                             <Button variant="outline" onClick={handleBack}>
-                                {step === 1 ? 'ย้อนกลับ' : 'ก่อนหน้า'}
+                                {step === 1 ? "ยกเลิก" : "ก่อนหน้า"}
                             </Button>
-
-                            <Button
-                                onClick={step === 4 ? async () => {
-                                    setSubmitting(true)
-                                    setError("")
-                                    try {
-                                        let imageUrl = undefined;
-                                        if (formData.imageFile) {
-                                            const uploadRes = await activitiesAPI.uploadImage(formData.imageFile);
-                                            if (uploadRes && uploadRes.imageUrl) {
-                                                imageUrl = uploadRes.imageUrl;
-                                            }
-                                        }
-
-                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                        const updateData: any = {
-                                            name: formData.name,
-                                            description: formData.description,
-                                            category: formData.category,
-                                            date: formData.date,
-                                            startTime: formData.startTime,
-                                            endTime: formData.endTime,
-                                            location: formData.location,
-                                            capacity: parseInt(formData.capacity) || 0,
-                                            tags: formData.tags,
-                                            conditions: formData.conditions,
-                                            benefits: formData.benefits,
-                                            softSkills: formData.softSkills,
-                                        }
-
-                                        if (imageUrl) {
-                                            updateData.imageUrl = imageUrl;
-                                        }
-
-                                        await activitiesAPI.update(id, updateData)
-                                        router.push('/organizer/manage')
-                                    } catch (err: unknown) {
-                                        const e = err as Error;
-                                        setError(e.message || 'แก้ไขกิจกรรมไม่สำเร็จ')
-                                    } finally {
-                                        setSubmitting(false)
-                                    }
-                                } : handleNext}
-                                className="bg-blue-600 hover:bg-blue-700 w-32"
-                                disabled={submitting}
-                            >
-                                {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />กำลังบันทึก...</> : step === 4 ? 'บันทึก' : 'ถัดไป'}
+                            <Button onClick={step === STEPS.length ? handleSave : handleNext} disabled={submitting} className="w-36">
+                                {submitting ? (
+                                    <>
+                                        <Loader2 className="size-4 animate-spin" />
+                                        กำลังบันทึก...
+                                    </>
+                                ) : step === STEPS.length ? (
+                                    "บันทึกการแก้ไข"
+                                ) : (
+                                    "ถัดไป"
+                                )}
                             </Button>
                         </div>
-                    </>
-                )}
-            </div>
+                    </div>
+                </div>
+            </Container>
         </div>
     )
 }

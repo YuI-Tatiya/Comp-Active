@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -13,20 +14,30 @@ const Dialog = ({
     onOpenChange?: (open: boolean) => void
     children: React.ReactNode
 }) => {
-    if (!open) return null
+    // พอร์ทัลไป document.body เสมอ — ไม่งั้น position:fixed ของ dialog จะยึดกรอบของ ancestor ที่มี
+    // transform/contain/filter แทนวิวพอร์ตจริง (เช่น การ์ดฟอร์มในวิซาร์ดสร้าง/แก้ไขงานที่ใส่ contain:layout
+    // กันปัญหา overflow-auto รายงานความสูงหน้าเว็บผิด — ถ้า Dialog ไม่พอร์ทัล จะโดนย่อให้เล็กเท่ากรอบการ์ดไปด้วย)
+    // useEffect กัน document ไม่มีตอน SSR
+    const [mounted, setMounted] = React.useState(false)
+    React.useEffect(() => setMounted(true), [])
 
-    return (
+    if (!open || !mounted) return null
+
+    return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+                className="fixed inset-0 animate-dialog-backdrop bg-black/50 backdrop-blur-sm"
                 onClick={() => onOpenChange?.(false)}
             />
             {/* Content */}
-            <div className="relative z-50 w-full max-w-lg rounded-lg bg-white p-6 shadow-lg animate-in fade-in-0 zoom-in-95 duration-200">
+            {/* ฟอร์มยาวกว่าจอได้ (เช่น ลงทะเบียนกิจกรรมที่มีแบบสอบถาม) — จำกัดความสูงเท่าวิวพอร์ตแล้วเลื่อนในกล่อง
+                ไม่งั้นกล่อง fixed ล้นขอบบน/ล่าง ปุ่มยืนยันหลุดจอและเลื่อนไม่ได้ (dvh = ไม่โดนแถบ URL ของมือถือบัง) */}
+            <div className="relative z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg animate-dialog-pop overflow-y-auto overscroll-contain rounded-2xl border border-border bg-bg p-6 shadow-lg">
                 {children}
             </div>
-        </div>
+        </div>,
+        document.body
     )
 }
 
@@ -47,7 +58,7 @@ const DialogTitle = ({ className, children }: React.HTMLAttributes<HTMLHeadingEl
 )
 
 const DialogDescription = ({ className, children }: React.HTMLAttributes<HTMLParagraphElement>) => (
-    <p className={cn("text-sm text-gray-500", className)}>
+    <p className={cn("text-sm text-fg-muted", className)}>
         {children}
     </p>
 )
@@ -61,7 +72,7 @@ const DialogFooter = ({ className, children }: React.HTMLAttributes<HTMLDivEleme
 const DialogClose = ({ onClick, className }: { onClick?: () => void, className?: string }) => (
     <button
         onClick={onClick}
-        className={cn("absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-950 focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-gray-100 data-[state=open]:text-gray-500", className)}
+        className={cn("absolute right-4 top-4 rounded-sm opacity-70 ring-offset-bg transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-fg focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-surface data-[state=open]:text-fg-muted", className)}
     >
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>

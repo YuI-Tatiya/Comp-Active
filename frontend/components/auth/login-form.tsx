@@ -1,11 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { User, Lock, Loader2 } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
+import Link from "next/link"
+import { ArrowRight, AtSign, Loader2, User } from "lucide-react"
+import { AMBER_BUTTON } from "@/components/denim/denim-ui"
+import { AuthError, AuthIconInput, AuthLabel, AuthPasswordInput } from "@/components/auth/auth-shell"
+import { ACCOUNT_NOT_VERIFIED_HINT, useAuth } from "@/lib/auth-context"
+import { cn } from "@/lib/utils"
 
 export function LoginForm() {
     const { login } = useAuth()
@@ -34,54 +35,68 @@ export function LoginForm() {
         }
     }
 
+    const needsVerification = error.includes(ACCOUNT_NOT_VERIFIED_HINT)
+
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
             {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg p-3">
+                <AuthError>
                     {error}
-                </div>
+                    {needsVerification && (
+                        <Link
+                            href={`/auth/verify?email=${encodeURIComponent(identifier)}`}
+                            className="mt-1.5 block font-semibold underline underline-offset-4"
+                        >
+                            ไปหน้ายืนยัน OTP
+                        </Link>
+                    )}
+                </AuthError>
             )}
 
-            <div className="space-y-2">
-                <Label htmlFor="identifier">อีเมล (นักศึกษา) หรือ Username (ผู้จัดกิจกรรม)</Label>
-                <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                        id="identifier"
-                        type="text"
-                        placeholder="your.email@kkumail.com หรือ username"
-                        className="pl-10"
-                        value={identifier}
-                        onChange={(e) => setIdentifier(e.target.value)}
-                        disabled={loading}
-                    />
-                </div>
+            <div>
+                <AuthLabel htmlFor="identifier">Username</AuthLabel>
+                <AuthIconInput
+                    id="identifier"
+                    icon={User}
+                    type="text"
+                    autoComplete="username"
+                    placeholder="yourname@kkumail.com"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    disabled={loading}
+                    aria-describedby="identifier-hint"
+                />
+                <p id="identifier-hint" className="mt-2 flex items-center gap-1.5 text-xs text-denim-muted">
+                    <AtSign className="size-3.5 shrink-0" aria-hidden="true" />
+                    นักศึกษา: กรอกอีเมล <strong className="font-semibold text-denim-deep">@kkumail.com</strong> ของคุณ
+                </p>
             </div>
-            <div className="space-y-2">
-                <Label htmlFor="password">รหัสผ่าน</Label>
-                <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                        id="password"
-                        type="password"
-                        placeholder="••••••••"
-                        className="pl-10"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        disabled={loading}
-                    />
-                </div>
+
+            <div>
+                <AuthLabel htmlFor="password">Password</AuthLabel>
+                <AuthPasswordInput
+                    id="password"
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                />
             </div>
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
+
+            <button type="submit" disabled={loading} className={cn(AMBER_BUTTON, "mt-1 w-full disabled:cursor-wait disabled:opacity-80")}>
                 {loading ? (
                     <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        <Loader2 className="size-5 animate-spin" aria-hidden="true" />
                         กำลังเข้าสู่ระบบ...
                     </>
                 ) : (
-                    "เข้าสู่ระบบ"
+                    <>
+                        เข้าสู่ระบบ
+                        <ArrowRight className="size-5" aria-hidden="true" />
+                    </>
                 )}
-            </Button>
+            </button>
         </form>
     )
 }

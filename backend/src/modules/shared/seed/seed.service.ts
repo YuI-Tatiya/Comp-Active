@@ -23,9 +23,7 @@ export class SeedService implements OnApplicationBootstrap {
     if (exists) return;
 
     const hashed = await bcrypt.hash(password, 10);
-    await this.prisma.user.create({
-      data: { name: 'Admin', email, password: hashed, role: 'admin' },
-    });
+    await this.prisma.user.create({ data: { name: 'Admin', email, password: hashed, role: 'admin' } });
 
     this.logger.log(`Admin seeded: ${email}`);
   }

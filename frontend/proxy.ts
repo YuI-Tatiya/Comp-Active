@@ -1,19 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ADMIN_HOSTS, hostnameOf } from './lib/admin-host';
 
 const ADMIN_PREFIX = '/admin';
 
+// ที่อยู่ภายในของตัว server เอง — คำขอจากผู้ใช้จริงจะไม่มีทางมาด้วย Host พวกนี้
+// เพราะ nginx ส่ง `Host $host` (app.localhost / admin.localhost) มาให้เสมอ
+// และ container frontend ก็ไม่ได้ publish port ออกนอก (ดู docker-compose.yml)
+const INTERNAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', 'frontend']);
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  // nextUrl.hostname gets normalized by Next.js in dev mode — the raw Host header
-  // (or x-forwarded-host behind a proxy) is what actually reflects the requested subdomain.
-  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
-  const hostname = host.split(':')[0];
-  const isAdminHost = hostname.startsWith('admin.');
+
+  // ตัดสินจาก Host header เป็นหลัก — ห้ามเชื่อ x-forwarded-host ที่ client ส่งมา
+  // (ทดสอบแล้วว่า Next ปล่อยค่าที่ client ปลอมผ่านเข้ามาตรง ๆ ไม่ได้เขียนทับให้)
+  // ไม่งั้นจะยิง `curl -H "X-Forwarded-Host: admin.localhost" http://app.localhost/`
+  // เข้าโซนแอดมินได้จาก origin ของนักศึกษา
+  const hostname = hostnameOf(request.headers.get('host'));
+  let isAdminHost = ADMIN_HOSTS.includes(hostname);
+
+  // ข้อยกเว้นเดียว: หลัง rewrite ด้านล่าง Next จะเรียก proxy ซ้ำอีกรอบด้วย
+  // Host = ที่อยู่ภายในของ server (เช่น localhost:3000) เหลือ x-forwarded-host
+  // ตัวเดียวที่ยังจำโดเมนเดิมได้ รอบนั้นจึงต้องยอมอ่าน xfh ไม่งั้น /admin จะเด้งกลับ /
+  // เป็นลูป 307 — และเพราะเช็ค INTERNAL_HOSTS ไว้ก่อน คำขอจากภายนอกจึงเข้าทางนี้ไม่ได้
+  if (!isAdminHost && INTERNAL_HOSTS.has(hostname)) {
+    isAdminHost = ADMIN_HOSTS.includes(hostnameOf(request.headers.get('x-forwarded-host')));
+  }
 
   if (isAdminHost) {
     if (pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`)) {
-      // Already physically under /admin (shouldn't normally happen from a clean link,
-      // but avoids double-prefixing if it does).
+      // Already physically under /admin (the internal hop after our own rewrite,
+      // or a clean link) — let it through without double-prefixing.
       return NextResponse.next();
     }
     const url = request.nextUrl.clone();
@@ -33,6 +49,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

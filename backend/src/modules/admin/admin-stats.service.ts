@@ -19,26 +19,18 @@ export class AdminStatsService {
    * ดึงสถิติ Dashboard สำหรับ Admin
    */
   async getDashboardStats() {
-    const [totalUsers, totalActivities, totalRegistrations, pendingActivities, usersByRole] =
-      await Promise.all([
-        this.usersService.countAll(),
-        this.activitiesService.countAll(),
-        this.registrationsService.countAll(),
-        this.activitiesService.countPending(),
-        this.usersService.countByRole(),
-      ]);
+    const [totalUsers, totalActivities, totalRegistrations, usersByRole] = await Promise.all([
+      this.usersService.countAll(),
+      this.activitiesService.countAll(),
+      this.registrationsService.countAll(),
+      this.usersService.countByRole(),
+    ]);
 
-    return {
-      totalUsers,
-      totalActivities,
-      totalRegistrations,
-      pendingActivities,
-      usersByRole,
-    };
+    return { totalUsers, totalActivities, totalRegistrations, usersByRole };
   }
 
   /**
-   * ค่าเฉลี่ยคะแนนทักษะ 5 ด้านของทั้งแพลตฟอร์ม (รวมจาก Evaluation ที่มีอยู่แล้ว — ไม่มี schema ใหม่)
+   * ค่าเฉลี่ยคะแนนทักษะ 12 ด้านของทั้งแพลตฟอร์ม (รวมจาก Evaluation ที่มีอยู่แล้ว — ไม่มี schema ใหม่)
    */
   async getSkillsAnalytics() {
     const result = await this.evaluationsRepository.aggregateSkills();
@@ -46,11 +38,18 @@ export class AdminStatsService {
     return {
       totalEvaluations: result._count,
       averages: {
-        teamwork: result._avg.teamwork ?? 0,
-        leadership: result._avg.leadership ?? 0,
         communication: result._avg.communication ?? 0,
-        problemSolving: result._avg.problemSolving ?? 0,
-        adaptability: result._avg.adaptability ?? 0,
+        timeManagement: result._avg.timeManagement ?? 0,
+        flexibilityAdaptability: result._avg.flexibilityAdaptability ?? 0,
+        teamworkCollaboration: result._avg.teamworkCollaboration ?? 0,
+        analyticCriticalThinking: result._avg.analyticCriticalThinking ?? 0,
+        decisionMaking: result._avg.decisionMaking ?? 0,
+        creativity: result._avg.creativity ?? 0,
+        complexProblemSolving: result._avg.complexProblemSolving ?? 0,
+        curiosityLifelongLearning: result._avg.curiosityLifelongLearning ?? 0,
+        negotiationPersuasion: result._avg.negotiationPersuasion ?? 0,
+        leadership: result._avg.leadership ?? 0,
+        positiveAttitude: result._avg.positiveAttitude ?? 0,
       },
     };
   }
