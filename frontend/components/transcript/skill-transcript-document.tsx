@@ -2,7 +2,7 @@
 import Image from "next/image"
 import { QRCodeSVG } from "qrcode.react"
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts"
-import { SOFT_SKILLS } from "@/lib/soft-skills"
+import { MAX_SOFT_SKILL_LEVEL, SOFT_SKILLS } from "@/lib/soft-skills"
 import {
     formatThaiDate,
     formatTranscriptCode,
@@ -92,7 +92,7 @@ export function SkillTranscriptDocument({ snapshot, code, issuedAt, verifyUrl }:
                 <section className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3 print:grid-cols-3">
                     <Summary label="แต้มสะสม" value={snapshot.summary.totalScore.toLocaleString("th-TH")} />
                     <Summary label="กิจกรรมที่เข้าร่วม" value={String(snapshot.summary.activityCount)} />
-                    <Summary label="ค่าเฉลี่ยรวม (เต็ม 5)" value={snapshot.summary.overallAverage.toFixed(2)} />
+                    <Summary label={`ค่าเฉลี่ยรวม (เต็ม ${MAX_SOFT_SKILL_LEVEL})`} value={snapshot.summary.overallAverage.toFixed(2)} />
                 </section>
 
                 {/* กราฟ + ตารางทักษะ */}
@@ -101,7 +101,7 @@ export function SkillTranscriptDocument({ snapshot, code, issuedAt, verifyUrl }:
                         <RadarChart width={300} height={300} cx="50%" cy="50%" outerRadius="75%" data={chartData}>
                             <PolarGrid stroke="#cbd6e6" />
                             <PolarAngleAxis dataKey="n" tick={{ fill: "#12223d", fontSize: 12, fontWeight: 700 }} />
-                            <PolarRadiusAxis angle={30} domain={[0, 5]} tick={false} axisLine={false} />
+                            <PolarRadiusAxis angle={30} domain={[0, MAX_SOFT_SKILL_LEVEL]} tick={false} axisLine={false} />
                             <Radar dataKey="A" stroke="#1f3a63" strokeWidth={2} fill="#3a5f95" fillOpacity={0.35} isAnimationActive={false} />
                         </RadarChart>
                     </div>
