@@ -2,10 +2,12 @@
 
 import * as React from "react"
 import Image from "next/image"
+import { usePathname } from "next/navigation"
 import { X, Send, Loader2, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { chatbotAPI, type ChatHistoryItem } from "@/lib/api"
 import { PUBLIC_ADMIN_HOSTS, isAdminHostname } from "@/lib/admin-host"
+import { BOTTOM_NAV_CLEARANCE } from "@/components/layout/bottom-nav"
 
 type Corner = "br" | "bl" | "tr" | "tl"
 
@@ -88,6 +90,22 @@ export function MascotWidget() {
     const movedRef = React.useRef(false)
     const startRef = React.useRef({ x: 0, y: 0 })
     const messagesEndRef = React.useRef<HTMLDivElement>(null)
+
+    // โซน student/organizer บนจอแคบ (< lg) มีแถบเมนูล่างติดขอบจอ (BottomNav) อยู่แล้ว — ต้องยกมาสคอต
+    // ขึ้นพ้นบาร์นั้น ไม่งั้นทับกัน (ทั้งปุ่มหัวมาสคอตตอนซ่อน และมุม br/bl ตอนแสดงปกติ)
+    // ใช้ pathname เช็คได้ตรงนี้ (ต่างจากเช็คแอดมินด้านล่างที่ต้องเช็ค hostname) เพราะ /student, /organizer
+    // เป็น route จริงของ Next ไม่ใช่โดเมนที่ proxy.ts รีไรต์แบบแอดมิน
+    const pathname = usePathname()
+    const isAppPortalRoute = pathname.startsWith("/student") || pathname.startsWith("/organizer")
+    const [isBelowLg, setIsBelowLg] = React.useState(false)
+    React.useEffect(() => {
+        const mq = window.matchMedia("(max-width: 1023px)") // ตรงกับ breakpoint lg ของ Tailwind ที่ BottomNav ใช้ (lg:hidden)
+        const update = () => setIsBelowLg(mq.matches)
+        update()
+        mq.addEventListener("change", update)
+        return () => mq.removeEventListener("change", update)
+    }, [])
+    const clearBottomNav = isAppPortalRoute && isBelowLg
 
     React.useEffect(() => {
         setMounted(true)
@@ -256,7 +274,13 @@ export function MascotWidget() {
                 onClick={showMascot}
                 aria-label="แสดงผู้ช่วย Comp Active"
                 title="ผู้ช่วย Comp Active"
-                className="fixed bottom-4 right-4 z-50 rounded-full transition-transform hover:-translate-y-0.5 hover:scale-105 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim active:scale-95 sm:bottom-5 sm:right-5"
+                className={cn(
+                    "fixed right-4 z-50 rounded-full transition-transform hover:-translate-y-0.5 hover:scale-105 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim active:scale-95 sm:right-5",
+                    // ค่านี้พิมพ์ตรงๆ (ไม่ได้ต่อ string จาก BOTTOM_NAV_CLEARANCE) เพราะ Tailwind สแกนหา class
+                    // จากซอร์สโค้ดตรงๆ ใส่ string ที่ประกอบตอน runtime จะไม่ถูกสแกนเจอ — ต้องแก้คู่กับ
+                    // BAR_HEIGHT_PX ใน bottom-nav.tsx เองถ้าความสูงบาร์เปลี่ยน
+                    clearBottomNav ? "bottom-[calc(68px+env(safe-area-inset-bottom,0px)+12px)]" : "bottom-4 sm:bottom-5"
+                )}
             >
                 <Image
                     src="/mascot-head.png"
@@ -281,7 +305,10 @@ export function MascotWidget() {
             style={
                 isDragging && dragPos
                     ? { left: dragPos.x - AVATAR_W / 2, top: dragPos.y - AVATAR_H / 2 }
-                    : CORNER_POSITION[corner]
+                    : // มุมล่าง (br/bl) ชนแถบเมนูล่างพอดีถ้าไม่ยกขึ้น — มุมบน (tr/tl) ใช้ top อยู่แล้ว ไม่กระทบ
+                      clearBottomNav && (corner === "br" || corner === "bl")
+                      ? { ...CORNER_POSITION[corner], bottom: BOTTOM_NAV_CLEARANCE }
+                      : CORNER_POSITION[corner]
             }
         >
             <div
