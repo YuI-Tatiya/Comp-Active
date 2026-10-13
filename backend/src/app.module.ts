@@ -8,6 +8,7 @@ import { PrismaModule } from "./prisma/prisma.module";
 import jwtConfig from "./config/jwt.config";
 import databaseConfig from "./config/database.config";
 import gatewayConfig from "./config/gateway.config";
+import storageConfig from "./config/storage.config";
 
 // Role modules (own the role-specific controllers)
 import { AdminModule } from "./modules/admin/admin.module";
@@ -35,7 +36,7 @@ import { ChatbotModule } from "./modules/shared/chatbot/chatbot.module";
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ".env",
-      load: [jwtConfig, databaseConfig, gatewayConfig],
+      load: [jwtConfig, databaseConfig, gatewayConfig, storageConfig],
     }),
 
     // Database (PostgreSQL via Prisma)

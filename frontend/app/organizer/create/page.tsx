@@ -8,7 +8,7 @@ import { ArrowLeft, Loader2 } from "lucide-react"
 import {
     activitiesAPI,
     eventsAPI,
-    API_BASE_URL,
+    resolveUploadUrl,
     type CreateEventActivityBody,
     type QuestionBody,
     type SurveyQuestionBody,
@@ -176,7 +176,7 @@ export default function CreateEventPage() {
             if (nextEvent.imageFile) {
                 const uploadRes = await activitiesAPI.uploadImage(nextEvent.imageFile)
                 if (uploadRes?.imageUrl) {
-                    nextEvent = { ...nextEvent, imageFile: null, imagePreview: `${API_BASE_URL}${uploadRes.imageUrl}` }
+                    nextEvent = { ...nextEvent, imageFile: null, imagePreview: resolveUploadUrl(uploadRes.imageUrl)! }
                 }
             }
 
@@ -186,7 +186,7 @@ export default function CreateEventPage() {
                 if (next.imageFile) {
                     const uploadRes = await activitiesAPI.uploadImage(next.imageFile)
                     if (uploadRes?.imageUrl) {
-                        next = { ...next, imageFile: null, imagePreview: `${API_BASE_URL}${uploadRes.imageUrl}` }
+                        next = { ...next, imageFile: null, imagePreview: resolveUploadUrl(uploadRes.imageUrl)! }
                     }
                 }
                 if (next.attachmentFile) {

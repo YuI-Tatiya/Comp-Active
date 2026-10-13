@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Award, CalendarClock, FileDown, HeartHandshake, Tag, Users, Zap } from "lucide-react"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
 import { ActivityStatusNotice, typeRequirements } from "@/components/activity/activity-info-panels"
-import { API_BASE_URL, capacityLabel, type Activity } from "@/lib/api"
+import { resolveUploadUrl, capacityLabel, type Activity } from "@/lib/api"
 import {
     THREE_SIXTY_NOTE,
     describeSkillBenefits,
@@ -104,7 +104,7 @@ export function AboutSection({ index, intro, activity, sessionLabel, showActivit
             {showActivityImage && activity.imageUrl && (
                 <div className="aspect-video w-full overflow-hidden rounded-xl border border-denim-line bg-denim-paper">
                     {/* eslint-disable-next-line @next/next/no-img-element -- รูปอัปโหลดเสิร์ฟจาก backend (/uploads) */}
-                    <img src={`${API_BASE_URL}${activity.imageUrl}`} alt={activity.name} className="size-full object-cover" />
+                    <img src={resolveUploadUrl(activity.imageUrl)!} alt={activity.name} className="size-full object-cover" />
                 </div>
             )}
 
@@ -122,7 +122,7 @@ export function AboutSection({ index, intro, activity, sessionLabel, showActivit
 
             {activity.attachmentUrl && (
                 <a
-                    href={`${API_BASE_URL}${activity.attachmentUrl}`}
+                    href={resolveUploadUrl(activity.attachmentUrl)!}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex min-h-11 items-center gap-2 rounded-xl border-[1.5px] border-denim-field bg-white px-4 text-sm font-semibold text-denim transition-colors hover:bg-denim-paper"

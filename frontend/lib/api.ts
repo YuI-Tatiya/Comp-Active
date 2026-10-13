@@ -2,10 +2,16 @@
 
 import { ApiError, classifyApiError, SESSION_CHECK_EVENT } from './api-error';
 export { ApiError } from './api-error';
-import { resolveApiBaseUrl } from './api-base';
+import { resolveApiBaseUrl, buildUploadUrl } from './api-base';
 
 // "same-origin" → '' = ยิง path สัมพัทธ์ (/api/..., /uploads/...) ไปที่โดเมนของหน้าเว็บเอง ดู lib/api-base.ts
 export const API_BASE_URL = resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
+
+// เติม API_BASE_URL ให้ path ที่ backend เก็บ (รูปกิจกรรม/ไฟล์แนบ) — URL เต็มของ R2/CDN ผ่านมาตามเดิม
+// ไม่ต่อซ้ำ ดู buildUploadUrl ใน lib/api-base.ts สำหรับเหตุผล ใช้แทน `${API_BASE_URL}${path}` ทุกที่
+export function resolveUploadUrl(path: string | null | undefined): string | null {
+  return buildUploadUrl(path, API_BASE_URL);
+}
 
 // ==================== TYPES ====================
 

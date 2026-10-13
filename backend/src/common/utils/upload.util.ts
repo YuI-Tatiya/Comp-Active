@@ -1,5 +1,4 @@
 import { BadRequestException } from "@nestjs/common";
-import { openSync, readSync, closeSync, unlinkSync } from "fs";
 
 /**
  * A05 Injection / A02 Security Misconfiguration — ตรวจไฟล์อัปโหลดให้ลึกกว่าชื่อไฟล์
@@ -98,34 +97,20 @@ export function makeFileFilter(kind: UploadKind) {
 }
 
 /**
- * ตรวจ magic bytes หลังไฟล์ถูกเขียนลงดิสก์ ถ้าไม่ผ่านให้ลบทิ้งทันที
- * เป็นด่านสุดท้ายที่ปลอมด้วย header ของ HTTP ไม่ได้ เพราะอ่านจากเนื้อไฟล์จริง
+ * ตรวจ magic bytes จากเนื้อไฟล์ที่อัปโหลดจริง (buffer ใน memory ก่อนจะเขียนลงที่เก็บใดๆ)
+ * เป็นด่านสุดท้ายที่ปลอมด้วย header ของ HTTP ไม่ได้ เพราะอ่านจากเนื้อไฟล์จริง ไม่ใช่ชื่อ/mimetype ที่ประกาศมา
+ *
+ * เดิมเขียนไฟล์ลงดิสก์ก่อนแล้วเปิดกลับมาอ่าน (multer diskStorage) — ย้ายมาตรวจจาก buffer ตรง ๆ
+ * เพราะที่เก็บไฟล์ตอนนี้เลือกได้ทั้งดิสก์และ R2 (ดู modules/shared/storage) ไม่มี "ไฟล์บนดิสก์" ให้เปิดอ่านเสมอไป
  */
-export function assertRealFileType(kind: UploadKind, filePath: string): void {
-  let header: Buffer;
-
-  try {
-    const fd = openSync(filePath, "r");
-    try {
-      header = Buffer.alloc(8);
-      readSync(fd, header, 0, 8, 0);
-    } finally {
-      closeSync(fd);
-    }
-  } catch {
-    throw new BadRequestException("ไม่สามารถอ่านไฟล์ที่อัปโหลดได้");
-  }
+export function assertRealFileType(kind: UploadKind, buffer: Buffer): void {
+  const header = buffer.subarray(0, 8);
 
   const matches = kind.signatures.some((sig) =>
     sig.every((byte, i) => header[i] === byte),
   );
 
   if (!matches) {
-    try {
-      unlinkSync(filePath);
-    } catch {
-      /* ลบไม่ได้ก็ยังต้องปฏิเสธคำขอ */
-    }
     throw new BadRequestException(`เนื้อหาไฟล์ไม่ใช่${kind.label} จริง`);
   }
 }

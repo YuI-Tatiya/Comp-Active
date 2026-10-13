@@ -9,7 +9,7 @@ import { Input, type InputProps } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import type { FilterSpec } from "@/components/ui/filter-bar"
 import { cn } from "@/lib/utils"
-import { API_BASE_URL } from "@/lib/api"
+import { resolveUploadUrl } from "@/lib/api"
 
 /* ชิ้นส่วนธีม Denim Varsity ที่ใช้ร่วมกันหลายหน้า — พอร์ทัลผู้จัด (หน้าหลัก /organizer, จัดการ /organizer/manage,
    แดชบอร์ด /organizer/dashboard) และหน้าแรกฝั่ง public (/)
@@ -585,7 +585,7 @@ export function referenceCode(prefix: "EVT" | "ACT", id: number): string {
  * โหลดไม่ขึ้น → show = false ให้ปกกลับไปใช้ลายของธีม จำ src ที่เสียไว้ (ไม่ใช่แค่ true/false) ถ้าเปลี่ยนรูปภายหลังจะลองใหม่เอง
  */
 export function useUploadImage(path: string | null | undefined) {
-    const src = path ? `${API_BASE_URL}${path}` : null
+    const src = resolveUploadUrl(path)
     const [failedSrc, setFailedSrc] = useState<string | null>(null)
     return { src, show: src !== null && src !== failedSrc, onError: () => setFailedSrc(src) }
 }
