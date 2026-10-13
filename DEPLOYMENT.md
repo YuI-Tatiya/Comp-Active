@@ -134,26 +134,44 @@ You now have all five `R2_*` values for backend env in step 3.2.
        **Custom Domain** → add `api.yourdomain.com`. Railway shows a CNAME
        target — add that at your DNS provider (section 4).
 
-### 2.3 Running the migration (`migrator` target)
+### 2.3 Running the migration (`backend/Dockerfile.migrate`)
 
 Railway doesn't have docker-compose's `depends_on: service_completed_successfully`
 — there's no automatic "run this once, then start that" ordering between two
 services. The lean-production-image approach (keep the Prisma CLI out of the
 image that actually serves traffic — see `CLAUDE.md`) means the `runner`
 image literally *can't* run `prisma db push`, so this has to be a second,
-deliberate step, not an automatic one:
+deliberate step, not an automatic one.
+
+This originally pointed at the `migrator` stage of the main `Dockerfile` via
+a build-target override, but Railway's "Config as Code" (`railway.toml`,
+the only way to pick a non-default build stage in the dashboard) is
+deprecated and — since 2026-08-28 — **not available at all to a service that
+has never used it before**, which rules it out for a service created fresh
+today. `backend/Dockerfile.migrate` sidesteps the whole problem: it's a
+single-stage Dockerfile with no stage to pick, built and verified locally
+(`docker build -f Dockerfile.migrate .` then run against a real Postgres)
+before this was written here. It's also leaner than the old `migrator`
+stage — `migrate.sh` only ever runs Prisma CLI commands against
+`prisma/schema.prisma` and `prisma/backfills/*.sql`, so this image skips
+`npm run build`/`dist/` entirely, nothing in `src/` is even copied in.
 
 1. [ ] Add a **second Railway service** in the same project, same repo, root
-       directory `backend`, but build target `migrator` instead of `runner`.
-2. [ ] Give it the same `DATABASE_URL` reference as the backend service (and
-       `PRISMA_ACCEPT_DATA_LOSS` if you need it for a specific deploy).
-3. [ ] **Settings** → set it to **not** auto-restart (it's meant to run once
+       directory `backend`.
+2. [ ] **Settings → Build**: Builder = `Dockerfile`, Dockerfile Path =
+       `Dockerfile.migrate` (not the default `Dockerfile`).
+3. [ ] **Variables** — just two:
+       ```
+       DATABASE_URL=${{Postgres.DATABASE_URL}}
+       PRISMA_ACCEPT_DATA_LOSS=false
+       ```
+4. [ ] **Settings → Deploy** → turn off auto-restart (it's meant to run once
        and exit cleanly — `migrate.sh` already does this; an unexpected
        restart loop here is a sign the migration itself is failing, not
        something to "fix" by restarting it forever).
-4. [ ] **Before every deploy that changes `prisma/schema.prisma`:** manually
-       trigger a redeploy of this `migrator` service *first*, wait for it to
-       finish (check its logs for `[migrate] เรียบร้อย`), *then* redeploy the
+5. [ ] **Before every deploy that changes `prisma/schema.prisma`:** manually
+       trigger a redeploy of this service *first*, wait for it to finish
+       (check its logs for `[migrate] เรียบร้อย`), *then* redeploy the
        `runner` backend service. Railway may have since added a way to chain
        these automatically — worth checking their current docs rather than
        assuming this manual order is still the only option.
