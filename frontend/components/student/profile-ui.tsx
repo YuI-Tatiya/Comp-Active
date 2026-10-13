@@ -7,7 +7,7 @@ import type { LucideIcon } from "lucide-react"
 import { ArrowRight, BarChart3, FileCheck2, FileDown, FileText, Loader2, Lock, UserRound } from "lucide-react"
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer } from "recharts"
 import { Container } from "@/components/layout/container"
-import { TerminalPrompt } from "@/components/denim/denim-ui"
+import { AmberAvatarPatch, DenimInfoChip, TerminalPrompt, nameInitial } from "@/components/denim/denim-ui"
 import { skillBarPercent } from "@/components/student/student-home-ui"
 import { formatEventDate } from "@/components/ui/event-card"
 import type { SkillScores, SkillsData } from "@/lib/api"
@@ -21,21 +21,6 @@ import { cn } from "@/lib/utils"
 export type ProfileTab = "softskills" | "edit"
 
 /* ── แถบหัวโปรไฟล์ ───────────────────────────────────────────────────────── */
-
-/** ตัวอักษรบนอวตาร — ข้ามสระหน้า (เ แ โ ใ ไ) ไม่งั้นชื่ออย่าง "เกศินี" ได้ "เ" ลอยอยู่ตัวเดียว */
-function nameInitial(name: string): string {
-    const trimmed = name.trim().replace(/^[เแโใไ]/, "")
-    return (trimmed.charAt(0) || "?").toUpperCase()
-}
-
-function InfoChip({ label, value }: { label: string; value: string }) {
-    return (
-        <span className="inline-flex max-w-full items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 font-code text-xs">
-            <span className="text-amber">{label}</span>
-            <span className="min-w-0 truncate text-white">{value}</span>
-        </span>
-    )
-}
 
 const TABS: { value: ProfileTab; label: string; icon: LucideIcon }[] = [
     { value: "softskills", label: "Soft Skills", icon: BarChart3 },
@@ -66,22 +51,15 @@ export function ProfileHero({
         <section className="denim-weave relative overflow-hidden">
             <Container className="relative pt-8 sm:pt-10">
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6 lg:pr-60">
-                    <span
-                        className="grid size-20 shrink-0 place-items-center rounded-[22px] bg-amber p-1.5 shadow-[0_5px_0_var(--color-amber-deep)] sm:size-[104px]"
-                        aria-hidden="true"
-                    >
-                        <span className="grid size-full place-items-center rounded-[16px] border-2 border-dashed border-denim-deep/30 font-display text-4xl font-bold text-denim-deep sm:text-5xl">
-                            {nameInitial(name)}
-                        </span>
-                    </span>
+                    <AmberAvatarPatch initial={nameInitial(name)} framed />
                     <div className="flex min-w-0 flex-col gap-2">
                         <TerminalPrompt>~/comp-active/student $ cat profile</TerminalPrompt>
                         <h1 className="break-words font-display text-[32px] font-bold leading-[1.15] tracking-[-0.01em] text-white sm:text-[44px]">
                             {name}
                         </h1>
                         <div className="flex flex-wrap gap-2">
-                            <InfoChip label="id" value={studentId || "ไม่ระบุ"} />
-                            <InfoChip label="mail" value={email || "ไม่ระบุ"} />
+                            <DenimInfoChip label="id" value={studentId || "ไม่ระบุ"} />
+                            <DenimInfoChip label="mail" value={email || "ไม่ระบุ"} />
                         </div>
                     </div>
                 </div>

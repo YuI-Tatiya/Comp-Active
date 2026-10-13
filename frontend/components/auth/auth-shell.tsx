@@ -1,10 +1,8 @@
 "use client"
 
-import { forwardRef, useState } from "react"
 import Link from "next/link"
-import type { LucideIcon } from "lucide-react"
-import { ArrowLeft, Eye, EyeOff, Lock } from "lucide-react"
-import { Input, type InputProps } from "@/components/ui/input"
+import { ArrowLeft } from "lucide-react"
+import { DENIM_FORM_INPUT, DenimIconInput, DenimPasswordInput } from "@/components/denim/denim-ui"
 import { cn } from "@/lib/utils"
 
 /* โครงหน้า auth ธีม Denim Varsity (เข้าสู่ระบบ/ลงทะเบียน และสมัครเป็นผู้จัด) — การ์ดสองแผง: ซ้ายพื้นยีนส์ + แถบหมากรุก
@@ -113,42 +111,13 @@ export function AuthLabel({ htmlFor, required, children }: { htmlFor: string; re
     )
 }
 
-/** ช่องกรอกของหน้า auth — สูง 48px มุมมน เส้นขอบกรมท่าอ่อน โฟกัสเป็นเส้นกรมท่า (ใช้กับ Input/Select/textarea) */
-export const AUTH_INPUT =
-    "h-12 rounded-xl border-[1.5px] border-denim-field bg-white px-4 text-[15px] text-denim-deep placeholder:text-denim-muted/70 hover:border-denim-dash focus:border-denim focus:outline-none focus-visible:ring-2 focus-visible:ring-denim/20 aria-[invalid=true]:border-red-500"
-
-/** ช่องกรอกที่มีไอคอนนำหน้า */
-export const AuthIconInput = forwardRef<HTMLInputElement, InputProps & { icon: LucideIcon }>(function AuthIconInput(
-    { icon: Icon, className, ...props },
-    ref
-) {
-    return (
-        <div className="relative">
-            <Icon className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-denim-muted" aria-hidden="true" />
-            <Input ref={ref} className={cn(AUTH_INPUT, "pl-11", className)} {...props} />
-        </div>
-    )
-})
-
-/** ช่องรหัสผ่าน + ปุ่มแสดง/ซ่อน (ไอคอนตาด้านขวา) */
-export const AuthPasswordInput = forwardRef<HTMLInputElement, InputProps>(function AuthPasswordInput({ className, ...props }, ref) {
-    const [visible, setVisible] = useState(false)
-    return (
-        <div className="relative">
-            <Lock className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-denim-muted" aria-hidden="true" />
-            <Input ref={ref} type={visible ? "text" : "password"} className={cn(AUTH_INPUT, "pl-11 pr-12", className)} {...props} />
-            <button
-                type="button"
-                onClick={() => setVisible((v) => !v)}
-                aria-label={visible ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
-                aria-pressed={visible}
-                className="absolute right-2 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-denim-muted transition-colors hover:bg-denim-paper hover:text-denim-deep"
-            >
-                {visible ? <EyeOff className="size-[18px]" aria-hidden="true" /> : <Eye className="size-[18px]" aria-hidden="true" />}
-            </button>
-        </div>
-    )
-})
+/**
+ * ช่องกรอกของหน้า auth — สูง 48px มุมมน เส้นขอบกรมท่าอ่อน โฟกัสเป็นเส้นกรมท่า (ใช้กับ Input/Select/textarea)
+ * ย้ายไปอยู่ใน denim-ui.tsx แล้ว (หน้าตั้งค่าบัญชีก็ใช้) — export ชื่อเดิมไว้กันกระทบที่เรียกใช้เดิม
+ */
+export const AUTH_INPUT = DENIM_FORM_INPUT
+export const AuthIconInput = DenimIconInput
+export const AuthPasswordInput = DenimPasswordInput
 
 /** กล่องแจ้งข้อผิดพลาดของฟอร์ม */
 export function AuthError({ children }: { children: React.ReactNode }) {

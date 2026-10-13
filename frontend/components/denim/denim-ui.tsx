@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { forwardRef, useState } from "react"
 import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
-import { Plus, Search } from "lucide-react"
+import { Eye, EyeOff, Lock, Plus, Search } from "lucide-react"
 import { Container } from "@/components/layout/container"
+import { Input, type InputProps } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import type { FilterSpec } from "@/components/ui/filter-bar"
 import { cn } from "@/lib/utils"
@@ -137,6 +138,56 @@ export function DenimPanel({
         >
             {children}
         </section>
+    )
+}
+
+/* ── แถบหัวโปรไฟล์ (ผู้จัด/นักศึกษา) ───────────────────────────────────────── */
+
+/** ตัวอักษรบนอวตาร — ข้ามสระหน้า (เ แ โ ใ ไ) ไม่งั้นชื่ออย่าง "เกศินี" ได้ "เ" ลอยอยู่ตัวเดียว */
+export function nameInitial(name: string): string {
+    const trimmed = name.trim().replace(/^[เแโใไ]/, "")
+    return (trimmed.charAt(0) || "?").toUpperCase()
+}
+
+/**
+ * อวตารป้ายปักสีอำพัน (มุมมน + ขอบเงาด้านล่าง) — ใช้บนแถบหัวโปรไฟล์ผู้จัด/นักศึกษา
+ * framed = มีกรอบเส้นประในตัวรอบตัวอักษรด้วย (หน้าโปรไฟล์นักศึกษา, ขนาดใหญ่กว่า) — ไม่ใส่ = แผ่นเรียบ (หน้าตั้งค่าผู้จัด)
+ */
+export function AmberAvatarPatch({
+    initial,
+    framed = false,
+    className,
+}: {
+    initial: string
+    framed?: boolean
+    className?: string
+}) {
+    return (
+        <span
+            className={cn(
+                "grid shrink-0 place-items-center rounded-[22px] bg-amber shadow-[0_5px_0_var(--color-amber-deep)]",
+                framed ? "size-20 p-1.5 sm:size-[104px]" : "size-20 font-display text-4xl font-bold text-denim-deep sm:text-5xl",
+                className
+            )}
+        >
+            {framed ? (
+                <span className="grid size-full place-items-center rounded-[16px] border-2 border-dashed border-denim-deep/30 font-display text-4xl font-bold text-denim-deep sm:text-5xl">
+                    {initial}
+                </span>
+            ) : (
+                initial
+            )}
+        </span>
+    )
+}
+
+/** ชิปข้อมูลบนพื้นยีนส์ — ป้ายโค้ด (id/mail/...) + ค่า เช่นแถบหัวโปรไฟล์ */
+export function DenimInfoChip({ label, value }: { label: string; value: string }) {
+    return (
+        <span className="inline-flex max-w-full items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 font-code text-xs">
+            <span className="text-amber">{label}</span>
+            <span className="min-w-0 truncate text-white">{value}</span>
+        </span>
     )
 }
 
@@ -364,6 +415,45 @@ export function StatusTabs({ tabs, value, counts, onChange, className }: StatusT
         </div>
     )
 }
+
+/* ── ฟอร์มสูง 48px (หน้า auth, ตั้งค่าบัญชี) ──────────────────────────────────── */
+
+/** ช่องกรอกสูง 48px ของฟอร์ม — หน้า auth และหน้าตั้งค่าบัญชี (ผู้จัด/นักศึกษา) ใช้ร่วมกัน */
+export const DENIM_FORM_INPUT =
+    "h-12 rounded-xl border-[1.5px] border-denim-field bg-white px-4 text-[15px] text-denim-deep placeholder:text-denim-muted/70 hover:border-denim-dash focus:border-denim focus:outline-none focus-visible:ring-2 focus-visible:ring-denim/20 aria-[invalid=true]:border-red-500"
+
+/** ช่องกรอกที่มีไอคอนนำหน้า (สูง 48px) */
+export const DenimIconInput = forwardRef<HTMLInputElement, InputProps & { icon: LucideIcon }>(function DenimIconInput(
+    { icon: Icon, className, ...props },
+    ref
+) {
+    return (
+        <div className="relative">
+            <Icon className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-denim-muted" aria-hidden="true" />
+            <Input ref={ref} className={cn(DENIM_FORM_INPUT, "pl-11", className)} {...props} />
+        </div>
+    )
+})
+
+/** ช่องรหัสผ่าน (สูง 48px) + ปุ่มแสดง/ซ่อน (ไอคอนตาด้านขวา) */
+export const DenimPasswordInput = forwardRef<HTMLInputElement, InputProps>(function DenimPasswordInput({ className, ...props }, ref) {
+    const [visible, setVisible] = useState(false)
+    return (
+        <div className="relative">
+            <Lock className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-denim-muted" aria-hidden="true" />
+            <Input ref={ref} type={visible ? "text" : "password"} className={cn(DENIM_FORM_INPUT, "pl-11 pr-12", className)} {...props} />
+            <button
+                type="button"
+                onClick={() => setVisible((v) => !v)}
+                aria-label={visible ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+                aria-pressed={visible}
+                className="absolute right-2 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-denim-muted transition-colors hover:bg-denim-paper hover:text-denim-deep"
+            >
+                {visible ? <EyeOff className="size-[18px]" aria-hidden="true" /> : <Eye className="size-[18px]" aria-hidden="true" />}
+            </button>
+        </div>
+    )
+})
 
 /* ── แผงค้นหา + ตัวกรอง ──────────────────────────────────────────────────── */
 

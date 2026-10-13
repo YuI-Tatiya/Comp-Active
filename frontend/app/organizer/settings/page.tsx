@@ -2,16 +2,22 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { Lock, X, UserRound, AtSign, Phone, CalendarPlus, CalendarClock } from "lucide-react"
+import { AtSign, Lock, Phone, UserRound, X } from "lucide-react"
 import { Toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
 import { Container } from "@/components/layout/container"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { DenimIconInput, DenimPanel, DenimPasswordInput } from "@/components/denim/denim-ui"
+import {
+    OrganizerSettingsHero,
+    PasswordRequirements,
+    SettingsDivider,
+    SettingsField,
+    SettingsSectionLabel,
+} from "@/components/organizer/settings-ui"
 import { usersAPI } from "@/lib/api"
-import { formatThaiDate } from "@/lib/transcript"
 
 const EMPTY_FORM = {
     name: "",
@@ -26,6 +32,9 @@ const USERNAME_PATTERN = /^[a-z][a-z0-9_-]{2,31}$/
 // ⚠️ กฎเดียวกับ backend/src/common/constants/password.ts (PASSWORD_MIN_LENGTH=8, PASSWORD_PATTERN)
 const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/
 
+// ที่อยู่เดียวกับ components/layout/site-footer.tsx — ติดต่อผู้ดูแลระบบเรื่องอีเมลที่เปลี่ยนเองไม่ได้
+const CONTACT_EMAIL = "info@computing.kku.ac.th"
+
 export default function OrganizerSettingsPage() {
     const { user, refreshUser } = useAuth()
 
@@ -35,6 +44,8 @@ export default function OrganizerSettingsPage() {
     const [currentPassword, setCurrentPassword] = useState("")
     const [submitting, setSubmitting] = useState(false)
     const [modalError, setModalError] = useState("")
+    // เวลาอ้างอิงตอนเปิดหน้า — ใช้คำนวณอายุบัญชีในแถบหัว
+    const [now] = useState(() => new Date())
 
     const [toast, setToast] = useState<{ open: boolean; message: string; description?: string }>({
         open: false,
@@ -67,6 +78,14 @@ export default function OrganizerSettingsPage() {
         const { name, value } = e.target
         setEditForm((prev) => ({ ...prev, [name]: value }))
     }
+
+    // นับฟิลด์ที่ต่างจากข้อมูลเดิม — ป้าย "changes: N" ข้างปุ่มบันทึก (รหัสผ่านนับเมื่อพิมพ์อะไรไว้ ไม่ต้องรอผ่านเงื่อนไขครบ)
+    const baseline = formFromUser()
+    const changeCount =
+        (editForm.name.trim() !== baseline.name ? 1 : 0) +
+        (editForm.username !== baseline.username ? 1 : 0) +
+        (editForm.phone !== baseline.phone ? 1 : 0) +
+        (editForm.password ? 1 : 0)
 
     function handleSaveClick() {
         setFormError("")
@@ -130,134 +149,122 @@ export default function OrganizerSettingsPage() {
 
     return (
         // ไม่ใส่ min-h-screen — app/organizer/layout.tsx จัดการให้แล้ว
-        <div className="bg-surface font-sans">
-            <Container className="py-12">
-                <div className="mx-auto max-w-2xl space-y-6">
-                    {/* หัวโปรไฟล์ */}
-                    <div className="space-y-4 rounded-2xl border border-border bg-bg p-8 shadow-xs">
-                        <div>
-                            <h1 className="text-2xl font-bold tracking-tight text-fg">{user?.name || "ผู้จัดกิจกรรม"}</h1>
-                            <p className="mt-1 text-sm text-fg-muted">ตั้งค่าบัญชีผู้จัดกิจกรรม</p>
+        <div className="bg-surface pb-16">
+            <OrganizerSettingsHero
+                name={user?.name || "ผู้จัดกิจกรรม"}
+                username={user?.username}
+                email={user?.email}
+                createdAt={user?.createdAt}
+                validUntil={user?.validUntil}
+                now={now}
+            />
+
+            <Container className="mt-8">
+                <DenimPanel labelledBy="account-profile-heading">
+                    {formError && (
+                        <div role="alert" className="mb-5 rounded-xl border border-border bg-danger-bg p-3 text-sm text-danger">
+                            {formError}
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="neutral">@{user?.username || "ไม่ระบุชื่อผู้ใช้"}</Badge>
-                            <Badge variant="neutral">{user?.email}</Badge>
-                            {user?.createdAt && (
-                                <Badge variant="neutral" className="gap-1">
-                                    <CalendarPlus className="size-3" aria-hidden="true" /> สมัครเมื่อ {formatThaiDate(user.createdAt)}
-                                </Badge>
-                            )}
-                            <Badge variant="neutral" className="gap-1">
-                                <CalendarClock className="size-3" aria-hidden="true" />
-                                {user?.validUntil ? `ใช้งานได้ถึง ${formatThaiDate(user.validUntil)}` : "ไม่มีกำหนดหมดอายุ"}
-                            </Badge>
-                        </div>
-                    </div>
+                    )}
 
-                    {/* ฟอร์มแก้ไขข้อมูล */}
-                    <div className="rounded-2xl border border-border bg-bg p-8 shadow-xs">
-                        <h2 className="mb-6 font-semibold text-fg">ข้อมูลบัญชี</h2>
+                    <div className="flex flex-col gap-5">
+                        <SettingsSectionLabel comment="account.profile" title="ข้อมูลบัญชี" />
+                        <SettingsDivider />
 
-                        {formError && (
-                            <div role="alert" className="mb-4 rounded-xl border border-border bg-danger-bg p-3 text-sm text-danger">
-                                {formError}
-                            </div>
-                        )}
+                        <div className="grid gap-5 sm:grid-cols-2 sm:gap-x-8">
+                            <SettingsField htmlFor="name" label="ชื่อผู้จัด / หน่วยงาน">
+                                <DenimIconInput id="name" name="name" icon={UserRound} value={editForm.name} onChange={handleEditChange} />
+                            </SettingsField>
 
-                        <div className="space-y-5">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">ชื่อผู้จัด / หน่วยงาน</Label>
-                                <div className="relative">
-                                    <UserRound className="absolute left-3 top-3 size-4 text-fg-subtle" aria-hidden="true" />
-                                    <Input
-                                        id="name"
-                                        name="name"
-                                        value={editForm.name}
-                                        onChange={handleEditChange}
-                                        className="h-12 rounded-xl pl-10"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="username">ชื่อผู้ใช้ (สำหรับเข้าสู่ระบบ)</Label>
-                                <div className="relative">
-                                    <AtSign className="absolute left-3 top-3 size-4 text-fg-subtle" aria-hidden="true" />
-                                    <Input
-                                        id="username"
-                                        name="username"
-                                        placeholder="org-event2026"
-                                        value={editForm.username}
-                                        onChange={(e) =>
-                                            setEditForm((prev) => ({ ...prev, username: e.target.value.toLowerCase() }))
-                                        }
-                                        className="h-12 rounded-xl pl-10"
-                                    />
-                                </div>
-                                <p className="text-xs text-fg-subtle">
-                                    ภาษาอังกฤษพิมพ์เล็ก ตัวเลข ขีดกลาง (-) ขีดล่าง (_) เท่านั้น 3-32 ตัวอักษร — ใช้แทนรหัสผ่านตอนเข้าสู่ระบบ
-                                </p>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="email">อีเมล</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    value={user?.email || ""}
-                                    disabled
-                                    readOnly
-                                    className="h-12 rounded-xl"
+                            <SettingsField
+                                htmlFor="username"
+                                label="ชื่อผู้ใช้ (สำหรับเข้าสู่ระบบ)"
+                                hint="ภาษาอังกฤษพิมพ์เล็ก ตัวเลข ขีดกลาง (-) ขีดล่าง (_) เท่านั้น 3-32 ตัวอักษร — ใช้แทนรหัสผ่านตอนเข้าสู่ระบบ"
+                            >
+                                <DenimIconInput
+                                    id="username"
+                                    icon={AtSign}
+                                    placeholder="org-event2026"
+                                    value={editForm.username}
+                                    onChange={(e) => setEditForm((prev) => ({ ...prev, username: e.target.value.toLowerCase() }))}
                                 />
-                                <p className="text-xs text-fg-subtle">
-                                    ใช้รับการแจ้งเตือนและกู้คืนบัญชีจากระบบ (ไม่ใช่สำหรับเข้าสู่ระบบ) เปลี่ยนเองไม่ได้ — ติดต่อผู้ดูแลระบบ
-                                </p>
-                            </div>
+                            </SettingsField>
+                        </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="phone">เบอร์มือถือ</Label>
-                                <div className="relative">
-                                    <Phone className="absolute left-3 top-3 size-4 text-fg-subtle" aria-hidden="true" />
-                                    <Input
-                                        id="phone"
-                                        name="phone"
-                                        type="tel"
-                                        inputMode="numeric"
-                                        maxLength={10}
-                                        placeholder="0812345678"
-                                        value={editForm.phone}
-                                        onChange={(e) =>
-                                            setEditForm((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, "") }))
-                                        }
-                                        className="h-12 rounded-xl pl-10"
-                                    />
-                                </div>
-                            </div>
+                        <SettingsDivider />
 
-                            <div className="space-y-2 border-t border-border pt-5">
-                                <Label htmlFor="password">เปลี่ยนรหัสผ่าน</Label>
-                                <div className="relative">
-                                    <Lock className="absolute left-3 top-3 size-4 text-fg-subtle" aria-hidden="true" />
-                                    <Input
+                        <div className="grid gap-5 sm:grid-cols-2 sm:gap-x-8">
+                            <SettingsField
+                                htmlFor="email"
+                                label={
+                                    <>
+                                        อีเมล{" "}
+                                        <span className="rounded bg-denim-chip px-1.5 py-0.5 font-code text-[11px] font-normal text-denim-muted">
+                                            read-only
+                                        </span>
+                                    </>
+                                }
+                                hint={
+                                    <>
+                                        ใช้รับการแจ้งเตือนและกู้คืนบัญชีจากระบบ (ไม่ใช่สำหรับเข้าสู่ระบบ) เปลี่ยนเองไม่ได้ —{" "}
+                                        <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-denim underline underline-offset-2">
+                                            ติดต่อผู้ดูแลระบบ
+                                        </a>
+                                    </>
+                                }
+                            >
+                                <DenimIconInput id="email" type="email" icon={Lock} value={user?.email || ""} disabled readOnly />
+                            </SettingsField>
+
+                            <SettingsField htmlFor="phone" label="เบอร์มือถือ">
+                                <DenimIconInput
+                                    id="phone"
+                                    icon={Phone}
+                                    type="tel"
+                                    inputMode="numeric"
+                                    maxLength={10}
+                                    placeholder="0812345678"
+                                    value={editForm.phone}
+                                    onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, "") }))}
+                                />
+                            </SettingsField>
+                        </div>
+
+                        <SettingsDivider />
+
+                        <div className="grid gap-5 sm:grid-cols-2 sm:gap-x-8">
+                            <SettingsSectionLabel
+                                comment="security"
+                                title="เปลี่ยนรหัสผ่าน"
+                                description="เว้นว่างไว้ถ้าไม่ต้องการเปลี่ยนรหัสผ่าน"
+                            />
+                            <div className="space-y-3">
+                                <SettingsField htmlFor="password" label="รหัสผ่านใหม่">
+                                    <DenimPasswordInput
                                         id="password"
                                         name="password"
-                                        type="password"
                                         autoComplete="new-password"
-                                        placeholder="••••••••"
                                         value={editForm.password}
                                         onChange={handleEditChange}
-                                        className="h-12 rounded-xl pl-10"
                                     />
-                                </div>
-                                <p className="text-xs text-fg-subtle">เว้นว่างไว้ถ้าไม่ต้องการเปลี่ยนรหัสผ่าน — อย่างน้อย 8 ตัวอักษร มีทั้งตัวอักษรและตัวเลข</p>
+                                </SettingsField>
+                                <PasswordRequirements value={editForm.password} />
                             </div>
+                        </div>
 
-                            <div className="flex justify-end gap-3 border-t border-border pt-6">
+                        <SettingsDivider />
+
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <span className="font-code text-xs text-denim-muted">changes: {changeCount}</span>
+                            <div className="flex gap-3">
                                 <Button
                                     type="button"
                                     variant="outline"
                                     className="h-12 rounded-xl px-6 font-bold"
-                                    onClick={() => { setEditForm(formFromUser()); setFormError("") }}
+                                    onClick={() => {
+                                        setEditForm(formFromUser())
+                                        setFormError("")
+                                    }}
                                 >
                                     ยกเลิก
                                 </Button>
@@ -267,7 +274,7 @@ export default function OrganizerSettingsPage() {
                             </div>
                         </div>
                     </div>
-                </div>
+                </DenimPanel>
             </Container>
 
             <Dialog open={isConfirmModalOpen} onOpenChange={(open) => !open && closeConfirmModal()}>
