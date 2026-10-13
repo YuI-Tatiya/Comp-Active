@@ -1,4 +1,4 @@
-# Comp Active — Activity Management & Soft Skills Tracking System
+
 
 Comp Active is an activity management, soft-skills tracking, and volunteer service platform for a college computing department. Three core roles — **student**, **organizer**, and **admin** — plus **external developers** reach the system through a single Nginx gateway that routes to three domains by hostname:
 
@@ -369,6 +369,7 @@ npm run prisma:seed            # seed the admin user from ADMIN_EMAIL/ADMIN_PASS
 npm run prisma:seed:demo       # seed sample organizer/student/activity data
 npx prisma studio              # open Prisma's DB GUI
 ```
+<<<<<<< HEAD
 
 ### Frontend (`frontend/`)
 ```bash
@@ -381,3 +382,5 @@ npm test         # node --test over lib/*.test.ts (pure logic only)
 ---
 
 For architecture details, security conventions, and the design system this UI is built on, see **`CLAUDE.md`** in the repo root.
+=======
+>>>>>>> origin/main
