@@ -3,8 +3,8 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LogOut, Menu, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import type { LucideIcon } from "lucide-react"
+import { LogOut } from "lucide-react"
 import { Container } from "@/components/layout/container"
 import { DenimLogo } from "@/components/layout/logo"
 import { UserMenu } from "@/components/ui/user-menu"
@@ -18,10 +18,20 @@ export interface AppNavLink {
     exact?: boolean
     /** path prefix อื่นที่นับเป็นเมนูนี้ด้วย — หน้าที่เข้าจากเมนูนี้แต่ URL อยู่นอก href (เช่น /organizer/events/12 มาจาก "จัดการกิจกรรม") */
     alsoMatches?: string[]
+    /** ไอคอนประจำเมนู — เมนูบนใช้แค่ข้อความ ไม่ใช้ไอคอนนี้ ใช้เฉพาะ BottomNav (components/layout/bottom-nav.tsx) */
+    icon?: LucideIcon
+}
+
+/** นับว่าแท็บนี้ active ไหม — ใช้ร่วมกันทั้งเมนูบน (ที่นี่) และแถบเมนูล่างมือถือ (BottomNav) */
+export function isNavLinkActive(pathname: string, link: AppNavLink): boolean {
+    return (
+        (link.exact ? pathname === link.href : pathname.startsWith(link.href)) ||
+        (link.alsoMatches ?? []).some((prefix) => pathname.startsWith(prefix))
+    )
 }
 
 interface AppHeaderProps {
-    /** ลิงก์เมนูของโซนนั้น ๆ */
+    /** ลิงก์เมนูของโซนนั้น ๆ — ใช้กับเมนูบนจอกว้างเท่านั้น (มือถือใช้ BottomNav ของแต่ละ layout แทน) */
     links: AppNavLink[]
     /** ป้ายบอกบทบาท เช่น "นักศึกษา" / "ผู้จัดกิจกรรม" */
     roleLabel: string
@@ -32,21 +42,13 @@ interface AppHeaderProps {
 /**
  * Header กลางของโซนที่ต้องล็อกอิน (student / organizer) — ธีม Denim Varsity
  * โครงเดียวกับ SiteHeader ของฝั่ง public (โลโก้ซ้าย · เมนูกึ่งกลาง · ขวาเป็นเมนูผู้ใช้แทนปุ่มเข้าสู่ระบบ)
+ *
+ * จอแคบ (< lg) ไม่มีเมนูแฮมเบอร์เกอร์แล้ว — ลิงก์หลักทุกอันย้ายไปอยู่ที่ BottomNav (แถบเมนูล่างติดขอบจอ)
+ * ของแต่ละ layout แทน เหลือแค่ปุ่มออกจากระบบตรงนี้ (เข้าถึงบัญชี/โปรไฟล์ไปทาง BottomNav แทนเช่นกัน)
  */
 export function AppHeader({ links, roleLabel, accountHref }: AppHeaderProps) {
-    const { user, logout } = useAuth()
+    const { logout } = useAuth()
     const pathname = usePathname()
-    const [open, setOpen] = React.useState(false)
-
-    React.useEffect(() => {
-        setOpen(false)
-    }, [pathname])
-
-    const isActive = (link: AppNavLink) =>
-        (link.exact ? pathname === link.href : pathname.startsWith(link.href)) ||
-        (link.alsoMatches ?? []).some((prefix) => pathname.startsWith(prefix))
-
-    const displayName = user?.name || "ผู้ใช้งาน"
 
     return (
         <header className="sticky top-0 z-50 border-b border-denim-line bg-white/95 font-plex backdrop-blur">
@@ -61,10 +63,10 @@ export function AppHeader({ links, roleLabel, accountHref }: AppHeaderProps) {
                             <Link
                                 key={link.href}
                                 href={link.href}
-                                aria-current={isActive(link) ? "page" : undefined}
+                                aria-current={isNavLinkActive(pathname, link) ? "page" : undefined}
                                 className={cn(
                                     "rounded-full px-4 py-2.5 text-[15px] font-medium transition-colors",
-                                    isActive(link)
+                                    isNavLinkActive(pathname, link)
                                         ? "bg-denim text-white"
                                         : "text-denim-ink hover:bg-denim-chip hover:text-denim-deep"
                                 )}
@@ -81,59 +83,15 @@ export function AppHeader({ links, roleLabel, accountHref }: AppHeaderProps) {
 
                         <button
                             type="button"
-                            onClick={() => setOpen((v) => !v)}
-                            aria-expanded={open}
-                            aria-controls="app-mobile-nav"
-                            aria-label={open ? "ปิดเมนู" : "เปิดเมนู"}
+                            onClick={logout}
+                            aria-label="ออกจากระบบ"
                             className="inline-flex size-10 items-center justify-center rounded-md text-denim-ink transition-colors hover:bg-denim-chip hover:text-denim-deep lg:hidden"
                         >
-                            {open ? <X className="size-5" /> : <Menu className="size-5" />}
+                            <LogOut className="size-5" aria-hidden="true" />
                         </button>
                     </div>
                 </div>
             </Container>
-
-            {open && (
-                <div id="app-mobile-nav" className="border-t border-denim-line bg-white lg:hidden">
-                    <Container className="flex flex-col gap-1 py-3">
-                        {/* หัวข้อผู้ใช้ — บนมือถือแสดงเป็นรายการตรง ๆ ไม่ทำ dropdown ซ้อน */}
-                        <div className="mb-2 flex items-center gap-3 border-b border-denim-line px-3 pb-3">
-                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber font-display text-sm font-bold text-denim-deep">
-                                {displayName.trim().charAt(0).toUpperCase()}
-                            </span>
-                            <div className="min-w-0">
-                                <p className="truncate text-sm font-medium text-denim-deep">{displayName}</p>
-                                <p className="truncate text-xs text-denim-muted">{roleLabel}</p>
-                            </div>
-                        </div>
-                        {links.map((link) => (
-                            <Link
-                                key={link.href}
-                                href={link.href}
-                                aria-current={isActive(link) ? "page" : undefined}
-                                className={cn(
-                                    "rounded-md px-3 py-2.5 text-sm transition-colors",
-                                    isActive(link)
-                                        ? "bg-denim-chip font-semibold text-denim"
-                                        : "text-denim-ink hover:bg-denim-paper hover:text-denim-deep"
-                                )}
-                            >
-                                {link.label}
-                            </Link>
-                        ))}
-                        <Link
-                            href={accountHref}
-                            className="rounded-md px-3 py-2.5 text-sm text-denim-ink transition-colors hover:bg-denim-paper hover:text-denim-deep"
-                        >
-                            แก้ไขข้อมูลส่วนตัว
-                        </Link>
-                        <Button variant="outline" onClick={logout} className="mt-2 w-full">
-                            <LogOut />
-                            ออกจากระบบ
-                        </Button>
-                    </Container>
-                </div>
-            )}
         </header>
     )
 }

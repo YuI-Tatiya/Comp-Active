@@ -14,17 +14,18 @@ const FALLBACK_NETWORK_ERROR =
 const FALLBACK_EMPTY_REPLY =
   'ขออภัยค่ะ ไม่สามารถประมวลผลคำตอบได้ ลองถามอีกครั้งด้วยคำถามอื่นนะคะ';
 
-const DEFAULT_MODEL = 'gemini-3.8-flash';
+const DEFAULT_BASE_URL = 'https://gen.ai.kku.ac.th/api/v1';
+const DEFAULT_MODEL = 'gemini-2.5-flash-lite';
 
-/** คุ้มค่าที่จะลองซ้ำแค่ 503 (โมเดลแน่นชั่วคราวฝั่ง Google — ทดสอบจริงแล้วว่ามักหายภายในเสี้ยววินาทีถึงไม่กี่วินาที)
- *  "429 เสมอ" คือเกินโควตา — ตัว error เองรวม retryDelay ที่มักเป็นหลักสิบวินาที (เช่น free tier บาง
- *  โมเดลจำกัดแค่ 5 ครั้ง/นาที) การลองซ้ำทันทีภายในคำขอเดียวจึงไม่มีทางสำเร็จ มีแต่เสียเวลาผู้ใช้ + ยิงซ้ำไปเปล่าๆ
- *  ส่วนสถานะอื่น (400/403/404 ฯลฯ) คือปัญหาถาวรของคำขอนั้น ลองใหม่ก็ได้ผลเหมือนเดิม */
+/** คุ้มค่าที่จะลองซ้ำแค่ 503 (ต้นทางแน่นชั่วคราว — ทดสอบจริงแล้วว่ามักหายภายในเสี้ยววินาทีถึงไม่กี่วินาที)
+ *  429 คือเกินโควตา/rate limit ซึ่งมักต้องรอเป็นสิบวินาทีขึ้นไปถึงจะปลดล็อก การลองซ้ำทันทีภายในคำขอเดียว
+ *  จึงไม่มีทางสำเร็จ มีแต่เสียเวลาผู้ใช้ + ยิงซ้ำไปเปล่าๆ ส่วนสถานะอื่น (400/403/404 ฯลฯ) คือปัญหาถาวร
+ *  ของคำขอนั้น ลองใหม่ก็ได้ผลเหมือนเดิม */
 const RETRYABLE_STATUSES = new Set([503]);
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAYS_MS = [300, 800]; // หน่วงก่อนลองครั้งที่ 2 และ 3 ตามลำดับ
 
-/** fetch() เปล่าไม่มี timeout ในตัว — ถ้า path ออกนอกจาก container ไปยัง Google สะดุด (DNS ค้าง/
+/** fetch() เปล่าไม่มี timeout ในตัว — ถ้า path ออกนอกจาก container ไปยังต้นทางสะดุด (DNS ค้าง/
  *  connection ค้าง) คำขอจะแขวนรอเฉยๆ ไม่ throw ไม่ resolve จนกว่า nginx proxy_read_timeout (default
  *  60s) จะตัดก่อนแล้วโยน 504 ให้ผู้ใช้เห็นหน้า error ของ nginx ตรงๆ (เจอจริงระหว่างทดสอบ) ยิ่งมี retry
  *  3 ครั้งยิ่งแขวนได้นานขึ้นไปอีก — ตั้งเพดานต่อครั้งไว้ชัดเจนด้วย AbortController กันเหตุนี้ 3 ครั้ง
@@ -32,9 +33,13 @@ const RETRY_DELAYS_MS = [300, 800]; // หน่วงก่อนลองค�
 const FETCH_TIMEOUT_MS = 15_000;
 
 /**
- * เรียก Google AI Studio (Gemini API) ฝั่ง server เท่านั้น — ห้ามส่ง GEMINI_API_KEY ไปฝั่ง client
+ * เรียก KKU IntelSphere (gen.ai.kku.ac.th) ฝั่ง server เท่านั้น — ห้ามส่ง CHATBOT_API_KEY ไปฝั่ง client
  * เด็ดขาด ไม่งั้นใครก็คัดลอกไปยิง API ด้วยโควตาของเราได้ นี่คือเหตุผลที่ฟีเจอร์นี้ต้องมี backend
- * endpoint มาคั่นกลาง ไม่ใช่ให้ frontend เรียก Gemini ตรง ๆ
+ * endpoint มาคั่นกลาง ไม่ใช่ให้ frontend เรียกต้นทางตรง ๆ
+ *
+ * เกตเวย์นี้เข้ากันได้กับ OpenAI Chat Completions API (ใช้ได้กับ OpenAI SDK ตรงๆ) จึงยิงด้วย fetch()
+ * ธรรมดาตามรูปแบบนั้น (POST {baseUrl}/chat/completions, header Authorization: Bearer) ไม่ได้ลง SDK
+ * เพิ่มเพราะมีแค่ endpoint เดียวที่ใช้ ไม่คุ้มเพิ่ม dependency
  *
  * ไม่ผูกกับ record ของผู้ใช้จริงในระบบเลย (ไม่มีข้อมูลบัญชี/คะแนน/สถานะการลงทะเบียนส่วนตัวของใครทั้งนั้น) —
  * จึงไม่มีความเสี่ยงข้อมูลส่วนตัวหลุดจากฝั่งนี้ ต่อให้ prompt ถูกผู้ใช้พยายามแหกออกจากขอบเขตก็ตาม ข้อมูลเดียวที่ query
@@ -51,36 +56,34 @@ export class ChatbotService {
   ) {}
 
   async reply(message: string, history: ChatHistoryItem[], viewerRole: string | null): Promise<string> {
-    const apiKey = this.config.get<string>('GEMINI_API_KEY')?.trim();
+    const apiKey = this.config.get<string>('CHATBOT_API_KEY')?.trim();
     if (!apiKey) {
       if (!this.warnedMissingKey) {
         this.logger.warn(
-          'GEMINI_API_KEY ไม่ได้ตั้งค่า — แชทบอทจะตอบข้อความแจ้งเตือนแทนคำตอบจริงจนกว่าจะตั้งค่าใน .env (ขอฟรีได้ที่ https://aistudio.google.com/apikey)',
+          'CHATBOT_API_KEY ไม่ได้ตั้งค่า — แชทบอทจะตอบข้อความแจ้งเตือนแทนคำตอบจริงจนกว่าจะตั้งค่าใน .env (ขอ API key ได้ที่ https://gen.ai.kku.ac.th)',
         );
         this.warnedMissingKey = true;
       }
       return FALLBACK_NOT_CONFIGURED;
     }
 
-    const model = this.config.get<string>('GEMINI_MODEL')?.trim() || DEFAULT_MODEL;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const baseUrl = (this.config.get<string>('CHATBOT_BASE_URL')?.trim() || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    const model = this.config.get<string>('CHATBOT_MODEL')?.trim() || DEFAULT_MODEL;
+    const url = `${baseUrl}/chat/completions`;
     const activitiesContext = await this.buildActivitiesContext();
 
     const body = {
-      contents: [
-        ...history.map((h) => ({ role: h.role, parts: [{ text: h.text }] })),
-        { role: 'user', parts: [{ text: message }] },
+      model,
+      messages: [
+        { role: 'system', content: `${this.buildSystemPrompt(viewerRole)}\n\n${activitiesContext}` },
+        // role ฝั่งเรา/DTO ใช้ 'model' ตามชื่อเดิมสมัยเรียก Gemini ตรงๆ (ดู ChatHistoryItemDto) — ส่วนนี้
+        // แปลงเป็น 'assistant' ตามรูปแบบ OpenAI ตอนประกอบคำขอเท่านั้น ไม่ต้องแก้ DTO/frontend
+        ...history.map((h) => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.text })),
+        { role: 'user', content: message },
       ],
-      systemInstruction: { parts: [{ text: `${this.buildSystemPrompt(viewerRole)}\n\n${activitiesContext}` }] },
-      // thinkingLevel: 'low' — รุ่น *-flash ตั้งแต่ Gemini 3 เปิด "คิดก่อนตอบ" (thinking) โดย
-      // default และ maxOutputTokens นับรวม thinking token ด้วย ถ้าปล่อย default (medium/high)
-      // งบ token เกือบทั้งหมดจะถูกกินไปกับการคิดจนคำตอบที่เห็นจริงถูกตัดกลางคัน — บอทนี้ตอบคำถาม
-      // พื้นฐานเกี่ยวกับการใช้งานเว็บไซต์ ไม่ต้องใช้เหตุผลหลายขั้นตอน จึงตั้งต่ำสุดได้โดยไม่กระทบคุณภาพ
-      generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: 500,
-        thinkingConfig: { thinkingLevel: 'low' },
-      },
+      temperature: 0.4,
+      max_tokens: 500,
+      stream: false,
     };
 
     let res: Response | undefined;
@@ -90,14 +93,14 @@ export class ChatbotService {
       try {
         res = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify(body),
           signal: controller.signal,
         });
       } catch (err) {
         const isTimeout = (err as Error).name === 'AbortError';
         const reason = isTimeout ? `หมดเวลา ${FETCH_TIMEOUT_MS / 1000}s` : (err as Error).message;
-        this.logger.error(`เรียก Gemini API ไม่สำเร็จ (ครั้งที่ ${attempt}/${MAX_ATTEMPTS}): ${reason}`);
+        this.logger.error(`เรียก Chatbot API ไม่สำเร็จ (ครั้งที่ ${attempt}/${MAX_ATTEMPTS}): ${reason}`);
         if (attempt === MAX_ATTEMPTS) return FALLBACK_NETWORK_ERROR;
         await this.delay(RETRY_DELAYS_MS[attempt - 1]);
         continue;
@@ -108,7 +111,7 @@ export class ChatbotService {
       if (res.ok) break;
 
       const errBody = await res.text().catch(() => '');
-      this.logger.error(`Gemini API ตอบสถานะ ${res.status} (ครั้งที่ ${attempt}/${MAX_ATTEMPTS}): ${errBody.slice(0, 500)}`);
+      this.logger.error(`Chatbot API ตอบสถานะ ${res.status} (ครั้งที่ ${attempt}/${MAX_ATTEMPTS}): ${errBody.slice(0, 500)}`);
       if (!RETRYABLE_STATUSES.has(res.status) || attempt === MAX_ATTEMPTS) return FALLBACK_NETWORK_ERROR;
       await this.delay(RETRY_DELAYS_MS[attempt - 1]);
     }
@@ -118,7 +121,7 @@ export class ChatbotService {
       // ผ่านลูปมาถึงนี่ได้ทางเดียวคือ break ตอน res.ok เป็นจริง (ทุกทางออกอื่นมี return คั่นไว้แล้ว) — res จึงพร้อมใช้เสมอ
       data = await res!.json();
     } catch (err) {
-      this.logger.error(`แปลงคำตอบ Gemini API เป็น JSON ไม่สำเร็จ: ${(err as Error).message}`);
+      this.logger.error(`แปลงคำตอบ Chatbot API เป็น JSON ไม่สำเร็จ: ${(err as Error).message}`);
       return FALLBACK_EMPTY_REPLY;
     }
 
@@ -151,16 +154,13 @@ export class ChatbotService {
     }
   }
 
-  /** แกะ candidates[0].content.parts[].text ออกมาต่อกัน — เขียนแบบกันพังถ้ารูปแบบคำตอบเปลี่ยนไป (field ไหนหายก็คืนค่าว่าง ไม่ throw) */
+  /** แกะ choices[0].message.content ออกมา (รูปแบบ OpenAI Chat Completions) — เขียนแบบกันพังถ้ารูปแบบคำตอบ
+   *  เปลี่ยนไป (field ไหนหายก็คืนค่าว่าง ไม่ throw) */
   private extractText(data: unknown): string {
-    const candidates = (data as { candidates?: unknown })?.candidates;
-    if (!Array.isArray(candidates) || candidates.length === 0) return '';
-    const parts = (candidates[0] as { content?: { parts?: unknown } })?.content?.parts;
-    if (!Array.isArray(parts)) return '';
-    return parts
-      .map((p) => (typeof (p as { text?: unknown })?.text === 'string' ? (p as { text: string }).text : ''))
-      .join('')
-      .trim();
+    const choices = (data as { choices?: unknown })?.choices;
+    if (!Array.isArray(choices) || choices.length === 0) return '';
+    const content = (choices[0] as { message?: { content?: unknown } })?.message?.content;
+    return typeof content === 'string' ? content.trim() : '';
   }
 
   private buildSystemPrompt(viewerRole: string | null): string {

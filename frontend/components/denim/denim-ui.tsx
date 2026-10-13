@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { forwardRef, useState } from "react"
 import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
-import { Plus, Search } from "lucide-react"
+import { Eye, EyeOff, Lock, Plus, Search } from "lucide-react"
 import { Container } from "@/components/layout/container"
+import { Input, type InputProps } from "@/components/ui/input"
 import { Select } from "@/components/ui/select"
 import type { FilterSpec } from "@/components/ui/filter-bar"
 import { cn } from "@/lib/utils"
@@ -117,6 +118,79 @@ export function DenimSectionHeading({
     )
 }
 
+/** แผงเนื้อหาพื้นขาวขอบมน (หน้าหลักและโปรไฟล์นักศึกษา) — labelledBy = id ของหัวข้อในแผง */
+export function DenimPanel({
+    labelledBy,
+    className,
+    children,
+}: {
+    labelledBy: string
+    className?: string
+    children: React.ReactNode
+}) {
+    return (
+        <section
+            aria-labelledby={labelledBy}
+            className={cn(
+                "rounded-[24px] border border-denim-line bg-white p-5 shadow-[0_14px_34px_-28px_rgb(18_34_61/0.45)] sm:p-7",
+                className
+            )}
+        >
+            {children}
+        </section>
+    )
+}
+
+/* ── แถบหัวโปรไฟล์ (ผู้จัด/นักศึกษา) ───────────────────────────────────────── */
+
+/** ตัวอักษรบนอวตาร — ข้ามสระหน้า (เ แ โ ใ ไ) ไม่งั้นชื่ออย่าง "เกศินี" ได้ "เ" ลอยอยู่ตัวเดียว */
+export function nameInitial(name: string): string {
+    const trimmed = name.trim().replace(/^[เแโใไ]/, "")
+    return (trimmed.charAt(0) || "?").toUpperCase()
+}
+
+/**
+ * อวตารป้ายปักสีอำพัน (มุมมน + ขอบเงาด้านล่าง) — ใช้บนแถบหัวโปรไฟล์ผู้จัด/นักศึกษา
+ * framed = มีกรอบเส้นประในตัวรอบตัวอักษรด้วย (หน้าโปรไฟล์นักศึกษา, ขนาดใหญ่กว่า) — ไม่ใส่ = แผ่นเรียบ (หน้าตั้งค่าผู้จัด)
+ */
+export function AmberAvatarPatch({
+    initial,
+    framed = false,
+    className,
+}: {
+    initial: string
+    framed?: boolean
+    className?: string
+}) {
+    return (
+        <span
+            className={cn(
+                "grid shrink-0 place-items-center rounded-[22px] bg-amber shadow-[0_5px_0_var(--color-amber-deep)]",
+                framed ? "size-20 p-1.5 sm:size-[104px]" : "size-20 font-display text-4xl font-bold text-denim-deep sm:text-5xl",
+                className
+            )}
+        >
+            {framed ? (
+                <span className="grid size-full place-items-center rounded-[16px] border-2 border-dashed border-denim-deep/30 font-display text-4xl font-bold text-denim-deep sm:text-5xl">
+                    {initial}
+                </span>
+            ) : (
+                initial
+            )}
+        </span>
+    )
+}
+
+/** ชิปข้อมูลบนพื้นยีนส์ — ป้ายโค้ด (id/mail/...) + ค่า เช่นแถบหัวโปรไฟล์ */
+export function DenimInfoChip({ label, value }: { label: string; value: string }) {
+    return (
+        <span className="inline-flex max-w-full items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 font-code text-xs">
+            <span className="text-amber">{label}</span>
+            <span className="min-w-0 truncate text-white">{value}</span>
+        </span>
+    )
+}
+
 /** ปุ่มกลมขาวมีลูกศร — เลื่อนสไลด์/หน้าถัดไป */
 export function RoundIconButton({
     label,
@@ -194,83 +268,98 @@ export function OrganizerStatCards({
             <Container>
                 {/* มือถือ 2x2 แทนเรียงเดี่ยว 4 ใบ (ใบละ ~170px = กินจอไปเกือบ 700px ก่อนถึงรายการกิจกรรม) */}
                 <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-                    {stats.map(({ code, label, value, icon: Icon, highlight, attention, caption, progress }) => (
-                        <div
-                            key={code}
-                            className={cn(
-                                "relative flex min-w-0 flex-col gap-2.5 rounded-[20px] px-4 py-4 sm:px-6 sm:py-[22px]",
-                                // เว้นที่ขวาให้วงแหวน ข้อความไม่วิ่งลอดใต้วงแหวนบนการ์ดแคบ (มือถือ 2 คอลัมน์)
-                                progress !== undefined && "pr-[4.75rem] sm:pr-24",
-                                highlight
-                                    ? "denim-weave text-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.6)]"
-                                    : "border bg-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.5)]",
-                                !highlight && (attention ? "border-amber ring-2 ring-amber/30" : "border-denim-line")
-                            )}
-                        >
-                            <div className="flex items-center justify-between gap-2">
-                                <span
-                                    className={cn(
-                                        "min-w-0 truncate font-code text-[11px] tracking-[0.04em] sm:text-xs",
-                                        highlight ? "text-denim-on-soft" : "text-denim-muted"
-                                    )}
-                                >
-                                    {code}
-                                </span>
-                                {progress === undefined && (
-                                    <span
-                                        className={cn(
-                                            "grid size-9 shrink-0 place-items-center rounded-xl sm:size-10",
-                                            highlight || attention ? "bg-amber" : "bg-denim-chip"
-                                        )}
-                                    >
-                                        <Icon
-                                            className={cn("size-5", highlight || attention ? "text-denim-deep" : "text-denim")}
-                                            strokeWidth={highlight ? 2.2 : 2}
-                                            aria-hidden="true"
-                                        />
-                                    </span>
-                                )}
-                            </div>
-                            <div
-                                className={cn(
-                                    "font-display text-[36px] font-bold leading-none tabular-nums sm:text-[44px]",
-                                    highlight ? "text-white" : "text-denim-deep"
-                                )}
-                            >
-                                {value}
-                            </div>
-                            {progress !== undefined && (
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 sm:right-6">
-                                    <ProgressRing value={progress} onDark={!!highlight} />
-                                </span>
-                            )}
-                            <div>
-                                <div
-                                    className={cn(
-                                        "text-sm",
-                                        (caption || strongLabels) && "font-semibold",
-                                        highlight
-                                            ? caption || strongLabels
-                                                ? "text-white"
-                                                : "text-denim-on"
-                                            : caption || strongLabels
-                                              ? "text-denim-deep"
-                                              : "text-denim-ink"
-                                    )}
-                                >
-                                    {label}
-                                </div>
-                                {caption && (
-                                    <div className={cn("mt-0.5 text-xs", highlight ? "text-denim-on-soft" : "text-denim-muted")}>
-                                        {caption}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                    {stats.map((stat) => (
+                        <DenimStatCard key={stat.code} stat={stat} strongLabel={strongLabels} />
                     ))}
                 </div>
             </Container>
         </section>
+    )
+}
+
+/** การ์ดสถิติหนึ่งใบ — OrganizerStatCards จัดกริด 4 ใบทับแถบหัวหน้า หน้าอื่นจัดกริดเองได้ (เช่นโปรไฟล์ 3 ใบ) */
+export function DenimStatCard({
+    stat: { label, value, icon: Icon, highlight, attention, caption, progress, code },
+    strongLabel: strong = false,
+    className,
+}: {
+    stat: OrganizerStat
+    strongLabel?: boolean
+    className?: string
+}) {
+    return (
+        <div
+            className={cn(
+                "relative flex min-w-0 flex-col gap-2.5 rounded-[20px] px-4 py-4 sm:px-6 sm:py-[22px]",
+                // เว้นที่ขวาให้วงแหวน ข้อความไม่วิ่งลอดใต้วงแหวนบนการ์ดแคบ (มือถือ 2 คอลัมน์)
+                progress !== undefined && "pr-[4.75rem] sm:pr-24",
+                highlight
+                    ? "denim-weave text-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.6)]"
+                    : "border bg-white shadow-[0_14px_34px_-20px_rgb(18_34_61_/_0.5)]",
+                !highlight && (attention ? "border-amber ring-2 ring-amber/30" : "border-denim-line"),
+                className
+            )}
+        >
+            <div className="flex items-center justify-between gap-2">
+                <span
+                    className={cn(
+                        "min-w-0 truncate font-code text-[11px] tracking-[0.04em] sm:text-xs",
+                        highlight ? "text-denim-on-soft" : "text-denim-muted"
+                    )}
+                >
+                    {code}
+                </span>
+                {progress === undefined && (
+                    <span
+                        className={cn(
+                            "grid size-9 shrink-0 place-items-center rounded-xl sm:size-10",
+                            highlight || attention ? "bg-amber" : "bg-denim-chip"
+                        )}
+                    >
+                        <Icon
+                            className={cn("size-5", highlight || attention ? "text-denim-deep" : "text-denim")}
+                            strokeWidth={highlight ? 2.2 : 2}
+                            aria-hidden="true"
+                        />
+                    </span>
+                )}
+            </div>
+            <div
+                className={cn(
+                    "font-display text-[36px] font-bold leading-none tabular-nums sm:text-[44px]",
+                    highlight ? "text-white" : "text-denim-deep"
+                )}
+            >
+                {value}
+            </div>
+            {progress !== undefined && (
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 sm:right-6">
+                    <ProgressRing value={progress} onDark={!!highlight} />
+                </span>
+            )}
+            <div>
+                <div
+                    className={cn(
+                        "text-sm",
+                        (caption || strong) && "font-semibold",
+                        highlight
+                            ? caption || strong
+                                ? "text-white"
+                                : "text-denim-on"
+                            : caption || strong
+                              ? "text-denim-deep"
+                              : "text-denim-ink"
+                    )}
+                >
+                    {label}
+                </div>
+                {caption && (
+                    <div className={cn("mt-0.5 text-xs", highlight ? "text-denim-on-soft" : "text-denim-muted")}>
+                        {caption}
+                    </div>
+                )}
+            </div>
+        </div>
     )
 }
 
@@ -327,9 +416,49 @@ export function StatusTabs({ tabs, value, counts, onChange, className }: StatusT
     )
 }
 
+/* ── ฟอร์มสูง 48px (หน้า auth, ตั้งค่าบัญชี) ──────────────────────────────────── */
+
+/** ช่องกรอกสูง 48px ของฟอร์ม — หน้า auth และหน้าตั้งค่าบัญชี (ผู้จัด/นักศึกษา) ใช้ร่วมกัน */
+export const DENIM_FORM_INPUT =
+    "h-12 rounded-xl border-[1.5px] border-denim-field bg-white px-4 text-[15px] text-denim-deep placeholder:text-denim-muted/70 hover:border-denim-dash focus:border-denim focus:outline-none focus-visible:ring-2 focus-visible:ring-denim/20 aria-[invalid=true]:border-red-500"
+
+/** ช่องกรอกที่มีไอคอนนำหน้า (สูง 48px) */
+export const DenimIconInput = forwardRef<HTMLInputElement, InputProps & { icon: LucideIcon }>(function DenimIconInput(
+    { icon: Icon, className, ...props },
+    ref
+) {
+    return (
+        <div className="relative">
+            <Icon className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-denim-muted" aria-hidden="true" />
+            <Input ref={ref} className={cn(DENIM_FORM_INPUT, "pl-11", className)} {...props} />
+        </div>
+    )
+})
+
+/** ช่องรหัสผ่าน (สูง 48px) + ปุ่มแสดง/ซ่อน (ไอคอนตาด้านขวา) */
+export const DenimPasswordInput = forwardRef<HTMLInputElement, InputProps>(function DenimPasswordInput({ className, ...props }, ref) {
+    const [visible, setVisible] = useState(false)
+    return (
+        <div className="relative">
+            <Lock className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-denim-muted" aria-hidden="true" />
+            <Input ref={ref} type={visible ? "text" : "password"} className={cn(DENIM_FORM_INPUT, "pl-11 pr-12", className)} {...props} />
+            <button
+                type="button"
+                onClick={() => setVisible((v) => !v)}
+                aria-label={visible ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+                aria-pressed={visible}
+                className="absolute right-2 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-denim-muted transition-colors hover:bg-denim-paper hover:text-denim-deep"
+            >
+                {visible ? <EyeOff className="size-[18px]" aria-hidden="true" /> : <Eye className="size-[18px]" aria-hidden="true" />}
+            </button>
+        </div>
+    )
+})
+
 /* ── แผงค้นหา + ตัวกรอง ──────────────────────────────────────────────────── */
 
-const FIELD =
+/** ช่องกรอก/เลือกบนพื้นขาวของธีม — แผงตัวกรองและตัวกรองในหน้าโปรไฟล์ใช้ร่วมกัน */
+export const DENIM_FIELD =
     "min-h-11 h-11 rounded-xl border-[1.5px] border-denim-field bg-white text-sm text-denim-deep hover:border-denim-dash focus-visible:border-denim focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-denim"
 
 interface FilterPanelProps {
@@ -372,7 +501,7 @@ export function FilterPanel({
                         placeholder={searchPlaceholder}
                         value={searchValue}
                         onChange={(e) => onSearchChange(e.target.value)}
-                        className={cn(FIELD, "w-full pl-[38px] pr-3 placeholder:text-denim-muted/80")}
+                        className={cn(DENIM_FIELD, "w-full pl-[38px] pr-3 placeholder:text-denim-muted/80")}
                     />
                 </div>
             </div>
@@ -384,7 +513,7 @@ export function FilterPanel({
                     </label>
                     <Select
                         id={`organizer-filter-${f.key}`}
-                        className={FIELD}
+                        className={DENIM_FIELD}
                         value={values[f.key] ?? f.neutralValue ?? ""}
                         onChange={(e) => onFilterChange(f.key, e.target.value)}
                     >

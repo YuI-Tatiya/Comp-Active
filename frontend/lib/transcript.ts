@@ -1,9 +1,10 @@
 // lib/transcript.ts
 /**
  * ยูทิลของเอกสารรับรองผล Soft Skills — ไม่ import อะไรจาก "@/..." หรือ lucide-react เพื่อให้ทดสอบด้วย node --test ได้
- * (ตัวเอกสารที่ต้องใช้ไอคอน/ป้ายทักษะส่งรายการ skills เข้ามาทางพารามิเตอร์แทน)
+ * (ตัวเอกสารที่ต้องใช้ไอคอน/ป้ายทักษะส่งรายการ skills เข้ามาทางพารามิเตอร์แทน) import แบบ relative (./) ได้ตามปกติ
  * กฎรหัสต้องตรงกับ backend: modules/shared/skill-transcripts/skill-transcript-code.util.ts
  */
+import { MAX_SOFT_SKILL_LEVEL } from "./soft-skill-tiers.ts"
 
 export interface SkillTranscriptSnapshot {
     version: 1
@@ -65,9 +66,9 @@ export function formatThaiDate(iso: string): string {
     })
 }
 
-/** ค่าเฉลี่ย 0–5 → เปอร์เซ็นต์ความกว้างของแถบ */
+/** ค่าเฉลี่ย 0–MAX_SOFT_SKILL_LEVEL (ระดับสูงสุด "ดีเยี่ยม") → เปอร์เซ็นต์ความกว้างของแถบ */
 export function levelPercent(average: number): number {
-    return Math.min(100, Math.max(0, (average / 5) * 100))
+    return Math.min(100, Math.max(0, (average / MAX_SOFT_SKILL_LEVEL) * 100))
 }
 
 export interface SkillRow {

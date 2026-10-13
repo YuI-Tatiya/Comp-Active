@@ -7,6 +7,7 @@ import {
   ACTIVITY_GRID,
   ActivityCardSkeleton,
   DashedLinkTile,
+  DenimPanel,
   DenimSectionHeading,
   OrganizerStatCards,
   type OrganizerStat,
@@ -14,7 +15,6 @@ import {
 import { PublicActivityCard } from "@/components/denim/public-activity-card"
 import {
   HeadingLink,
-  HomePanel,
   NoSkillScoresNotice,
   SkillTiles,
   SkillTilesSkeleton,
@@ -150,7 +150,7 @@ export default function StudentDashboardPage() {
 
       <Container className="mt-8 flex flex-col gap-8">
         {/* ── กำลังจะถึง ─────────────────────────────────────────────────── */}
-        <HomePanel labelledBy="upcoming-heading">
+        <DenimPanel labelledBy="upcoming-heading">
           <DenimSectionHeading
             id="upcoming-heading"
             comment="upcoming"
@@ -177,10 +177,10 @@ export default function StudentDashboardPage() {
               <UpcomingEmpty />
             )}
           </div>
-        </HomePanel>
+        </DenimPanel>
 
         {/* ── ทักษะของคุณ ────────────────────────────────────────────────── */}
-        <HomePanel labelledBy="skills-heading">
+        <DenimPanel labelledBy="skills-heading">
           <DenimSectionHeading
             id="skills-heading"
             comment={loadingMine ? "skills[12]" : `skills[12] · มีคะแนนแล้ว ${scored}`}
@@ -192,7 +192,7 @@ export default function StudentDashboardPage() {
             {!loadingMine && scored === 0 && <NoSkillScoresNotice />}
             {loadingMine ? <SkillTilesSkeleton /> : <SkillTiles average={skills?.average} />}
           </div>
-        </HomePanel>
+        </DenimPanel>
 
         {/* ── แนะนำสำหรับคุณ ─────────────────────────────────────────────── */}
         <section aria-labelledby="recommended-heading" className="mt-2">

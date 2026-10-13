@@ -1,6 +1,7 @@
 "use client"
 
 import { AMBER_BUTTON } from "@/components/denim/denim-ui"
+import { useClaimBottomSlot } from "@/components/layout/bottom-nav"
 import type { ActionView } from "@/lib/activity-view"
 import { cn } from "@/lib/utils"
 
@@ -20,6 +21,9 @@ interface MobileActionBarProps {
  */
 export function MobileActionBar({ view, sessionName, statusLine, onRegister, onOpenCard }: MobileActionBarProps) {
     const canRegister = view.kind === "open" && view.primary && !view.primary.disabled
+    // ติดขอบล่างจอเหมือนกับ BottomNav ของ student layout (/student/activities/[id] มีทั้งคู่) — จองพื้นที่
+    // ล่างจอไว้ก่อน ให้ BottomNav ซ่อนตัวเองแทนที่จะทับกัน ปุ่มลงทะเบียนสำคัญกว่าแท็บเมนูตรงหน้านี้
+    useClaimBottomSlot(true)
 
     return (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-denim-deep/95 text-white backdrop-blur lg:hidden">

@@ -64,10 +64,10 @@ describe("formatThaiDate", () => {
 })
 
 describe("levelPercent", () => {
-    test("แปลงค่าเฉลี่ย 0–5 เป็นเปอร์เซ็นต์ และติดกรอบ 0–100", () => {
+    test("แปลงค่าเฉลี่ย 0–MAX_SOFT_SKILL_LEVEL (3) เป็นเปอร์เซ็นต์ และติดกรอบ 0–100", () => {
         assert.equal(levelPercent(0), 0)
-        assert.equal(levelPercent(2.5), 50)
-        assert.equal(levelPercent(5), 100)
+        assert.equal(levelPercent(1.5), 50)
+        assert.equal(levelPercent(3), 100)
         assert.equal(levelPercent(7), 100)
         assert.equal(levelPercent(-1), 0)
     })
@@ -78,7 +78,7 @@ describe("snapshotToSkillRows", () => {
         version: 1,
         holder: { name: "ทดสอบ", studentId: null },
         summary: { totalScore: 10, activityCount: 1, overallAverage: 1 },
-        averages: { communication: 4, leadership: 2.5 },
+        averages: { communication: 3, leadership: 1.5 },
         activities: [],
     }
     const skills = [
@@ -92,8 +92,8 @@ describe("snapshotToSkillRows", () => {
         assert.deepEqual(
             rows.map((r) => [r.n, r.field, r.average, r.percent]),
             [
-                [1, "communication", 4, 80],
-                [2, "leadership", 2.5, 50],
+                [1, "communication", 3, 100],
+                [2, "leadership", 1.5, 50],
                 [3, "creativity", 0, 0],
             ],
         )

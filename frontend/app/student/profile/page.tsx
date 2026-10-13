@@ -3,33 +3,39 @@
 import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
-import { X, Trophy, TrendingUp, CalendarCheck, Search, BarChart3, UserRound, FileDown, Loader2 } from "lucide-react"
+import { X, Trophy, TrendingUp, CalendarCheck, Search } from "lucide-react"
 import { Toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
 import { Container } from "@/components/layout/container"
-import { StatTile } from "@/components/ui/stat-tile"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { formatEventDate } from "@/components/ui/event-card"
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts"
-import { registrationsAPI, evaluationsAPI, SkillsData, Activity, usersAPI } from "@/lib/api"
-import { SOFT_SKILLS, softSkillLabelByField } from "@/lib/soft-skills"
+import {
+    DENIM_FIELD,
+    DenimPanel,
+    DenimSectionHeading,
+    DenimStatCard,
+    type OrganizerStat,
+} from "@/components/denim/denim-ui"
+import {
+    AssessmentRow,
+    AssessmentsEmpty,
+    ExportTranscriptButton,
+    IssuedTranscriptsPanel,
+    ProfileHero,
+    SkillRadarPanel,
+    profilePanelId,
+    profileTabId,
+    type ProfileTab,
+} from "@/components/student/profile-ui"
+import { evaluationsAPI, SkillsData, usersAPI } from "@/lib/api"
+import { SOFT_SKILLS } from "@/lib/soft-skills"
 import { Select } from "@/components/ui/select"
 import { EDUCATION_LEVELS, getProgramsByLevel } from "@/lib/programs"
 import { skillTranscriptsAPI } from "@/lib/api"
 import { formatTranscriptCode, type TranscriptListItem } from "@/lib/transcript"
-import { IssuedTranscriptsList } from "@/components/transcript/issued-transcripts-list"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-
-interface Registration {
-    id: number;
-    activityId: number;
-    status: string;
-    activity?: Activity;
-}
+import { cn } from "@/lib/utils"
 
 const EMPTY_FORM = {
     firstName: "",
@@ -45,7 +51,7 @@ const EMPTY_FORM = {
 export default function StudentProfilePage() {
     const { user, refreshUser } = useAuth()
     const router = useRouter()
-    const [, setRegistrations] = useState<Registration[]>([])
+    const [tab, setTab] = useState<ProfileTab>("softskills")
     const [skillsData, setSkillsData] = useState<SkillsData | null>(null)
     const [loading, setLoading] = useState(true)
 
@@ -107,15 +113,11 @@ export default function StudentProfilePage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user])
 
+    // เดิมดึง registrationsAPI.getMy() มาด้วยแต่ไม่เคยใช้ผล — ตัดออก (นับรวมใน request budget ของ nginx)
     const fetchData = async () => {
         try {
             setLoading(true)
-            const [regData, skillsRes] = await Promise.all([
-                registrationsAPI.getMy() as Promise<Registration[]>,
-                evaluationsAPI.getMySkills(),
-            ])
-            setRegistrations(regData)
-            setSkillsData(skillsRes)
+            setSkillsData(await evaluationsAPI.getMySkills())
         } catch (error) {
             console.error("Error fetching data:", error)
         } finally {
@@ -137,8 +139,8 @@ export default function StudentProfilePage() {
 
     const openTranscript = (code: string) => {
         const url = `/verify/${formatTranscriptCode(code)}/print`
-        const tab = window.open(url, "_blank")
-        if (!tab) router.push(url) // popup ถูกบล็อก → นำทางในแท็บเดิม
+        const popup = window.open(url, "_blank")
+        if (!popup) router.push(url) // popup ถูกบล็อก → นำทางในแท็บเดิม
     }
 
     const handleExport = async () => {
@@ -175,14 +177,9 @@ export default function StudentProfilePage() {
 
     const canExport = !loading && (skillsData?.count ?? 0) > 0
 
-    const chartData = SOFT_SKILLS.map((s) => ({
-        subject: s.label,
-        A: skillsData?.average[s.field] ?? 0,
-        fullMark: 1,
-    }))
-
+    const history = skillsData?.history ?? []
     const historyQuery = historySearch.trim().toLowerCase()
-    const filteredHistory = (skillsData?.history ?? [])
+    const filteredHistory = history
         .filter((entry) => !historyQuery || entry.activityName.toLowerCase().includes(historyQuery))
         .filter((entry) => !historySkillFilter || (entry.scores[historySkillFilter as keyof typeof entry.scores] ?? 0) > 0)
         .sort((a, b) => {
@@ -191,6 +188,31 @@ export default function StudentProfilePage() {
             const db = new Date(b.date).getTime()
             return historySort === "oldest" ? da - db : db - da
         })
+
+    // เดิมนับ r.status === 'attended' ซึ่งเป็นไปไม่ได้ (attended อยู่ในฟิลด์ attendance) — ใช้จำนวนผลประเมินแทน
+    const stats: OrganizerStat[] = [
+        {
+            code: "RANK",
+            label: "อันดับในระบบ",
+            value: loading || !skillsData ? "–" : `#${skillsData.rank}`,
+            caption:
+                loading || !skillsData ? undefined : `จากนักศึกษาทั้งหมด ${skillsData.totalStudents.toLocaleString("th-TH")} คน`,
+            icon: Trophy,
+            highlight: true,
+        },
+        {
+            code: "POINTS",
+            label: "แต้มสะสมทั้งหมด",
+            value: loading ? "–" : (skillsData?.totalScore ?? 0).toLocaleString("th-TH"),
+            icon: TrendingUp,
+        },
+        {
+            code: "JOINED",
+            label: "กิจกรรมที่เข้าร่วม",
+            value: loading ? "–" : (skillsData?.count ?? 0),
+            icon: CalendarCheck,
+        },
+    ]
 
     const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target
@@ -270,215 +292,149 @@ export default function StudentProfilePage() {
 
     return (
         // ไม่ใส่ min-h-screen — app/student/layout.tsx จัดการให้แล้ว
-        <div className="bg-surface font-sans">
-            <Container className="space-y-8 py-12">
-                <div className="mx-auto max-w-4xl space-y-8">
-                    {/* หัวโปรไฟล์ */}
-                    <div className="space-y-2 rounded-2xl border border-border bg-bg p-8 shadow-xs md:p-12">
-                        <h2 className="text-3xl font-bold tracking-tight text-fg">
-                            {user?.name || "ผู้ใช้งาน"}
-                        </h2>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                            <Badge variant="neutral">{user?.studentId || "ไม่ระบุรหัสนักศึกษา"}</Badge>
-                            <Badge variant="neutral">{user?.email || "ไม่ระบุอีเมล"}</Badge>
+        <div className="bg-surface pb-16">
+            <ProfileHero
+                name={user?.name || "ผู้ใช้งาน"}
+                studentId={user?.studentId}
+                email={user?.email}
+                tab={tab}
+                onTabChange={setTab}
+            />
+
+            <Container className="mt-8">
+                {tab === "softskills" ? (
+                    <div
+                        role="tabpanel"
+                        id={profilePanelId("softskills")}
+                        aria-labelledby={profileTabId("softskills")}
+                        className="flex flex-col gap-6"
+                    >
+                        <DenimSectionHeading
+                            id="dashboard-heading"
+                            comment="soft_skills.dashboard"
+                            title="Soft Skills Dashboard"
+                            description="ติดตามและพัฒนาทักษะของคุณผ่านการเข้าร่วมกิจกรรม"
+                            action={
+                                <ExportTranscriptButton
+                                    canExport={canExport}
+                                    loading={loading}
+                                    exporting={exporting}
+                                    onExport={handleExport}
+                                />
+                            }
+                        />
+
+                        {/* มือถือ: อันดับเต็มแถวบน แต้ม/กิจกรรมคู่กันแถวล่าง */}
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+                            {stats.map((stat) => (
+                                <DenimStatCard
+                                    key={stat.code}
+                                    stat={stat}
+                                    strongLabel
+                                    className={stat.highlight ? "col-span-2 sm:col-span-1" : undefined}
+                                />
+                            ))}
                         </div>
-                    </div>
 
-                    <Tabs defaultValue="softskills" className="w-full">
-                        {/* h-auto: TabsList มี h-10 เป็นค่าเริ่มต้น เตี้ยกว่าปุ่ม (py-3) + padding กรอบ ปุ่มจึงโผล่พ้นกรอบ */}
-                        <TabsList className="mb-8 grid h-auto w-full grid-cols-2 gap-1 rounded-full bg-surface-2 p-1.5">
-                            <TabsTrigger
-                                value="softskills"
-                                className="gap-2 rounded-full py-3 text-sm font-semibold text-fg-muted data-[state=active]:bg-bg data-[state=active]:text-brand-600 data-[state=active]:shadow-xs"
-                            >
-                                <BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
-                                Soft Skills
-                            </TabsTrigger>
-                            <TabsTrigger
-                                value="edit"
-                                className="gap-2 rounded-full py-3 text-sm font-semibold text-fg-muted data-[state=active]:bg-bg data-[state=active]:text-brand-600 data-[state=active]:shadow-xs"
-                            >
-                                <UserRound className="h-4 w-4 shrink-0" aria-hidden="true" />
-                                แก้ไขข้อมูลส่วนตัว
-                            </TabsTrigger>
-                        </TabsList>
+                        <SkillRadarPanel skills={skillsData} loading={loading} />
 
-                        {/* ── แท็บ Soft Skills ───────────────────────────────── */}
-                        <TabsContent value="softskills" className="space-y-6">
-                            <div className="rounded-2xl border border-border bg-bg p-8 shadow-xs lg:p-12">
-                                <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                    <div>
-                                        <h3 className="text-2xl font-bold text-fg">Soft Skills Dashboard</h3>
-                                        <p className="mt-1 text-sm text-fg-muted">
-                                            ติดตามและพัฒนาทักษะของคุณผ่านการเข้าร่วมกิจกรรม
-                                        </p>
+                        {/* ประวัติการประเมินรายกิจกรรม */}
+                        <DenimPanel labelledBy="assessments-heading">
+                            <DenimSectionHeading
+                                id="assessments-heading"
+                                comment="assessments"
+                                title="ผลการประเมิน Soft Skills ต่อกิจกรรม"
+                                size="card"
+                            />
+
+                            {!loading && history.length > 0 && (
+                                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+                                    <div className="relative w-full sm:max-w-xs">
+                                        <Search
+                                            className="pointer-events-none absolute left-3 top-1/2 size-[18px] -translate-y-1/2 text-denim-muted"
+                                            aria-hidden="true"
+                                        />
+                                        <input
+                                            type="search"
+                                            aria-label="ค้นหาชื่อกิจกรรม"
+                                            placeholder="ค้นหาชื่อกิจกรรม..."
+                                            className={cn(DENIM_FIELD, "w-full pl-[38px] pr-3 placeholder:text-denim-muted/80")}
+                                            value={historySearch}
+                                            onChange={(e) => setHistorySearch(e.target.value)}
+                                        />
                                     </div>
-                                    <div className="sm:text-right">
-                                        <Button type="button" onClick={handleExport} disabled={!canExport || exporting}>
-                                            {exporting ? <Loader2 className="animate-spin" aria-hidden="true" /> : <FileDown aria-hidden="true" />}
-                                            ส่งออกเอกสารรับรอง (PDF)
-                                        </Button>
-                                        {!loading && !canExport && (
-                                            <p className="mt-2 max-w-[16rem] text-xs text-fg-subtle sm:ml-auto">
-                                                ต้องมีผลประเมินที่อนุมัติแล้วอย่างน้อย 1 กิจกรรมจึงจะออกเอกสารได้
-                                            </p>
-                                        )}
+                                    <Select
+                                        aria-label="กรองตามทักษะ"
+                                        className={cn(DENIM_FIELD, "sm:w-60")}
+                                        value={historySkillFilter}
+                                        onChange={(e) => setHistorySkillFilter(e.target.value)}
+                                    >
+                                        <option value="">ทุกทักษะ</option>
+                                        {SOFT_SKILLS.map((s) => (
+                                            <option key={s.field} value={s.field}>
+                                                {s.label}
+                                            </option>
+                                        ))}
+                                    </Select>
+                                    <Select
+                                        aria-label="เรียงลำดับ"
+                                        className={cn(DENIM_FIELD, "sm:w-44")}
+                                        value={historySort}
+                                        onChange={(e) => setHistorySort(e.target.value as typeof historySort)}
+                                    >
+                                        <option value="newest">ล่าสุดก่อน</option>
+                                        <option value="oldest">เก่าสุดก่อน</option>
+                                        <option value="name">ชื่อ ก-ฮ</option>
+                                    </Select>
+                                </div>
+                            )}
+
+                            <div className="mt-5">
+                                {loading ? (
+                                    <div className="h-24 animate-pulse rounded-[18px] bg-denim-paper" aria-hidden="true" />
+                                ) : history.length === 0 ? (
+                                    <AssessmentsEmpty />
+                                ) : filteredHistory.length === 0 ? (
+                                    <div className="flex flex-col items-center gap-3 rounded-[18px] border border-dashed border-denim-field px-5 py-8 text-center">
+                                        <p className="font-medium text-denim-muted">ไม่พบผลการประเมินที่ตรงกับตัวกรอง</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setHistorySearch("")
+                                                setHistorySkillFilter("")
+                                            }}
+                                            className="inline-flex min-h-10 items-center rounded-[10px] border-[1.5px] border-denim-field bg-white px-4 text-sm font-semibold text-denim-deep transition-colors hover:border-denim hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
+                                        >
+                                            ล้างตัวกรอง
+                                        </button>
                                     </div>
-                                </div>
-
-                                <div className="mb-10 grid grid-cols-1 gap-6 md:grid-cols-3">
-                                    <StatTile
-                                        label="อันดับในระบบ"
-                                        value={loading || !skillsData ? "—" : `#${skillsData.rank}`}
-                                        caption={loading || !skillsData ? undefined : `จากนักศึกษาทั้งหมด ${skillsData.totalStudents} คน`}
-                                        icon={Trophy}
-                                    />
-                                    <StatTile
-                                        label="แต้มสะสมทั้งหมด"
-                                        value={loading ? "—" : (skillsData?.totalScore ?? 0).toLocaleString("th-TH")}
-                                        icon={TrendingUp}
-                                    />
-                                    {/* เดิมนับ r.status === 'attended' ซึ่งเป็นไปไม่ได้ (attended อยู่ในฟิลด์ attendance) */}
-                                    <StatTile
-                                        label="กิจกรรมที่เข้าร่วม"
-                                        value={loading ? "—" : (skillsData?.count ?? 0)}
-                                        icon={CalendarCheck}
-                                    />
-                                </div>
-
-                                {/* กราฟเรดาร์ — recharts ต้องการค่าสีจริง ใช้ var() ของ token ได้ */}
-                                <div className="mb-10 h-[450px] w-full rounded-2xl border border-border bg-surface p-6">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
-                                            <PolarGrid stroke="var(--color-border)" />
-                                            <PolarAngleAxis
-                                                dataKey="subject"
-                                                tick={{ fill: "var(--color-fg-muted)", fontSize: 12, fontWeight: 600 }}
-                                            />
-                                            <PolarRadiusAxis angle={30} domain={[0, 5]} tick={false} axisLine={false} />
-                                            <Radar
-                                                name="ทักษะของนักศึกษา"
-                                                dataKey="A"
-                                                stroke="var(--color-brand-600)"
-                                                strokeWidth={2}
-                                                fill="var(--color-brand-500)"
-                                                fillOpacity={0.35}
-                                            />
-                                        </RadarChart>
-                                    </ResponsiveContainer>
-                                </div>
-
-                                {/* ประวัติการประเมินรายกิจกรรม */}
-                                <div className="rounded-2xl border border-border bg-bg p-8 shadow-xs">
-                                    <h4 className="mb-6 text-xl font-bold text-fg">
-                                        ผลการประเมิน Soft Skills ต่อกิจกรรม
-                                    </h4>
-
-                                    {!loading && skillsData?.history && skillsData.history.length > 0 && (
-                                        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-                                            <div className="relative w-full sm:max-w-xs">
-                                                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" aria-hidden="true" />
-                                                <Input
-                                                    type="text"
-                                                    placeholder="ค้นหาชื่อกิจกรรม..."
-                                                    className="h-10 rounded-lg pl-10"
-                                                    value={historySearch}
-                                                    onChange={(e) => setHistorySearch(e.target.value)}
-                                                />
-                                            </div>
-                                            <Select
-                                                className="h-10 rounded-lg sm:w-56"
-                                                value={historySkillFilter}
-                                                onChange={(e) => setHistorySkillFilter(e.target.value)}
-                                            >
-                                                <option value="">ทุกทักษะ</option>
-                                                {SOFT_SKILLS.map((s) => (
-                                                    <option key={s.field} value={s.field}>{s.label}</option>
-                                                ))}
-                                            </Select>
-                                            <Select
-                                                className="h-10 rounded-lg sm:w-44"
-                                                value={historySort}
-                                                onChange={(e) => setHistorySort(e.target.value as typeof historySort)}
-                                            >
-                                                <option value="newest">ล่าสุดก่อน</option>
-                                                <option value="oldest">เก่าสุดก่อน</option>
-                                                <option value="name">ชื่อ ก-ฮ</option>
-                                            </Select>
-                                        </div>
-                                    )}
-
-                                    <div className="space-y-4">
-                                        {loading ? (
-                                            <div className="animate-pulse py-8 text-center font-medium text-fg-muted">
-                                                กำลังโหลดข้อมูล...
-                                            </div>
-                                        ) : !skillsData?.history || skillsData.history.length === 0 ? (
-                                            <div className="rounded-xl border border-border bg-surface py-12 text-center font-medium text-fg-muted">
-                                                ยังไม่มีผลประเมิน Soft Skills จากกิจกรรมใดๆ เลย
-                                            </div>
-                                        ) : filteredHistory.length === 0 ? (
-                                            <div className="rounded-xl border border-border bg-surface py-12 text-center">
-                                                <p className="font-medium text-fg-muted">ไม่พบผลการประเมินที่ตรงกับตัวกรอง</p>
-                                                <Button
-                                                    variant="outline"
-                                                    className="mt-4 rounded-xl"
-                                                    onClick={() => {
-                                                        setHistorySearch("")
-                                                        setHistorySkillFilter("")
-                                                    }}
-                                                >
-                                                    ล้างตัวกรอง
-                                                </Button>
-                                            </div>
-                                        ) : (
-                                            filteredHistory.map((entry) => {
-                                                const awarded = Object.entries(entry.scores)
-                                                    .filter(([, v]) => v > 0)
-                                                    .map(([k]) => softSkillLabelByField(k))
-                                                return (
-                                                    <div
-                                                        key={entry.id}
-                                                        className="flex flex-col justify-between gap-4 rounded-xl border border-border p-5 transition-colors hover:bg-surface md:flex-row md:items-start"
-                                                    >
-                                                        <div className="flex-1">
-                                                            <h5 className="mb-3 text-base font-semibold text-fg">
-                                                                {entry.activityName}
-                                                            </h5>
-                                                            {awarded.length > 0 ? (
-                                                                <div className="flex flex-wrap gap-2">
-                                                                    {awarded.map((skill, i) => (
-                                                                        <Badge key={i} variant="success">✓ {skill}</Badge>
-                                                                    ))}
-                                                                </div>
-                                                            ) : (
-                                                                <span className="text-xs text-fg-subtle">
-                                                                    ไม่มีทักษะที่ได้รับในการประเมินนี้
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <div className="whitespace-nowrap text-sm font-medium text-fg-subtle md:border-l md:border-border md:pl-4">
-                                                            {formatEventDate(entry.date)}
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })
-                                        )}
-                                    </div>
-                                </div>
+                                ) : (
+                                    <ul className="flex flex-col gap-3">
+                                        {filteredHistory.map((entry) => (
+                                            <AssessmentRow key={entry.id} entry={entry} />
+                                        ))}
+                                    </ul>
+                                )}
                             </div>
-                            <IssuedTranscriptsList items={transcripts} onOpen={(code) => openTranscript(code)} onRevoke={setRevokeTarget} />
-                        </TabsContent>
+                        </DenimPanel>
 
-                        {/* ── แท็บแก้ไขข้อมูล ────────────────────────────────── */}
-                        <TabsContent value="edit" className="space-y-6">
-                            <div className="rounded-2xl border border-border bg-bg p-8 shadow-xs lg:p-12">
-                                <h3 className="mb-8 border-b border-border pb-4 text-lg font-bold text-fg">
-                                    ข้อมูลส่วนตัว
-                                </h3>
+                        <IssuedTranscriptsPanel items={transcripts} onOpen={openTranscript} onRevoke={setRevokeTarget} />
+                    </div>
+                ) : (
+                    <div role="tabpanel" id={profilePanelId("edit")} aria-labelledby={profileTabId("edit")}>
+                        <DenimPanel labelledBy="edit-heading">
+                            <DenimSectionHeading
+                                id="edit-heading"
+                                comment="profile.edit()"
+                                title="ข้อมูลส่วนตัว"
+                                description="แก้ไขแล้วต้องยืนยันด้วยรหัสผ่านปัจจุบันก่อนบันทึก"
+                                size="card"
+                            />
 
-                                <div className="mx-auto max-w-2xl space-y-6">
-                                    <div className="grid grid-cols-2 gap-6">
+                            {/* จอกว้าง 2 คอลัมน์: ซ้าย = ข้อมูลติดต่อ, ขวา = การศึกษา + รหัสผ่าน (คอลัมน์เดียว ช่องจะยืดยาวเกินอ่าน) */}
+                            <div className="mt-6 grid gap-6 lg:grid-cols-2 lg:gap-x-10">
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-2 gap-4 sm:gap-6">
                                         <div className="space-y-2">
                                             <Label htmlFor="firstName">ชื่อ</Label>
                                             <Input
@@ -525,7 +481,7 @@ export default function StudentProfilePage() {
                                             readOnly
                                             className="h-12 rounded-xl"
                                         />
-                                        <p className="text-xs text-fg-subtle">
+                                        <p className="text-xs text-denim-muted">
                                             อีเมลใช้สำหรับเข้าสู่ระบบ เปลี่ยนเองไม่ได้ — ติดต่อผู้ดูแลระบบ
                                         </p>
                                     </div>
@@ -549,13 +505,15 @@ export default function StudentProfilePage() {
                                             className="h-12 rounded-xl"
                                         />
                                     </div>
+                                </div>
 
+                                <div className="space-y-6">
                                     {/* ── ข้อมูลการศึกษา ─────────────────────────── */}
-                                    <div className="space-y-4 rounded-xl border border-border p-4">
-                                        <p className="text-sm font-semibold text-fg">ข้อมูลการศึกษา</p>
+                                    <fieldset className="space-y-4 rounded-[18px] border border-denim-line bg-denim-paper/50 p-4 sm:p-5">
+                                        <legend className="px-1 text-sm font-semibold text-denim-deep">ข้อมูลการศึกษา</legend>
 
                                         {(!editForm.educationLevel || !editForm.program) && (
-                                            <p className="rounded-lg bg-warning-bg p-3 text-sm text-warning">
+                                            <p className="rounded-xl bg-amber/15 p-3 text-sm text-amber-ink">
                                                 กรุณาเพิ่มข้อมูลการศึกษาให้ครบถ้วน (ต้องกรอกครบทั้ง 2 ช่อง)
                                             </p>
                                         )}
@@ -576,7 +534,9 @@ export default function StudentProfilePage() {
                                             >
                                                 <option value="">เลือกระดับการศึกษา...</option>
                                                 {EDUCATION_LEVELS.map((lv) => (
-                                                    <option key={lv.code} value={lv.code}>{lv.label}</option>
+                                                    <option key={lv.code} value={lv.code}>
+                                                        {lv.label}
+                                                    </option>
                                                 ))}
                                             </Select>
                                         </div>
@@ -586,22 +546,22 @@ export default function StudentProfilePage() {
                                             <Select
                                                 id="program"
                                                 value={editForm.program}
-                                                onChange={(e) =>
-                                                    setEditForm((prev) => ({ ...prev, program: e.target.value }))
-                                                }
+                                                onChange={(e) => setEditForm((prev) => ({ ...prev, program: e.target.value }))}
                                                 disabled={!editForm.educationLevel}
                                                 className="h-12 rounded-xl"
                                             >
                                                 <option value="">เลือกหลักสูตร...</option>
                                                 {getProgramsByLevel(editForm.educationLevel).map((p) => (
-                                                    <option key={p.code} value={p.code}>{p.label}</option>
+                                                    <option key={p.code} value={p.code}>
+                                                        {p.label}
+                                                    </option>
                                                 ))}
                                             </Select>
                                             {!editForm.educationLevel && (
-                                                <p className="text-xs text-fg-subtle">เลือกระดับการศึกษาก่อน</p>
+                                                <p className="text-xs text-denim-muted">เลือกระดับการศึกษาก่อน</p>
                                             )}
                                         </div>
-                                    </div>
+                                    </fieldset>
 
                                     <div className="space-y-2">
                                         <Label htmlFor="password">แก้ไขรหัสผ่าน</Label>
@@ -615,30 +575,27 @@ export default function StudentProfilePage() {
                                             onChange={handleEditChange}
                                             className="h-12 rounded-xl"
                                         />
-                                        <p className="text-xs text-fg-subtle">เว้นว่างไว้ถ้าไม่ต้องการเปลี่ยน</p>
-                                    </div>
-
-                                    <div className="flex justify-end gap-4 border-t border-border pt-8">
-                                        {/* เดิมปุ่มนี้ไม่มี onClick — กดแล้วไม่เกิดอะไรขึ้น */}
-                                        <Button
-                                            variant="outline"
-                                            className="h-12 rounded-xl px-8 font-bold"
-                                            onClick={() => setEditForm(formFromUser())}
-                                        >
-                                            ยกเลิก
-                                        </Button>
-                                        <Button
-                                            onClick={handleSaveProfileClick}
-                                            className="h-12 rounded-xl px-8 font-bold"
-                                        >
-                                            ยืนยันการแก้ไข
-                                        </Button>
+                                        <p className="text-xs text-denim-muted">เว้นว่างไว้ถ้าไม่ต้องการเปลี่ยน</p>
                                     </div>
                                 </div>
+
+                                <div className="flex justify-end gap-3 border-t border-denim-line pt-6 lg:col-span-2">
+                                    {/* เดิมปุ่มนี้ไม่มี onClick — กดแล้วไม่เกิดอะไรขึ้น */}
+                                    <Button
+                                        variant="outline"
+                                        className="h-12 rounded-xl px-6 font-bold sm:px-8"
+                                        onClick={() => setEditForm(formFromUser())}
+                                    >
+                                        ยกเลิก
+                                    </Button>
+                                    <Button onClick={handleSaveProfileClick} className="h-12 rounded-xl px-6 font-bold sm:px-8">
+                                        ยืนยันการแก้ไข
+                                    </Button>
+                                </div>
                             </div>
-                        </TabsContent>
-                    </Tabs>
-                </div>
+                        </DenimPanel>
+                    </div>
+                )}
             </Container>
 
             {/* Dialog ยืนยันด้วยรหัสผ่าน */}
@@ -646,9 +603,7 @@ export default function StudentProfilePage() {
                 <DialogContent className="overflow-hidden rounded-2xl p-0 sm:max-w-md">
                     <div className="p-8">
                         <div className="mb-6 flex items-start justify-between gap-4">
-                            <h2 className="text-xl font-bold tracking-tight text-fg">
-                                กรอกรหัสผ่านเพื่อเปลี่ยนแปลงข้อมูล
-                            </h2>
+                            <h2 className="text-xl font-bold tracking-tight text-fg">กรอกรหัสผ่านเพื่อเปลี่ยนแปลงข้อมูล</h2>
                             <button
                                 type="button"
                                 onClick={closeConfirmModal}
@@ -661,10 +616,7 @@ export default function StudentProfilePage() {
                         </div>
 
                         {modalError && (
-                            <div
-                                role="alert"
-                                className="mb-4 rounded-xl border border-border bg-danger-bg p-3 text-sm text-danger"
-                            >
+                            <div role="alert" className="mb-4 rounded-xl border border-border bg-danger-bg p-3 text-sm text-danger">
                                 {modalError}
                             </div>
                         )}
@@ -692,11 +644,7 @@ export default function StudentProfilePage() {
                             >
                                 ยกเลิก
                             </Button>
-                            <Button
-                                onClick={handleConfirmSave}
-                                disabled={submitting}
-                                className="h-12 w-32 rounded-xl font-bold"
-                            >
+                            <Button onClick={handleConfirmSave} disabled={submitting} className="h-12 w-32 rounded-xl font-bold">
                                 {submitting ? "กำลังบันทึก..." : "ยืนยัน"}
                             </Button>
                         </div>

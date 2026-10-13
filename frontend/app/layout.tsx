@@ -1,12 +1,21 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
+import { BottomSlotProvider } from "@/components/layout/bottom-nav";
 import { MascotWidget } from "@/components/ui/mascot-widget";
 import { denimFontVariables } from "@/lib/denim-fonts";
 
 export const metadata: Metadata = {
   title: "Comp Active — ระบบจัดการกิจกรรม",
   description: "ระบบจัดการกิจกรรมนอกหลักสูตร วิทยาลัยการคอมพิวเตอร์",
+};
+
+// viewportFit: "cover" — ให้ browser ส่งค่า env(safe-area-inset-*) จริงบน iPhone ที่มี home indicator/noth
+// (ไม่ใส่ค่านี้ env() จะเป็น 0 เสมอ) จำเป็นสำหรับแถบเมนูล่างมือถือ (BottomNav) ที่ fix ติดขอบล่างจอ
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -26,10 +35,15 @@ export default function RootLayout({
     <html lang="th" className={denimFontVariables}>
       <body className="font-sans antialiased">
         <AuthProvider>
-          {children}
-          <div className="print:hidden">
-            <MascotWidget />
-          </div>
+          {/* BottomSlotProvider ให้ MobileActionBar (หน้ารายละเอียดกิจกรรมของนักศึกษา) กับ BottomNav
+              (แถบเมนูล่างของ student/organizer layout) ผลัดกันใช้พื้นที่ล่างจอ ไม่ชนกัน — ดูเหตุผลที่
+              components/layout/bottom-nav.tsx ครอบทั้งแอปตรงนี้ที่เดียว เหมือน MascotWidget ด้านล่าง */}
+          <BottomSlotProvider>
+            {children}
+            <div className="print:hidden">
+              <MascotWidget />
+            </div>
+          </BottomSlotProvider>
         </AuthProvider>
       </body>
     </html>
