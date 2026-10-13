@@ -4,7 +4,7 @@ import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ArrowRight, ChevronDown, ChevronRight, Info, Send, X } from "lucide-react"
+import { ArrowRight, ChevronDown, ChevronRight, Send, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { chatbotAPI } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
@@ -374,11 +374,6 @@ export function MascotWidget() {
                         </button>
                     </div>
                 </header>
-
-                <p className="flex shrink-0 items-center gap-2 bg-amber/15 px-4 py-2.5 text-[13px] text-denim-ink">
-                    <Info className="size-4 shrink-0 text-amber-ink" aria-hidden="true" />
-                    คำถามเฉพาะบัญชีให้ติดต่อผู้จัด/ผู้ดูแลระบบแทน
-                </p>
 
                 <div
                     ref={logRef}
