@@ -37,6 +37,20 @@ const uploadsOrigin = (() => {
 })();
 if (uploadsOrigin) externalImgHosts.push(uploadsOrigin);
 
+// Origin จริงของ backend เมื่อมันไม่ได้อยู่หลัง nginx เดียวกับหน้าเว็บอีกต่อไป (เช่น Vercel + Railway —
+// ดู DEPLOYMENT.md) ตั้งคู่กับ NEXT_PUBLIC_API_URL=same-origin เสมอ: ฝั่ง browser ยังเรียก path สัมพัทธ์
+// ของตัวเองเหมือนเดิมทุกประการ (cookie ยังเป็น first-party) แต่ Vercel edge เป็นคน proxy ไปหา backend
+// จริงแทน nginx — ไม่ใช่ NEXT_PUBLIC_* เพราะใช้แค่ตอน build คำนวณ rewrites() ไม่ต้องส่งลง client bundle
+const backendOrigin = (() => {
+  const raw = (process.env.BACKEND_ORIGIN ?? "").trim().replace(/\/+$/, "");
+  if (!raw) return "";
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return "";
+  }
+})();
+
 const csp = [
   `default-src 'self'`,
   // Next ฝัง bootstrap script แบบ inline จึงต้องมี 'unsafe-inline'; 'unsafe-eval' จำเป็นเฉพาะ HMR ตอน dev
@@ -76,6 +90,24 @@ const nextConfig: NextConfig = {
       { protocol: "http", hostname: "api.localhost", pathname: "/uploads/**" },
       { protocol: "http", hostname: "localhost", port: "3001", pathname: "/uploads/**" },
     ],
+  },
+
+  async rewrites() {
+    if (!backendOrigin) return [];
+    return [
+      // Developer API สาธารณะ (api.*) สงวนไว้เฉพาะโฮสต์นั้น — app./admin. ต้องไม่ proxy ต่อให้ backend
+      // เด็ดขาด เหมือนที่ nginx/default.conf สั่ง return 404 เส้นทางนี้บนสอง server block นั้น
+      // รีไรต์ "กลับไปที่ตัวเอง" ให้ Next หยุดตรงนี้ ไม่ไหลลงไปโดนกฎทั่วไปข้างล่าง แล้วได้ 404 ปกติของ Next
+      // เอง (ไม่มีหน้า /api/v1 จริงในแอป) — ผลลัพธ์เดียวกับที่ nginx ทำ
+      { source: "/api/v1/:path*", destination: "/api/v1/:path*" },
+      // same-origin ตามที่ NEXT_PUBLIC_API_URL=same-origin ตั้งใจไว้ — browser ยังเห็นแค่ path สัมพัทธ์
+      // ของโฮสต์ตัวเอง (cookie เป็น first-party เหมือนเดิม) ส่วนนี้คือสิ่งที่ nginx เคยทำแทน
+      { source: "/api/:path*", destination: `${backendOrigin}/api/:path*` },
+      // เผื่อ backend ยังไม่ได้ตั้งค่า R2 (ดู storage.config.ts) — ไฟล์อัปโหลดยังเป็น path สัมพัทธ์
+      // /uploads/... ที่ต้อง proxy เหมือน /api/ ด้านบน ถ้าใช้ R2 แล้วค่านี้ไม่ถูกเรียกเลย เพราะ
+      // resolveUploadUrl() คืน URL เต็มของ R2 ตรงๆ ไม่ผ่าน path นี้
+      { source: "/uploads/:path*", destination: `${backendOrigin}/uploads/:path*` },
+    ];
   },
 
   async headers() {

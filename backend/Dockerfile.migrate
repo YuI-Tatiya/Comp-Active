@@ -1,0 +1,20 @@
+# ไฟล์แยกเฉพาะสำหรับ Railway service ที่รัน migrate schema เพียงอย่างเดียว (ดู DEPLOYMENT.md ส่วน 2.3)
+#
+# ของเดิม Dockerfile หลักมีสเตจ `migrator` อยู่แล้ว แต่ Railway (ตั้งแต่ 2026-08-28) ไม่รับ service
+# ใหม่ที่ไม่เคยใช้ Config as Code (railway.toml) เข้าไปเลือก build stage กลางได้อีกต่อไป — ไฟล์เดี่ยว
+# แบบนี้ไม่มีหลายสเตจให้ต้องเลือกเลย หลีกเลี่ยงปัญหาทั้งหมดไปในตัว
+#
+# migrate.sh ใช้แค่ Prisma CLI + prisma/schema.prisma + prisma/backfills/*.sql — ไม่แตะ src/ หรือ dist/
+# เลย จึงไม่ต้อง npm run build / คอมไพล์อะไรทั้งนั้น เบากว่าสเตจ builder เดิมมาก
+FROM node:20-alpine
+WORKDIR /app
+
+COPY package*.json ./
+COPY prisma.config.ts ./
+RUN npm ci
+
+COPY prisma ./prisma
+COPY migrate.sh ./
+RUN chmod +x migrate.sh
+
+ENTRYPOINT ["./migrate.sh"]

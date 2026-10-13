@@ -134,26 +134,44 @@ You now have all five `R2_*` values for backend env in step 3.2.
        **Custom Domain** → add `api.yourdomain.com`. Railway shows a CNAME
        target — add that at your DNS provider (section 4).
 
-### 2.3 Running the migration (`migrator` target)
+### 2.3 Running the migration (`backend/Dockerfile.migrate`)
 
 Railway doesn't have docker-compose's `depends_on: service_completed_successfully`
 — there's no automatic "run this once, then start that" ordering between two
 services. The lean-production-image approach (keep the Prisma CLI out of the
 image that actually serves traffic — see `CLAUDE.md`) means the `runner`
 image literally *can't* run `prisma db push`, so this has to be a second,
-deliberate step, not an automatic one:
+deliberate step, not an automatic one.
+
+This originally pointed at the `migrator` stage of the main `Dockerfile` via
+a build-target override, but Railway's "Config as Code" (`railway.toml`,
+the only way to pick a non-default build stage in the dashboard) is
+deprecated and — since 2026-08-28 — **not available at all to a service that
+has never used it before**, which rules it out for a service created fresh
+today. `backend/Dockerfile.migrate` sidesteps the whole problem: it's a
+single-stage Dockerfile with no stage to pick, built and verified locally
+(`docker build -f Dockerfile.migrate .` then run against a real Postgres)
+before this was written here. It's also leaner than the old `migrator`
+stage — `migrate.sh` only ever runs Prisma CLI commands against
+`prisma/schema.prisma` and `prisma/backfills/*.sql`, so this image skips
+`npm run build`/`dist/` entirely, nothing in `src/` is even copied in.
 
 1. [ ] Add a **second Railway service** in the same project, same repo, root
-       directory `backend`, but build target `migrator` instead of `runner`.
-2. [ ] Give it the same `DATABASE_URL` reference as the backend service (and
-       `PRISMA_ACCEPT_DATA_LOSS` if you need it for a specific deploy).
-3. [ ] **Settings** → set it to **not** auto-restart (it's meant to run once
+       directory `backend`.
+2. [ ] **Settings → Build**: Builder = `Dockerfile`, Dockerfile Path =
+       `Dockerfile.migrate` (not the default `Dockerfile`).
+3. [ ] **Variables** — just two:
+       ```
+       DATABASE_URL=${{Postgres.DATABASE_URL}}
+       PRISMA_ACCEPT_DATA_LOSS=false
+       ```
+4. [ ] **Settings → Deploy** → turn off auto-restart (it's meant to run once
        and exit cleanly — `migrate.sh` already does this; an unexpected
        restart loop here is a sign the migration itself is failing, not
        something to "fix" by restarting it forever).
-4. [ ] **Before every deploy that changes `prisma/schema.prisma`:** manually
-       trigger a redeploy of this `migrator` service *first*, wait for it to
-       finish (check its logs for `[migrate] เรียบร้อย`), *then* redeploy the
+5. [ ] **Before every deploy that changes `prisma/schema.prisma`:** manually
+       trigger a redeploy of this service *first*, wait for it to finish
+       (check its logs for `[migrate] เรียบร้อย`), *then* redeploy the
        `runner` backend service. Railway may have since added a way to chain
        these automatically — worth checking their current docs rather than
        assuming this manual order is still the only option.
@@ -177,14 +195,15 @@ deliberate step, not an automatic one:
        - `NEXT_PUBLIC_UPLOADS_ORIGIN` → the R2 `R2_PUBLIC_URL` from section 1
          (only needed if you actually configured R2 in section 1 — leave
          unset if uploads are still disk-backed)
-3. [ ] **Pending code change before this works — ask Claude to add it if not
-       done yet:** `frontend/next.config.ts` needs a `rewrites()` entry
-       proxying `/api/:path*` (and `/uploads/:path*` if uploads are *not* on
-       R2) to `https://api.yourdomain.com`. Without this, the browser would
-       call the backend cross-origin directly and the auth cookie breaks
-       exactly the way `CLAUDE.md`'s "Do not point the portals back at
-       `api.*`" warning describes — same failure, new hosting, same root
-       cause.
+       - `BACKEND_ORIGIN` → `https://api.yourdomain.com` — **this is what
+         makes `next.config.ts`'s `rewrites()` proxy `/api/*` (and
+         `/uploads/*`, for the non-R2 case) to the real backend server-side**
+         (done — see `next.config.ts`). Without it, the browser would call
+         the backend cross-origin directly and the auth cookie breaks
+         exactly the way `CLAUDE.md`'s "Do not point the portals back at
+         `api.*`" warning describes — same failure, new hosting, same root
+         cause. Not a `NEXT_PUBLIC_*` var on purpose: it only drives a
+         build-time rewrite destination, the browser never reads it.
 4. [ ] **Domains** tab → add both `app.yourdomain.com` and
        `admin.yourdomain.com` to this *one* project (not two separate
        projects — `proxy.ts` already splits by `Host` header, that's the
@@ -200,8 +219,8 @@ different hosts. If the browser called the backend directly, the session
 cookie becomes third-party from the browser's point of view, and Brave/
 Safari block or partition third-party cookies — this is the exact failure
 mode `CLAUDE.md` already documents for the Docker/Nginx setup, just with
-different hosting underneath. The `rewrites()` proxy in step 3.3 makes
-Vercel's edge do that cross-origin call server-side instead, so the
+different hosting underneath. The `rewrites()` proxy, driven by `BACKEND_ORIGIN`
+in step 2 above, makes Vercel's edge do that cross-origin call server-side instead, so the
 browser only ever talks to its own host (`app.*`/`admin.*`) and the
 `/api/...` path still looks first-party to it. Same reasoning the whole
 same-origin architecture is already built around — nothing new to
@@ -237,8 +256,8 @@ is misconfigured; check again after waiting.
 3. [ ] Confirm `https://api.yourdomain.com/api/activities` (or any public
        GET route) responds before touching the frontend — isolates backend
        problems from frontend/rewrite problems.
-4. [ ] Add the `rewrites()` config (section 3.3) if not already done, then
-       deploy Vercel.
+4. [ ] Set `BACKEND_ORIGIN` on Vercel (section 2) before deploying it — the
+       `rewrites()` config is already in place, it just needs that value.
 5. [ ] Confirm `https://app.yourdomain.com/api/activities` returns the same
        thing as step 3 — if it doesn't, the rewrite is wrong before anything
        else is.
