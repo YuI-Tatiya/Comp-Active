@@ -1,12 +1,13 @@
-import type { Activity, EventSummary } from "@/lib/api"
-import { CATEGORIES } from "@/lib/categories"
+// import ไฟล์ข้างเคียงด้วยนามสกุล .ts (ไม่ใช่ "@/...") เพื่อให้ทดสอบด้วย node --test ได้ — ดู events-filter.test.ts
+import type { Activity, EventSummary } from "./api.ts"
+import { CATEGORIES } from "./categories.ts"
 
 /**
- * ตรรกะกรอง/เรียงรายการกิจกรรม ใช้ร่วมกันระหว่าง /events (สาธารณะ) และ /student/events
+ * ตรรกะกรอง/เรียงรายการกิจกรรม และการประกอบข้อมูลเป็นการ์ด — ใช้ร่วมกันระหว่างหน้าแรก (public/นักศึกษา)
+ * และหน้ารายการเต็ม /events, /student/events
  *
- * เดิมโค้ดส่วนนี้ถูกก๊อปไว้ทั้งสองหน้า ทำให้บั๊กกระจายตามกันไปด้วย (เช่น createdAt ที่เอา
- * วันจัดงานมาใช้แทนวันประกาศ) จึงรวมมาไว้จุดเดียว ส่วนการประกอบข้อมูลเป็นการ์ดยังแยกกัน
- * เพราะสองหน้าแสดงผลคนละแบบ
+ * เดิมโค้ดส่วนนี้ถูกก๊อปไว้หลายหน้า ทำให้บั๊กกระจายตามกันไปด้วย (เช่น createdAt ที่เอา
+ * วันจัดงานมาใช้แทนวันประกาศ) จึงรวมมาไว้จุดเดียว
  */
 
 export interface EventsFilterValues {
@@ -138,13 +139,30 @@ export function activityFilterFields(a: Activity): FilterableItem {
 /** การ์ดรวม — งาน (Event, หลายกิจกรรมย่อย) และกิจกรรมเดี่ยว normalize มาเป็นรูปแบบเดียวกัน */
 export interface FeaturedCardItem extends FilterableItem {
     key: string
+    /** path รูปที่ผู้จัดแนบ (ดู eventImagePath) — null = ไม่มีรูป ปกการ์ดใช้ลายของธีม */
     imageUrl?: string | null
     description?: string | null
     href: string
+    /** วันจัดกิจกรรมวันสุดท้าย (epoch ms) — ต่างจาก sortDate (วันแรก) เฉพาะงานที่มีกิจกรรมย่อยคนละวัน */
+    endDate: number
+    /**
+     * ช่วงเปิด-ปิดรับสมัคร — มีความหมายเฉพาะ Event (ตั้งค่าระดับงาน คลุมทุกกิจกรรมย่อย)
+     * กิจกรรมเดี่ยวไม่มีแนวคิดนี้เลยในสคีมา (Activity ไม่มีฟิลด์นี้) จึงเป็น null เสมอ
+     */
+    registrationOpenAt: string | null
+    registrationCloseAt: string | null
 }
 
 function nearestUpcomingActivity(ev: EventSummary) {
     return [...ev.activities].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
+}
+
+/**
+ * รูปปกของงาน (path ที่ backend เก็บ เช่น /uploads/activities/x.jpg) — รูปหน้าปกงานก่อน ถ้าไม่มีใช้รูปของกิจกรรมย่อย
+ * ที่จัดเร็วสุด null = ผู้จัดไม่ได้แนบรูป การ์ดจะใช้ลายปกของธีมแทน ใช้กติกาเดียวกันทุกการ์ด (ผู้เข้าร่วม/ผู้จัด)
+ */
+export function eventImagePath(ev: EventSummary): string | null {
+    return ev.imageUrl || nearestUpcomingActivity(ev)?.imageUrl || null
 }
 
 function earliestEventDate(ev: EventSummary): number {
@@ -152,10 +170,23 @@ function earliestEventDate(ev: EventSummary): number {
     return times.length ? Math.min(...times) : Number.POSITIVE_INFINITY
 }
 
+function latestEventDate(ev: EventSummary): number {
+    const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
+    return times.length ? Math.max(...times) : Number.NEGATIVE_INFINITY
+}
+
+/** ที่นั่งคงเหลือรวมของงาน — null = ไม่จำกัด (มีกิจกรรมย่อยตัวใดตัวหนึ่งไม่จำกัดจำนวน) ใช้เรียง "ที่นั่งว่าง: เหลือเยอะก่อน" */
+function eventSeatsLeft(ev: EventSummary): number | null {
+    if (ev.activities.some((a) => a.capacity == null)) return null
+    const capacity = ev.activities.reduce((sum, a) => sum + (a.capacity ?? 0), 0)
+    const registered = ev.activities.reduce((sum, a) => sum + (a.registeredCount ?? 0), 0)
+    return Math.max(capacity - registered, 0)
+}
+
 /**
  * รวม Event และกิจกรรมเดี่ยวเป็นการ์ดเดียวกัน — งานหนึ่งงาน (ไม่ว่าจะมีกี่กิจกรรมย่อย) = การ์ดเดียวเสมอ
- * ใช้กับส่วน "แนะนำ"/"กำลังเปิดรับสมัคร" แบบย่อในหน้าแรก (public และ student) — หน้ารายการเต็ม
- * (/events, /student/events) มีตรรกะจัดกลุ่มตามหมวดหมู่ของตัวเองที่ละเอียดกว่านี้ ไม่ได้ใช้ตัวนี้
+ * ใช้ทั้งส่วน "แนะนำ"/"กำลังเปิดรับสมัคร" ในหน้าแรก และหน้ารายการเต็ม (/events, /student/events
+ * ซึ่งเอาผลไปผ่าน filterAndSortItems + groupByCategory ต่อ) กิจกรรมย่อยใน standalone จะถูกตัดทิ้งเอง
  */
 export function buildFeaturedCards(
     events: EventSummary[],
@@ -163,32 +194,41 @@ export function buildFeaturedCards(
     hrefFor: { event: (id: number) => string; activity: (id: number) => string }
 ): FeaturedCardItem[] {
     const fromEvents = events.map((ev): FeaturedCardItem => {
-        const fa = nearestUpcomingActivity(ev)
         return {
             key: `event-${ev.id}`,
             name: ev.name,
-            imageUrl: ev.imageUrl ?? fa?.imageUrl,
+            imageUrl: eventImagePath(ev),
             description: ev.description,
             categories: Array.from(new Set(ev.activities.flatMap((a) => a.categories))),
             status: ev.activities.some((a) => a.status === "open") ? "open" : "closed",
             searchText: [ev.name, ...ev.activities.map((a) => a.name)].join(" ").toLowerCase(),
             sortDate: earliestEventDate(ev),
+            endDate: latestEventDate(ev),
             createdAt: new Date(ev.createdAt).getTime(),
-            seats: null,
+            seats: eventSeatsLeft(ev),
             hasCert: ev.activities.some((a) => !!a.volunteerRole),
             href: hrefFor.event(ev.id),
+            registrationOpenAt: ev.registrationOpenAt ?? null,
+            registrationCloseAt: ev.registrationCloseAt ?? null,
         }
     })
 
     const fromStandalone = standalone
         .filter((a) => !a.eventId)
-        .map((a): FeaturedCardItem => ({
-            ...activityFilterFields(a),
-            key: `activity-${a.id}`,
-            imageUrl: a.imageUrl,
-            description: a.description,
-            href: hrefFor.activity(a.id),
-        }))
+        .map((a): FeaturedCardItem => {
+            const fields = activityFilterFields(a)
+            return {
+                ...fields,
+                key: `activity-${a.id}`,
+                imageUrl: a.imageUrl || null,
+                description: a.description,
+                href: hrefFor.activity(a.id),
+                // กิจกรรมเดี่ยว = วันเดียว (endDate เท่ากับ sortDate) และไม่มีช่วงรับสมัครในสคีมา
+                endDate: fields.sortDate,
+                registrationOpenAt: null,
+                registrationCloseAt: null,
+            }
+        })
 
     return [...fromEvents, ...fromStandalone]
 }
@@ -220,6 +260,33 @@ export function filterAndSortItems<T extends FilterableItem>(
         if (filters.sort === "name") return a.name.localeCompare(b.name, "th")
         return a.sortDate - b.sortDate
     })
+}
+
+export interface FacetCounts {
+    categories: Record<string, number>
+    statuses: Record<string, number>
+}
+
+/**
+ * จำนวนการ์ดข้างตัวเลือกในแผงตัวกรอง — นับแบบ faceted: ตัวเลขของหมวดหมู่คิดจากตัวกรองอื่นทั้งหมด
+ * (ค้นหา สถานะ ใบรับรอง ช่วงเวลา) แต่ไม่รวมตัวกรองหมวดหมู่เอง ตัวเลขจึงบอกว่า "ติ๊กเพิ่มแล้วจะได้กี่รายการ"
+ * แทนที่จะกลายเป็น 0 ทุกหมวดที่ยังไม่ได้ติ๊ก สถานะรับสมัครก็นับแบบเดียวกัน
+ * การ์ดหลายหมวดนับในทุกหมวดที่มี (เหมือน groupByCategory) ผลรวมของหมวดจึงเกินจำนวนการ์ดได้
+ */
+export function facetCounts<T extends FilterableItem>(items: T[], filters: EventsFilterValues): FacetCounts {
+    const categories: Record<string, number> = Object.fromEntries(CATEGORIES.map((c) => [c.value, 0]))
+    for (const item of filterAndSortItems(items, { ...filters, categories: [] })) {
+        for (const c of new Set(item.categories)) {
+            if (c in categories) categories[c]++
+        }
+    }
+
+    const statuses: Record<string, number> = Object.fromEntries(STATUS_OPTIONS.map((o) => [o.value, 0]))
+    for (const item of filterAndSortItems(items, { ...filters, statuses: [] })) {
+        statuses[item.status] = (statuses[item.status] ?? 0) + 1
+    }
+
+    return { categories, statuses }
 }
 
 /**

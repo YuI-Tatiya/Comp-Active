@@ -166,7 +166,7 @@ export default function EditActivityPage() {
     ]
 
     return (
-        <div className="min-h-screen bg-gray-50 p-6">
+        <div className="min-h-screen bg-surface p-6">
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
                 <div className="flex items-center mb-8">
@@ -175,51 +175,51 @@ export default function EditActivityPage() {
                     </Button>
                     <div>
                         <h1 className="text-2xl font-bold flex items-center gap-2">
-                            <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
+                            <div className="bg-brand-100 p-2 rounded-lg text-brand-600">
                                 <Edit className="w-5 h-5" />
                             </div>
                             แก้ไขกิจกรรม
                         </h1>
-                        <p className="text-gray-500 mt-1">อัปเดตข้อมูลกิจกรรมของคุณ</p>
+                        <p className="text-fg-muted mt-1">อัปเดตข้อมูลกิจกรรมของคุณ</p>
                     </div>
                 </div>
 
                 {loadingData ? (
                     <div className="flex justify-center py-12">
-                        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                        <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
                     </div>
                 ) : (
                     <>
                         {/* Stepper */}
                         <div className="mb-12 relative flex justify-between">
-                            <div className="absolute top-5 left-0 w-full h-0.5 bg-gray-200 -z-10"></div>
+                            <div className="absolute top-5 left-0 w-full h-0.5 bg-surface-2 -z-10"></div>
                             <div
-                                className="absolute top-5 left-0 h-0.5 bg-blue-600 -z-10 transition-all duration-300"
+                                className="absolute top-5 left-0 h-0.5 bg-brand-600 -z-10 transition-all duration-300"
                                 style={{ width: `${((step - 1) / 4) * 100}%` }}
                             ></div>
 
                             {steps.map((s) => (
-                                <div key={s.number} className="flex flex-col items-center bg-gray-50 px-4">
+                                <div key={s.number} className="flex flex-col items-center bg-surface px-4">
                                     <div
-                                        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm mb-2 transition-colors duration-300 ${step >= s.number ? "bg-blue-600 text-white" : "bg-white border-2 border-gray-200 text-gray-400"
+                                        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm mb-2 transition-colors duration-300 ${step >= s.number ? "bg-brand-600 text-white" : "bg-white border-2 border-border text-fg-subtle"
                                             }`}
                                     >
                                         {step > s.number ? <Check className="w-5 h-5" /> : s.number}
                                     </div>
-                                    <div className={`text-sm font-medium ${step >= s.number ? "text-gray-900" : "text-gray-400"}`}>{s.title}</div>
-                                    <div className="text-xs text-gray-500 hidden md:block">{s.subtitle}</div>
+                                    <div className={`text-sm font-medium ${step >= s.number ? "text-fg" : "text-fg-subtle"}`}>{s.title}</div>
+                                    <div className="text-xs text-fg-muted hidden md:block">{s.subtitle}</div>
                                 </div>
                             ))}
                         </div>
 
                         {/* Content Card */}
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 min-h-[400px]">
+                        <div className="bg-white rounded-xl shadow-sm border border-border p-8 min-h-[400px]">
 
                             {/* STEP 1: Basic Info */}
                             {step === 1 && (
                                 <div className="space-y-6">
                                     <div className="space-y-2">
-                                        <Label>ชื่อกิจกรรม <span className="text-red-500">*</span></Label>
+                                        <Label>ชื่อกิจกรรม <span className="text-danger">*</span></Label>
                                         <Input
                                             value={formData.name}
                                             onChange={(e) => updateField('name', e.target.value)}
@@ -241,7 +241,7 @@ export default function EditActivityPage() {
                                         )}
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>รายละเอียด <span className="text-red-500">*</span></Label>
+                                        <Label>รายละเอียด <span className="text-danger">*</span></Label>
                                         <Textarea
                                             value={formData.description}
                                             onChange={(e) => updateField('description', e.target.value)}
@@ -250,18 +250,18 @@ export default function EditActivityPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>หมวดหมู่ (เลือกได้มากกว่า 1) <span className="text-red-500">*</span></Label>
+                                        <Label>หมวดหมู่ (เลือกได้มากกว่า 1) <span className="text-danger">*</span></Label>
                                         <div className="flex flex-wrap gap-2">
                                             {CATEGORIES.map(c => {
                                                 const selected = formData.categories.includes(c.value)
                                                 return (
                                                     <label
                                                         key={c.value}
-                                                        className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${selected ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}
+                                                        className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${selected ? "border-brand-500 bg-brand-50 text-brand-700" : "border-border bg-white text-denim-ink hover:bg-surface"}`}
                                                     >
                                                         <input
                                                             type="checkbox"
-                                                            className="size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                            className="size-4 rounded border-border-strong text-brand-600 focus:ring-brand-500"
                                                             checked={selected}
                                                             onChange={() => updateField('categories', toggleInArray(formData.categories, c.value))}
                                                         />
@@ -278,7 +278,7 @@ export default function EditActivityPage() {
                                             {formData.tags.map(tag => (
                                                 <Badge key={tag} variant="secondary" className="px-3 py-1 flex items-center gap-1">
                                                     {tag}
-                                                    <X className="w-3 h-3 cursor-pointer hover:text-red-500" onClick={() => toggleTag(tag)} />
+                                                    <X className="w-3 h-3 cursor-pointer hover:text-danger" onClick={() => toggleTag(tag)} />
                                                 </Badge>
                                             ))}
                                         </div>
@@ -288,8 +288,8 @@ export default function EditActivityPage() {
                                                     key={tag}
                                                     onClick={() => toggleTag(tag)}
                                                     className={`text-xs px-3 py-1 rounded-full border transition-colors ${formData.tags.includes(tag)
-                                                        ? "bg-blue-50 border-blue-200 text-blue-600"
-                                                        : "bg-white border-gray-200 text-gray-500 hover:border-blue-300"
+                                                        ? "bg-brand-50 border-brand-200 text-brand-600"
+                                                        : "bg-white border-border text-fg-muted hover:border-brand-300"
                                                         }`}
                                                 >
                                                     {tag}
@@ -304,7 +304,7 @@ export default function EditActivityPage() {
                             {step === 2 && (
                                 <div className="space-y-6">
                                     <div className="space-y-2">
-                                        <Label>วันที่จัดกิจกรรม <span className="text-red-500">*</span></Label>
+                                        <Label>วันที่จัดกิจกรรม <span className="text-danger">*</span></Label>
                                         <Input
                                             type="date"
                                             value={formData.date}
@@ -313,7 +313,7 @@ export default function EditActivityPage() {
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
-                                            <Label>เวลาเริ่ม <span className="text-red-500">*</span></Label>
+                                            <Label>เวลาเริ่ม <span className="text-danger">*</span></Label>
                                             <Input
                                                 type="time"
                                                 value={formData.startTime}
@@ -321,7 +321,7 @@ export default function EditActivityPage() {
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>เวลาสิ้นสุด <span className="text-red-500">*</span></Label>
+                                            <Label>เวลาสิ้นสุด <span className="text-danger">*</span></Label>
                                             <Input
                                                 type="time"
                                                 value={formData.endTime}
@@ -330,7 +330,7 @@ export default function EditActivityPage() {
                                         </div>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>สถานที่ <span className="text-red-500">*</span></Label>
+                                        <Label>สถานที่ <span className="text-danger">*</span></Label>
                                         <Input
                                             value={formData.location}
                                             onChange={(e) => updateField('location', e.target.value)}
@@ -357,10 +357,10 @@ export default function EditActivityPage() {
                                         <Label className="text-base">เงื่อนไขการเข้าร่วม</Label>
                                         <div className="space-y-2">
                                             {formData.conditions.map((item, i) => (
-                                                <div key={i} className="flex items-center gap-2 bg-gray-50 p-2 rounded-md">
-                                                    <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">{i + 1}</span>
+                                                <div key={i} className="flex items-center gap-2 bg-surface p-2 rounded-md">
+                                                    <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold">{i + 1}</span>
                                                     <span className="flex-1 text-sm">{item}</span>
-                                                    <Button variant="ghost" size="sm" onClick={() => removeListItem('conditions', i)}><X className="w-4 h-4 text-gray-400" /></Button>
+                                                    <Button variant="ghost" size="sm" onClick={() => removeListItem('conditions', i)}><X className="w-4 h-4 text-fg-subtle" /></Button>
                                                 </div>
                                             ))}
                                             <div className="flex gap-2">
@@ -379,10 +379,10 @@ export default function EditActivityPage() {
                                         <Label className="text-base">สิทธิประโยชน์</Label>
                                         <div className="space-y-2">
                                             {formData.benefits.map((item, i) => (
-                                                <div key={i} className="flex items-center gap-2 bg-gray-50 p-2 rounded-md">
+                                                <div key={i} className="flex items-center gap-2 bg-surface p-2 rounded-md">
                                                     <Check className="w-4 h-4 text-green-500" />
                                                     <span className="flex-1 text-sm">{item}</span>
-                                                    <Button variant="ghost" size="sm" onClick={() => removeListItem('benefits', i)}><X className="w-4 h-4 text-gray-400" /></Button>
+                                                    <Button variant="ghost" size="sm" onClick={() => removeListItem('benefits', i)}><X className="w-4 h-4 text-fg-subtle" /></Button>
                                                 </div>
                                             ))}
                                             <div className="flex gap-2">
@@ -399,7 +399,7 @@ export default function EditActivityPage() {
 
                                     <div className="space-y-4">
                                         <Label className="text-base">Soft Skills ที่จะได้รับจากกิจกรรมนี้ (ตัวเลือกประเมิน)</Label>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 bg-surface p-4 rounded-lg border border-border">
                                             {SOFT_SKILLS.map(skill => (
                                                 <div key={skill.value} className="flex items-center space-x-3">
                                                     <input
@@ -407,7 +407,7 @@ export default function EditActivityPage() {
                                                         id={`skill-${skill.value}`}
                                                         checked={formData.softSkills.includes(skill.value)}
                                                         onChange={() => toggleSoftSkill(skill.value)}
-                                                        className="w-5 h-5 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                                                        className="w-5 h-5 text-brand-600 bg-white border-border-strong rounded focus:ring-brand-500 cursor-pointer"
                                                     />
                                                     <Label htmlFor={`skill-${skill.value}`} className="font-normal cursor-pointer text-sm">
                                                         {skill.labelEn}
@@ -415,7 +415,7 @@ export default function EditActivityPage() {
                                                 </div>
                                             ))}
                                         </div>
-                                        <p className="text-xs text-gray-500">* ทักษะที่เลือกนี้จะถูกนำไปใช้เป็นเกณฑ์ในการประเมินนักศึกษาหลังจบกิจกรรม</p>
+                                        <p className="text-xs text-fg-muted">* ทักษะที่เลือกนี้จะถูกนำไปใช้เป็นเกณฑ์ในการประเมินนักศึกษาหลังจบกิจกรรม</p>
                                     </div>
                                 </div>
                             )}
@@ -425,7 +425,7 @@ export default function EditActivityPage() {
                                 <div className="space-y-6">
                                     <div>
                                         <Label className="text-base">แบบสำรวจความพึงพอใจ</Label>
-                                        <p className="mt-1 text-sm text-gray-500">
+                                        <p className="mt-1 text-sm text-fg-muted">
                                             นักศึกษาจะได้ตอบแบบสำรวจนี้หลังเช็คอินเข้าร่วมกิจกรรมแล้ว — เว้นว่างไว้ได้ถ้าไม่ต้องการเก็บแบบสำรวจ
                                         </p>
                                     </div>
@@ -445,54 +445,54 @@ export default function EditActivityPage() {
                                 <div className="space-y-6">
                                     <div className="text-center mb-6">
                                         <h3 className="text-xl font-semibold mb-2">ตรวจสอบข้อมูลกิจกรรม</h3>
-                                        <p className="text-gray-500">กรุณาตรวจสอบข้อมูลก่อนยืนยันการแก้ไขกิจกรรม</p>
+                                        <p className="text-fg-muted">กรุณาตรวจสอบข้อมูลก่อนยืนยันการแก้ไขกิจกรรม</p>
                                     </div>
 
                                     {error && (
-                                        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm text-center">
+                                        <div className="bg-danger-bg border border-danger/20 text-danger px-4 py-3 rounded-lg text-sm text-center">
                                             {error}
                                         </div>
                                     )}
 
-                                    <div className="bg-gray-50 p-6 rounded-lg space-y-6">
+                                    <div className="bg-surface p-6 rounded-lg space-y-6">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div>
-                                                <Label className="text-gray-500 text-xs">ชื่อกิจกรรม</Label>
+                                                <Label className="text-fg-muted text-xs">ชื่อกิจกรรม</Label>
                                                 <div className="font-medium">{formData.name || "-"}</div>
                                             </div>
                                             <div>
-                                                <Label className="text-gray-500 text-xs">หมวดหมู่</Label>
+                                                <Label className="text-fg-muted text-xs">หมวดหมู่</Label>
                                                 <div className="flex flex-wrap gap-1.5 mt-1">
                                                     {formData.categories.length > 0 ? formData.categories.map((c) => (
                                                         <Badge key={c} variant="secondary" className="px-2.5 py-0.5 font-normal">{categoryLabel(c)}</Badge>
-                                                    )) : <span className="text-sm text-gray-500">-</span>}
+                                                    )) : <span className="text-sm text-fg-muted">-</span>}
                                                 </div>
                                             </div>
                                             <div className="col-span-2">
-                                                <Label className="text-gray-500 text-xs">รายละเอียด</Label>
-                                                <div className="text-sm text-gray-700 mt-1">{formData.description || "-"}</div>
+                                                <Label className="text-fg-muted text-xs">รายละเอียด</Label>
+                                                <div className="text-sm text-denim-ink mt-1">{formData.description || "-"}</div>
                                             </div>
                                             <div>
-                                                <Label className="text-gray-500 text-xs">วันที่</Label>
+                                                <Label className="text-fg-muted text-xs">วันที่</Label>
                                                 <div className="font-medium">{formData.date || "-"}</div>
                                             </div>
                                             <div>
-                                                <Label className="text-gray-500 text-xs">เวลา</Label>
+                                                <Label className="text-fg-muted text-xs">เวลา</Label>
                                                 <div className="font-medium">{formData.startTime} - {formData.endTime}</div>
                                             </div>
                                             <div>
-                                                <Label className="text-gray-500 text-xs">สถานที่</Label>
+                                                <Label className="text-fg-muted text-xs">สถานที่</Label>
                                                 <div className="font-medium">{formData.location || "-"}</div>
                                             </div>
                                             <div>
-                                                <Label className="text-gray-500 text-xs">จำนวนที่รับ</Label>
+                                                <Label className="text-fg-muted text-xs">จำนวนที่รับ</Label>
                                                 <div className="font-medium">{formData.capacity.trim() === "" ? "ไม่จำกัดจำนวน" : `${formData.capacity} คน`}</div>
                                             </div>
 
                                             {/* Additional fields that were missing */}
                                             {imagePreview && (
                                                 <div className="col-span-1 md:col-span-2">
-                                                    <Label className="text-gray-500 text-xs">รูปภาพกิจกรรม (Poster)</Label>
+                                                    <Label className="text-fg-muted text-xs">รูปภาพกิจกรรม (Poster)</Label>
                                                     <div className="mt-2 w-full max-w-xs rounded-lg overflow-hidden border">
                                                         {/* eslint-disable-next-line @next/next/no-img-element */}
                                                         <img src={imagePreview} alt="Preview" className="w-full h-auto" />
@@ -501,34 +501,34 @@ export default function EditActivityPage() {
                                             )}
 
                                             <div className="col-span-1 md:col-span-2">
-                                                <Label className="text-gray-500 text-xs">แท็ก</Label>
+                                                <Label className="text-fg-muted text-xs">แท็ก</Label>
                                                 <div className="flex flex-wrap gap-2 mt-1">
                                                     {formData.tags?.length > 0 ? formData.tags.map(tag => (
                                                         <Badge key={tag} variant="secondary" className="px-3 py-1 font-normal">{tag}</Badge>
-                                                    )) : <span className="text-sm text-gray-500">-</span>}
+                                                    )) : <span className="text-sm text-fg-muted">-</span>}
                                                 </div>
                                             </div>
 
                                             <div className="col-span-1 md:col-span-2">
-                                                <Label className="text-gray-500 text-xs">เงื่อนไขการเข้าร่วม</Label>
+                                                <Label className="text-fg-muted text-xs">เงื่อนไขการเข้าร่วม</Label>
                                                 {formData.conditions?.length > 0 ? (
-                                                    <ul className="list-decimal pl-5 text-sm text-gray-700 mt-1 space-y-1">
+                                                    <ul className="list-decimal pl-5 text-sm text-denim-ink mt-1 space-y-1">
                                                         {formData.conditions.map((item, i) => <li key={i}>{item}</li>)}
                                                     </ul>
-                                                ) : <div className="text-sm text-gray-500 mt-1">-</div>}
+                                                ) : <div className="text-sm text-fg-muted mt-1">-</div>}
                                             </div>
 
                                             <div className="col-span-1 md:col-span-2">
-                                                <Label className="text-gray-500 text-xs">สิทธิประโยชน์</Label>
+                                                <Label className="text-fg-muted text-xs">สิทธิประโยชน์</Label>
                                                 {formData.benefits?.length > 0 ? (
-                                                    <ul className="list-disc pl-5 text-sm text-gray-700 mt-1 space-y-1">
+                                                    <ul className="list-disc pl-5 text-sm text-denim-ink mt-1 space-y-1">
                                                         {formData.benefits.map((item, i) => <li key={i}>{item}</li>)}
                                                     </ul>
-                                                ) : <div className="text-sm text-gray-500 mt-1">-</div>}
+                                                ) : <div className="text-sm text-fg-muted mt-1">-</div>}
                                             </div>
 
                                             <div className="col-span-1 md:col-span-2">
-                                                <Label className="text-gray-500 text-xs">Soft Skills ที่ประเมิน</Label>
+                                                <Label className="text-fg-muted text-xs">Soft Skills ที่ประเมิน</Label>
                                                 {formData.softSkills?.length > 0 ? (
                                                     <div className="flex flex-wrap gap-2 mt-2">
                                                         {formData.softSkills.map((skill, i) => (
@@ -537,25 +537,25 @@ export default function EditActivityPage() {
                                                             </Badge>
                                                         ))}
                                                     </div>
-                                                ) : <div className="text-sm text-gray-500 mt-1">ไม่ได้ระบุ</div>}
+                                                ) : <div className="text-sm text-fg-muted mt-1">ไม่ได้ระบุ</div>}
                                             </div>
 
                                             <div className="col-span-1 md:col-span-2">
-                                                <Label className="text-gray-500 text-xs">แบบสำรวจหลังกิจกรรม</Label>
+                                                <Label className="text-fg-muted text-xs">แบบสำรวจหลังกิจกรรม</Label>
                                                 {formData.surveyQuestions.length > 0 ? (
-                                                    <ul className="mt-2 space-y-1.5 text-sm text-gray-700">
+                                                    <ul className="mt-2 space-y-1.5 text-sm text-denim-ink">
                                                         {formData.surveyQuestions.map((q, i) => (
                                                             <li key={i} className="flex items-center gap-1.5">
                                                                 {q.type === "rating" ? (
                                                                     <Star className="w-3.5 h-3.5 text-amber-500" />
                                                                 ) : (
-                                                                    <Edit className="w-3.5 h-3.5 text-blue-500" />
+                                                                    <Edit className="w-3.5 h-3.5 text-brand-500" />
                                                                 )}
                                                                 {q.label || `คำถามข้อที่ ${i + 1}`}
                                                             </li>
                                                         ))}
                                                     </ul>
-                                                ) : <div className="text-sm text-gray-500 mt-1">ไม่ได้เก็บแบบสำรวจ</div>}
+                                                ) : <div className="text-sm text-fg-muted mt-1">ไม่ได้เก็บแบบสำรวจ</div>}
                                             </div>
 
                                         </div>
@@ -619,7 +619,7 @@ export default function EditActivityPage() {
                                         setSubmitting(false)
                                     }
                                 } : handleNext}
-                                className="bg-blue-600 hover:bg-blue-700 w-32"
+                                className="bg-brand-600 hover:bg-brand-700 w-32"
                                 disabled={submitting}
                             >
                                 {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />กำลังบันทึก...</> : step === 5 ? 'บันทึก' : 'ถัดไป'}

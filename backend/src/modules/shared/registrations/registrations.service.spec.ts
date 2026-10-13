@@ -1,12 +1,14 @@
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { RegistrationsService } from './registrations.service';
 import { RegistrationsRepository } from './registrations.repository';
 import { EvaluationsService } from './evaluation.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
-import { RegistrationStatus, RegistrationType } from '../../../common/enums/status.enum';
+import { RegistrationStatus, RegistrationType, ActivityStatus, AttendanceStatus } from '../../../common/enums/status.enum';
 import { UserRole } from '../../../common/enums/role.enum';
+import { generateCheckinToken } from '../../../common/utils/checkin-token.util';
 
 /** ปล่อยให้ microtask ของ `void this.notifyRegistrationConfirmed(...)` (fire-and-forget) รันจนจบก่อน assert */
 const flush = () => new Promise((resolve) => setImmediate(resolve));
@@ -47,6 +49,7 @@ describe('RegistrationsService.confirm', () => {
         { provide: EvaluationsService, useValue: {} },
         { provide: PrismaService, useValue: {} },
         { provide: MailService, useValue: mail },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(RegistrationsService);
@@ -121,6 +124,7 @@ describe('RegistrationsService.checkIn', () => {
         { provide: EvaluationsService, useValue: evaluations },
         { provide: PrismaService, useValue: prisma },
         { provide: MailService, useValue: {} },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(RegistrationsService);
@@ -219,6 +223,141 @@ describe('RegistrationsService.checkIn', () => {
       expect.objectContaining({ pendingApproval: true }),
     );
   });
+
+  // ตรงข้ามกับ checkInSelf โดยตั้งใจ — ผู้จัดเป็นคนยืนยันเอง ไม่ใช่ลิงก์ที่ใครก็เปิดได้ จึงยังแก้ย้อนหลังได้แม้กิจกรรมจบแล้ว
+  it('allows the organizer to check someone in even after the activity is already completed', async () => {
+    repo.findByIdWithActivitySoftSkills.mockResolvedValue({
+      id: 1,
+      status: RegistrationStatus.PENDING,
+      activity: { ...ACTIVITY, status: ActivityStatus.COMPLETED },
+    });
+
+    await expect(service.checkIn(OWNER_ID, UserRole.ORGANIZER, 1)).resolves.toBeDefined();
+    expect(repo.updateTx).toHaveBeenCalled();
+  });
+});
+
+describe('RegistrationsService.checkInSelf — เช็คอินผ่าน QR ด้วยตัวเอง', () => {
+  let service: RegistrationsService;
+  let repo: { findActiveByStudentAndActivityWithSoftSkills: jest.Mock; updateTx: jest.Mock };
+  let evaluations: { autoCreateForCheckIn: jest.Mock };
+  let prisma: { $transaction: jest.Mock };
+
+  const STUDENT_ID = 50;
+  const ACTIVITY_ID = 3;
+  const SECRET = 'test-secret-at-least-32-characters-long';
+  const ACTIVITY = { organizerId: OWNER_ID, status: ActivityStatus.OPEN, selfCheckInEnabled: true, softSkills: [] };
+
+  function registration(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 1,
+      status: RegistrationStatus.PENDING,
+      activityId: ACTIVITY_ID,
+      attendance: AttendanceStatus.ABSENT,
+      activity: ACTIVITY,
+      ...overrides,
+    };
+  }
+
+  /** token ที่ถูกต้องสำหรับหน้าต่างเวลาปัจจุบัน — ใช้ SECRET เดียวกับที่ ConfigService mock คืนให้ service */
+  function validToken() {
+    return generateCheckinToken(SECRET, ACTIVITY_ID).token;
+  }
+
+  beforeEach(async () => {
+    repo = {
+      findActiveByStudentAndActivityWithSoftSkills: jest.fn().mockResolvedValue(registration()),
+      updateTx: jest.fn().mockResolvedValue({ id: 1, status: RegistrationStatus.CONFIRMED, attendance: 'attended' }),
+    };
+    evaluations = { autoCreateForCheckIn: jest.fn().mockResolvedValue(undefined) };
+    prisma = { $transaction: jest.fn((cb: any) => cb({})) };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        RegistrationsService,
+        { provide: RegistrationsRepository, useValue: repo },
+        { provide: EvaluationsService, useValue: evaluations },
+        { provide: PrismaService, useValue: prisma },
+        { provide: MailService, useValue: {} },
+        { provide: ConfigService, useValue: { get: () => SECRET } },
+      ],
+    }).compile();
+    service = module.get(RegistrationsService);
+  });
+
+  it('checks in and returns alreadyCheckedIn:false the first time', async () => {
+    const result = await service.checkInSelf(STUDENT_ID, ACTIVITY_ID, validToken());
+    expect(repo.updateTx).toHaveBeenCalled();
+    expect(result).toMatchObject({ alreadyCheckedIn: false });
+  });
+
+  it('throws NotFoundException when the student has no active registration for this activity', async () => {
+    repo.findActiveByStudentAndActivityWithSoftSkills.mockResolvedValue(null);
+    await expect(service.checkInSelf(STUDENT_ID, ACTIVITY_ID, validToken())).rejects.toThrow(NotFoundException);
+    expect(repo.updateTx).not.toHaveBeenCalled();
+  });
+
+  it('re-scanning after already checked in returns alreadyCheckedIn:true without error, no matter the activity status/switch/token', async () => {
+    repo.findActiveByStudentAndActivityWithSoftSkills.mockResolvedValue(
+      registration({
+        attendance: AttendanceStatus.ATTENDED,
+        activity: { ...ACTIVITY, status: ActivityStatus.COMPLETED, selfCheckInEnabled: false },
+      }),
+    );
+
+    const result = await service.checkInSelf(STUDENT_ID, ACTIVITY_ID, 'garbage-token');
+    expect(result).toMatchObject({ alreadyCheckedIn: true });
+    expect(repo.updateTx).not.toHaveBeenCalled();
+  });
+
+  // แกนของคำถาม "เพื่อนส่งลิงก์/รูป QR มาให้แล้วเช็คอินแทนได้ไหม" — ปิดสวิตช์แล้วต้องเช็คอินไม่ได้ไม่ว่า token จะถูกแค่ไหน
+  it('refuses a first-time self check-in while the organizer has not opened check-in (switch off)', async () => {
+    repo.findActiveByStudentAndActivityWithSoftSkills.mockResolvedValue(
+      registration({ activity: { ...ACTIVITY, selfCheckInEnabled: false } }),
+    );
+
+    await expect(service.checkInSelf(STUDENT_ID, ACTIVITY_ID, validToken())).rejects.toThrow(BadRequestException);
+    expect(repo.updateTx).not.toHaveBeenCalled();
+  });
+
+  // แกนของคำถาม "แคปภาพ/ส่งต่อ QR เก่าให้เพื่อนที่ไม่ได้มา" — token หมดอายุ (หน้าต่าง 5 นาทีที่สร้างไว้ผ่านไปนานแล้ว) ต้องไม่ผ่าน
+  it('refuses when the token is missing, malformed, or from a long-expired window', async () => {
+    await expect(service.checkInSelf(STUDENT_ID, ACTIVITY_ID, '')).rejects.toThrow(BadRequestException);
+    await expect(service.checkInSelf(STUDENT_ID, ACTIVITY_ID, 'not-a-real-token')).rejects.toThrow(BadRequestException);
+
+    const staleWindow = new Date(Date.now() - 60 * 60 * 1000); // 1 ชั่วโมงก่อน — เกินช่วง grace 1 หน้าต่างไปมาก
+    const stale = generateCheckinToken(SECRET, ACTIVITY_ID, staleWindow).token;
+    await expect(service.checkInSelf(STUDENT_ID, ACTIVITY_ID, stale)).rejects.toThrow(BadRequestException);
+
+    expect(repo.updateTx).not.toHaveBeenCalled();
+  });
+
+  it('refuses a token generated for a different activity', async () => {
+    const tokenForAnotherActivity = generateCheckinToken(SECRET, ACTIVITY_ID + 1).token;
+    await expect(service.checkInSelf(STUDENT_ID, ACTIVITY_ID, tokenForAnotherActivity)).rejects.toThrow(BadRequestException);
+    expect(repo.updateTx).not.toHaveBeenCalled();
+  });
+
+  // แกนของเรื่องนี้: กัน QR/ลิงก์เก่าของกิจกรรมอื่นที่ไม่ได้กำลังดำเนินอยู่ ณ ตอนนี้ (จบไปแล้วไม่ว่าจะปิดเองหรือ auto-complete)
+  it('refuses a first-time self check-in once the activity is already completed (even with a valid token)', async () => {
+    repo.findActiveByStudentAndActivityWithSoftSkills.mockResolvedValue(
+      registration({ activity: { ...ACTIVITY, status: ActivityStatus.COMPLETED } }),
+    );
+
+    await expect(service.checkInSelf(STUDENT_ID, ACTIVITY_ID, validToken())).rejects.toThrow(BadRequestException);
+    expect(repo.updateTx).not.toHaveBeenCalled();
+  });
+
+  it('still allows self check-in while the activity is merely closed to new registrations (not completed)', async () => {
+    repo.findActiveByStudentAndActivityWithSoftSkills.mockResolvedValue(
+      registration({ activity: { ...ACTIVITY, status: ActivityStatus.CLOSED } }),
+    );
+
+    await expect(service.checkInSelf(STUDENT_ID, ACTIVITY_ID, validToken())).resolves.toMatchObject({
+      alreadyCheckedIn: false,
+    });
+    expect(repo.updateTx).toHaveBeenCalled();
+  });
 });
 
 describe('RegistrationsService.findByStudent — คะแนนที่รออนุมัติต้องไม่ถึงนักศึกษา', () => {
@@ -239,6 +378,7 @@ describe('RegistrationsService.findByStudent — คะแนนที่รอ�
         { provide: EvaluationsService, useValue: {} },
         { provide: PrismaService, useValue: {} },
         { provide: MailService, useValue: {} },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(RegistrationsService);
@@ -317,6 +457,7 @@ describe('RegistrationsService.create — registration type validation', () => {
         { provide: EvaluationsService, useValue: {} },
         { provide: PrismaService, useValue: {} },
         { provide: MailService, useValue: {} },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(RegistrationsService);
@@ -439,7 +580,7 @@ describe('RegistrationsService.create — registration deadline (Event.registrat
 
   const activityWithDeadline = (registrationCloseAt: Date | null) => ({
     id: 1,
-    event: { visibility: 'everyone', registrationCloseAt },
+    event: { visibility: 'everyone', isPublic: true, organizerId: OWNER_ID, registrationCloseAt },
     approvalStatus: 'approved',
     status: 'open',
     capacity: null,
@@ -468,6 +609,7 @@ describe('RegistrationsService.create — registration deadline (Event.registrat
         { provide: EvaluationsService, useValue: {} },
         { provide: PrismaService, useValue: {} },
         { provide: MailService, useValue: {} },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(RegistrationsService);
@@ -507,3 +649,148 @@ describe('RegistrationsService.create — registration deadline (Event.registrat
   });
 });
 
+describe('RegistrationsService.create — registration open date (Event.registrationOpenAt)', () => {
+  let service: RegistrationsService;
+  let repo: { findActivityWithActiveCount: jest.Mock; findActiveByStudentAndActivity: jest.Mock; create: jest.Mock };
+
+  const NOW = new Date('2027-01-20T10:00:00.000Z');
+
+  const activityWithWindow = (registrationOpenAt: Date | null, registrationCloseAt: Date | null = null) => ({
+    id: 1,
+    event: { visibility: 'everyone', isPublic: true, organizerId: OWNER_ID, registrationOpenAt, registrationCloseAt },
+    approvalStatus: 'approved',
+    status: 'open',
+    capacity: null,
+    volunteerRole: null,
+    questions: [],
+    _count: { registrations: 0 },
+    registrationType: RegistrationType.PARTICIPANT,
+    dutyRoleOptions: [] as string[],
+    dutyShiftOptions: [] as string[],
+    teamSizeMin: null,
+    teamSizeMax: null,
+    competitionCategoryOptions: [] as string[],
+  });
+
+  beforeEach(async () => {
+    jest.useFakeTimers().setSystemTime(NOW);
+    repo = {
+      findActivityWithActiveCount: jest.fn(),
+      findActiveByStudentAndActivity: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 99 }),
+    };
+    const module = await Test.createTestingModule({
+      providers: [
+        RegistrationsService,
+        { provide: RegistrationsRepository, useValue: repo },
+        { provide: EvaluationsService, useValue: {} },
+        { provide: PrismaService, useValue: {} },
+        { provide: MailService, useValue: {} },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
+      ],
+    }).compile();
+    service = module.get(RegistrationsService);
+  });
+
+  afterEach(() => jest.useRealTimers());
+
+  const register = () => service.create(5, 1, {} as any, [], {}, {});
+
+  it('rejects a registration one millisecond before the open instant, without creating anything', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithWindow(new Date(NOW.getTime() + 1)));
+
+    await expect(register()).rejects.toThrow(BadRequestException);
+    await expect(register()).rejects.toThrow('ยังไม่อยู่ในเวลาเปิดรับสมัคร');
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('accepts at the exact open instant (the open time itself already counts as open)', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithWindow(NOW));
+
+    await expect(register()).resolves.toEqual({ id: 99 });
+  });
+
+  it('accepts one millisecond after the open instant', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithWindow(new Date(NOW.getTime() - 1)));
+
+    await expect(register()).resolves.toEqual({ id: 99 });
+  });
+
+  it('accepts when the event has no open date set', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityWithWindow(null));
+
+    await expect(register()).resolves.toEqual({ id: 99 });
+  });
+
+  it('checks the open date before the close date — still-not-open wins over already-closed when both are set', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(
+      activityWithWindow(new Date(NOW.getTime() + 1), new Date(NOW.getTime() - 1)),
+    );
+
+    await expect(register()).rejects.toThrow('ยังไม่อยู่ในเวลาเปิดรับสมัคร');
+  });
+});
+
+describe('RegistrationsService.create — unpublished event (Event.isPublic = false)', () => {
+  let service: RegistrationsService;
+  let repo: { findActivityWithActiveCount: jest.Mock; findActiveByStudentAndActivity: jest.Mock; create: jest.Mock };
+
+  const student = { id: 5, role: 'student', studentId: '653380001-1', program: 'IT' };
+
+  const activityInEvent = (event: Record<string, unknown>) => ({
+    id: 1,
+    event: { visibility: 'everyone', visibilityProgram: [], visibilityYears: [], organizerId: OWNER_ID, ...event },
+    approvalStatus: 'approved',
+    status: 'open',
+    capacity: null,
+    volunteerRole: null,
+    questions: [],
+    _count: { registrations: 0 },
+    registrationType: RegistrationType.PARTICIPANT,
+    dutyRoleOptions: [] as string[],
+    dutyShiftOptions: [] as string[],
+    teamSizeMin: null,
+    teamSizeMax: null,
+    competitionCategoryOptions: [] as string[],
+  });
+
+  beforeEach(async () => {
+    repo = {
+      findActivityWithActiveCount: jest.fn(),
+      findActiveByStudentAndActivity: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 99 }),
+    };
+    const module = await Test.createTestingModule({
+      providers: [
+        RegistrationsService,
+        { provide: RegistrationsRepository, useValue: repo },
+        { provide: EvaluationsService, useValue: {} },
+        { provide: PrismaService, useValue: {} },
+        { provide: MailService, useValue: {} },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
+      ],
+    }).compile();
+    service = module.get(RegistrationsService);
+  });
+
+  // เดิมเช็คแค่ restricted — POST ตรงด้วย ID กิจกรรมของงานที่ปิดถาวรแล้วยังลงทะเบียนผ่าน
+  it('rejects a direct POST with the same 404 as a missing activity, without creating anything', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityInEvent({ isPublic: false }));
+
+    await expect(service.create(5, 1, student, [], {}, {})).rejects.toThrow(NotFoundException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the publish state was not loaded', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityInEvent({}));
+
+    await expect(service.create(5, 1, student, [], {}, {})).rejects.toThrow(NotFoundException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('accepts again once the organizer re-publishes the event', async () => {
+    repo.findActivityWithActiveCount.mockResolvedValue(activityInEvent({ isPublic: true }));
+
+    await expect(service.create(5, 1, student, [], {}, {})).resolves.toEqual({ id: 99 });
+  });
+});

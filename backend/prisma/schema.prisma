@@ -27,6 +27,12 @@ enum EducationLevel {
   doctorate
 }
 
+/// คำนำหน้าชื่อนักศึกษา — เก็บตอนลงทะเบียน (RegisterDto), nullable เพราะ organizer/admin และ user ก่อนมีฟีเจอร์นี้ไม่มีข้อมูล
+enum Title {
+  mr
+  miss
+}
+
 enum ActivityStatus {
   open
   closed
@@ -139,6 +145,7 @@ model User {
   // ── ข้อมูลติดต่อ & การศึกษา ────────────────────────────────────────────────
   // nullable ทั้งหมด เพราะ admin/organizer ไม่มีข้อมูลส่วนนี้
   // และ user ที่สมัครก่อนฟีเจอร์นี้ก็ยังไม่มีข้อมูล — บังคับกรอกที่ชั้น DTO แทน
+  title          Title?
   phone          String?         @db.VarChar(20)
   educationLevel EducationLevel? @map("education_level")
   program        String?         @db.VarChar(50) // เก็บ code จาก common/constants/programs.ts
@@ -150,6 +157,9 @@ model User {
   validUntil               DateTime? @map("valid_until")
   createdAt                DateTime  @default(now()) @map("created_at")
   isBlocked                Boolean   @default(false) @map("is_blocked")
+  // default true กันผู้ใช้เดิม/บัญชี organizer-admin ที่สร้างด้วย flow อื่นโดนล็อกย้อนหลัง —
+  // มีแค่ AuthService.register (นักศึกษาสมัครเอง) เท่านั้นที่ตั้งค่า false ตรงๆ ตอนสร้างแถว
+  isVerified               Boolean   @default(true) @map("is_verified")
   verificationOtp          String?   @map("verification_otp") @db.VarChar(10)
   verificationOtpExpiresAt DateTime? @map("verification_otp_expires_at")
   // นับครั้งที่กรอก OTP ผิด — เกินเพดานแล้วเผา OTP ทิ้ง กันการไล่เดารหัส 6 หลัก
@@ -193,6 +203,7 @@ model Event {
   description               String
   imageUrl                  String?         @map("image_url") @db.VarChar(500)
   isPublic                  Boolean         @default(true) @map("is_public")
+  registrationOpenAt        DateTime?       @map("registration_open_at")
   registrationCloseAt       DateTime?       @map("registration_close_at")
   visibility                EventVisibility @default(everyone)
   visibilityStudentIdFilter String?         @map("visibility_student_id_filter")
@@ -273,8 +284,11 @@ model Activity {
   teamSizeMin                Int?             @map("team_size_min")
   teamSizeMax                Int?             @map("team_size_max")
   competitionCategoryOptions String[]         @default([]) @map("competition_category_options") @db.VarChar(255)
-  // เปิดโหมดประเมินรอบด้าน (นักศึกษาประเมินตนเอง + เพื่อน) — ผู้จัดเปิดได้เฉพาะกิจกรรมสตาฟฟ์ Tier 3
+  // เปิดโหมดประเมินรอบด้าน (นักศึกษาประเมินตนเอง + เพื่อน) — ผู้จัดเปิดได้เฉพาะกิจกรรม Tier 3
   peerAssessmentEnabled      Boolean          @default(false) @map("peer_assessment_enabled")
+  // สวิตช์เปิด/ปิดการเช็คอินด้วยตัวเองผ่าน QR — ปิดเป็นค่าเริ่มต้นเสมอ (fail closed) ผู้จัดต้องกด
+  // "เปิดการเช็คอิน" เองหน้างาน ตอนเปิดอยู่ QR จะหมุนรหัสใหม่ทุก 5 นาที (ดู common/utils/checkin-token.util.ts)
+  selfCheckInEnabled         Boolean          @default(false) @map("self_check_in_enabled")
   createdAt                  DateTime         @default(now()) @map("created_at")
 
   organizer             User                   @relation(fields: [organizerId], references: [id], onDelete: Cascade)
@@ -287,7 +301,7 @@ model Activity {
   registrations         Registration[]
   // แบบสำรวจของกิจกรรมเดี่ยว (ไม่มี Event แม่) — งานที่มี Event จะใช้ Event.surveyQuestions แทน ไม่ใช่อันนี้
   surveyQuestions       EventSurveyQuestion[]
-  // คะแนนฐานรายฝ่ายจากหน้า Batch Evaluation (เฉพาะกิจกรรมสตาฟฟ์ Tier 3)
+  // คะแนนฐานรายฝ่ายจากหน้า Batch Evaluation (เฉพาะกิจกรรม Tier 3)
   evaluationBaselines   EvaluationBaseline[]
   // ใบงานประเมินตนเอง/เพื่อนของกิจกรรมนี้ (เฉพาะเมื่อเปิดโหมดประเมินรอบด้าน)
   assessmentAssignments AssessmentAssignment[]
@@ -529,7 +543,7 @@ model Evaluation {
   @@map("evaluations")
 }
 
-// ─── Batch Evaluation (กิจกรรมสตาฟฟ์ Tier 3) ────────────────────────────────────
+// ─── Batch Evaluation (กิจกรรม Tier 3) ────────────────────────────────────
 // คะแนนต่อคนต่อทักษะ = exception ?? baseline(dutyRole) ?? ActivitySoftSkill.rate
 // แล้วเขียนผลลงคอลัมน์ของ Evaluation เท่านั้น — ผู้อ่านคะแนนเดิมทั้งหมดจึงไม่ต้องรู้จักสองตารางนี้
 

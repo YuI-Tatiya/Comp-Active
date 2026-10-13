@@ -1,4 +1,8 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { ConfigService } from '@nestjs/config';
+import { generateCheckinToken } from '../../../common/utils/checkin-token.util';
+import { APP_UTC_OFFSET } from '../../../common/utils/time.util';
 import { ActivitiesRepository } from './activities.repository';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
@@ -7,12 +11,25 @@ import { CreateSurveyQuestionDto } from '../events/dto/create-survey-question.dt
 import { ActivityStatus, ApprovalStatus, AttendanceStatus, SurveyQuestionType } from '../../../common/enums/status.enum';
 import { prepareRegistrationTypeFields } from '../../../common/utils/registration-type.util';
 import { UserRole } from '../../../common/enums/role.enum';
-import { isViewerEligibleForEvent, filterVisibleActivities, type Viewer } from '../events/event-visibility.util';
+import { canViewerSeeEvent, isViewerEligibleForEvent, filterVisibleActivities, type Viewer } from '../events/event-visibility.util';
 import { buildSurveyResults } from '../events/survey-results.util';
 import { EventsRepository } from '../events/events.repository';
 import { RegistrationsRepository } from '../registrations/registrations.repository';
 import { MailService } from '../mail/mail.service';
 import { UsersRepository } from '../users/users.repository';
+
+/**
+ * รูปที่ส่งออกเส้นทางสาธารณะ: จำนวนผู้ลงทะเบียนแทน _count และผู้จัดเหลือแค่ id + ชื่อ —
+ * activityInclude select อีเมลผู้จัดมาด้วย (เส้นทางผู้จัด/แอดมินใช้) ห้ามหลุดออก endpoint ที่ไม่ต้องล็อกอิน
+ * (กติกาเดียวกับ EventsService.toPublicEvent)
+ */
+function toPublicActivity({ _count, organizer, ...a }: any) {
+  return {
+    ...a,
+    organizer: organizer ? { id: organizer.id, name: organizer.name } : organizer,
+    registeredCount: _count?.registrations ?? 0,
+  };
+}
 
 @Injectable()
 export class ActivitiesService {
@@ -25,6 +42,7 @@ export class ActivitiesService {
     private readonly registrationsRepository: RegistrationsRepository,
     private readonly mailService: MailService,
     private readonly usersRepository: UsersRepository,
+    private readonly config: ConfigService,
   ) {}
 
   /** เกณฑ์เดียวกับ EventsService — คะแนนเต็มของคำถามแบบ rating ต้องมีอย่างน้อย 2 */
@@ -90,7 +108,21 @@ export class ActivitiesService {
     const activities = await this.activitiesRepository.findAllApproved(filterDto);
     const visible = filterVisibleActivities(activities as any, viewer ?? null);
 
-    return visible.map(({ _count, ...a }: any) => ({ ...a, registeredCount: _count.registrations }));
+    return visible.map((a: any) => toPublicActivity(a));
+  }
+
+  /**
+   * GET /api/activities/:id (สาธารณะ) — เช็คทั้ง restricted และการเผยแพร่ของงานแม่ (canViewerSeeEvent):
+   * งานที่ไม่เผยแพร่เห็นได้เฉพาะเจ้าของ (ดูตัวอย่าง) และแอดมิน — 404 เดียวกันทั้งไม่พบจริงและไม่มีสิทธิ์เห็น
+   * แยกจาก findById ที่เมธอดภายใน (update/ลบ/เปลี่ยนสถานะ ฯลฯ) เรียกใช้ เพราะพวกนั้นเช็คความเป็นเจ้าของเองอยู่แล้ว
+   * ผู้จัดต้องจัดการกิจกรรมของงานที่ตัวเองปิดการเผยแพร่ได้ตามปกติ
+   */
+  async findByIdPublic(id: number, viewer: Viewer | null) {
+    const activity = await this.activitiesRepository.findById(id);
+    if (!activity || !canViewerSeeEvent(viewer, (activity as any).event)) {
+      throw new NotFoundException(`ไม่พบกิจกรรม ID: ${id}`);
+    }
+    return toPublicActivity(activity);
   }
 
   async findById(id: number, viewer?: Viewer | null) {
@@ -257,6 +289,39 @@ export class ActivitiesService {
     return { ...rest, registeredCount: _count.registrations };
   }
 
+  /** โทเค็นปัจจุบันสำหรับ QR เช็คอิน — คำนวณสดทุกครั้ง ไม่ผูกกับว่าเปิดสวิตช์ไว้หรือไม่ (ฝั่งแสดงผลเป็นผู้ตัดสินว่าจะโชว์ QR ไหม) */
+  async getCheckInSession(activityId: number, userId: number, userRole: UserRole) {
+    const activity = await this.findById(activityId);
+    if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์ดูการเช็คอินของกิจกรรมนี้');
+    }
+
+    const secret = this.config.get<string>('jwt.secret')!;
+    const { token, expiresAt } = generateCheckinToken(secret, activityId);
+    return { enabled: activity.selfCheckInEnabled, token, expiresAt };
+  }
+
+  /**
+   * เปิด/ปิดการเช็คอินด้วยตัวเองผ่าน QR — ปิดแล้ว QR ที่หน้างานใช้เช็คอินไม่ได้ทันที (เช็คที่ checkInSelf)
+   * ไม่ให้เปิดถ้ากิจกรรมจบไปแล้ว (เปิดเช็คอินกิจกรรมที่จบแล้วไม่มีความหมาย)
+   */
+  async setSelfCheckIn(activityId: number, userId: number, userRole: UserRole, enabled: boolean) {
+    const activity = await this.findById(activityId);
+    if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์แก้ไขการเช็คอินของกิจกรรมนี้');
+    }
+    if (enabled && activity.status === ActivityStatus.COMPLETED) {
+      throw new BadRequestException('กิจกรรมนี้จบไปแล้ว ไม่สามารถเปิดการเช็คอินได้');
+    }
+
+    await this.activitiesRepository.updateSelfCheckIn(activityId, enabled);
+    this.logger.log(`Self check-in ${enabled ? 'เปิด' : 'ปิด'}: "${activity.name}" (ID: ${activityId})`);
+
+    const secret = this.config.get<string>('jwt.secret')!;
+    const { token, expiresAt } = generateCheckinToken(secret, activityId);
+    return { enabled, token, expiresAt };
+  }
+
   countAll() {
     return this.activitiesRepository.countAll();
   }
@@ -278,11 +343,7 @@ export class ActivitiesService {
       throw new BadRequestException('กิจกรรมนี้ถูกยกเลิกไปแล้ว ไม่สามารถจบกิจกรรมได้');
     }
 
-    // endAt เป็น null สำหรับกิจกรรมรุ่นเก่า จึงถอยไปใช้ date + endTime แทน
-    const endsAt = activity.endAt
-      ? new Date(activity.endAt)
-      : new Date(`${new Date(activity.date).toISOString().slice(0, 10)}T${activity.endTime || '23:59'}:00`);
-
+    const endsAt = this.computeEndsAt(activity);
     if (!Number.isNaN(endsAt.getTime()) && endsAt.getTime() > Date.now()) {
       throw new BadRequestException('ยังไม่ถึงเวลาสิ้นสุดกิจกรรม ยังจบกิจกรรมไม่ได้');
     }
@@ -293,6 +354,55 @@ export class ActivitiesService {
     void this.notifyActivityCompleted(activityId, activity.name);
 
     return saved;
+  }
+
+  /** endAt เป็น null สำหรับกิจกรรมรุ่นเก่า จึงถอยไปใช้ date + endTime แทน — ใช้ร่วมกันทั้ง markCompleted
+   *  แบบกดเองและ autoCompleteOverdueActivities (งานอัตโนมัติ) กันสูตรเพี้ยนไม่ตรงกันระหว่างสองทาง */
+  private computeEndsAt(activity: { endAt: Date | null; date: Date; endTime: string | null }): Date {
+    return activity.endAt
+      ? new Date(activity.endAt)
+      : // date+endTime ที่ผู้จัดกรอกเป็นเวลาไทย — ต้องระบุ +07:00 ไม่งั้นสตริงไม่มีเขตเวลาถูกอ่านเป็นเวลาของ process
+        // (container เป็น UTC → ปิดกิจกรรมอัตโนมัติช้าไป 7 ชม.)
+        new Date(`${new Date(activity.date).toISOString().slice(0, 10)}T${activity.endTime || '23:59'}:00${APP_UTC_OFFSET}`);
+  }
+
+  /**
+   * งานอัตโนมัติ: ปิดกิจกรรมที่เลยเวลาสิ้นสุดแล้วแต่ผู้จัดยังไม่ได้กด "จบกิจกรรม" เอง — ใช้เงื่อนไขเดียวกับ
+   * markCompleted ทุกอย่าง (ยกเว้นเช็คเจ้าของ เพราะไม่มีผู้เรียกจริง) รวมถึงอีเมลแจ้งผู้เข้าร่วมที่เช็คอินแล้ว
+   * ชุดเดียวกัน ผู้ใช้ปลายทางไม่ควรรู้สึกต่างกันว่าใครเป็นคนกด — แค่ "กิจกรรมจบแล้ว" เหมือนกัน
+   *
+   * แต่ละกิจกรรมพังแยกจากกัน ไม่ throw ต่อ — ไม่งั้นกิจกรรมหนึ่งมีปัญหาจะพารายการอื่นในรอบเดียวกันไม่ถูกปิดไปด้วย
+   * รันทุก 10 นาที (ค่าคงที่ที่ละเอียดสุดที่ @nestjs/schedule มีให้คือระดับนี้): ถี่พอให้แบบสำรวจเปิดให้
+   * ผู้เข้าร่วมตอบได้โดยไม่รอนาน ไม่ถี่จนไม่จำเป็น
+   *
+   * หมายเหตุ: ตอนนี้ backend รันอินสแตนซ์เดียว (ดู docker-compose.yml) จึงไม่มีความเสี่ยงรันซ้ำซ้อนจนแจ้งอีเมล
+   * ผู้เข้าร่วมซ้ำ — ถ้าในอนาคตขยายเป็นหลายอินสแตนซ์ ต้องเพิ่ม lock กันชนกันก่อน
+   */
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async autoCompleteOverdueActivities(): Promise<number> {
+    const now = new Date();
+    const candidates = await this.activitiesRepository.findOpenPastEnd(now);
+    let completedCount = 0;
+
+    for (const activity of candidates) {
+      const endsAt = this.computeEndsAt(activity);
+      if (Number.isNaN(endsAt.getTime()) || endsAt.getTime() > now.getTime()) continue; // ยังไม่ถึงเวลาจริง (เคสรุ่นเก่าที่คำนวณจาก date+endTime)
+
+      try {
+        await this.activitiesRepository.markCompleted(activity.id);
+        this.logger.log(`Activity auto-completed (เลยเวลาสิ้นสุดแล้ว): "${activity.name}" (ID: ${activity.id})`);
+        void this.notifyActivityCompleted(activity.id, activity.name);
+        completedCount++;
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.error(`autoCompleteOverdueActivities failed for activity ${activity.id}: ${msg}`);
+      }
+    }
+
+    if (completedCount > 0) {
+      this.logger.log(`Auto-complete run: ปิดกิจกรรมที่เลยเวลาไปแล้ว ${completedCount} รายการ`);
+    }
+    return completedCount;
   }
 
   private async notifyActivityCompleted(activityId: number, activityName: string) {
@@ -345,7 +455,14 @@ export class ActivitiesService {
     ]);
 
     const totalActivities = activities.length;
-    const activeActivities = activities.filter((a) => a.approvalStatus === ApprovalStatus.APPROVED).length;
+    // "กำลังเปิดรับ" ต้องแปลว่าเปิดรับสมัครอยู่จริง (status) ไม่ใช่แค่ผ่านการอนุมัติ (approvalStatus) —
+    // เดิมนับจาก approvalStatus === APPROVED ทำให้ตัวเลขบนการ์ดสถิติไม่ตรงกับแท็บสถานะ "เปิดรับสมัคร"
+    // ของหน้าเดียวกัน (กิจกรรมที่อนุมัติแล้วแต่ถูกปิดรับสมัคร/จบไปแล้ว ก็ยังถูกนับว่า "active" อยู่)
+    // ต้อง === APPROVED ตรงๆ (ไม่ใช่แค่ !== CANCELLED/REJECTED) ให้ตรงกับเงื่อนไขเดียวกับที่
+    // findAllApproved/PUBLIC_EVENTS_ONLY ใช้ตัดสินว่ากิจกรรมนี้เปิดให้สาธารณะเห็น-สมัครได้จริงหรือไม่
+    const activeActivities = activities.filter(
+      (a) => a.status === ActivityStatus.OPEN && a.approvalStatus === ApprovalStatus.APPROVED,
+    ).length;
     const totalRegistrations = activities.reduce((sum, a) => sum + a._count.registrations, 0);
 
     return { totalActivities, activeActivities, totalRegistrations, totalStudents, pendingRegistrations };

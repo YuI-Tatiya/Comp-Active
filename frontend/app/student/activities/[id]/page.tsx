@@ -11,7 +11,8 @@ import { Toast } from "@/components/ui/toast"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { AlertTriangle, Loader2 } from "lucide-react"
 import { activitiesAPI, registrationsAPI, Activity, RegistrationAnswerBody } from "@/lib/api"
-import { resolveEventImageUrl } from "@/lib/event-image"
+import { eventImagePathFor } from "@/lib/event-image"
+import { referenceCode } from "@/components/denim/denim-ui"
 import { useAuth } from "@/lib/auth-context"
 import { formatActivitySchedule, pickMyRegistration } from "@/lib/activity-view"
 import { ActivityRegistrationView } from "@/components/activity/activity-registration-view"
@@ -30,8 +31,6 @@ export default function StudentActivityDetailsPage() {
     const params = useParams()
     const router = useRouter()
     const searchParams = useSearchParams()
-    // กลับไปหน้าที่ผู้ใช้มาจริง — whitelist เท่านั้น ไม่รับ path จาก query ตรงๆ
-    const backHref = searchParams.get("from") === "my-registrations" ? "/student/my-registrations" : "/student/events"
     const [event, setEvent] = useState<Activity | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
@@ -140,11 +139,6 @@ export default function StudentActivityDetailsPage() {
         } finally {
             setLoading(false)
         }
-    }
-
-    const handleShare = () => {
-        navigator.clipboard.writeText(`${window.location.origin}/student/activities/${event?.id}`)
-        showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")
     }
 
     const handleRegister = async (e: React.FormEvent) => {
@@ -273,7 +267,8 @@ export default function StudentActivityDetailsPage() {
     return (
         <ActivityRegistrationView
             title={event.name}
-            imageUrl={resolveEventImageUrl(event)}
+            imagePath={eventImagePathFor(event)}
+            code={referenceCode("ACT", event.id)}
             organizerName={event.organizer?.name}
             activities={[event]}
             activeId={event.id}
@@ -281,8 +276,9 @@ export default function StudentActivityDetailsPage() {
             myRegistrations={myRegistrations}
             onRegister={openRegisterDialog}
             onCancel={() => setCancelConfirmOpen(true)}
-            onShare={handleShare}
-            backHref={backHref}
+            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${event.id}`}
+            onShareCopied={() => showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")}
+            backHref="/student/events"
         >
             <Dialog open={isRegisterOpen} onOpenChange={(open) => { setIsRegisterOpen(open); if (open) openRegisterDialog(); }}>
                 <DialogContent className="sm:max-w-[480px]">

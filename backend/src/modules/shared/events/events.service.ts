@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, ForbiddenException, NotFoundException,
 import { EventsRepository, PreparedActivityData } from './events.repository';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
-import { diffHours, formatHHmm } from '../../../common/utils/time.util';
+import { bangkokDateOnly, diffHours, formatHHmm } from '../../../common/utils/time.util';
 import { prepareRegistrationTypeFields } from '../../../common/utils/registration-type.util';
 import { maxSoftSkillLevel } from '../../../common/utils/soft-skill-cap.util';
 
@@ -14,7 +14,7 @@ import {
   ApprovalStatus,
 } from '../../../common/enums/status.enum';
 import { UserRole } from '../../../common/enums/role.enum';
-import { isViewerEligibleForEvent, Viewer } from './event-visibility.util';
+import { canViewerSeeEvent, Viewer } from './event-visibility.util';
 import { buildSurveyResults } from './survey-results.util';
 
 @Injectable()
@@ -27,8 +27,6 @@ export class EventsService {
   private validateSoftSkillRates(
     rates: { skillType: string; rate: number }[],
     durationHours: number,
-    registrationType: string,
-    isProject: boolean,
     errorPrefix: string,
   ) {
     if (rates.length > MAX_SOFT_SKILLS_PER_ACTIVITY) {
@@ -36,7 +34,7 @@ export class EventsService {
         `${errorPrefix}เลือกประเมิน Soft Skills ได้ไม่เกิน ${MAX_SOFT_SKILLS_PER_ACTIVITY} ทักษะต่อกิจกรรม`,
       );
     }
-    const cap = maxSoftSkillLevel(durationHours, registrationType, isProject);
+    const cap = maxSoftSkillLevel(durationHours);
     if (rates.some((r) => r.rate > cap)) {
       throw new BadRequestException(
         `${errorPrefix}ให้คะแนน Soft Skills ได้ไม่เกินระดับ ${cap} ตามระยะเวลาของกิจกรรมนี้ (${durationHours} ชม.)`,
@@ -44,8 +42,14 @@ export class EventsService {
     }
   }
 
+  /** ถ้าตั้งไว้ทั้งสองวัน วันเปิดรับสมัครต้องมาก่อนวันปิดเสมอ — กันตั้งค่าสลับกันจนไม่เหลือช่วงเวลาที่สมัครได้เลย */
+  private validateRegistrationWindow(openAt?: Date, closeAt?: Date) {
+    if (openAt && closeAt && openAt.getTime() >= closeAt.getTime()) {
+      throw new BadRequestException('วันเปิดรับสมัครต้องอยู่ก่อนวันปิดรับสมัคร');
+    }
+  }
+
   async create(organizerId: number, dto: CreateEventDto) {
-    const isProject = dto.activities.length > 1;
     const activities: PreparedActivityData[] = dto.activities.map((a, index) => {
       const startAt = new Date(a.startAt);
       const endAt = new Date(a.endAt);
@@ -78,13 +82,7 @@ export class EventsService {
 
       const durationHours = diffHours(startAt, endAt);
       const softSkillRates = (a.softSkillRates ?? []).map((s) => ({ skillType: s.skillType, rate: s.rate }));
-      this.validateSoftSkillRates(
-        softSkillRates,
-        durationHours,
-        registrationTypeFields.registrationType,
-        isProject,
-        `กิจกรรมลำดับที่ ${index + 1}: `,
-      );
+      this.validateSoftSkillRates(softSkillRates, durationHours, `กิจกรรมลำดับที่ ${index + 1}: `);
 
       return {
         name: a.name,
@@ -95,7 +93,7 @@ export class EventsService {
         startAt,
         endAt,
         // date/startTime/endTime derived จาก startAt/endAt เพื่อ backward-compat กับทุกหน้าที่ query ด้วยฟิลด์เดิม
-        date: startAt,
+        date: bangkokDateOnly(startAt),
         startTime: formatHHmm(startAt),
         endTime: formatHHmm(endAt),
         location: a.location,
@@ -117,13 +115,17 @@ export class EventsService {
     });
 
     const visibility = dto.visibility ?? EventVisibility.EVERYONE;
+    const registrationOpenAt = dto.registrationOpenAt ? new Date(dto.registrationOpenAt) : undefined;
+    const registrationCloseAt = dto.registrationCloseAt ? new Date(dto.registrationCloseAt) : undefined;
+    this.validateRegistrationWindow(registrationOpenAt, registrationCloseAt);
 
     const event = await this.eventsRepository.create(organizerId, {
       name: dto.name,
       description: dto.description,
       imageUrl: dto.imageUrl,
       isPublic: dto.isPublic ?? true,
-      registrationCloseAt: dto.registrationCloseAt ? new Date(dto.registrationCloseAt) : undefined,
+      registrationOpenAt,
+      registrationCloseAt,
       activities,
       surveyQuestions,
       visibility,
@@ -143,7 +145,6 @@ export class EventsService {
       throw new ForbiddenException('คุณไม่มีสิทธิ์แก้ไขงานนี้');
     }
 
-    const isProject = dto.activities.length > 1;
     const submittedIds = new Set(dto.activities.map((a) => a.id).filter((id): id is number => !!id));
     const removedActivities = event.activities.filter((a: any) => !submittedIds.has(a.id));
     for (const removed of removedActivities) {
@@ -184,13 +185,7 @@ export class EventsService {
 
       const durationHours = diffHours(startAt, endAt);
       const softSkillRates = (a.softSkillRates ?? []).map((s) => ({ skillType: s.skillType, rate: s.rate }));
-      this.validateSoftSkillRates(
-        softSkillRates,
-        durationHours,
-        registrationTypeFields.registrationType,
-        isProject,
-        `กิจกรรมลำดับที่ ${index + 1}: `,
-      );
+      this.validateSoftSkillRates(softSkillRates, durationHours, `กิจกรรมลำดับที่ ${index + 1}: `);
 
       return {
         id: a.id,
@@ -201,7 +196,7 @@ export class EventsService {
         attachmentUrl: a.attachmentUrl,
         startAt,
         endAt,
-        date: startAt,
+        date: bangkokDateOnly(startAt),
         startTime: formatHHmm(startAt),
         endTime: formatHHmm(endAt),
         location: a.location,
@@ -224,6 +219,9 @@ export class EventsService {
     });
 
     const visibility = dto.visibility ?? EventVisibility.EVERYONE;
+    const registrationOpenAt = dto.registrationOpenAt ? new Date(dto.registrationOpenAt) : undefined;
+    const registrationCloseAt = dto.registrationCloseAt ? new Date(dto.registrationCloseAt) : undefined;
+    this.validateRegistrationWindow(registrationOpenAt, registrationCloseAt);
 
     const updated = await this.eventsRepository.update(
       eventId,
@@ -232,7 +230,8 @@ export class EventsService {
         description: dto.description,
         imageUrl: dto.imageUrl,
         isPublic: dto.isPublic ?? true,
-        registrationCloseAt: dto.registrationCloseAt ? new Date(dto.registrationCloseAt) : undefined,
+        registrationOpenAt,
+        registrationCloseAt,
         activities,
         surveyQuestions,
         visibility,
@@ -330,7 +329,7 @@ export class EventsService {
 
   async findAllPublic(viewer: Viewer | null) {
     const events = await this.eventsRepository.findAllApproved();
-    return events.filter((e: any) => isViewerEligibleForEvent(viewer, e as any)).map((e: any) => this.toPublicEvent(e));
+    return events.filter((e: any) => canViewerSeeEvent(viewer, e as any)).map((e: any) => this.toPublicEvent(e));
   }
 
   async findByIdPublic(id: number, viewer: Viewer | null) {
@@ -338,8 +337,8 @@ export class EventsService {
     const hasApprovedActivity = (event as any)?.activities?.some(
       (a: any) => a.approvalStatus === ApprovalStatus.APPROVED,
     );
-    // ให้ error เดียวกับ "ไม่พบ" เสมอ ไม่ว่าจะไม่มีจริงๆ, ไม่มีกิจกรรมย่อยที่อนุมัติแล้ว, หรือมีแต่ไม่มีสิทธิ์เห็น
-    if (!event || !hasApprovedActivity || !isViewerEligibleForEvent(viewer, event as any)) {
+    // ให้ error เดียวกับ "ไม่พบ" เสมอ ไม่ว่าจะไม่มีจริงๆ, ไม่มีกิจกรรมย่อยที่อนุมัติแล้ว, ไม่เผยแพร่, หรือมีแต่ไม่มีสิทธิ์เห็น
+    if (!event || !hasApprovedActivity || !canViewerSeeEvent(viewer, event as any)) {
       throw new NotFoundException(`ไม่พบงาน ID: ${id}`);
     }
     return this.toPublicEvent(event);

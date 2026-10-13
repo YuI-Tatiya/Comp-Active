@@ -18,6 +18,9 @@ import {
   STUDENT_ID_FACULTY_CODE,
   STUDENT_ID_REGEX,
   THAI_MOBILE_REGEX,
+  TITLE_CODES,
+  TITLE_ERRORS,
+  TitleCode,
   PASSWORD_ERRORS,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
@@ -27,6 +30,10 @@ import {
 const EDUCATION_LEVEL_CODES = EDUCATION_LEVELS.map((l) => l.code);
 
 export class RegisterDto {
+  @ApiProperty({ example: "mr", enum: TITLE_CODES, description: "คำนำหน้าชื่อ" })
+  @IsIn(TITLE_CODES, { message: TITLE_ERRORS.REQUIRED })
+  title: TitleCode;
+
   @ApiProperty({ example: "สมชาย ใจดี", description: "ชื่อ-นามสกุล" })
   @IsString()
   @IsNotEmpty()

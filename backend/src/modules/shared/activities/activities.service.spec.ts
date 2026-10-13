@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ActivitiesService } from './activities.service';
 import { ActivitiesRepository } from './activities.repository';
@@ -53,6 +54,7 @@ describe('ActivitiesService.markCompleted', () => {
         { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn().mockResolvedValue([]) } },
         { provide: MailService, useValue: { sendActivityCompleted: jest.fn(), sendActivityCancelled: jest.fn() } },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -118,6 +120,130 @@ describe('ActivitiesService.markCompleted', () => {
   });
 });
 
+describe('ActivitiesService.autoCompleteOverdueActivities', () => {
+  let service: ActivitiesService;
+  let repo: { findOpenPastEnd: jest.Mock; markCompleted: jest.Mock };
+  let registrationsRepo: { findByActivity: jest.Mock };
+
+  function makeCandidate(overrides: Partial<any> = {}) {
+    return { id: 5, name: 'Workshop', endAt: PAST, date: PAST, endTime: '12:00', ...overrides } as any;
+  }
+
+  beforeEach(async () => {
+    repo = {
+      findOpenPastEnd: jest.fn().mockResolvedValue([]),
+      markCompleted: jest.fn().mockResolvedValue({ id: 5, status: ActivityStatus.COMPLETED }),
+    };
+    registrationsRepo = { findByActivity: jest.fn().mockResolvedValue([]) };
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: repo },
+        { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
+        { provide: RegistrationsRepository, useValue: registrationsRepo },
+        { provide: MailService, useValue: { sendActivityCompleted: jest.fn(), sendActivityCancelled: jest.fn() } },
+        { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+  });
+
+  it('completes every candidate the repository already filtered as past its end time', async () => {
+    repo.findOpenPastEnd.mockResolvedValue([makeCandidate({ id: 5 }), makeCandidate({ id: 6, name: 'Camp' })]);
+
+    const count = await service.autoCompleteOverdueActivities();
+
+    expect(repo.markCompleted).toHaveBeenCalledWith(5);
+    expect(repo.markCompleted).toHaveBeenCalledWith(6);
+    expect(count).toBe(2);
+  });
+
+  it('re-checks the real end time itself — does not complete a legacy (endAt: null) candidate whose derived end time is still upcoming', async () => {
+    // findOpenPastEnd คัดคร่าวๆ ระดับ DB (endAt ผ่านแล้ว หรือไม่มีค่า) — เคส endAt: null ต้องคำนวณ
+    // จาก date+endTime ซ้ำที่ชั้น service เพราะ DB กรองแบบนี้ไม่ได้ตรงๆ
+    repo.findOpenPastEnd.mockResolvedValue([makeCandidate({ endAt: null, date: FUTURE, endTime: '12:00' })]);
+
+    const count = await service.autoCompleteOverdueActivities();
+
+    expect(repo.markCompleted).not.toHaveBeenCalled();
+    expect(count).toBe(0);
+  });
+
+  it('completes a legacy (endAt: null) candidate whose derived end time has actually passed', async () => {
+    repo.findOpenPastEnd.mockResolvedValue([makeCandidate({ endAt: null, date: PAST, endTime: '12:00' })]);
+
+    const count = await service.autoCompleteOverdueActivities();
+
+    expect(repo.markCompleted).toHaveBeenCalledWith(5);
+    expect(count).toBe(1);
+  });
+
+  it('reads a legacy date + endTime as Thai time even when the process runs in UTC (Docker)', async () => {
+    // กิจกรรมรุ่นเก่า: วันที่ 18 ต.ค. จบ 16:00 ตามเวลาไทย = 09:00 UTC — โค้ดเดิมอ่านสตริงไม่มีเขตเวลาเป็นเวลาของ
+    // process (UTC — ชุดเทสต์รันใน UTC ดู jest.global-setup.js) จึงได้ 16:00 UTC แล้วปิดกิจกรรมช้าไป 7 ชม.
+    jest.useFakeTimers();
+    try {
+      const legacy = makeCandidate({ endAt: null, date: '2026-10-18T00:00:00.000Z', endTime: '16:00' });
+
+      jest.setSystemTime(new Date('2026-10-18T08:59:00.000Z')); // 15:59 ตามเวลาไทย — ยังไม่จบ
+      repo.findOpenPastEnd.mockResolvedValue([legacy]);
+      expect(await service.autoCompleteOverdueActivities()).toBe(0);
+
+      jest.setSystemTime(new Date('2026-10-18T09:01:00.000Z')); // 16:01 ตามเวลาไทย — จบแล้ว
+      expect(await service.autoCompleteOverdueActivities()).toBe(1);
+      expect(repo.markCompleted).toHaveBeenCalledWith(5);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('no candidates — no-op, returns 0', async () => {
+    const count = await service.autoCompleteOverdueActivities();
+
+    expect(repo.markCompleted).not.toHaveBeenCalled();
+    expect(count).toBe(0);
+  });
+
+  it('one activity failing does not stop the others in the same run', async () => {
+    repo.findOpenPastEnd.mockResolvedValue([makeCandidate({ id: 5 }), makeCandidate({ id: 6 })]);
+    repo.markCompleted.mockImplementation((id: number) =>
+      id === 5 ? Promise.reject(new Error('db hiccup')) : Promise.resolve({ id, status: ActivityStatus.COMPLETED }),
+    );
+
+    await expect(service.autoCompleteOverdueActivities()).resolves.toBe(1);
+    expect(repo.markCompleted).toHaveBeenCalledWith(5);
+    expect(repo.markCompleted).toHaveBeenCalledWith(6);
+  });
+
+  it('sends the same "activity completed" email as the manual flow, to attendees only', async () => {
+    registrationsRepo.findByActivity.mockResolvedValue([
+      { id: 1, attendance: 'attended', student: { email: 'a@kku.ac.th', name: 'A' } },
+      { id: 2, attendance: 'absent', student: { email: 'b@kku.ac.th', name: 'B' } },
+    ]);
+    repo.findOpenPastEnd.mockResolvedValue([makeCandidate()]);
+    const mailService = { sendActivityCompleted: jest.fn(), sendActivityCancelled: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: repo },
+        { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
+        { provide: RegistrationsRepository, useValue: registrationsRepo },
+        { provide: MailService, useValue: mailService },
+        { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+
+    await service.autoCompleteOverdueActivities();
+    await new Promise((resolve) => setImmediate(resolve)); // flush the fire-and-forget notifyActivityCompleted
+
+    expect(mailService.sendActivityCompleted).toHaveBeenCalledTimes(1);
+    expect(mailService.sendActivityCompleted).toHaveBeenCalledWith('a@kku.ac.th', 'A', 'Workshop');
+  });
+});
+
 /** ปล่อยให้ microtask ของ `void this.notifyX(...)` (fire-and-forget) รันจนจบก่อน assert */
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -153,6 +279,7 @@ describe('ActivitiesService student-notification side effects', () => {
         { provide: RegistrationsRepository, useValue: registrationsRepo },
         { provide: MailService, useValue: mail },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -217,6 +344,7 @@ describe('ActivitiesService.delete', () => {
         { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
         { provide: MailService, useValue: {} },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -257,6 +385,7 @@ describe('ActivitiesService.findByIdForOrganizer', () => {
         { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
         { provide: MailService, useValue: {} },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -300,6 +429,7 @@ describe('ActivitiesService.getSurveyResults — ownership', () => {
         { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
         { provide: MailService, useValue: {} },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -341,6 +471,7 @@ describe('ActivitiesService.duplicate', () => {
         { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
         { provide: MailService, useValue: {} },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -396,6 +527,7 @@ describe('ActivitiesService.setStatus', () => {
         { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
         { provide: MailService, useValue: {} },
         { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
       ],
     }).compile();
     service = module.get(ActivitiesService);
@@ -423,5 +555,234 @@ describe('ActivitiesService.setStatus', () => {
   it('throws ForbiddenException for a non-owning organizer', async () => {
     await expect(service.setStatus(5, 999, UserRole.ORGANIZER, 'closed')).rejects.toThrow(ForbiddenException);
     expect(activitiesRepo.updateStatus).not.toHaveBeenCalled();
+  });
+});
+
+describe('ActivitiesService.getCheckInSession / setSelfCheckIn — QR เช็คอินหมุนรหัส', () => {
+  let service: ActivitiesService;
+  let activitiesRepo: { findById: jest.Mock; updateSelfCheckIn: jest.Mock };
+  const SECRET = 'test-secret-at-least-32-characters-long';
+
+  beforeEach(async () => {
+    activitiesRepo = {
+      findById: jest.fn().mockResolvedValue(makeActivity({ selfCheckInEnabled: false })),
+      updateSelfCheckIn: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: activitiesRepo },
+        { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
+        { provide: RegistrationsRepository, useValue: { findByActivity: jest.fn() } },
+        { provide: MailService, useValue: {} },
+        { provide: UsersRepository, useValue: { countActiveStudents: jest.fn() } },
+        { provide: ConfigService, useValue: { get: () => SECRET } },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+  });
+
+  describe('getCheckInSession', () => {
+    it("returns the activity's current enabled flag plus a freshly computed token", async () => {
+      activitiesRepo.findById.mockResolvedValue(makeActivity({ selfCheckInEnabled: true }));
+      const result = await service.getCheckInSession(5, 7, UserRole.ORGANIZER);
+      expect(result.enabled).toBe(true);
+      expect(typeof result.token).toBe('string');
+      expect(result.expiresAt).toBeInstanceOf(Date);
+    });
+
+    it('reports enabled:false without error when the organizer has not opened check-in', async () => {
+      const result = await service.getCheckInSession(5, 7, UserRole.ORGANIZER);
+      expect(result.enabled).toBe(false);
+    });
+
+    it('throws ForbiddenException for a non-owning organizer', async () => {
+      await expect(service.getCheckInSession(5, 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('allows an admin who does not own the activity', async () => {
+      await expect(service.getCheckInSession(5, 999, UserRole.ADMIN)).resolves.toBeDefined();
+    });
+  });
+
+  describe('setSelfCheckIn', () => {
+    it('enables check-in for the owning organizer and returns a usable token', async () => {
+      const result = await service.setSelfCheckIn(5, 7, UserRole.ORGANIZER, true);
+      expect(activitiesRepo.updateSelfCheckIn).toHaveBeenCalledWith(5, true);
+      expect(result).toMatchObject({ enabled: true });
+      expect(typeof result.token).toBe('string');
+    });
+
+    it('disables check-in for the owning organizer', async () => {
+      await service.setSelfCheckIn(5, 7, UserRole.ORGANIZER, false);
+      expect(activitiesRepo.updateSelfCheckIn).toHaveBeenCalledWith(5, false);
+    });
+
+    it('throws ForbiddenException for a non-owning organizer', async () => {
+      await expect(service.setSelfCheckIn(5, 999, UserRole.ORGANIZER, true)).rejects.toThrow(ForbiddenException);
+      expect(activitiesRepo.updateSelfCheckIn).not.toHaveBeenCalled();
+    });
+
+    it('allows an admin to toggle an activity they do not own', async () => {
+      await expect(service.setSelfCheckIn(5, 999, UserRole.ADMIN, true)).resolves.toBeDefined();
+    });
+
+    // เปิดเช็คอินกิจกรรมที่จบไปแล้วไม่มีความหมาย — กันผู้จัดกดเปิดหลงจากกิจกรรมจบแล้ว
+    it('refuses to enable check-in once the activity is already completed', async () => {
+      activitiesRepo.findById.mockResolvedValue(makeActivity({ status: ActivityStatus.COMPLETED }));
+      await expect(service.setSelfCheckIn(5, 7, UserRole.ORGANIZER, true)).rejects.toThrow(BadRequestException);
+      expect(activitiesRepo.updateSelfCheckIn).not.toHaveBeenCalled();
+    });
+
+    it('still allows disabling check-in on a completed activity (closing down is always safe)', async () => {
+      activitiesRepo.findById.mockResolvedValue(makeActivity({ status: ActivityStatus.COMPLETED, selfCheckInEnabled: true }));
+      await expect(service.setSelfCheckIn(5, 7, UserRole.ORGANIZER, false)).resolves.toMatchObject({ enabled: false });
+      expect(activitiesRepo.updateSelfCheckIn).toHaveBeenCalledWith(5, false);
+    });
+  });
+});
+
+describe('ActivitiesService.getOrganizerStats', () => {
+  let service: ActivitiesService;
+  let activitiesRepo: { findManyByOrganizerWithCount: jest.Mock };
+  let usersRepo: { countActiveStudents: jest.Mock };
+  let registrationsRepo: { countPendingByOrganizer: jest.Mock };
+
+  beforeEach(async () => {
+    activitiesRepo = { findManyByOrganizerWithCount: jest.fn().mockResolvedValue([]) };
+    usersRepo = { countActiveStudents: jest.fn().mockResolvedValue(42) };
+    registrationsRepo = { countPendingByOrganizer: jest.fn().mockResolvedValue(3) };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: activitiesRepo },
+        { provide: EventsRepository, useValue: { findByIdWithSurveyAnswers: jest.fn() } },
+        { provide: RegistrationsRepository, useValue: registrationsRepo },
+        { provide: MailService, useValue: {} },
+        { provide: UsersRepository, useValue: usersRepo },
+        { provide: ConfigService, useValue: { get: () => "test-secret" } },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+  });
+
+  // บั๊กเดิม: นับจาก approvalStatus === APPROVED ทำให้ "กำลังเปิดรับ" บนการ์ดสถิติไม่ตรงกับ
+  // แท็บสถานะ "เปิดรับสมัคร" ของหน้าเดียวกัน (ซึ่งนับจาก status ไม่ใช่ approvalStatus)
+  it('counts activeActivities from registration status (open), not approval status', async () => {
+    activitiesRepo.findManyByOrganizerWithCount.mockResolvedValue([
+      makeActivity({ id: 1, status: ActivityStatus.OPEN, approvalStatus: ApprovalStatus.APPROVED }),
+      // อนุมัติแล้วแต่ปิดรับสมัคร/จบไปแล้ว — เคยถูกนับเป็น active ทั้งที่ไม่ได้เปิดรับสมัครจริง
+      makeActivity({ id: 2, status: ActivityStatus.CLOSED, approvalStatus: ApprovalStatus.APPROVED }),
+      makeActivity({ id: 3, status: ActivityStatus.COMPLETED, approvalStatus: ApprovalStatus.APPROVED }),
+      // รออนุมัติอยู่แต่ status ดิบยังเป็น open — ไม่ควรนับ (ยังไม่เผยแพร่ให้ใครเห็น)
+      makeActivity({ id: 4, status: ActivityStatus.OPEN, approvalStatus: ApprovalStatus.PENDING }),
+    ]);
+
+    const stats = await service.getOrganizerStats(7);
+
+    expect(stats.totalActivities).toBe(4);
+    expect(stats.activeActivities).toBe(1);
+  });
+
+  it('excludes cancelled/rejected activities from activeActivities even if status is still open', async () => {
+    activitiesRepo.findManyByOrganizerWithCount.mockResolvedValue([
+      makeActivity({ id: 1, status: ActivityStatus.OPEN, approvalStatus: ApprovalStatus.CANCELLED }),
+      makeActivity({ id: 2, status: ActivityStatus.OPEN, approvalStatus: ApprovalStatus.REJECTED }),
+    ]);
+
+    const stats = await service.getOrganizerStats(7);
+
+    expect(stats.totalActivities).toBe(2);
+    expect(stats.activeActivities).toBe(0);
+  });
+
+  it('sums registrations across all activities and passes through student/pending counts unchanged', async () => {
+    activitiesRepo.findManyByOrganizerWithCount.mockResolvedValue([
+      makeActivity({ id: 1, _count: { registrations: 5 } }),
+      makeActivity({ id: 2, _count: { registrations: 2 } }),
+    ]);
+
+    const stats = await service.getOrganizerStats(7);
+
+    expect(stats.totalRegistrations).toBe(7);
+    expect(stats.totalStudents).toBe(42);
+    expect(stats.pendingRegistrations).toBe(3);
+    expect(registrationsRepo.countPendingByOrganizer).toHaveBeenCalledWith(7);
+  });
+});
+
+describe('ActivitiesService public reads — unpublished events and organizer email', () => {
+  let service: ActivitiesService;
+  let repo: { findAllApproved: jest.Mock; findById: jest.Mock };
+
+  const student = { id: 5, role: 'student', studentId: '653380001-1', program: 'IT' };
+  const owner = { id: 7, role: 'organizer' };
+
+  const inEvent = (id: number, isPublic: boolean) =>
+    makeActivity({
+      id,
+      organizer: { id: 7, name: 'Org', email: 'org@example.com' },
+      event: { visibility: 'everyone', visibilityProgram: [], visibilityYears: [], isPublic, organizerId: 7 },
+      _count: { registrations: 4 },
+    });
+
+  beforeEach(async () => {
+    repo = { findAllApproved: jest.fn(), findById: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [
+        ActivitiesService,
+        { provide: ActivitiesRepository, useValue: repo },
+        { provide: EventsRepository, useValue: {} },
+        { provide: RegistrationsRepository, useValue: {} },
+        { provide: MailService, useValue: {} },
+        { provide: UsersRepository, useValue: {} },
+        { provide: ConfigService, useValue: { get: () => 'test-secret' } },
+      ],
+    }).compile();
+    service = module.get(ActivitiesService);
+  });
+
+  it('findAllApproved leaves out activities of unpublished events, except for their own organizer', async () => {
+    repo.findAllApproved.mockResolvedValue([inEvent(1, true), inEvent(2, false), makeActivity({ id: 3 })]);
+
+    expect((await service.findAllApproved(undefined, null)).map((a: any) => a.id)).toEqual([1, 3]);
+    expect((await service.findAllApproved(undefined, student)).map((a: any) => a.id)).toEqual([1, 3]);
+    expect((await service.findAllApproved(undefined, owner)).map((a: any) => a.id)).toEqual([1, 2, 3]);
+  });
+
+  it('findAllApproved never sends the organizer email out on the public feed', async () => {
+    repo.findAllApproved.mockResolvedValue([inEvent(1, true)]);
+
+    const [a] = await service.findAllApproved(undefined, null);
+    expect(a.organizer).toEqual({ id: 7, name: 'Org' });
+    expect(a.registeredCount).toBe(4);
+    expect(a._count).toBeUndefined();
+  });
+
+  it('findByIdPublic is a 404 for a student on an unpublished event, but opens for the owner and admins', async () => {
+    repo.findById.mockResolvedValue(inEvent(2, false));
+
+    await expect(service.findByIdPublic(2, null)).rejects.toThrow(NotFoundException);
+    await expect(service.findByIdPublic(2, student)).rejects.toThrow(NotFoundException);
+    await expect(service.findByIdPublic(2, owner)).resolves.toMatchObject({ id: 2 });
+    await expect(service.findByIdPublic(2, { id: 1, role: 'admin' })).resolves.toMatchObject({ id: 2 });
+  });
+
+  it('findByIdPublic is a 404 for a missing activity and strips the organizer email', async () => {
+    repo.findById.mockResolvedValue(null);
+    await expect(service.findByIdPublic(9, null)).rejects.toThrow(NotFoundException);
+
+    repo.findById.mockResolvedValue(inEvent(1, true));
+    const a = await service.findByIdPublic(1, null);
+    expect(a.organizer).toEqual({ id: 7, name: 'Org' });
+    expect(a.registeredCount).toBe(4);
+  });
+
+  it('findById (used by the owner-checked write paths) is deliberately not gated on publishing', async () => {
+    // ผู้จัดต้องแก้/ปิด/ลบ/เช็คอินกิจกรรมของงานที่ตัวเองปิดการเผยแพร่ได้ตามปกติ — เมธอดพวกนั้นเช็คความเป็นเจ้าของเอง
+    repo.findById.mockResolvedValue(inEvent(2, false));
+    await expect(service.findById(2)).resolves.toMatchObject({ id: 2 });
   });
 });

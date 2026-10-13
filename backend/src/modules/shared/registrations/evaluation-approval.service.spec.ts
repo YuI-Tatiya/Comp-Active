@@ -14,25 +14,26 @@ function activity(overrides: Record<string, unknown> = {}) {
     organizerId: OWNER_ID,
     status: 'completed',
     peerAssessmentEnabled: true,
-    registrationType: 'staff_volunteer',
-    // 96 ชม. (>72) → ปลดล็อกระดับ 5 = Tier 3
+    // 96 ชม. (≥48) → ปลดล็อกระดับ 3 = Tier 3 — ใช้ได้ทุกประเภทการรับสมัคร
     startAt: new Date('2027-01-01T09:00:00.000Z'),
     endAt: new Date('2027-01-05T09:00:00.000Z'),
     softSkills: [
-      { skillType: 'leadership', rate: 3 },
-      { skillType: 'communication', rate: 2 },
+      { skillType: 'leadership', rate: 2 },
+      { skillType: 'communication', rate: 1 },
     ],
-    event: null,
     ...overrides,
   };
 }
+
+/** กิจกรรมสั้น (2 ชม. < 48) → cap ไม่ถึง 3 เลยไม่เข้าเงื่อนไข Tier 3 — ใช้แทนการปรับ registrationType เดิม */
+const SHORT_DURATION = { endAt: new Date('2027-01-01T11:00:00.000Z') };
 
 function attended(id: number, overrides: Record<string, unknown> = {}) {
   return {
     id,
     dutyRole: 'ฝ่ายA',
     student: { name: `Student ${id}`, studentId: `65338000${id}-1` },
-    evaluation: { id: id * 10, leadership: 3, communication: 2, approval: null },
+    evaluation: { id: id * 10, leadership: 2, communication: 1, approval: null },
     evaluationExceptions: [],
     ...overrides,
   };
@@ -51,12 +52,12 @@ function submitted(assessor: number, target: number, leadership: number, communi
   };
 }
 
-/** ตนเอง + เพื่อน 2 คน ให้ค่าเท่าค่าเริ่มต้นของกิจกรรม (3/2) → ไม่มีข้อขัดแย้ง */
+/** ตนเอง + เพื่อน 2 คน ให้ค่าเท่าค่าเริ่มต้นของกิจกรรม (2/1) → ไม่มีข้อขัดแย้ง */
 function consistentFor(target: number, assessors: [number, number]) {
   return [
-    submitted(target, target, 3, 2),
-    submitted(assessors[0], target, 3, 2),
-    submitted(assessors[1], target, 3, 2),
+    submitted(target, target, 2, 1),
+    submitted(assessors[0], target, 2, 1),
+    submitted(assessors[1], target, 2, 1),
   ];
 }
 
@@ -90,14 +91,14 @@ describe('EvaluationApprovalService', () => {
     evalRepo.findAttendedForBatch.mockResolvedValue([
       attended(1),
       attended(2),
-      attended(3, { evaluationExceptions: [{ skillType: 'leadership', score: 5, reason: 'ทำงานเกินหน้าที่' }] }),
-      attended(4, { evaluation: { id: 40, leadership: 5, communication: 3, approval: { id: 1 } } }),
+      attended(3, { evaluationExceptions: [{ skillType: 'leadership', score: 3, reason: 'ทำงานเกินหน้าที่' }] }),
+      attended(4, { evaluation: { id: 40, leadership: 3, communication: 2, approval: { id: 1 } } }),
     ]);
     approvalRepo.findSubmittedScoresByActivity.mockResolvedValue([
       ...consistentFor(1, [2, 3]),
       // คน 2: เพื่อนส่งครบ 2 คน แต่ตนเองไม่ส่ง
-      submitted(1, 2, 3, 2),
-      submitted(3, 2, 3, 2),
+      submitted(1, 2, 2, 1),
+      submitted(3, 2, 2, 1),
       // คน 3: ตนเอง + เพื่อนครบ (แต่ผู้จัดตั้งข้อยกเว้นไว้)
       ...consistentFor(3, [1, 2]),
     ]);
@@ -106,8 +107,8 @@ describe('EvaluationApprovalService', () => {
         registrationId: 4,
         overrideReason: 'ทำงานเกินหน้าที่',
         breakdown: {
-          leadership: { organizer: 3, self: 5, peer: 5, peerCount: 2, recommended: 5, final: 5 },
-          communication: { organizer: 2, self: 3, peer: 3, peerCount: 2, recommended: 3, final: 3 },
+          leadership: { organizer: 2, self: 3, peer: 3, peerCount: 2, recommended: 3, final: 3 },
+          communication: { organizer: 1, self: 2, peer: 2, peerCount: 2, recommended: 2, final: 2 },
         },
       },
     ]);
@@ -135,7 +136,7 @@ describe('EvaluationApprovalService', () => {
     });
 
     it.each([
-      ['ไม่ใช่ Tier 3', { registrationType: 'participant' }],
+      ['ไม่ใช่ Tier 3', SHORT_DURATION],
       ['ยังไม่เปิดโหมดประเมินรอบด้าน', { peerAssessmentEnabled: false }],
       ['กิจกรรมยังไม่จบ', { status: 'open' }],
     ])('%s → available:false พร้อมเหตุผล (หน้าจอบอกทางไปต่อ) และไม่อ่านข้อมูลดิบ', async (_label, overrides) => {
@@ -150,7 +151,7 @@ describe('EvaluationApprovalService', () => {
     });
 
     it.each([
-      ['ไม่ใช่ Tier 3', { registrationType: 'participant' }],
+      ['ไม่ใช่ Tier 3', SHORT_DURATION],
       ['ยังไม่เปิดโหมด', { peerAssessmentEnabled: false }],
       ['กิจกรรมยังไม่จบ', { status: 'open' }],
     ])('อนุมัติ: %s → BadRequestException และไม่เขียน', async (_label, overrides) => {
@@ -171,7 +172,7 @@ describe('EvaluationApprovalService', () => {
 
       expect(result.summary).toEqual({ total: 4, approved: 1, ready: 1, flagged: 2 });
       expect(result.rows.map((r) => r.registrationId)).toEqual([2, 3, 1, 4]);
-      expect(result.cap).toBe(5);
+      expect(result.cap).toBe(3);
       expect(result.skills).toEqual(['leadership', 'communication']);
     });
 
@@ -188,17 +189,17 @@ describe('EvaluationApprovalService', () => {
 
     it('คำนวณค่าต่อทักษะ: ผู้จัด (ข้อยกเว้น ?? ฐานฝ่าย ?? ค่าเริ่มต้น), ตนเอง, เพื่อน(เฉลี่ย/จำนวน), ที่แนะนำ', async () => {
       mixedScenario();
-      evalRepo.findBaselinesByActivity.mockResolvedValue([{ dutyRole: 'ฝ่ายA', skillType: 'communication', score: 5 }]);
+      evalRepo.findBaselinesByActivity.mockResolvedValue([{ dutyRole: 'ฝ่ายA', skillType: 'communication', score: 3 }]);
       const { rows } = await service.getApproval(OWNER_ID, UserRole.ORGANIZER, ACTIVITY_ID);
 
       const p3 = rows.find((r) => r.registrationId === 3)!;
       const leadership = p3.skills.find((s) => s.skillType === 'leadership')!;
       const communication = p3.skills.find((s) => s.skillType === 'communication')!;
 
-      expect(leadership).toMatchObject({ organizer: 5, self: 3, peer: 3, peerCount: 2, final: null }); // ข้อยกเว้นชนะ
-      expect(communication).toMatchObject({ organizer: 5, self: 2, peer: 2, peerCount: 2 }); // ฐานของฝ่ายชนะค่าเริ่มต้น
-      // 0.5·5 + 0.2·3 + 0.3·3 = 4.0 → เสมอกัน ปัดขึ้น = 5
-      expect(leadership.recommended).toBe(5);
+      expect(leadership).toMatchObject({ organizer: 3, self: 2, peer: 2, peerCount: 2, final: null }); // ข้อยกเว้นชนะ
+      expect(communication).toMatchObject({ organizer: 3, self: 1, peer: 1, peerCount: 2 }); // ฐานของฝ่ายชนะค่าเริ่มต้น
+      // 0.5·3 + 0.2·2 + 0.3·2 = 2.5 → เสมอกัน ปัดขึ้น = 3
+      expect(leadership.recommended).toBe(3);
     });
 
     it('แถวที่อนุมัติแล้วแสดงจากค่าที่ล็อกไว้ ไม่คำนวณใหม่ และไม่ติดธง', async () => {
@@ -208,7 +209,7 @@ describe('EvaluationApprovalService', () => {
 
       expect(approved.approved).toBe(true);
       expect(approved.overrideReason).toBe('ทำงานเกินหน้าที่');
-      expect(approved.skills.find((s) => s.skillType === 'leadership')).toMatchObject({ self: 5, final: 5 });
+      expect(approved.skills.find((s) => s.skillType === 'leadership')).toMatchObject({ self: 3, final: 3 });
     });
 
     it('ไม่คืนตัวตนผู้ให้คะแนน (ใครให้ใคร) ในผลลัพธ์', async () => {
@@ -236,10 +237,10 @@ describe('EvaluationApprovalService', () => {
       expect(writes).toHaveLength(1);
       expect(writes[0]).toMatchObject({
         evaluationId: 10,
-        scores: { leadership: 3, communication: 2 },
+        scores: { leadership: 2, communication: 1 },
         overrideReason: null,
       });
-      expect(writes[0].breakdown.leadership).toMatchObject({ organizer: 3, self: 3, peer: 3, recommended: 3, final: 3 });
+      expect(writes[0].breakdown.leadership).toMatchObject({ organizer: 2, self: 2, peer: 2, recommended: 2, final: 2 });
     });
 
     it('คืนหน้าสรุปล่าสุดหลังอนุมัติ', async () => {
@@ -255,8 +256,8 @@ describe('EvaluationApprovalService', () => {
     it('ส่งค่าเท่ากับที่แนะนำ: ไม่ต้องมีเหตุผล และไม่เก็บเหตุผลที่ส่งมาเกิน', async () => {
       await service.approveOne(OWNER_ID, UserRole.ORGANIZER, 1, {
         scores: [
-          { skillType: 'leadership', score: 3 },
-          { skillType: 'communication', score: 2 },
+          { skillType: 'leadership', score: 2 },
+          { skillType: 'communication', score: 1 },
         ],
         reason: 'ไม่จำเป็น',
       } as any);
@@ -266,8 +267,8 @@ describe('EvaluationApprovalService', () => {
 
     it('ค่าที่เลือกต่างจากที่แนะนำ: ต้องมีเหตุผล (ว่าง/ช่องว่าง/ไม่ส่ง → BadRequest)', async () => {
       const scores = [
-        { skillType: 'leadership', score: 5 },
-        { skillType: 'communication', score: 2 },
+        { skillType: 'leadership', score: 3 },
+        { skillType: 'communication', score: 1 },
       ] as any;
 
       await expect(service.approveOne(OWNER_ID, UserRole.ORGANIZER, 1, { scores })).rejects.toThrow(BadRequestException);
@@ -280,22 +281,22 @@ describe('EvaluationApprovalService', () => {
     it('ต่างจากที่แนะนำและมีเหตุผล → บันทึกค่าที่เลือกพร้อมเหตุผลที่ตัดช่องว่างแล้ว', async () => {
       await service.approveOne(OWNER_ID, UserRole.ORGANIZER, 1, {
         scores: [
-          { skillType: 'leadership', score: 5 },
-          { skillType: 'communication', score: 2 },
+          { skillType: 'leadership', score: 3 },
+          { skillType: 'communication', score: 1 },
         ],
         reason: '  รับผิดชอบทั้งค่าย  ',
       } as any);
 
       const write = approvalRepo.approveMany.mock.calls[0][0][0];
-      expect(write.scores).toEqual({ leadership: 5, communication: 2 });
+      expect(write.scores).toEqual({ leadership: 3, communication: 1 });
       expect(write.overrideReason).toBe('รับผิดชอบทั้งค่าย');
-      expect(write.breakdown.leadership).toMatchObject({ recommended: 3, final: 5 });
+      expect(write.breakdown.leadership).toMatchObject({ recommended: 2, final: 3 });
     });
 
     it.each([
       ['ให้ไม่ครบทุกทักษะ', [{ skillType: 'leadership', score: 3 }]],
       ['ทักษะที่กิจกรรมไม่ได้ประเมิน', [{ skillType: 'leadership', score: 3 }, { skillType: 'creativity', score: 3 }]],
-      ['ทักษะซ้ำ', [{ skillType: 'leadership', score: 3 }, { skillType: 'leadership', score: 5 }]],
+      ['ทักษะซ้ำ', [{ skillType: 'leadership', score: 3 }, { skillType: 'leadership', score: 2 }]],
     ])('%s → BadRequestException', async (_label, scores) => {
       await expect(
         service.approveOne(OWNER_ID, UserRole.ORGANIZER, 1, { scores: scores as any, reason: 'x' }),

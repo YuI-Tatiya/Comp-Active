@@ -5,14 +5,15 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
 import { PageHeader } from "@/components/ui/page-header"
-import { EventCard, EventCardBadge } from "@/components/ui/event-card"
+import { ACTIVITY_GRID, ActivityCardSkeleton } from "@/components/denim/denim-ui"
+import { PublicActivityCard } from "@/components/denim/public-activity-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
 import { SectionHeading } from "@/components/ui/section-heading"
+import { StatTile } from "@/components/ui/stat-tile"
 import { SkillRadar, SkillScoreList } from "@/components/ui/skill-radar"
 import { UpcomingItem, type UpcomingActivity } from "@/components/ui/upcoming-item"
-import { NewsCarousel } from "@/components/ui/news-carousel"
-import { categoriesBadgeLabel } from "@/lib/categories"
+import { NewsShowcase } from "@/components/home/news-showcase"
 import {
   activitiesAPI,
   eventsAPI,
@@ -25,7 +26,6 @@ import {
 import { buildFeaturedCards, type FeaturedCardItem } from "@/lib/events-filter"
 import { useAuth } from "@/lib/auth-context"
 import { ArrowRight, CalendarCheck, CalendarX, Clock, Trophy, TrendingUp, Star } from "lucide-react"
-import { StatCard } from "@/components/student/animated-stat"
 
 interface MyRegistration {
   id: number
@@ -34,22 +34,6 @@ interface MyRegistration {
 }
 
 const XP_PER_LEVEL = 5000
-
-/** ลิงก์ทรงแคปซูล — ลูกศรในวงกลมสไลด์สลับเมื่อชี้, ปุ่มเปลี่ยนสี ยกขึ้น และยุบตอนกด */
-function PillLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="group inline-flex items-center gap-2 rounded-full border border-brand-100 bg-brand-50 py-1 pl-4 pr-1 text-sm font-semibold text-brand-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-600 hover:bg-brand-600 hover:text-white hover:shadow-md hover:shadow-brand-600/25 active:translate-y-0 active:scale-95"
-    >
-      {children}
-      <span className="relative flex size-7 items-center justify-center overflow-hidden rounded-full bg-brand-600 text-white transition-colors duration-300 group-hover:bg-white group-hover:text-brand-600">
-        <ArrowRight className="size-4 transition-transform duration-300 ease-out group-hover:translate-x-7" aria-hidden="true" />
-        <ArrowRight className="absolute size-4 -translate-x-7 transition-transform duration-300 ease-out group-hover:translate-x-0" aria-hidden="true" />
-      </span>
-    </Link>
-  )
-}
 
 export default function StudentDashboardPage() {
   const { user } = useAuth()
@@ -70,7 +54,9 @@ export default function StudentDashboardPage() {
           Array.isArray(standalone) ? standalone : [],
           { event: (id) => `/student/events/${id}`, activity: (id) => `/student/activities/${id}` }
         )
-        setRecommended([...all].sort((a, b) => a.sortDate - b.sortDate).slice(0, 3))
+        // หัวข้อบอกว่า "กิจกรรมที่กำลังเปิดรับสมัคร" — เอาเฉพาะที่เปิดอยู่จริง (กติกาเดียวกับหน้าแรก public)
+        // เดิมเรียงตามวันแล้วตัด 3 อันแรกโดยไม่ดูสถานะ งานที่ปิดไปแล้ว (วันจัดเร็วสุด) จึงขึ้นมาแทน
+        setRecommended(all.filter((i) => i.status === "open").sort((a, b) => a.sortDate - b.sortDate).slice(0, 3))
       })
       .catch((err) => console.error(err))
       .finally(() => setLoadingActivities(false))
@@ -116,6 +102,7 @@ export default function StudentDashboardPage() {
     <>
       {/* ── แถบทักทาย ────────────────────────────────────────────────────── */}
       <PageHeader
+        prompt="~/comp-active/student $ whoami"
         badge={loadingMine ? "กำลังโหลดข้อมูล..." : `ระดับ ${level}`}
         title={`สวัสดี ${user?.name || "นักศึกษา"}`}
         subtitle="เลือกกิจกรรมที่สนใจ สะสมคะแนน Soft Skills และติดตามการเติบโตของคุณ"
@@ -126,39 +113,31 @@ export default function StudentDashboardPage() {
       <section className="border-b border-border">
         <Container className="py-8">
           <h2 className="mb-5 text-lg font-semibold text-fg">สถิติของฉัน</h2>
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard
-              index={0}
-              tone="brand"
-              icon={CalendarCheck}
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+            <StatTile
               label="กิจกรรมที่เข้าร่วม"
-              value={loadingMine ? null : (skills?.count ?? 0)}
-              format={(n) => Math.round(n).toLocaleString("th-TH")}
+              value={loadingMine ? "—" : (skills?.count ?? 0)}
+              icon={CalendarCheck}
             />
-            <StatCard
-              index={1}
-              tone="success"
-              icon={TrendingUp}
+            <StatTile
               label="คะแนนสะสม"
-              value={loadingMine ? null : (skills?.totalScore ?? 0)}
-              format={(n) => Math.round(n).toLocaleString("th-TH")}
+              value={loadingMine ? "—" : (skills?.totalScore ?? 0).toLocaleString("th-TH")}
+              icon={TrendingUp}
             />
-            <StatCard
-              index={2}
-              tone="warning"
-              icon={Trophy}
+            <StatTile
               label="อันดับในระบบ"
-              value={loadingMine || !skills ? null : skills.rank}
-              format={(n) => `#${Math.max(1, Math.round(n))}`}
+              value={loadingMine || !skills ? "—" : `#${skills.rank}`}
               caption={loadingMine || !skills ? undefined : `จากนักศึกษาทั้งหมด ${skills.totalStudents} คน`}
+              icon={Trophy}
             />
-            <StatCard
-              index={3}
-              tone="info"
-              icon={Clock}
+            <StatTile
               label="ชั่วโมงจิตอาสา"
-              value={totalVolunteerHours}
-              format={(n) => `${n.toLocaleString("th-TH", { maximumFractionDigits: 2 })} ชม.`}
+              value={
+                totalVolunteerHours === null
+                  ? "—"
+                  : `${totalVolunteerHours.toLocaleString("th-TH", { maximumFractionDigits: 2 })} ชม.`
+              }
+              icon={Clock}
             />
           </div>
         </Container>
@@ -179,7 +158,12 @@ export default function StudentDashboardPage() {
                     : undefined
               }
               action={
-                <PillLink href="/student/my-registrations">กิจกรรมของฉัน</PillLink>
+                <Button variant="link" asChild className="px-0">
+                  <Link href="/student/my-registrations">
+                    กิจกรรมของฉัน
+                    <ArrowRight />
+                  </Link>
+                </Button>
               }
             />
 
@@ -260,9 +244,11 @@ export default function StudentDashboardPage() {
       <section>
         <Container className="pb-10 pt-6">
           <div className="rounded-xl border border-border bg-bg p-5 shadow-xs sm:p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-baseline justify-between">
               <h2 className="text-base font-semibold text-fg">ทักษะของคุณ</h2>
-              <PillLink href="/student/profile">ดูรายละเอียด</PillLink>
+              <Link href="/student/profile" className="text-sm text-brand-600 hover:underline">
+                ดูรายละเอียด
+              </Link>
             </div>
 
             {loadingMine ? (
@@ -289,38 +275,27 @@ export default function StudentDashboardPage() {
             title="แนะนำสำหรับคุณ"
             description="กิจกรรมที่กำลังเปิดรับสมัคร"
             action={
-              <PillLink href="/student/events">ดูทั้งหมด</PillLink>
+              <Button variant="link" asChild className="px-0">
+                <Link href="/student/events">
+                  ดูทั้งหมด
+                  <ArrowRight />
+                </Link>
+              </Button>
             }
           />
 
           <div className="mt-6">
             {loadingActivities ? (
-              <div className="flex flex-wrap gap-5">
+              <div className={ACTIVITY_GRID}>
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-[340px] w-64 max-w-full rounded-[28px]" />
+                  <ActivityCardSkeleton key={i} />
                 ))}
               </div>
             ) : recommended.length > 0 ? (
-              <div className="flex flex-wrap gap-5">
-                {recommended.map((item, i) => (
-                  <Link
-                    key={item.key}
-                    href={item.href}
-                    style={{ animationDelay: `${i * 90}ms` }}
-                    className="block w-64 max-w-full motion-safe:animate-rise-in"
-                  >
-                    <EventCard
-                      compact
-                      activity={{ name: item.name, imageUrl: item.imageUrl }}
-                      description={item.description}
-                      badgeLeft={item.categories.length > 0 && <EventCardBadge variant="light">{categoriesBadgeLabel(item.categories)}</EventCardBadge>}
-                      badgeRight={
-                        <EventCardBadge className={item.status === "open" ? "bg-success/90" : "bg-fg-subtle/90"}>
-                          {item.status === "open" ? "กำลังเปิด" : "ปิดรับสมัคร"}
-                        </EventCardBadge>
-                      }
-                    />
-                  </Link>
+              // กริดและการ์ดชุดเดียวกับหน้าแรก public — การ์ดกิจกรรมทุกหน้าขนาดเท่ากัน
+              <div className={ACTIVITY_GRID}>
+                {recommended.map((item) => (
+                  <PublicActivityCard key={item.key} item={item} />
                 ))}
               </div>
             ) : (
@@ -331,7 +306,7 @@ export default function StudentDashboardPage() {
       </section>
 
       {/* ── ข่าวสารและประกาศ ─────────────────────────────────────────────── */}
-      <NewsCarousel />
+      <NewsShowcase />
     </>
   )
 }

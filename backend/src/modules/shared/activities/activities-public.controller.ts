@@ -36,6 +36,6 @@ export class ActivitiesPublicController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'ดูรายละเอียดกิจกรรม' })
   async findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() viewer: Viewer | null) {
-    return this.activitiesService.findById(id, viewer);
+    return this.activitiesService.findByIdPublic(id, viewer);
   }
 }

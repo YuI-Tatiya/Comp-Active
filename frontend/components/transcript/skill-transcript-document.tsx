@@ -99,10 +99,10 @@ export function SkillTranscriptDocument({ snapshot, code, issuedAt, verifyUrl }:
                 <section className="mt-5 grid grid-cols-1 items-start gap-5 sm:grid-cols-[300px_1fr] print:grid-cols-[300px_1fr]">
                     <div className="flex justify-center">
                         <RadarChart width={300} height={300} cx="50%" cy="50%" outerRadius="75%" data={chartData}>
-                            <PolarGrid stroke="#cbd5e1" />
-                            <PolarAngleAxis dataKey="n" tick={{ fill: "#1a365d", fontSize: 12, fontWeight: 700 }} />
+                            <PolarGrid stroke="#cbd6e6" />
+                            <PolarAngleAxis dataKey="n" tick={{ fill: "#12223d", fontSize: 12, fontWeight: 700 }} />
                             <PolarRadiusAxis angle={30} domain={[0, 5]} tick={false} axisLine={false} />
-                            <Radar dataKey="A" stroke="#2b6cb0" strokeWidth={2} fill="#3182ce" fillOpacity={0.35} isAnimationActive={false} />
+                            <Radar dataKey="A" stroke="#1f3a63" strokeWidth={2} fill="#3a5f95" fillOpacity={0.35} isAnimationActive={false} />
                         </RadarChart>
                     </div>
 

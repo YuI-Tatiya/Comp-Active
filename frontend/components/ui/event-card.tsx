@@ -3,23 +3,84 @@
 import * as React from "react"
 import type { LucideIcon } from "lucide-react"
 import { API_BASE_URL } from "@/lib/api"
+import { formatCompactDateSpan } from "@/lib/date-span"
 import { cn } from "@/lib/utils"
 import { EVENT_CARD_HEIGHT } from "./event-card-layout"
 
 const FALLBACK_IMAGE =
     "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop"
 
-/** แปลงวันที่จาก API เป็นรูปแบบไทย — เดิมโค้ดนี้ถูกก๊อปไว้ 3 หน้า */
+/**
+ * แปลงวันที่จาก API เป็นรูปแบบไทย — เดิมโค้ดนี้ถูกก๊อปไว้ 3 หน้า
+ * ปักเขตเวลาไทยเสมอ (เหมือน lib/transcript.ts formatThaiDate) — ไม่งั้นคนดูแต่ละคนเห็นวันไม่ตรงกัน
+ * ตามเขตเวลาเครื่อง/เบราว์เซอร์ของตัวเอง ทั้งที่ควรเห็นวันเดียวกันตามเวลาไทย (ยืนยันแล้วด้วย CDP
+ * Emulation.setTimezoneOverride: เบราว์เซอร์ที่ตั้งเป็น UTC กับ Asia/Bangkok ต้องแสดงวันเดียวกันเป๊ะ)
+ */
 export function formatEventDate(dateString: string) {
     try {
         return new Intl.DateTimeFormat("th-TH", {
             day: "numeric",
             month: "short",
             year: "numeric",
+            timeZone: "Asia/Bangkok",
         }).format(new Date(dateString))
     } catch {
         return dateString
     }
+}
+
+/** เหมือน formatEventDate แต่ไม่ใส่ปี — ใช้กับวันแรกของช่วงวันที่ปีเดียวกัน กันข้อความยาวจนถูกตัดจบ (…) */
+function formatEventDateNoYear(dateString: string) {
+    try {
+        return new Intl.DateTimeFormat("th-TH", {
+            day: "numeric",
+            month: "short",
+            timeZone: "Asia/Bangkok",
+        }).format(new Date(dateString))
+    } catch {
+        return dateString
+    }
+}
+
+/**
+ * ช่วงวันจัดกิจกรรม (epoch ms) — วันเดียวแสดงวันเดียว, งานที่มีกิจกรรมย่อยคนละวันแสดงเป็นช่วง
+ * เทียบแค่ "วันตามปฏิทิน" ไม่ใช่ ms เป๊ะ เพราะกิจกรรมแรก/สุดท้ายอาจเป็นวันเดียวกันแต่คนละเวลา
+ * ปีเดียวกันตัดปีของวันแรกทิ้ง ("30 ต.ค. - 1 พ.ย. 2569" ไม่ใช่ "30 ต.ค. 2569 - 1 พ.ย. 2569")
+ * เพราะ EventCardRow บรรทัดเดียวตัดจบ ข้อความยาวเกินจะโดน "…" ตัดปีท้ายจนอ่านไม่ครบ
+ */
+export function formatEventDateRange(startMs: number, endMs: number): string {
+    if (!Number.isFinite(startMs)) return "ไม่ระบุวันที่"
+    const startIso = new Date(startMs).toISOString()
+    const start = formatEventDate(startIso)
+    if (!Number.isFinite(endMs) || new Date(startMs).toDateString() === new Date(endMs).toDateString()) {
+        return start
+    }
+    const endIso = new Date(endMs).toISOString()
+    // เทียบปีตามเขตเวลาไทย (ไม่ใช่ UTC) ให้สอดคล้องกับปีที่ formatEventDate แสดงจริง — ไม่งั้นกิจกรรม
+    // ที่คาบเกี่ยวเที่ยงคืนส่งท้ายปี (เช่น 31 ธ.ค. 23:00 UTC = 1 ม.ค. ตามเวลาไทย) จะเทียบปีผิดฝั่ง
+    const yearOf = (iso: string) =>
+        new Intl.DateTimeFormat("en-CA", { year: "numeric", timeZone: "Asia/Bangkok" }).format(new Date(iso))
+    const sameYear = yearOf(startIso) === yearOf(endIso)
+    return `${sameYear ? formatEventDateNoYear(startIso) : start} - ${formatEventDate(endIso)}`
+}
+
+/**
+ * ช่วงเปิด-ปิดรับสมัคร — ไม่มีทั้งคู่คืน null (ให้ผู้เรียกซ่อนแถวนี้ไปเลย เช่น กิจกรรมเดี่ยวที่ไม่มีแนวคิดนี้)
+ * compact = ช่วงวันที่แบบรวบ (formatCompactDateSpan) — ใช้ที่การ์ดหน้าหลักผู้จัด
+ */
+export function formatRegistrationWindow(
+    openAt?: string | null,
+    closeAt?: string | null,
+    { compact = false }: { compact?: boolean } = {}
+): string | null {
+    if (openAt && closeAt) {
+        return compact
+            ? `เปิดรับสมัคร ${formatCompactDateSpan(openAt, closeAt)}`
+            : `เปิดรับสมัคร ${formatEventDate(openAt)} - ${formatEventDate(closeAt)}`
+    }
+    if (openAt) return `เปิดรับสมัครตั้งแต่ ${formatEventDate(openAt)}`
+    if (closeAt) return `เปิดรับสมัครถึง ${formatEventDate(closeAt)}`
+    return null
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -159,8 +220,6 @@ interface EventCardProps {
     actions?: React.ReactNode
     /** เพิ่ม class บนกรอบนอกสุด เช่น ทำการ์ดฉบับร่างให้จางลง (opacity) — ไม่ส่งมาก็ไม่กระทบของเดิม */
     className?: string
-    /** การ์ดเล็ก มุมมนมาก — ใช้เฉพาะ /student/events (เล็กกว่ามาตรฐานทั้งเว็บ) ไม่ส่งมาก็ขนาดเดิม */
-    compact?: boolean
 }
 
 /**
@@ -182,21 +241,20 @@ export function EventCard({
     children,
     actions,
     className,
-    compact = false,
 }: EventCardProps) {
     const hasFooter = Boolean(children) || Boolean(actions)
 
     return (
         <div
             className={cn(
-                "group flex w-full flex-col overflow-hidden border border-border bg-bg transition-all duration-300 hover:-translate-y-1",
-                compact ? "h-[340px] rounded-[28px] shadow-xs hover:shadow-md" : cn("rounded-2xl shadow-sm hover:shadow-xl", EVENT_CARD_HEIGHT),
+                "group flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-bg shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl",
+                EVENT_CARD_HEIGHT,
                 className
             )}
         >
-            <div className={cn("relative shrink-0 overflow-hidden bg-surface", compact ? "h-36" : "h-44")}>
-                {badgeLeft && <div className={cn("absolute z-10", compact ? "left-3 top-3" : "left-4 top-4")}>{badgeLeft}</div>}
-                {badgeRight && <div className={cn("absolute z-10", compact ? "right-3 top-3" : "right-4 top-4")}>{badgeRight}</div>}
+            <div className="relative h-44 shrink-0 overflow-hidden bg-surface">
+                {badgeLeft && <div className="absolute left-4 top-4 z-10">{badgeLeft}</div>}
+                {badgeRight && <div className="absolute right-4 top-4 z-10">{badgeRight}</div>}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                     src={
@@ -212,9 +270,9 @@ export function EventCard({
                 />
             </div>
 
-            <div className={cn("flex min-h-0 flex-1 flex-col", compact ? "p-4" : "p-5")}>
+            <div className="flex min-h-0 flex-1 flex-col p-5">
                 {/* min-h-[2.5em] = 2 บรรทัดของ leading-tight — ชื่อบรรทัดเดียวก็จองที่ไว้เท่ากัน */}
-                <h3 className={cn("line-clamp-2 min-h-[2.5em] font-bold leading-tight text-fg transition-colors group-hover:text-brand-600", compact ? "text-base" : "text-xl")}>
+                <h3 className="line-clamp-2 min-h-[2.5em] text-xl font-bold leading-tight text-fg transition-colors group-hover:text-brand-600">
                     {activity.name}
                 </h3>
 
