@@ -177,14 +177,15 @@ deliberate step, not an automatic one:
        - `NEXT_PUBLIC_UPLOADS_ORIGIN` → the R2 `R2_PUBLIC_URL` from section 1
          (only needed if you actually configured R2 in section 1 — leave
          unset if uploads are still disk-backed)
-3. [ ] **Pending code change before this works — ask Claude to add it if not
-       done yet:** `frontend/next.config.ts` needs a `rewrites()` entry
-       proxying `/api/:path*` (and `/uploads/:path*` if uploads are *not* on
-       R2) to `https://api.yourdomain.com`. Without this, the browser would
-       call the backend cross-origin directly and the auth cookie breaks
-       exactly the way `CLAUDE.md`'s "Do not point the portals back at
-       `api.*`" warning describes — same failure, new hosting, same root
-       cause.
+       - `BACKEND_ORIGIN` → `https://api.yourdomain.com` — **this is what
+         makes `next.config.ts`'s `rewrites()` proxy `/api/*` (and
+         `/uploads/*`, for the non-R2 case) to the real backend server-side**
+         (done — see `next.config.ts`). Without it, the browser would call
+         the backend cross-origin directly and the auth cookie breaks
+         exactly the way `CLAUDE.md`'s "Do not point the portals back at
+         `api.*`" warning describes — same failure, new hosting, same root
+         cause. Not a `NEXT_PUBLIC_*` var on purpose: it only drives a
+         build-time rewrite destination, the browser never reads it.
 4. [ ] **Domains** tab → add both `app.yourdomain.com` and
        `admin.yourdomain.com` to this *one* project (not two separate
        projects — `proxy.ts` already splits by `Host` header, that's the
@@ -200,8 +201,8 @@ different hosts. If the browser called the backend directly, the session
 cookie becomes third-party from the browser's point of view, and Brave/
 Safari block or partition third-party cookies — this is the exact failure
 mode `CLAUDE.md` already documents for the Docker/Nginx setup, just with
-different hosting underneath. The `rewrites()` proxy in step 3.3 makes
-Vercel's edge do that cross-origin call server-side instead, so the
+different hosting underneath. The `rewrites()` proxy, driven by `BACKEND_ORIGIN`
+in step 2 above, makes Vercel's edge do that cross-origin call server-side instead, so the
 browser only ever talks to its own host (`app.*`/`admin.*`) and the
 `/api/...` path still looks first-party to it. Same reasoning the whole
 same-origin architecture is already built around — nothing new to
@@ -237,8 +238,8 @@ is misconfigured; check again after waiting.
 3. [ ] Confirm `https://api.yourdomain.com/api/activities` (or any public
        GET route) responds before touching the frontend — isolates backend
        problems from frontend/rewrite problems.
-4. [ ] Add the `rewrites()` config (section 3.3) if not already done, then
-       deploy Vercel.
+4. [ ] Set `BACKEND_ORIGIN` on Vercel (section 2) before deploying it — the
+       `rewrites()` config is already in place, it just needs that value.
 5. [ ] Confirm `https://app.yourdomain.com/api/activities` returns the same
        thing as step 3 — if it doesn't, the rewrite is wrong before anything
        else is.
