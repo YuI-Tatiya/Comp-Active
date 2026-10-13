@@ -1,0 +1,178 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Users, Calendar, ClipboardList, GraduationCap, Megaphone, Activity as ActivityIcon } from "lucide-react"
+import { adminAPI, activitiesAPI, Activity as ActivityType } from "@/lib/api"
+import { formatScheduleShort } from "@/lib/activity-view"
+import { categoriesBadgeLabel } from "@/lib/categories"
+
+interface DashboardStats {
+    totalUsers: number
+    totalActivities: number
+    totalRegistrations: number
+    usersByRole: { role: string; count: number }[]
+}
+
+const buildCards = (stats: DashboardStats | null, studentCount: number, organizerCount: number) => [
+    { label: "ผู้ใช้ทั้งหมด", value: stats?.totalUsers ?? 0, icon: Users, bar: "#1f3a63", iconBg: "rgba(31,58,99,0.12)", iconColor: "#1f3a63" },
+    { label: "กิจกรรมทั้งหมด", value: stats?.totalActivities ?? 0, icon: Calendar, bar: "#047857", iconBg: "rgba(4,120,87,0.12)", iconColor: "#047857" },
+    { label: "การลงทะเบียน", value: stats?.totalRegistrations ?? 0, icon: ClipboardList, bar: "#7c5ac2", iconBg: "rgba(124,90,194,0.12)", iconColor: "#7c5ac2" },
+    { label: "นักศึกษา", value: studentCount, icon: GraduationCap, bar: "#3a5f95", iconBg: "rgba(58,95,149,0.12)", iconColor: "#3a5f95" },
+    { label: "ผู้จัดกิจกรรม", value: organizerCount, icon: Megaphone, bar: "#e8a33a", iconBg: "rgba(232,163,58,0.14)", iconColor: "#7a4f0e" },
+]
+
+export default function AdminDashboardPage() {
+    const [stats, setStats] = useState<DashboardStats | null>(null)
+    const [recentActivities, setRecentActivities] = useState<ActivityType[]>([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => { loadData() }, [])
+
+    async function loadData() {
+        try {
+            const [statsRes, activitiesRes] = await Promise.allSettled([
+                adminAPI.getDashboardStats(),
+                activitiesAPI.getAll(),
+            ])
+            if (statsRes.status === "fulfilled") setStats(statsRes.value as DashboardStats)
+            if (activitiesRes.status === "fulfilled") {
+                const acts = Array.isArray(activitiesRes.value) ? activitiesRes.value : []
+                setRecentActivities((acts as ActivityType[]).slice(0, 6))
+            }
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const studentCount = stats?.usersByRole.find((r) => r.role === "student")?.count ?? 0
+    const organizerCount = stats?.usersByRole.find((r) => r.role === "organizer")?.count ?? 0
+    const cards = buildCards(stats, studentCount, organizerCount)
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="w-8 h-8 rounded-full animate-spin" style={{ border: "4px solid #dce4f0", borderTopColor: "#1f3a63" }} />
+            </div>
+        )
+    }
+
+    return (
+        <div className="p-8 space-y-6">
+            <div>
+                <h1 className="text-2xl font-bold" style={{ color: "#12223d" }}>Dashboard</h1>
+                <p className="text-sm mt-1" style={{ color: "#5f6f87" }}>ภาพรวมระบบจัดการกิจกรรม Comp Active</p>
+            </div>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                {cards.map((card) => (
+                    <div key={card.label} className="bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #dce4f0" }}>
+                        <div className="h-1.5" style={{ background: card.bar }} />
+                        <div className="p-5">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: card.iconBg }}>
+                                <card.icon className="w-5 h-5" style={{ color: card.iconColor }} />
+                            </div>
+                            <div className="text-2xl font-bold" style={{ color: "#12223d" }}>{card.value.toLocaleString()}</div>
+                            <div className="text-xs mt-0.5" style={{ color: "#5f6f87" }}>{card.label}</div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* User proportion */}
+                <div className="bg-white rounded-2xl p-6" style={{ border: "1px solid #dce4f0" }}>
+                    <h2 className="font-semibold text-sm mb-5" style={{ color: "#12223d" }}>สัดส่วนผู้ใช้</h2>
+                    {stats && stats.totalUsers > 0 ? (
+                        <>
+                            <div className="flex rounded-full overflow-hidden h-3 mb-4">
+                                {organizerCount > 0 && (
+                                    <div style={{ width: `${(organizerCount / stats.totalUsers) * 100}%`, background: "#e8a33a" }} />
+                                )}
+                                {studentCount > 0 && (
+                                    <div style={{ width: `${(studentCount / stats.totalUsers) * 100}%`, background: "#3a5f95" }} />
+                                )}
+                                <div className="flex-1" style={{ background: "#dce4f0" }} />
+                            </div>
+                            <div className="space-y-2.5">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="flex items-center gap-2" style={{ color: "#5f6f87" }}>
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "#e8a33a" }} />
+                                        ผู้จัดกิจกรรม
+                                    </span>
+                                    <span className="font-semibold" style={{ color: "#12223d" }}>{organizerCount} คน</span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="flex items-center gap-2" style={{ color: "#5f6f87" }}>
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: "#3a5f95" }} />
+                                        นักศึกษา
+                                    </span>
+                                    <span className="font-semibold" style={{ color: "#12223d" }}>{studentCount} คน</span>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="text-center py-6 text-sm" style={{ color: "#5f6f87" }}>ยังไม่มีข้อมูล</div>
+                    )}
+                </div>
+
+                {/* Summary dark card */}
+                <div className="denim-weave lg:col-span-2 rounded-2xl p-6">
+                    <h2 className="font-semibold text-sm mb-5" style={{ color: "rgba(255,255,255,0.6)" }}>สรุปภาพรวม</h2>
+                    <div className="grid grid-cols-2 gap-3">
+                        {[
+                            // การ์ดพื้นเข้ม — ตัวเลขต้องเป็นสีสว่าง (เขียว/ยีนส์เข้มบนพื้นนี้อ่านแทบไม่ออก)
+                            { label: "ผู้ใช้ทั้งหมด", value: stats?.totalUsers ?? 0, color: "#e8a33a" },
+                            { label: "การลงทะเบียน", value: stats?.totalRegistrations ?? 0, color: "#c3d3ea" },
+                            { label: "กิจกรรมทั้งหมด", value: stats?.totalActivities ?? 0, color: "#a78bfa" },
+                        ].map((item) => (
+                            <div key={item.label} className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.08)" }}>
+                                <div className="text-2xl font-bold" style={{ color: item.color }}>{item.value.toLocaleString()}</div>
+                                <div className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.5)" }}>{item.label}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Recent Activities */}
+            <div className="bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #dce4f0" }}>
+                <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid #dce4f0" }}>
+                    <div>
+                        <h2 className="font-semibold text-sm" style={{ color: "#12223d" }}>กิจกรรมล่าสุด</h2>
+                        <p className="text-xs mt-0.5" style={{ color: "#5f6f87" }}>กิจกรรมที่เพิ่งสร้างในระบบ</p>
+                    </div>
+                    <a href="/admin/all-activities" className="text-xs font-medium hover:underline" style={{ color: "#1f3a63" }}>
+                        ดูทั้งหมด →
+                    </a>
+                </div>
+                <div>
+                    {recentActivities.length === 0 ? (
+                        <div className="py-12 text-center text-sm" style={{ color: "#5f6f87" }}>ยังไม่มีกิจกรรม</div>
+                    ) : (
+                        recentActivities.map((act, i) => (
+                            <div
+                                key={act.id}
+                                className="px-6 py-3.5 flex items-center gap-4 transition-colors cursor-default"
+                                style={{ borderBottom: i < recentActivities.length - 1 ? "1px solid #e8eef7" : "none" }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "#f2f5fa" }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent" }}
+                            >
+                                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(31,58,99,0.1)" }}>
+                                    <ActivityIcon className="w-4 h-4" style={{ color: "#1f3a63" }} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="font-medium text-sm truncate" style={{ color: "#12223d" }}>{act.name}</div>
+                                    <div className="text-xs mt-0.5" style={{ color: "#5f6f87" }}>{categoriesBadgeLabel(act.categories)} · {formatScheduleShort(act)}</div>
+                                </div>
+                                <span className="shrink-0 text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: "rgba(4,120,87,0.1)", color: "#047857" }}>
+                                    เผยแพร่แล้ว
+                                </span>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+        </div>
+    )
+}

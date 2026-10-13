@@ -1,15 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Mail, Lock, Loader2 } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
+import Link from "next/link"
+import { ArrowRight, AtSign, Loader2, User } from "lucide-react"
+import { AMBER_BUTTON } from "@/components/denim/denim-ui"
+import { AuthError, AuthIconInput, AuthLabel, AuthPasswordInput } from "@/components/auth/auth-shell"
+import { ACCOUNT_NOT_VERIFIED_HINT, useAuth } from "@/lib/auth-context"
+import { cn } from "@/lib/utils"
 
 export function LoginForm() {
     const { login } = useAuth()
-    const [email, setEmail] = useState("")
+    const [identifier, setIdentifier] = useState("")
     const [password, setPassword] = useState("")
     const [error, setError] = useState("")
     const [loading, setLoading] = useState(false)
@@ -18,14 +19,14 @@ export function LoginForm() {
         e.preventDefault()
         setError("")
 
-        if (!email || !password) {
-            setError("กรุณากรอกอีเมลและรหัสผ่าน")
+        if (!identifier || !password) {
+            setError("กรุณากรอกอีเมล/Username และรหัสผ่าน")
             return
         }
 
         setLoading(true)
         try {
-            await login(email, password)
+            await login(identifier, password)
         } catch (err) {
             const message = err instanceof Error ? err.message : "เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบข้อมูล"
             setError(message)
@@ -34,57 +35,68 @@ export function LoginForm() {
         }
     }
 
+    const needsVerification = error.includes(ACCOUNT_NOT_VERIFIED_HINT)
+
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
             {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg p-3">
+                <AuthError>
                     {error}
-                </div>
+                    {needsVerification && (
+                        <Link
+                            href={`/auth/verify?email=${encodeURIComponent(identifier)}`}
+                            className="mt-1.5 block font-semibold underline underline-offset-4"
+                        >
+                            ไปหน้ายืนยัน OTP
+                        </Link>
+                    )}
+                </AuthError>
             )}
 
-            <div className="space-y-2">
-                <Label htmlFor="email">อีเมล</Label>
-                <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                        id="email"
-                        type="email"
-                        placeholder="your.email@example.com"
-                        className="pl-10"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        disabled={loading}
-                    />
-                </div>
+            <div>
+                <AuthLabel htmlFor="identifier">Username</AuthLabel>
+                <AuthIconInput
+                    id="identifier"
+                    icon={User}
+                    type="text"
+                    autoComplete="username"
+                    placeholder="yourname@kkumail.com"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    disabled={loading}
+                    aria-describedby="identifier-hint"
+                />
+                <p id="identifier-hint" className="mt-2 flex items-center gap-1.5 text-xs text-denim-muted">
+                    <AtSign className="size-3.5 shrink-0" aria-hidden="true" />
+                    นักศึกษา: กรอกอีเมล <strong className="font-semibold text-denim-deep">@kkumail.com</strong> ของคุณ
+                </p>
             </div>
-            <div className="space-y-2">
-                <Label htmlFor="password">รหัสผ่าน</Label>
-                <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                        id="password"
-                        type="password"
-                        placeholder="••••••••"
-                        className="pl-10"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        disabled={loading}
-                    />
-                </div>
-                <div className="flex justify-end">
-                    <a href="#" className="text-xs text-blue-600 hover:text-blue-800">ลืมรหัสผ่าน?</a>
-                </div>
+
+            <div>
+                <AuthLabel htmlFor="password">Password</AuthLabel>
+                <AuthPasswordInput
+                    id="password"
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                />
             </div>
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
+
+            <button type="submit" disabled={loading} className={cn(AMBER_BUTTON, "mt-1 w-full disabled:cursor-wait disabled:opacity-80")}>
                 {loading ? (
                     <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        <Loader2 className="size-5 animate-spin" aria-hidden="true" />
                         กำลังเข้าสู่ระบบ...
                     </>
                 ) : (
-                    "เข้าสู่ระบบ"
+                    <>
+                        เข้าสู่ระบบ
+                        <ArrowRight className="size-5" aria-hidden="true" />
+                    </>
                 )}
-            </Button>
+            </button>
         </form>
     )
 }

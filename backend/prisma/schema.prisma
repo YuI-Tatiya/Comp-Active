@@ -9,10 +9,28 @@ datasource db {
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
+enum RequestStatus {
+  pending
+  approved
+  rejected
+}
+
 enum UserRole {
   student
   organizer
   admin
+}
+
+enum EducationLevel {
+  bachelor
+  master
+  doctorate
+}
+
+/// คำนำหน้าชื่อนักศึกษา — เก็บตอนลงทะเบียน (RegisterDto), nullable เพราะ organizer/admin และ user ก่อนมีฟีเจอร์นี้ไม่มีข้อมูล
+enum Title {
+  mr
+  miss
 }
 
 enum ActivityStatus {
@@ -26,6 +44,9 @@ enum ApprovalStatus {
   approved
   rejected
   pending_cancel
+  /// ผู้จัดยกเลิกกิจกรรมของตัวเอง — แยกจาก rejected (แอดมิน/ระบบปฏิเสธ) เพื่อไม่ให้
+  /// นักศึกษาสับสนว่าใครเป็นคนยกเลิก (ดู ActivitiesService.requestCancellation)
+  cancelled
 }
 
 enum RegistrationStatus {
@@ -39,52 +60,251 @@ enum AttendanceStatus {
   absent
 }
 
+enum InviteStatus {
+  pending
+  accepted
+  revoked
+}
+
+enum SoftSkillType {
+  communication
+  time_management
+  flexibility_adaptability
+  teamwork_collaboration
+  analytic_critical_thinking
+  decision_making
+  creativity
+  complex_problem_solving
+  curiosity_lifelong_learning
+  negotiation_persuasion
+  leadership
+  positive_attitude
+}
+
+enum EventVisibility {
+  everyone
+  restricted
+}
+
+enum ActivityQuestionType {
+  text
+  single_choice
+  multi_choice
+}
+
+enum SurveyQuestionType {
+  rating
+  text
+}
+
+enum RegistrationType {
+  participant
+  staff_volunteer
+  contestant
+}
+
+/// แหล่งของคะแนนประเมินรอบด้าน (360°) — ฝั่งผู้จัดเก็บที่ Evaluation/EvaluationBaseline/EvaluationException
+enum AssessmentSource {
+  self
+  peer
+}
+
+/// สถานะคะแนนของนักศึกษาหนึ่งกิจกรรม — default = approved จึงไม่กระทบกิจกรรมที่ไม่เปิดโหมดประเมินรอบด้าน
+/// pending_approval = กิจกรรมเปิดโหมด 360° และผู้จัดยังไม่อนุมัติ: นักศึกษามองไม่เห็นคะแนน (ดู EvaluationApproval)
+enum EvaluationStatus {
+  pending_approval
+  approved
+}
+
 // ─── Models ──────────────────────────────────────────────────────────────────
 
+model OrganizerRequest {
+  id              Int           @id @default(autoincrement())
+  name            String        @db.VarChar(255)
+  email           String        @db.VarChar(255)
+  phone           String        @db.VarChar(20)
+  department      String        @db.VarChar(255)
+  reason          String
+  experience      String?
+  status          RequestStatus @default(pending)
+  rejectionReason String?       @map("rejection_reason")
+  validDays       Int?          @map("valid_days")
+  approvedById    Int?          @map("approved_by_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  approvedBy User? @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@map("organizer_requests")
+}
+
 model User {
-  id                       Int       @id @default(autoincrement())
-  name                     String    @db.VarChar(255)
-  studentId                String?   @db.VarChar(20) @map("student_id")
+  id        Int     @id @default(autoincrement())
+  name      String  @db.VarChar(255)
+  studentId String? @map("student_id") @db.VarChar(20)
+
+  // ── ข้อมูลติดต่อ & การศึกษา ────────────────────────────────────────────────
+  // nullable ทั้งหมด เพราะ admin/organizer ไม่มีข้อมูลส่วนนี้
+  // และ user ที่สมัครก่อนฟีเจอร์นี้ก็ยังไม่มีข้อมูล — บังคับกรอกที่ชั้น DTO แทน
+  title          Title?
+  phone          String?         @db.VarChar(20)
+  educationLevel EducationLevel? @map("education_level")
+  program        String?         @db.VarChar(50) // เก็บ code จาก common/constants/programs.ts
+
   email                    String    @unique @db.VarChar(255)
-  password                 String?   @db.VarChar(255)
-  googleId                 String?   @db.VarChar(255) @map("google_id")
+  password                 String    @db.VarChar(255)
+  username                 String?   @unique @db.VarChar(50)
   role                     UserRole  @default(student)
+  validUntil               DateTime? @map("valid_until")
   createdAt                DateTime  @default(now()) @map("created_at")
   isBlocked                Boolean   @default(false) @map("is_blocked")
-  verificationOtp          String?   @db.VarChar(10) @map("verification_otp")
+  // default true กันผู้ใช้เดิม/บัญชี organizer-admin ที่สร้างด้วย flow อื่นโดนล็อกย้อนหลัง —
+  // มีแค่ AuthService.register (นักศึกษาสมัครเอง) เท่านั้นที่ตั้งค่า false ตรงๆ ตอนสร้างแถว
+  isVerified               Boolean   @default(true) @map("is_verified")
+  verificationOtp          String?   @map("verification_otp") @db.VarChar(10)
   verificationOtpExpiresAt DateTime? @map("verification_otp_expires_at")
+  // นับครั้งที่กรอก OTP ผิด — เกินเพดานแล้วเผา OTP ทิ้ง กันการไล่เดารหัส 6 หลัก
+  verificationOtpAttempts  Int       @default(0) @map("verification_otp_attempts")
 
-  activities    Activity[]
-  registrations Registration[]
-  evaluations   Evaluation[]
+  events                    Event[]
+  eventDraft                EventDraft?
+  activities                Activity[]
+  registrations             Registration[]
+  evaluations               Evaluation[]
+  sentAdminInvites          AdminInvite[]
+  approvedOrganizerRequests OrganizerRequest[]
+  apiKeys                   ApiKey[]
+  updatedSiteContents       SiteContent[]
+  evaluationExceptionsMade  EvaluationException[]
+  evaluationApprovalsMade   EvaluationApproval[]
+  skillTranscripts          SkillTranscript[]
 
   @@map("users")
 }
 
-model Activity {
-  id                 Int            @id @default(autoincrement())
-  organizerId        Int            @map("organizer_id")
-  name               String         @db.VarChar(255)
-  description        String
-  category           String         @db.VarChar(100)
-  date               DateTime       @db.Date
-  startTime          String         @db.VarChar(10) @map("start_time")
-  endTime            String         @db.VarChar(10) @map("end_time")
-  location           String         @db.VarChar(255)
-  capacity           Int
-  status             ActivityStatus @default(open)
-  approvalStatus     ApprovalStatus @default(pending_approval) @map("approval_status")
-  rejectionReason    String?        @map("rejection_reason")
-  cancellationReason String?        @map("cancellation_reason")
-  imageUrl           String?        @db.VarChar(500) @map("image_url")
-  createdAt          DateTime       @default(now()) @map("created_at")
+model AdminInvite {
+  id          Int          @id @default(autoincrement())
+  email       String       @db.VarChar(255)
+  tokenHash   String       @unique @map("token_hash") @db.VarChar(64)
+  status      InviteStatus @default(pending)
+  invitedById Int?         @map("invited_by_id")
+  expiresAt   DateTime     @map("expires_at")
+  acceptedAt  DateTime?    @map("accepted_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
 
-  organizer     User                @relation(fields: [organizerId], references: [id], onDelete: Cascade)
-  tags          ActivityTag[]
-  conditions    ActivityCondition[]
-  benefits      ActivityBenefit[]
-  softSkills    ActivitySoftSkill[]
-  registrations Registration[]
+  invitedBy User? @relation(fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@map("admin_invites")
+}
+
+model Event {
+  id                        Int             @id @default(autoincrement())
+  organizerId               Int             @map("organizer_id")
+  name                      String          @db.VarChar(255)
+  description               String
+  imageUrl                  String?         @map("image_url") @db.VarChar(500)
+  isPublic                  Boolean         @default(true) @map("is_public")
+  registrationOpenAt        DateTime?       @map("registration_open_at")
+  registrationCloseAt       DateTime?       @map("registration_close_at")
+  visibility                EventVisibility @default(everyone)
+  visibilityStudentIdFilter String?         @map("visibility_student_id_filter")
+  createdAt                 DateTime        @default(now()) @map("created_at")
+
+  organizer         User                     @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  activities        Activity[]
+  surveyQuestions   EventSurveyQuestion[]
+  visibilityProgram EventVisibilityProgram[]
+  visibilityYears   EventVisibilityYear[]
+
+  @@map("events")
+}
+
+/// ฉบับร่างงาน "สร้างงานใหม่" (wizard /organizer/create) — ไม่ใช่ Event จริง จึงไม่ผ่าน validation ของ
+/// CreateEventDto เลย (payload อาจมีฟิลด์ว่าง/ไม่ครบ) ผู้จัดคนหนึ่งมีได้ 1 ฉบับต่อครั้ง (บันทึกซ้ำ = ทับของเดิม)
+/// payload เก็บ state ทั้งหมดของ wizard (event + activities[]) ยกเว้นไฟล์ที่ยังไม่อัปโหลด ซึ่งฝั่ง frontend
+/// จะอัปโหลดให้ได้ imageUrl/attachmentUrl ก่อนค่อยบันทึกฉบับร่างเสมอ (ดู lib/event-draft.ts)
+model EventDraft {
+  id          Int      @id @default(autoincrement())
+  organizerId Int      @unique @map("organizer_id")
+  payload     Json
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  organizer User @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+
+  @@map("event_drafts")
+}
+
+model EventVisibilityProgram {
+  id          Int    @id @default(autoincrement())
+  eventId     Int    @map("event_id")
+  programCode String @map("program_code") @db.VarChar(50)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("event_visibility_programs")
+}
+
+model EventVisibilityYear {
+  id      Int @id @default(autoincrement())
+  eventId Int @map("event_id")
+  year    Int
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("event_visibility_years")
+}
+
+model Activity {
+  id                         Int              @id @default(autoincrement())
+  organizerId                Int              @map("organizer_id")
+  eventId                    Int?             @map("event_id")
+  name                       String           @db.VarChar(255)
+  description                String
+  categories                 String[]         @default([]) @db.VarChar(100)
+  date                       DateTime         @db.Date
+  startTime                  String           @map("start_time") @db.VarChar(10)
+  endTime                    String           @map("end_time") @db.VarChar(10)
+  startAt                    DateTime?        @map("start_at")
+  endAt                      DateTime?        @map("end_at")
+  location                   String           @db.VarChar(255)
+  capacity                   Int?
+  status                     ActivityStatus   @default(open)
+  approvalStatus             ApprovalStatus   @default(pending_approval) @map("approval_status")
+  rejectionReason            String?          @map("rejection_reason")
+  cancellationReason         String?          @map("cancellation_reason")
+  imageUrl                   String?          @map("image_url") @db.VarChar(500)
+  attachmentUrl              String?          @map("attachment_url") @db.VarChar(500)
+  volunteerHours             Decimal?         @map("volunteer_hours") @db.Decimal(5, 2)
+  volunteerRole              String?          @map("volunteer_role") @db.VarChar(255)
+  // ── ประเภทการรับสมัคร — กำหนดว่ากิจกรรมนี้เก็บข้อมูลผู้สมัครแบบไหน ──────────────────
+  // ฟิลด์ config ด้านล่างมีความหมายเฉพาะเมื่อ registrationType ตรงกับประเภทนั้น (คุมที่ชั้น service)
+  registrationType           RegistrationType @default(participant) @map("registration_type")
+  dutyRoleOptions            String[]         @default([]) @map("duty_role_options") @db.VarChar(255)
+  dutyShiftOptions           String[]         @default([]) @map("duty_shift_options") @db.VarChar(255)
+  teamSizeMin                Int?             @map("team_size_min")
+  teamSizeMax                Int?             @map("team_size_max")
+  competitionCategoryOptions String[]         @default([]) @map("competition_category_options") @db.VarChar(255)
+  // เปิดโหมดประเมินรอบด้าน (นักศึกษาประเมินตนเอง + เพื่อน) — ผู้จัดเปิดได้เฉพาะกิจกรรม Tier 3
+  peerAssessmentEnabled      Boolean          @default(false) @map("peer_assessment_enabled")
+  // สวิตช์เปิด/ปิดการเช็คอินด้วยตัวเองผ่าน QR — ปิดเป็นค่าเริ่มต้นเสมอ (fail closed) ผู้จัดต้องกด
+  // "เปิดการเช็คอิน" เองหน้างาน ตอนเปิดอยู่ QR จะหมุนรหัสใหม่ทุก 5 นาที (ดู common/utils/checkin-token.util.ts)
+  selfCheckInEnabled         Boolean          @default(false) @map("self_check_in_enabled")
+  createdAt                  DateTime         @default(now()) @map("created_at")
+
+  organizer             User                   @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  event                 Event?                 @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  tags                  ActivityTag[]
+  conditions            ActivityCondition[]
+  benefits              ActivityBenefit[]
+  softSkills            ActivitySoftSkill[]
+  questions             ActivityQuestion[]
+  registrations         Registration[]
+  // แบบสำรวจของกิจกรรมเดี่ยว (ไม่มี Event แม่) — งานที่มี Event จะใช้ Event.surveyQuestions แทน ไม่ใช่อันนี้
+  surveyQuestions       EventSurveyQuestion[]
+  // คะแนนฐานรายฝ่ายจากหน้า Batch Evaluation (เฉพาะกิจกรรม Tier 3)
+  evaluationBaselines   EvaluationBaseline[]
+  // ใบงานประเมินตนเอง/เพื่อนของกิจกรรมนี้ (เฉพาะเมื่อเปิดโหมดประเมินรอบด้าน)
+  assessmentAssignments AssessmentAssignment[]
 
   @@map("activities")
 }
@@ -92,7 +312,7 @@ model Activity {
 model ActivityTag {
   id         Int    @id @default(autoincrement())
   activityId Int    @map("activity_id")
-  tagName    String @db.VarChar(100) @map("tag_name")
+  tagName    String @map("tag_name") @db.VarChar(100)
 
   activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
@@ -120,9 +340,10 @@ model ActivityBenefit {
 }
 
 model ActivitySoftSkill {
-  id         Int    @id @default(autoincrement())
-  activityId Int    @map("activity_id")
-  skillName  String @db.VarChar(100) @map("skill_name")
+  id         Int           @id @default(autoincrement())
+  activityId Int           @map("activity_id")
+  skillType  SoftSkillType @map("skill_type")
+  rate       Int           @default(1)
 
   activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
@@ -130,47 +351,301 @@ model ActivitySoftSkill {
 }
 
 model Registration {
-  id           Int                @id @default(autoincrement())
-  activityId   Int                @map("activity_id")
-  studentId    Int                @map("student_id")
-  registerDate DateTime           @default(now()) @map("register_date")
-  status       RegistrationStatus @default(pending)
-  attendance   AttendanceStatus   @default(absent)
-  checkInTime  DateTime?          @map("check_in_time")
+  id                   Int                @id @default(autoincrement())
+  activityId           Int                @map("activity_id")
+  studentId            Int                @map("student_id")
+  registerDate         DateTime           @default(now()) @map("register_date")
+  status               RegistrationStatus @default(pending)
+  attendance           AttendanceStatus   @default(absent)
+  checkInTime          DateTime?          @map("check_in_time")
+  // ขอใบจิตอาสาเพื่อ กยศ./ทุนการศึกษา — เลือกได้ทั้งสองอย่าง หรือไม่เลือกเลย (= ไม่ขอรับใบจิตอาสา)
+  // มีความหมายเฉพาะกิจกรรมที่เปิดออกใบจิตอาสา (Activity.volunteerRole ไม่ว่าง)
+  wantsCertLoanFund    Boolean            @default(false) @map("wants_cert_loan_fund")
+  wantsCertScholarship Boolean            @default(false) @map("wants_cert_scholarship")
+  // ── ข้อมูลเฉพาะประเภทการรับสมัคร — มีความหมายเฉพาะเมื่อ Activity.registrationType ตรงกัน ──
+  dutyRole             String?            @map("duty_role") @db.VarChar(255)
+  dutyShift            String?            @map("duty_shift") @db.VarChar(255)
+  teamName             String?            @map("team_name") @db.VarChar(255)
+  teamSize             Int?               @map("team_size")
+  competitionCategory  String?            @map("competition_category") @db.VarChar(255)
+  submissionLink       String?            @map("submission_link") @db.VarChar(500)
 
-  activity    Activity     @relation(fields: [activityId], references: [id], onDelete: Cascade)
-  student     User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  certificate Certificate?
-  evaluation  Evaluation?
+  activity             Activity                   @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  student              User                       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  certificate          Certificate?
+  evaluation           Evaluation?
+  answers              RegistrationAnswer[]
+  surveyAnswers        RegistrationSurveyAnswer[]
+  evaluationExceptions EvaluationException[]
+  // ใบงานที่คนนี้ต้องประเมิน / ใบงานที่คนอื่นประเมินคนนี้ — สองฝั่งของ AssessmentAssignment
+  assessmentsGiven     AssessmentAssignment[]     @relation("AssessmentAssessor")
+  assessmentsReceived  AssessmentAssignment[]     @relation("AssessmentTarget")
 
   @@map("registrations")
 }
 
+// ─── กิจกรรม: คำถามสมัครแบบกำหนดเอง ────────────────────────────────────────────
+
+model ActivityQuestion {
+  id         Int                  @id @default(autoincrement())
+  activityId Int                  @map("activity_id")
+  label      String
+  type       ActivityQuestionType
+  required   Boolean              @default(false)
+  sortOrder  Int                  @default(0) @map("sort_order")
+
+  activity Activity                 @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  options  ActivityQuestionOption[]
+  answers  RegistrationAnswer[]
+
+  @@map("activity_questions")
+}
+
+model ActivityQuestionOption {
+  id         Int    @id @default(autoincrement())
+  questionId Int    @map("question_id")
+  label      String
+  sortOrder  Int    @default(0) @map("sort_order")
+
+  question ActivityQuestion           @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  RegistrationAnswerOption[]
+
+  @@map("activity_question_options")
+}
+
+model RegistrationAnswer {
+  id             Int     @id @default(autoincrement())
+  registrationId Int     @map("registration_id")
+  questionId     Int     @map("question_id")
+  textValue      String? @map("text_value")
+
+  registration Registration               @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  question     ActivityQuestion           @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  options      RegistrationAnswerOption[]
+
+  @@unique([registrationId, questionId])
+  @@map("registration_answers")
+}
+
+model RegistrationAnswerOption {
+  id                   Int @id @default(autoincrement())
+  registrationAnswerId Int @map("registration_answer_id")
+  optionId             Int @map("option_id")
+
+  registrationAnswer RegistrationAnswer     @relation(fields: [registrationAnswerId], references: [id], onDelete: Cascade)
+  option             ActivityQuestionOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@map("registration_answer_options")
+}
+
+// ─── งาน: แบบสำรวจความพึงพอใจหลังกิจกรรม ────────────────────────────────────────
+
+// เดิมผูกกับ Event เท่านั้น (eventId บังคับ) — ตอนนี้ผูกกับ Activity เดี่ยว (ไม่มี Event แม่) ได้ด้วย
+// จึงต้องเปิด eventId ให้ null ได้ และเพิ่ม activityId คู่กัน แอปพลิเคชันชั้น service คุมให้กรอกได้ทีละอย่างเท่านั้น
+model EventSurveyQuestion {
+  id         Int                @id @default(autoincrement())
+  eventId    Int?               @map("event_id")
+  activityId Int?               @map("activity_id")
+  label      String
+  type       SurveyQuestionType
+  scaleMax   Int                @default(5) @map("scale_max")
+  sortOrder  Int                @default(0) @map("sort_order")
+
+  event    Event?                     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  activity Activity?                  @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  answers  RegistrationSurveyAnswer[]
+
+  @@map("event_survey_questions")
+}
+
+model RegistrationSurveyAnswer {
+  id             Int     @id @default(autoincrement())
+  registrationId Int     @map("registration_id")
+  questionId     Int     @map("question_id")
+  ratingValue    Int?    @map("rating_value")
+  textValue      String? @map("text_value")
+
+  registration Registration        @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  question     EventSurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([registrationId, questionId])
+  @@map("registration_survey_answers")
+}
+
 model Certificate {
-  id             Int      @id @default(autoincrement())
-  registrationId Int      @unique @map("registration_id")
-  issueDate      DateTime @default(now()) @map("issue_date")
-  certificateUrl String   @db.VarChar(255) @map("certificate_url")
+  id               Int      @id @default(autoincrement())
+  registrationId   Int      @unique @map("registration_id")
+  issueDate        DateTime @default(now()) @map("issue_date")
+  certificateUrl   String   @map("certificate_url") @db.VarChar(255)
+  verificationCode String?  @unique @map("verification_code") @db.VarChar(20)
+  volunteerHours   Decimal? @map("volunteer_hours") @db.Decimal(5, 2)
+  volunteerRole    String?  @map("volunteer_role") @db.VarChar(255)
 
   registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
 
   @@map("certificates")
 }
 
-model Evaluation {
-  id             Int      @id @default(autoincrement())
-  registrationId Int      @unique @map("registration_id")
-  evaluatorId    Int      @map("evaluator_id")
-  teamwork       Int      @default(0)
-  leadership     Int      @default(0)
-  communication  Int      @default(0)
-  problemSolving Int      @default(0) @map("problem_solving")
-  adaptability   Int      @default(0)
-  comment        String?
-  createdAt      DateTime @default(now()) @map("created_at")
+model ApiKey {
+  id         Int       @id @default(autoincrement())
+  ownerId    Int       @map("owner_id")
+  label      String    @db.VarChar(100)
+  keyHash    String    @unique @map("key_hash") @db.VarChar(64)
+  keyPrefix  String    @map("key_prefix") @db.VarChar(12)
+  rateLimit  Int       @default(60) @map("rate_limit")
+  isActive   Boolean   @default(true) @map("is_active")
+  lastUsedAt DateTime? @map("last_used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
 
-  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
-  evaluator    User         @relation(fields: [evaluatorId], references: [id])
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}
+
+model SiteContent {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique @db.VarChar(100)
+  title       String?  @db.VarChar(255)
+  body        String?
+  updatedById Int?     @map("updated_by_id")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("site_contents")
+}
+
+model Evaluation {
+  id                        Int              @id @default(autoincrement())
+  registrationId            Int              @unique @map("registration_id")
+  evaluatorId               Int              @map("evaluator_id")
+  communication             Int              @default(0)
+  timeManagement            Int              @default(0) @map("time_management")
+  flexibilityAdaptability   Int              @default(0) @map("flexibility_adaptability")
+  teamworkCollaboration     Int              @default(0) @map("teamwork_collaboration")
+  analyticCriticalThinking  Int              @default(0) @map("analytic_critical_thinking")
+  decisionMaking            Int              @default(0) @map("decision_making")
+  creativity                Int              @default(0)
+  complexProblemSolving     Int              @default(0) @map("complex_problem_solving")
+  curiosityLifelongLearning Int              @default(0) @map("curiosity_lifelong_learning")
+  negotiationPersuasion     Int              @default(0) @map("negotiation_persuasion")
+  leadership                Int              @default(0)
+  positiveAttitude          Int              @default(0) @map("positive_attitude")
+  comment                   String?
+  status                    EvaluationStatus @default(approved)
+  createdAt                 DateTime         @default(now()) @map("created_at")
+
+  registration Registration        @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  evaluator    User                @relation(fields: [evaluatorId], references: [id])
+  // มีแถวนี้ = ผ่านการอนุมัติ 360° แล้วและค่าถูกล็อก (Batch/override ห้ามทับ)
+  approval     EvaluationApproval?
 
   @@map("evaluations")
+}
+
+// ─── Batch Evaluation (กิจกรรม Tier 3) ────────────────────────────────────
+// คะแนนต่อคนต่อทักษะ = exception ?? baseline(dutyRole) ?? ActivitySoftSkill.rate
+// แล้วเขียนผลลงคอลัมน์ของ Evaluation เท่านั้น — ผู้อ่านคะแนนเดิมทั้งหมดจึงไม่ต้องรู้จักสองตารางนี้
+
+/// คะแนนฐานระดับฝ่าย (dutyRole) ที่ผู้จัดตั้งครั้งเดียวใช้กับทั้งฝ่าย
+model EvaluationBaseline {
+  id         Int           @id @default(autoincrement())
+  activityId Int           @map("activity_id")
+  dutyRole   String        @map("duty_role") @db.VarChar(255)
+  skillType  SoftSkillType @map("skill_type")
+  score      Int
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, dutyRole, skillType])
+  @@map("evaluation_baselines")
+}
+
+/// ข้อยกเว้นรายคน — ต้องมีเหตุผลเสมอ เพื่อให้ตรวจสอบย้อนหลังได้ว่าทำไมคนนี้ต่างจากฐานของฝ่าย
+model EvaluationException {
+  id             Int           @id @default(autoincrement())
+  registrationId Int           @map("registration_id")
+  skillType      SoftSkillType @map("skill_type")
+  score          Int
+  reason         String
+  updatedById    Int?          @map("updated_by_id")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  updatedBy    User?        @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([registrationId, skillType])
+  @@map("evaluation_exceptions")
+}
+
+// ─── ประเมินรอบด้าน 360° (ตนเอง + เพื่อน) — เก็บข้อมูลดิบแยกตามแหล่งและตามผู้ให้ ─────────────────
+// Phase นี้ "เก็บ" อย่างเดียว: ยังไม่มีอะไรอ่านตารางเหล่านี้ไปคำนวณคะแนนจริงของ Evaluation
+
+/// ใบงานประเมินหนึ่งรายการ: assessor ประเมิน target (source=self เมื่อเป็นคนเดียวกัน)
+/// แถวนี้คือทั้ง "ใบงานที่ต้องทำ" และหลักฐานว่าใครให้ใคร — ผู้ถูกประเมินและผู้จัดไม่เห็นตัวตนผู้ให้
+model AssessmentAssignment {
+  id                     Int              @id @default(autoincrement())
+  activityId             Int              @map("activity_id")
+  assessorRegistrationId Int              @map("assessor_registration_id")
+  targetRegistrationId   Int              @map("target_registration_id")
+  source                 AssessmentSource
+  submittedAt            DateTime?        @map("submitted_at")
+  createdAt              DateTime         @default(now()) @map("created_at")
+
+  activity Activity          @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  assessor Registration      @relation("AssessmentAssessor", fields: [assessorRegistrationId], references: [id], onDelete: Cascade)
+  target   Registration      @relation("AssessmentTarget", fields: [targetRegistrationId], references: [id], onDelete: Cascade)
+  scores   AssessmentScore[]
+
+  @@unique([assessorRegistrationId, targetRegistrationId])
+  @@index([activityId])
+  @@index([targetRegistrationId])
+  @@map("assessment_assignments")
+}
+
+/// ระดับ (2/3/5) ที่ให้ต่อทักษะในใบงานหนึ่งใบ
+model AssessmentScore {
+  id           Int           @id @default(autoincrement())
+  assignmentId Int           @map("assignment_id")
+  skillType    SoftSkillType @map("skill_type")
+  score        Int
+
+  assignment AssessmentAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, skillType])
+  @@map("assessment_scores")
+}
+
+/// ผลอนุมัติ 360° หนึ่งราย: ใครอนุมัติ เมื่อไร ที่มาของแต่ละแหล่ง และเหตุผลถ้าค่าที่เลือกต่างจากที่ระบบแนะนำ
+/// แยกตารางโดยตั้งใจ: `evaluation: true` ถูกส่งให้นักศึกษา breakdown (ค่าเฉลี่ยจากเพื่อน) จึงต้องไม่ปนไปกับแถวนั้น
+model EvaluationApproval {
+  id             Int      @id @default(autoincrement())
+  evaluationId   Int      @unique @map("evaluation_id")
+  approvedById   Int?     @map("approved_by_id")
+  approvedAt     DateTime @map("approved_at")
+  /// ต่อทักษะ: { organizer, self, peer, peerCount, recommended, final }
+  breakdown      Json
+  overrideReason String?  @map("override_reason")
+
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  approvedBy User?      @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@map("evaluation_approvals")
+}
+
+/// เอกสารรับรองผล Soft Skills ที่นักศึกษาออกเอง — snapshot คือสำเนาคะแนน ณ วันออก (แช่แข็ง ไม่เปลี่ยนตามคะแนนปัจจุบัน)
+model SkillTranscript {
+  id        Int       @id @default(autoincrement())
+  studentId Int       @map("student_id")
+  /// รหัสเอกสาร 16 ตัว Crockford base32 พิมพ์ใหญ่ ไม่มีขีด
+  code      String    @unique @db.VarChar(16)
+  snapshot  Json
+  issuedAt  DateTime  @default(now()) @map("issued_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, issuedAt])
+  @@map("skill_transcripts")
 }

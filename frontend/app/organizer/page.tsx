@@ -1,263 +1,411 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { activitiesAPI, Activity } from "@/lib/api"
-import { Calendar, MapPin, Users, Loader2 } from "lucide-react"
+import { Container } from "@/components/layout/container"
+import type { FilterSpec } from "@/components/ui/filter-bar"
+import { formatRegistrationWindow } from "@/components/ui/event-card"
+import { OrganizerHero } from "@/components/organizer/home-hero"
+import { ActivityCard, ResultLine, type ActivityCardData } from "@/components/organizer/home-activity-list"
+import {
+  ACTIVITY_GRID,
+  ActivityCardSkeleton,
+  CreateActivityTile,
+  FilterPanel,
+  OrganizerStatCards,
+  StatusTabs,
+  referenceCode,
+  type OrganizerStat,
+} from "@/components/denim/denim-ui"
+import { activitiesAPI, eventsAPI, isCancelledByOrganizer, Activity, EventSummary, OrganizerStats } from "@/lib/api"
+import { CATEGORIES } from "@/lib/categories"
+import { formatCompactDateSpan } from "@/lib/date-span"
+import { RANGE_OPTIONS, eventImagePath, withinRange } from "@/lib/events-filter"
+import { useAuth } from "@/lib/auth-context"
+import { ArrowRight, CalendarDays, Clock, Search, Users, Zap } from "lucide-react"
+
+// งานที่มีกิจกรรมย่อยหลายตัวจะรวมเป็นการ์ดเดียว — กดเข้าไปค่อยเจอกิจกรรมย่อยแต่ละตัว (เหมือนฝั่งนักศึกษา)
+
+function eventRegisteredCount(ev: EventSummary): number {
+  return ev.activities.reduce((sum, a) => sum + (a.registeredCount ?? 0), 0)
+}
+
+/** สถานะรวมของงาน — ยกเลิกเมื่อกิจกรรมย่อยทุกตัวถูกยกเลิก, เปิดเมื่อมีอย่างน้อยหนึ่งตัวเปิดอยู่ */
+function eventStatus(ev: EventSummary): "open" | "closed" | "cancelled" {
+  const list = ev.activities
+  if (list.length > 0 && list.every((a) => isCancelledByOrganizer(a.approvalStatus))) return "cancelled"
+  return list.some((a) => a.status === "open") ? "open" : "closed"
+}
+
+/** งานมีใบรับรองจิตอาสาถ้ากิจกรรมย่อยตัวใดตัวหนึ่งออกใบรับรอง */
+function eventHasCert(ev: EventSummary): boolean {
+  return ev.activities.some((a) => !!a.volunteerRole)
+}
+
+/** หมวดหมู่ทั้งหมดที่กิจกรรมย่อยของงานนี้ระบุไว้ — ใช้กรองด้วยหมวดหมู่ให้ตรงทุกกิจกรรมย่อย ไม่ใช่แค่ตัวเดียว */
+function eventCategories(ev: EventSummary): string[] {
+  return Array.from(new Set(ev.activities.flatMap((a) => a.categories)))
+}
+
+/** วันจัดกิจกรรมย่อยที่เร็วที่สุดของงาน — ใช้เรียงลำดับ "ใกล้จัดงาน" และกรองช่วงเวลา */
+function earliestDate(ev: EventSummary): number {
+  const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
+  return times.length ? Math.min(...times) : Number.POSITIVE_INFINITY
+}
+
+/** วันจัดกิจกรรมย่อยวันสุดท้ายของงาน — คู่กับ earliestDate ใช้แสดงช่วงวันที่บนการ์ด */
+function latestDate(ev: EventSummary): number {
+  const times = ev.activities.map((a) => new Date(a.date).getTime()).filter((t) => !Number.isNaN(t))
+  return times.length ? Math.max(...times) : Number.NEGATIVE_INFINITY
+}
+
+/** การ์ดข้อมูลรวมที่ใช้แสดงผล — งาน (หลายกิจกรรมย่อย) และกิจกรรมเดี่ยว normalize มาเป็นรูปแบบเดียวกัน */
+interface CardItem {
+  key: string
+  code: string
+  /** ผู้จัดเจ้าของ — ใช้เลือกคำบนปุ่มการ์ด ("จัดการ" ของตัวเอง / "ดูรายละเอียด" ของคนอื่น) */
+  ownerId?: number
+  name: string
+  description?: string | null
+  categories: string[]
+  status: "open" | "closed" | "cancelled"
+  // กิจกรรมเดี่ยวไม่มีแนวคิดการเผยแพร่ระดับงาน — undefined = ไม่ใช้กรองด้วยเงื่อนไขนี้
+  isPublic?: boolean
+  /** path รูปที่ผู้จัดแนบ (eventImagePath) — null = ปกลายของธีม */
+  imageUrl: string | null
+  hasCert: boolean
+  href: string
+  searchText: string
+  sortDate: number
+  /** วันจัดกิจกรรมวันสุดท้าย (epoch ms) — ต่างจาก sortDate (วันแรก) เฉพาะงานที่มีกิจกรรมย่อยคนละวัน */
+  endDate: number
+  /** ช่วงเปิด-ปิดรับสมัคร — มีความหมายเฉพาะ Event เท่านั้น กิจกรรมเดี่ยวไม่มีฟิลด์นี้ในสคีมาเลยเป็น null เสมอ */
+  registrationOpenAt: string | null
+  registrationCloseAt: string | null
+  createdAtMs: number
+  registeredCount: number
+}
+
+/** สถานะแยกเป็นแท็บทรงแคปซูลต่างหาก (เหมือน /organizer/manage) ไม่ใช่ dropdown ในชุดตัวกรอง —
+ *  ตัวกรองที่เหลือ 5 ตัวพอดีกับ auto-fill grid แถวเดียวที่ xl+ ถ้ายัด status เป็นตัวที่ 6 เข้าไปด้วย
+ *  จะดันให้ grid ล้นไปอีกแถว แล้ว items-end จะดันช่องค้นหาลงไปเรียงกับแถวที่ล้นนั้นแทน ดูเหมือนหน้าตาพัง */
+const STATUS_TABS: { value: string; label: string }[] = [
+  { value: "", label: "ทั้งหมด" },
+  { value: "open", label: "เปิดรับสมัคร" },
+  { value: "closed", label: "ปิดแล้ว" },
+  { value: "cancelled", label: "ยกเลิก" },
+]
+
+const FILTERS: FilterSpec[] = [
+  {
+    key: "visibility",
+    label: "การเผยแพร่",
+    options: [
+      { value: "", label: "ทั้งหมด" },
+      { value: "public", label: "เผยแพร่แล้ว" },
+      { value: "private", label: "ไม่เผยแพร่" },
+    ],
+  },
+  {
+    key: "category",
+    label: "หมวดหมู่",
+    options: [{ value: "", label: "ทุกหมวดหมู่" }, ...CATEGORIES.map((c) => ({ value: c.value, label: c.label }))],
+  },
+  {
+    key: "cert",
+    label: "ใบรับรอง",
+    options: [
+      { value: "", label: "ทั้งหมด" },
+      { value: "yes", label: "มีใบรับรองจิตอาสา" },
+      { value: "no", label: "ไม่มีใบรับรองจิตอาสา" },
+    ],
+  },
+  {
+    key: "range",
+    label: "ช่วงเวลาจัดงาน",
+    options: RANGE_OPTIONS,
+  },
+  {
+    key: "sort",
+    label: "เรียงลำดับ",
+    neutralValue: "newest",
+    options: [
+      { value: "newest", label: "สร้างล่าสุด" },
+      { value: "soon", label: "ใกล้จัดงาน" },
+      { value: "registrations", label: "ยอดลงทะเบียนสูงสุด" },
+    ],
+  },
+]
+
+const INITIAL_VALUES: Record<string, string> = {
+  status: "",
+  visibility: "",
+  category: "",
+  cert: "",
+  range: "",
+  sort: "newest",
+}
 
 export default function OrganizerDashboardPage() {
-  const [activities, setActivities] = useState<Activity[]>([])
+  const { user } = useAuth()
+  const [stats, setStats] = useState<OrganizerStats | null>(null)
+  const [myActivities, setMyActivities] = useState<Activity[]>([])
+  // งานและกิจกรรมเดี่ยวทั้งหมดในระบบ (ทุกผู้จัด) — ใช้ feed สาธารณะเดียวกับหน้า /events และ /student/events
+  const [events, setEvents] = useState<EventSummary[]>([])
+  const [standaloneActivities, setStandaloneActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
-  const [category, setCategory] = useState<string>("")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [values, setValues] = useState<Record<string, string>>(INITIAL_VALUES)
 
   useEffect(() => {
-    loadActivities(category)
-  }, [category])
+    Promise.allSettled([
+      activitiesAPI.getOrganizerStats(),
+      activitiesAPI.getMy(),
+      eventsAPI.getAllPublic(),
+      activitiesAPI.getAll(),
+    ])
+      .then(([statsRes, listRes, eventsRes, allRes]) => {
+        if (statsRes.status === "fulfilled") setStats(statsRes.value)
+        if (listRes.status === "fulfilled" && Array.isArray(listRes.value)) {
+          setMyActivities(listRes.value as Activity[])
+        }
+        if (eventsRes.status === "fulfilled" && Array.isArray(eventsRes.value)) {
+          setEvents(eventsRes.value as EventSummary[])
+        }
+        if (allRes.status === "fulfilled" && Array.isArray(allRes.value)) {
+          // กิจกรรมเดี่ยว (ไม่ผูกกับงาน) เท่านั้น — ที่ผูกกับงานแสดงรวมในการ์ดของงานแล้ว
+          setStandaloneActivities((allRes.value as Activity[]).filter((a) => !a.eventId))
+        }
+      })
+      .finally(() => setLoading(false))
+  }, [])
 
-  async function loadActivities(cat: string) {
-    try {
-      setLoading(true)
-      const data = await activitiesAPI.getAll(cat ? { category: cat } : undefined)
-      // Show only up to 3 for the recommended section
-      setActivities(Array.isArray(data) ? data.slice(0, 3) : [])
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
+  const pendingRegistrationsCount = stats?.pendingRegistrations ?? 0
+
+  function setFilter(key: string, value: string) {
+    setValues((prev) => ({ ...prev, [key]: value }))
   }
 
-  // Helper date formatter
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString)
-      return new Intl.DateTimeFormat('th-TH', {
-        day: 'numeric', month: 'short', year: 'numeric'
-      }).format(date)
-    } catch {
-      return dateString
-    }
+  function resetFilters() {
+    setSearchQuery("")
+    setValues(INITIAL_VALUES)
   }
 
-  const categoryMap = [
-    { label: "เทคโนโลยี", value: "Technology" },
-    { label: "วิชาการ", value: "Academic" },
-    { label: "การแข่งขัน", value: "Competition" },
-    { label: "อาสาสมัคร", value: "Volunteer" },
+  const allItems = useMemo<CardItem[]>(() => {
+    const fromEvents = events.map((ev): CardItem => ({
+      key: `event-${ev.id}`,
+      code: referenceCode("EVT", ev.id),
+      ownerId: ev.organizerId,
+      name: ev.name,
+      description: ev.description,
+      categories: eventCategories(ev),
+      status: eventStatus(ev),
+      isPublic: ev.isPublic,
+      imageUrl: eventImagePath(ev),
+      hasCert: eventHasCert(ev),
+      href: `/organizer/events/view/${ev.id}`,
+      searchText: [ev.name, ...ev.activities.map((a) => a.name)].join(" ").toLowerCase(),
+      sortDate: earliestDate(ev),
+      endDate: latestDate(ev),
+      createdAtMs: new Date(ev.createdAt).getTime(),
+      registeredCount: eventRegisteredCount(ev),
+      registrationOpenAt: ev.registrationOpenAt ?? null,
+      registrationCloseAt: ev.registrationCloseAt ?? null,
+    }))
+
+    const fromStandalone = standaloneActivities.map((a): CardItem => ({
+      key: `activity-${a.id}`,
+      code: referenceCode("ACT", a.id),
+      ownerId: a.organizer?.id,
+      name: a.name,
+      description: a.description,
+      categories: a.categories,
+      status: isCancelledByOrganizer(a.approvalStatus) ? "cancelled" : a.status === "open" ? "open" : "closed",
+      // กิจกรรมเดี่ยวไม่มีแนวคิดการเผยแพร่ระดับงาน — เว้นว่างไว้ ตัวกรอง "การเผยแพร่" จะไม่จับคู่กิจกรรมนี้เลย
+      isPublic: undefined,
+      imageUrl: a.imageUrl || null,
+      hasCert: !!a.volunteerRole,
+      href: `/organizer/activities/view/${a.id}`,
+      searchText: a.name.toLowerCase(),
+      sortDate: +new Date(a.date),
+      // กิจกรรมเดี่ยว = วันเดียว (endDate เท่ากับ sortDate) และไม่มีช่วงรับสมัครในสคีมา
+      endDate: +new Date(a.date),
+      registrationOpenAt: null,
+      registrationCloseAt: null,
+      // Activity ไม่มี createdAt — ใช้วันจัดกิจกรรมแทน ยังอยู่ในสเกลเดียวกับ createdAt ของ Event
+      createdAtMs: +new Date(a.date),
+      registeredCount: a.registeredCount ?? 0,
+    }))
+
+    return [...fromEvents, ...fromStandalone]
+  }, [events, standaloneActivities])
+
+  /** จำนวนรายการต่อแท็บสถานะ — นับจาก allItems ดิบ (ไม่ผ่านตัวกรองอื่น/คำค้นหา) ให้ตัวเลขนิ่งเหมือน /organizer/manage */
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { "": allItems.length, open: 0, closed: 0, cancelled: 0 }
+    for (const item of allItems) counts[item.status]++
+    return counts
+  }, [allItems])
+
+  const filteredActivities = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    const list = allItems.filter((item) => {
+      const matchesSearch = !q || item.searchText.includes(q)
+      const matchesStatus = !values.status || item.status === values.status
+      const matchesVisibility =
+        !values.visibility || (item.isPublic === undefined ? false : values.visibility === "public" ? item.isPublic : !item.isPublic)
+      const matchesCategory = !values.category || item.categories.includes(values.category)
+      const matchesCert = !values.cert || (values.cert === "yes" ? item.hasCert : !item.hasCert)
+      const matchesRange = withinRange(item.sortDate, values.range)
+      return matchesSearch && matchesStatus && matchesVisibility && matchesCategory && matchesCert && matchesRange
+    })
+
+    return [...list].sort((a, b) => {
+      if (values.sort === "soon") return a.sortDate - b.sortDate
+      if (values.sort === "registrations") return b.registeredCount - a.registeredCount
+      return b.createdAtMs - a.createdAtMs
+    })
+  }, [allItems, searchQuery, values])
+
+  const activeFilterCount =
+    FILTERS.filter((f) => (values[f.key] ?? f.neutralValue ?? "") !== (f.neutralValue ?? "")).length +
+    (searchQuery.trim() ? 1 : 0)
+
+  const totalActivities = stats?.totalActivities ?? myActivities.length
+  const openActivities = stats?.activeActivities ?? 0
+  const summary = loading
+    ? "กำลังโหลดข้อมูลของคุณ..."
+    : totalActivities === 0
+      ? "คุณยังไม่มีกิจกรรมในระบบ — เริ่มสร้างกิจกรรมแรกให้เพื่อน ๆ เด็กคอมได้เลย"
+      : openActivities > 0
+        ? `คุณมี ${totalActivities} กิจกรรมในระบบ และ ${openActivities} กิจกรรมกำลังเปิดรับสมัคร — ชวนเพื่อน ๆ เด็กคอมมาสะสมชั่วโมงกิจกรรมกันต่อ`
+        : `คุณมี ${totalActivities} กิจกรรมในระบบ ยังไม่มีกิจกรรมที่เปิดรับสมัครอยู่ — ปล่อยกิจกรรมใหม่ให้เพื่อน ๆ เด็กคอมกันต่อ`
+
+  const heroStats: OrganizerStat[] = [
+    { code: "ALL_EVENTS", label: "กิจกรรมทั้งหมด", value: loading ? "—" : totalActivities, icon: CalendarDays },
+    { code: "OPEN_NOW", label: "กำลังเปิดรับสมัคร", value: loading ? "—" : openActivities, icon: Zap, highlight: true },
+    {
+      code: "STUDENTS",
+      label: "นักศึกษาทั้งหมด",
+      value: loading ? "—" : (stats?.totalStudents ?? 0).toLocaleString("th-TH"),
+      icon: Users,
+    },
+    {
+      code: "PENDING",
+      label: loading
+        ? "รออนุมัติ"
+        : pendingRegistrationsCount > 0
+          ? "รออนุมัติ · รอคุณยืนยัน"
+          : "รออนุมัติ · เคลียร์หมดแล้ว",
+      value: loading ? "—" : pendingRegistrationsCount,
+      icon: Clock,
+      attention: !loading && pendingRegistrationsCount > 0,
+    },
   ]
 
-  return (
-    <div className="font-sans">
-      {/* Hero Banner Section (Exactly like Root Page) */}
-      <section className="w-full h-[400px] md:h-[550px] relative overflow-hidden bg-slate-100">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/hero-banner.png"
-          alt="Hero Banner"
-          className="w-full h-full object-cover"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-        />
-      </section>
+  function toCardData(item: CardItem): ActivityCardData {
+    return {
+      href: item.href,
+      name: item.name,
+      description: item.description,
+      categories: item.categories,
+      status: item.status,
+      code: item.code,
+      dateMs: item.sortDate,
+      dateLabel: formatCompactDateSpan(item.sortDate, item.endDate),
+      registrationWindow: formatRegistrationWindow(item.registrationOpenAt, item.registrationCloseAt, { compact: true }),
+      actionLabel: item.ownerId !== undefined && item.ownerId === user?.id ? "จัดการ" : "ดูรายละเอียด",
+      unpublished: item.isPublic === false,
+      imageUrl: item.imageUrl,
+    }
+  }
 
-      {/* Recommended Activities Section (Exactly like Root Page) */}
-      <section className="max-w-7xl mx-auto px-4 py-20 relative -mt-20 z-10">
-        <div className="bg-white rounded-[32px] shadow-2xl shadow-slate-200/50 p-8 md:p-12 border border-slate-100">
-          <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div>
-              <h2 className="text-3xl font-black text-gray-900 mb-2">กิจกรรมล่าสุด</h2>
-              <div className="h-1 w-20 bg-blue-600 rounded-full mb-4"></div>
-              <p className="text-gray-500 font-medium">กิจกรรมล่าสุดที่กำลังเปิดรับบนแพลตฟอร์ม</p>
-            </div>
-            {/* Category Filter Pills */}
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setCategory("")}
-                className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${category === "" ? "bg-slate-900 text-white shadow-md shadow-slate-900/20" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+  return (
+    <div className="bg-denim-paper font-plex text-denim-deep">
+      <OrganizerHero name={user?.name || "ผู้จัดกิจกรรม"} summary={summary} />
+      <OrganizerStatCards stats={heroStats} />
+
+      {/* ── กิจกรรมทั้งหมดในระบบ ────────────────────────────────────────── */}
+      <section aria-labelledby="organizer-activities-heading">
+        <Container className="flex flex-col gap-6 pb-[88px] pt-16">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="flex flex-col gap-1.5">
+              <span className="font-code text-[13px] text-denim-accent" aria-hidden="true">
+                {"// activities.list()"}
+              </span>
+              <h2
+                id="organizer-activities-heading"
+                className="font-display text-[34px] font-bold leading-tight text-denim-deep"
               >
-                ทั้งหมด
-              </button>
-              {categoryMap.map(cat => (
-                <button
-                  key={cat.value}
-                  onClick={() => setCategory(cat.value)}
-                  className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${category === cat.value ? "bg-blue-600 text-white shadow-md shadow-blue-600/20" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-                >
-                  {cat.label}
-                </button>
-              ))}
+                กิจกรรมทั้งหมด
+              </h2>
             </div>
+            <Link
+              href="/organizer/manage"
+              className="inline-flex min-h-11 items-center gap-2 text-[15px] font-semibold text-denim transition-colors hover:text-denim-deep"
+            >
+              จัดการกิจกรรมของฉัน
+              <ArrowRight className="size-[18px]" aria-hidden="true" />
+            </Link>
           </div>
+
+          {/* แท็บสถานะแยกจากแผงตัวกรอง (เหมือน /organizer/manage) — ตัวเลขนับจากรายการทั้งหมด ไม่ผ่านตัวกรองอื่น */}
+          <StatusTabs
+            tabs={STATUS_TABS}
+            value={values.status}
+            counts={statusCounts}
+            onChange={(value) => setFilter("status", value)}
+          />
+
+          <FilterPanel
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="ค้นหาชื่อกิจกรรม..."
+            filters={FILTERS}
+            values={values}
+            onFilterChange={setFilter}
+          />
+
+          <ResultLine
+            count={loading ? undefined : filteredActivities.length}
+            activeFilters={activeFilterCount}
+            onReset={resetFilters}
+          />
 
           {loading ? (
-            <div className="py-20 flex flex-col items-center justify-center">
-              <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-              <p className="text-slate-500 font-medium animate-pulse">กำลังโหลดกิจกรรม...</p>
-            </div>
-          ) : activities.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {activities.map((ev) => (
-                <div key={ev.id} className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl border border-slate-100 flex flex-col transition-all duration-300 group hover:-translate-y-1">
-                  <div className="h-[220px] bg-slate-100 relative overflow-hidden">
-                    <div className="absolute top-4 right-4 z-10">
-                      <span className={`text-xs font-bold px-4 py-1.5 rounded-full shadow-md backdrop-blur-md ${ev.status === "open" || !ev.status ? "bg-green-500/90 text-white" : "bg-slate-500/90 text-white"}`}>
-                        {ev.status === "open" || !ev.status ? "กำลังเปิด" : "ปิดรับสมัคร"}
-                      </span>
-                    </div>
-                    <div className="absolute top-4 left-4 z-10">
-                      <span className="bg-white/95 text-blue-700 text-xs font-black uppercase tracking-wider px-3 py-1.5 rounded-lg shadow-sm">
-                        {ev.category}
-                      </span>
-                    </div>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={ev.imageUrl ? `http://localhost:3001${ev.imageUrl}` : "/activity-placeholder.jpg"}
-                      alt={ev.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop'; }}
-                    />
-                  </div>
-                  <div className="p-6 flex-grow flex flex-col">
-                    <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors line-clamp-2 leading-tight">{ev.name}</h3>
-                    <p className="text-slate-500 text-sm mb-6 line-clamp-2">{ev.description || "ไม่ระบุรายละเอียด"}</p>
-
-                    <div className="space-y-2 mb-6 mt-auto">
-                      <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
-                        <Calendar className="w-4 h-4 mr-3 text-blue-500" />
-                        {formatDate(ev.date)} • {ev.startTime}
-                      </div>
-                      <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
-                        <MapPin className="w-4 h-4 mr-3 text-rose-500" />
-                        <span className="truncate">{ev.location}</span>
-                      </div>
-                      <div className="flex items-center text-sm font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-lg">
-                        <Users className="w-4 h-4 mr-3 text-emerald-500" />
-                        {ev.registeredCount || 0} / {ev.capacity} ผู้เข้าร่วม
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3 mt-auto">
-                      <Link href={`/organizer/events/${ev.id}`} className="flex-1">
-                        <Button variant="outline" className="w-full bg-white hover:bg-slate-50 border-slate-200 text-slate-700 font-bold rounded-xl h-11">ดูรายละเอียด</Button>
-                      </Link>
-                      <Link href={`/organizer/manage`} className="flex-1">
-                        <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 font-bold rounded-xl h-11">จัดการทั้งหมด</Button>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
+            <div className={ACTIVITY_GRID}>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <ActivityCardSkeleton key={i} />
               ))}
             </div>
+          ) : filteredActivities.length > 0 || allItems.length === 0 ? (
+            // ยังไม่มีกิจกรรมในระบบเลย = เหลือแค่ช่องสร้างกิจกรรมใหม่ในกริด (ทำหน้าที่เป็น empty state ในตัว)
+            <div className={ACTIVITY_GRID}>
+              {filteredActivities.map((item) => (
+                <ActivityCard key={item.key} item={toCardData(item)} />
+              ))}
+              <CreateActivityTile />
+            </div>
           ) : (
-            <div className="py-20 text-center bg-slate-50 rounded-[24px] border-2 border-dashed border-slate-200">
-              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                <Calendar className="w-8 h-8 text-slate-400" />
-              </div>
-              <p className="text-slate-500 font-bold text-lg">ไม่พบกิจกรรมในหมวดหมู่นี้</p>
+            <div className="flex flex-col items-center justify-center gap-3 rounded-[22px] border-2 border-dashed border-denim-dash bg-white px-6 py-16 text-center">
+              <span className="grid size-12 place-items-center rounded-full bg-denim-chip">
+                <Search className="size-6 text-denim" aria-hidden="true" />
+              </span>
+              <h3 className="font-display text-lg font-bold text-denim-deep">ไม่พบกิจกรรมที่ค้นหา</h3>
+              <p className="max-w-sm text-sm text-denim-muted">
+                ลองใช้คำค้นหาอื่น หรือล้างตัวกรองเพื่อดูกิจกรรมทั้งหมด
+              </p>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="mt-2 inline-flex min-h-11 items-center rounded-xl border-[1.5px] border-denim px-5 text-sm font-semibold text-denim transition-colors hover:bg-denim hover:text-white"
+              >
+                ล้างตัวกรอง
+              </button>
             </div>
           )}
-        </div>
+        </Container>
       </section>
-
-      {/* Categories Grid (Exactly like Root Page) */}
-      <section className="py-24 bg-white relative">
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
-        </div>
-        <div className="max-w-7xl mx-auto px-4 text-center relative z-10">
-          <h2 className="text-3xl font-black text-gray-900 mb-4 tracking-tight">สำรวจตามความสนใจ</h2>
-          <p className="text-slate-500 max-w-2xl mx-auto mb-16 text-lg font-medium">พัฒนาก้าวหน้าอย่างตรงจุดตามเป้าหมายของตัวคุณ เลือกเข้าร่วมกิจกรรมที่ช่วยเติมเต็มศักยภาพ Soft Skills ได้โดยตรง</p>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-            {categoryMap.map((cat, i) => {
-              const styles = [
-                { color: "text-blue-600", bg: "bg-blue-50/50", border: "hover:border-blue-300", shadow: "hover:shadow-blue-500/10" },
-                { color: "text-indigo-600", bg: "bg-indigo-50/50", border: "hover:border-indigo-300", shadow: "hover:shadow-indigo-500/10" },
-                { color: "text-amber-600", bg: "bg-amber-50/50", border: "hover:border-amber-300", shadow: "hover:shadow-amber-500/10" },
-                { color: "text-emerald-600", bg: "bg-emerald-50/50", border: "hover:border-emerald-300", shadow: "hover:shadow-emerald-500/10" }
-              ];
-              const style = styles[i % styles.length];
-
-              return (
-                <div
-                  key={cat.value}
-                  onClick={() => { setCategory(cat.value); window.scrollTo({ top: 500, behavior: 'smooth' }); }}
-                  className={`group bg-white rounded-[24px] p-6 cursor-pointer border border-slate-200 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${style.shadow} flex flex-col items-start justify-between min-h-[160px] relative overflow-hidden`}
-                >
-                  <div className={`absolute -right-6 -bottom-6 w-32 h-32 rounded-full opacity-20 transition-transform duration-500 group-hover:scale-150 ${style.bg.replace('/50', '')}`}></div>
-
-                  <div className="relative z-10 w-full flex justify-between items-start">
-                    <span className={`text-2xl font-black text-slate-800 transition-colors`}>{cat.label}</span>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0 ${style.bg.replace('/50', '')} ${style.color}`}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
-                    </div>
-                  </div>
-
-                  <div className="relative z-10 mt-auto">
-                    <span className="text-sm font-semibold text-slate-400 group-hover:text-slate-600 transition-colors">สำรวจกิจกรรม</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Ready Section (Exactly like Root Page) */}
-      <section className="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-24 relative overflow-hidden">
-        <div className="max-w-4xl mx-auto px-4 text-center relative z-10">
-          <h2 className="text-4xl md:text-5xl font-black text-white mb-6">เริ่มสร้างกิจกรรมของคุณได้เลย!</h2>
-          <p className="text-xl text-slate-300 mb-10 max-w-2xl mx-auto">ลงมือสร้างสรรค์และรวบรวมนักศึกษาที่สนใจเข้าร่วมกับคุณ</p>
-          <Button size="lg" className="bg-white hover:bg-slate-100 text-slate-900 font-black rounded-xl px-10 h-16 text-lg shadow-2xl shadow-white/10" asChild>
-            <Link href="/organizer/create">สร้างกิจกรรมใหม่</Link>
-          </Button>
-        </div>
-      </section>
-
-      {/* Footer (Exactly like Root Page) */}
-      <footer className="bg-slate-950 text-slate-300 pt-20 pb-10 mt-auto">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16 border-b border-slate-800 pb-16">
-            <div className="md:col-span-2 space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white shrink-0 overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/logo.png" alt="Logo" className="w-full h-full object-cover fallback-bg" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                </div>
-                <span className="text-2xl font-bold text-white tracking-tight">ระบบจัดการกิจกรรม</span>
-              </div>
-              <p className="text-slate-400 max-w-sm">แพลตฟอร์มศูนย์กลางสำหรับการเข้าร่วมและจัดการกิจกรรมของนักศึกษา เพื่อส่งเสริมการพัฒนาศักยภาพอย่างรอบด้าน</p>
-              <div className="h-16 w-auto relative flex items-center mt-8">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/computing-logo.png" alt="College of Computing Logo" className="h-full object-contain filter brightness-200 contrast-150 grayscale" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                <div className="absolute inset-0 flex items-center justify-center text-slate-600 text-[10px] font-bold -z-10 text-center">COLLEGE OF<br />COMPUTING<br /><span className="text-[8px] font-normal">KHON KAEN UNIVERSITY</span></div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-white font-bold mb-6 text-lg">เมนูหลักผู้จัดกิจกรรม</h4>
-              <ul className="space-y-4 font-medium">
-                <li><Link href="/organizer" className="hover:text-white hover:underline transition-colors">หน้าหลัก</Link></li>
-                <li><Link href="/organizer/manage" className="hover:text-white hover:underline transition-colors">จัดการกิจกรรม</Link></li>
-                <li><Link href="/organizer/create" className="hover:text-white hover:underline transition-colors">สร้างกิจกรรม</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-white font-bold mb-6 text-lg">ติดต่อเรา</h4>
-              <ul className="space-y-4 font-medium">
-                <li>วิทยาลัยการคอมพิวเตอร์ ขอนแก่น</li>
-                <li>อีเมล: info@computing.kku.ac.th</li>
-                <li>โทร: 043-000-000</li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="text-center md:text-left flex flex-col md:flex-row justify-between items-center text-sm font-medium text-slate-500">
-            <p>&copy; {new Date().getFullYear()} College of Computing, Khon Kaen University. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

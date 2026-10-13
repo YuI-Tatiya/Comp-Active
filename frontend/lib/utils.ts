@@ -29,3 +29,8 @@ export function cn(
   //    - เหลือเฉพาะ class ที่ควรใช้จริง
   return twMerge(clsx(inputs));
 }
+
+/** สลับค่าเข้า/ออกจาก array — ใช้กับ checkbox กลุ่มแบบเลือกได้หลายค่า (เช่น หมวดหมู่) */
+export function toggleInArray<T>(list: T[], value: T): T[] {
+  return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+}

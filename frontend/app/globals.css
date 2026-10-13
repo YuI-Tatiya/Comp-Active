@@ -1,123 +1,353 @@
-@import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Kanit", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  /* ── Brand = ธีม Denim Varsity ทั้งระบบ ─────────────────────────────────────
+     ค่าเดิมเป็นสเกลฟ้า Chakra — เปลี่ยนเป็นสเกลยีนส์ที่นี่ที่เดียว ทุกหน้าที่ใช้ brand-* (ปุ่มหลัก ลิงก์ ป้าย ไอคอน)
+     จึงเข้าธีมเองโดยไม่ต้องแก้ทีละหน้า บทบาทของแต่ละขั้นคงเดิม: 50/100 พื้นอ่อน, 500-600 ตัวอักษร/ปุ่ม, 700-900 เข้มสุด
+     (brand-600 = denim, brand-900 = denim-deep) ฟอนต์อยู่ใน @theme inline ด้านล่าง */
+  --color-brand-50: #eef3fa;
+  --color-brand-100: #e4ebf5;
+  --color-brand-200: #c3d3ea;
+  --color-brand-300: #8fa9cf;
+  --color-brand-500: #3a5f95;
+  --color-brand-600: #1f3a63;
+  --color-brand-700: #172e50;
+  --color-brand-900: #12223d;
+
+  /* ── Neutral / Surface (โทนกระดาษ/เส้นของธีมยีนส์) ─────────────────────────── */
+  --color-bg: #ffffff;
+  --color-surface: #f2f5fa;
+  --color-surface-2: #e8eef7;
+  --color-border: #dce4f0;
+  --color-border-strong: #cbd6e6;
+
+  /* ── Text — ทุกระดับผ่าน WCAG AA บนพื้นขาว: fg 15:1, muted 7.0:1, subtle 5.1:1 ───────── */
+  --color-fg: #12223d;
+  --color-fg-muted: #4a5a72;
+  --color-fg-subtle: #5f6f87;
+
+  /* ── Semantic — ผูกกับ enum ใน backend/prisma/schema.prisma ──────────────── */
+  --color-success: #059669;
+  --color-success-bg: #ecfdf5;
+  --color-warning: #b45309;
+  --color-warning-bg: #fffbeb;
+  --color-danger: #dc2626;
+  --color-danger-bg: #fef2f2;
+  --color-info: #0e7490;
+  --color-info-bg: #ecfeff;
+
+  /* สีตัวอักษรบนพื้นอ่อน (success-bg/danger-bg) ที่ผ่าน WCAG AA (≥4.5:1) — success/danger เดิมใช้เป็นสีพื้น/ไอคอนได้
+     แต่เป็นตัวอักษรเล็กบนพื้นอ่อนได้แค่ 3.6:1 และ 4.4:1 (ใช้ในสถานะการลงทะเบียนของหน้ากิจกรรม) */
+  --color-success-fg: #047857;
+  --color-danger-fg: #b91c1c;
+
+  /* ── Accent ประจำหมวดหมู่กิจกรรม ─────────────────────────────────────────
+     ใช้เฉพาะจุดเล็ก (จุดนำหน้า, badge, ขอบซ้ายการ์ด) ห้ามใช้เป็นพื้นการ์ดทั้งใบ */
+  --color-cat-tech: #2563eb;
+  --color-cat-tech-bg: #eff6ff;
+  --color-cat-academic: #7c3aed;
+  --color-cat-academic-bg: #f5f3ff;
+  --color-cat-competition: #ea580c;
+  --color-cat-competition-bg: #fff7ed;
+  --color-cat-volunteer: #059669;
+  --color-cat-volunteer-bg: #ecfdf5;
+  --color-cat-sports: #dc2626;
+  --color-cat-sports-bg: #fef2f2;
+  --color-cat-art: #c026d3;
+  --color-cat-art-bg: #fdf4ff;
+
+  /* ── สีเฉพาะของธีม Denim Varsity (ส่วนประกอบใน components/denim) ───────────────────── */
+  --color-denim: #1f3a63;
+  --color-denim-deep: #12223d;
+  --color-denim-mid: #2e5287;
+  --color-denim-accent: #3a5f95;
+  --color-denim-ink: #33445e;
+  --color-denim-muted: #52627a;
+  --color-denim-line: #dce4f0;
+  --color-denim-field: #cbd6e6;
+  --color-denim-chip: #e4ebf5;
+  --color-denim-paper: #f2f5fa;
+  --color-denim-dash: #8fa9cf;
+  --color-denim-closed: #4a5568;
+  /* ตัวอักษรบนพื้นยีนส์ — เรียงจากสว่างสุดไปจางสุด */
+  --color-denim-on: #d3deee;
+  --color-denim-on-soft: #c3d3ea;
+  --color-denim-on-muted: #a9c0e2;
+  --color-amber: #e8a33a;
+  --color-amber-deep: #a8701c;
+  /* ตัวอักษรบนพื้นอำพันอ่อน (ป้าย "กำลังเปิดรับสมัคร") — amber-deep บนพื้นอ่อนได้แค่ ~3.4:1 ไม่ผ่าน AA ตัวเล็ก */
+  --color-amber-ink: #7a4f0e;
+
+  /* ── Radius ─────────────────────────────────────────────────────────────── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* ── Shadow (เบามาก — ใช้บอกลำดับชั้นเท่านั้น) ─────────────────────────────── */
+  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.04);
+  --shadow-md: 0 4px 12px -2px rgb(15 23 42 / 0.08);
+
+  /* ── Animation ──────────────────────────────────────────────────────────── */
+  --animate-marquee: marquee 30s linear infinite;
+  --animate-toast-in: toast-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-toast-out: toast-out 0.2s ease-in forwards;
+  --animate-toast-pop: toast-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+  --animate-dialog-pop: dialog-pop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-dialog-backdrop: dialog-backdrop 0.2s ease-out;
+  --animate-icon-pop: icon-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
 }
 
-@layer base {
-  *,
-  ::before,
-  ::after,
-  body {
-    font-family: var(--font-sans);
+/* ฟอนต์ทั้งระบบ — โหลดผ่าน next/font ใน lib/denim-fonts.ts ตัวแปรผูกไว้บน <html> (app/layout.tsx)
+   sans = IBM Plex Sans Thai (เนื้อหา), heading/display = Bai Jamjuree (หัวข้อ), code = JetBrains Mono
+   เป็น @theme inline ไว้: @theme ปกติประกาศค่าบน :root แล้วแทนค่า var() ข้างในที่ :root เลย — เคยทำให้ฟอนต์ตก
+   ไปตัวสำรองหมดโดยไม่มี error ตอนตัวแปรอยู่ใต้ div ของ layout ย่อย inline ให้ utility อ้าง var() ตรงๆ ทนทานกว่า
+   fallback ใน var() กันกรณีตัวแปรหาไม่เจอ / code ต่อด้วย Plex Thai เพราะ JetBrains Mono ไม่มีอักษรไทย */
+@theme inline {
+  --font-sans: var(--font-plex-thai, ui-sans-serif), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-bai-jamjuree, ui-sans-serif), var(--font-plex-thai, ui-sans-serif), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bai-jamjuree, ui-sans-serif), var(--font-plex-thai, ui-sans-serif), ui-sans-serif, system-ui, sans-serif;
+  --font-plex: var(--font-plex-thai, ui-sans-serif), ui-sans-serif, system-ui, sans-serif;
+  --font-code: var(--font-jetbrains-mono, monospace), var(--font-plex-thai, ui-sans-serif), SFMono-Regular, Menlo, monospace;
+}
+
+/* track ถูก render ซ้ำ 2 ชุดต่อกัน — เลื่อนแค่ -50% ของความกว้าง track (w-max)
+   ก็เท่ากับเลื่อนพอดี 1 ชุด ภาพจึงต่อกันเป็นวงไม่มีวันสะดุด */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }
 
-.kanit-thin {
-  font-family: "Kanit", sans-serif;
-  font-weight: 100;
-  font-style: normal;
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-.kanit-extralight {
-  font-family: "Kanit", sans-serif;
-  font-weight: 200;
-  font-style: normal;
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
 }
 
-.kanit-light {
-  font-family: "Kanit", sans-serif;
-  font-weight: 300;
-  font-style: normal;
+@keyframes toast-pop {
+  0% {
+    transform: scale(0);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
-.kanit-regular {
-  font-family: "Kanit", sans-serif;
-  font-weight: 400;
-  font-style: normal;
+@keyframes dialog-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
-.kanit-medium {
-  font-family: "Kanit", sans-serif;
-  font-weight: 500;
-  font-style: normal;
+@keyframes dialog-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-.kanit-semibold {
-  font-family: "Kanit", sans-serif;
-  font-weight: 600;
-  font-style: normal;
+@keyframes icon-pop {
+  0% {
+    transform: scale(0) rotate(-10deg);
+  }
+  60% {
+    transform: scale(1.15) rotate(4deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
 }
 
-.kanit-bold {
-  font-family: "Kanit", sans-serif;
-  font-weight: 700;
-  font-style: normal;
+@layer components {
+  /* ── ธีม Denim Varsity — ลายผ้ายีนส์ แถบหมากรุก และปกการ์ดตามหมวดหมู่ ───────── */
+  .denim-weave {
+    background-color: var(--color-denim);
+    background-image:
+      repeating-linear-gradient(45deg, rgb(255 255 255 / 0.035) 0 2px, transparent 2px 5px),
+      repeating-linear-gradient(-45deg, rgb(0 0 0 / 0.1) 0 1px, transparent 1px 4px);
+  }
+
+  .denim-weave-deep {
+    background-color: var(--color-denim-deep);
+    background-image:
+      repeating-linear-gradient(45deg, rgb(255 255 255 / 0.03) 0 2px, transparent 2px 5px),
+      repeating-linear-gradient(-45deg, rgb(0 0 0 / 0.12) 0 1px, transparent 1px 4px);
+  }
+
+  .checker-strip {
+    background: repeating-conic-gradient(var(--color-denim-deep) 0 25%, #ffffff 0 50%) 0 0 / 14px 14px;
+  }
+
+  .cover-dots {
+    background-color: var(--color-denim);
+    background-image: radial-gradient(rgb(255 255 255 / 0.16) 1.2px, transparent 1.3px);
+    background-size: 16px 16px;
+  }
+
+  .cover-lines {
+    background-color: var(--color-denim-mid);
+    background-image: repeating-linear-gradient(0deg, rgb(255 255 255 / 0.1) 0 1px, transparent 1px 18px);
+  }
+
+  .cover-grid {
+    background-color: var(--color-denim-mid);
+    background-image:
+      linear-gradient(rgb(255 255 255 / 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.08) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  .cover-closed {
+    background-color: var(--color-denim-closed);
+    background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.06) 0 2px, transparent 2px 7px);
+  }
+
+  /* ฉบับร่าง — ตารางพิมพ์เขียว ให้ต่างจากงานจริงทุกสถานะในพริบตา */
+  .cover-draft {
+    background-color: var(--color-denim-accent);
+    background-image:
+      linear-gradient(rgb(255 255 255 / 0.12) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.12) 1px, transparent 1px);
+    background-size: 12px 12px;
+  }
 }
 
-.kanit-extrabold {
-  font-family: "Kanit", sans-serif;
-  font-weight: 800;
-  font-style: normal;
+/* เคอร์เซอร์เทอร์มินัลกะพริบ + มาสคอตลอยขึ้นลง (หน้าหลักผู้จัด) — เคอร์เซอร์เป็น em ให้ย่อตามขนาดตัวอักษรบนมือถือ */
+.term-cursor {
+  display: inline-block;
+  width: 0.62em;
+  height: 1.25em;
+  margin-left: 0.25em;
+  vertical-align: -0.22em;
+  background: var(--color-amber);
+  animation: term-blink 1.1s steps(1) infinite;
 }
 
-.kanit-black {
-  font-family: "Kanit", sans-serif;
-  font-weight: 900;
-  font-style: normal;
+.mascot-bob {
+  transform-origin: 50% 100%;
+  animation: mascot-bob 4s ease-in-out infinite;
 }
 
-.kanit-thin-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 100;
-  font-style: italic;
+@keyframes term-blink {
+  50% {
+    opacity: 0;
+  }
 }
 
-.kanit-extralight-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 200;
-  font-style: italic;
+@keyframes mascot-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
-.kanit-light-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 300;
-  font-style: italic;
+@media (prefers-reduced-motion: reduce) {
+  .term-cursor,
+  .mascot-bob {
+    animation: none;
+  }
 }
 
-.kanit-regular-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 400;
-  font-style: italic;
+@layer base {
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
+
+  /* focus ring เดียวกันทั้งระบบ */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
 }
 
-.kanit-medium-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 500;
-  font-style: italic;
+/* หัวเรื่องการ์ดฟ้า (components/ui/page-header.tsx) — ไอคอนกระจกลอยช้า + วงโคจรเส้นประหมุนช้ามาก */
+.ph-float {
+  animation: ph-float 6s ease-in-out infinite;
 }
 
-.kanit-semibold-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 600;
-  font-style: italic;
+.ph-delay-1 {
+  animation-delay: -2s;
 }
 
-.kanit-bold-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 700;
-  font-style: italic;
+.ph-delay-2 {
+  animation-delay: -4s;
 }
 
-.kanit-extrabold-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 800;
-  font-style: italic;
+.ph-orbit {
+  animation: ph-orbit 60s linear infinite;
 }
 
-.kanit-black-italic {
-  font-family: "Kanit", sans-serif;
-  font-weight: 900;
-  font-style: italic;
+@keyframes ph-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes ph-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ph-float,
+  .ph-orbit {
+    animation: none;
+  }
+}
+
+/* เอกสารรับรองผล Soft Skills — @page แบบมีชื่อ ใช้เฉพาะหน้าที่มี .transcript-doc ไม่กระทบการพิมพ์หน้าอื่น */
+@page transcript {
+  size: A4;
+  margin: 14mm;
+}
+
+@media print {
+  .transcript-doc {
+    page: transcript;
+  }
 }
