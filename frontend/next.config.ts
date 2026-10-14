@@ -68,7 +68,12 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // "standalone" รวม server.js + node_modules ที่ตัดแล้วไว้ใน .next/standalone/ สำหรับ
+  // frontend/Dockerfile (self-host, docker-compose) เท่านั้น — Vercel มีระบบ bundle serverless
+  // function ของตัวเอง (อาศัย .next/server/*.nft.json) ถ้าเปิด standalone ไว้ด้วย Vercel's
+  // build step (onBuildComplete) จะหาไฟล์ .nft.json ไม่เจอแล้ว build fail ทันที
+  // (ENOENT .next/next-server.js.nft.json) — ตรวจจาก process.env.VERCEL ที่ Vercel ตั้งให้เองเสมอ
+  ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
 
   // ไม่ประกาศเวอร์ชัน Next ให้ผู้โจมตีรู้ผ่าน header
   poweredByHeader: false,
