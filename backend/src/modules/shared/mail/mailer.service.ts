@@ -1,6 +1,5 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { createTransport, type Transporter } from "nodemailer";
 import { sanitizeHeaderValue } from "../../../common/utils";
 
 export interface SendMailOptions {
@@ -9,64 +8,80 @@ export interface SendMailOptions {
   html: string;
 }
 
+const RESEND_API_URL = "https://api.resend.com/emails";
+
+// fetch() ไม่มี timeout ในตัว — endpoint สมัครสมาชิก/OTP ไม่มี try/catch ครอบการส่งอีเมลไว้โดยตั้งใจ
+// (ดู auth.service.ts) ถ้าไม่ตั้ง timeout เอง การเชื่อมต่อค้างจะแขวนทั้งคำขอ HTTP ไม่รู้จบ
+const FETCH_TIMEOUT_MS = 15_000;
+
 /**
- * ห่อ nodemailer ไว้บาง ๆ แทน @nestjs-modules/mailer ที่ถูกถอดออกไป
+ * ส่งอีเมลผ่าน Resend (HTTPS API) แทน SMTP ดิบ
  *
- * เหตุผลด้านความปลอดภัย (OWASP A03 Software Supply Chain Failures):
- * @nestjs-modules/mailer ลาก template engine ทั้งชุด (mjml, liquidjs, handlebars,
- * preview-email, html-minifier) เข้ามาเป็น dependency ทั้งที่โปรเจกต์นี้ส่งอีเมลด้วย
- * HTML string ตรง ๆ ไม่เคยใช้ template engine เลย — เท่ากับแบก attack surface
- * ~45 แพ็กเกจ (มี critical 2 ตัว: handlebars RCE-class + liquidjs arbitrary file read)
- * ไว้เปล่า ๆ การเรียก nodemailer เองตัดทั้งชุดนั้นทิ้งได้
+ * ของเดิมใช้ nodemailer ต่อ smtp.gmail.com:587 ตรง ๆ — ใช้ได้ปกติตอน dev แต่พอ deploy ขึ้น PaaS
+ * (ยืนยันแล้วจริงบน Railway) พอร์ต SMTP ขาออกมักถูกบล็อกโดยดีฟอลต์เพื่อกันเซิร์ฟเวอร์ถูกใช้ส่งสแปม —
+ * การเชื่อมต่อเลยค้างจน timeout แทนที่จะถูกปฏิเสธทันที (เจอจริง: POST /api/auth/register
+ * ค้างแล้ว 500 "Connection timeout") Resend คุยผ่าน HTTPS พอร์ต 443 ธรรมดา จึงไม่โดนบล็อกแบบเดียวกัน
+ *
+ * ขอ API key ได้ที่ resend.com/api-keys — ต้อง verify โดเมนที่ใช้เป็น MAIL_FROM กับ Resend ก่อน
+ * ถึงจะส่งถึงผู้รับทั่วไปได้จริง (ไม่ใช่แค่ sandbox ที่ส่งได้เฉพาะอีเมลเจ้าของบัญชีเอง)
+ *
+ * Interface สาธารณะ (sendMail({to, subject, html})) เหมือนเดิมทุกตัวอักษร — MailService และทุกจุดที่
+ * เรียกใช้ไม่ต้องแก้อะไรเลย เปลี่ยนแค่ข้างในว่า "ส่งยังไง"
  */
 @Injectable()
-export class MailerService implements OnModuleInit {
+export class MailerService {
   private readonly logger = new Logger(MailerService.name);
-  private transporter: Transporter;
-  private defaultFrom: string;
 
   constructor(private readonly config: ConfigService) {}
 
-  onModuleInit() {
-    const host = this.config.get<string>("SMTP_HOST");
-    const port = parseInt(this.config.get<string>("SMTP_PORT") ?? "587", 10);
-    const secure = this.config.get<string>("SMTP_SECURE") === "true";
-
-    // A04 Cryptographic Failures: ของเดิมตั้ง rejectUnauthorized:false ไว้ตายตัว
-    // = ไม่ตรวจใบรับรอง TLS ของ SMTP server เลย ใครนั่งกลางทาง (Wi-Fi มหาลัย/ร้านกาแฟ)
-    // ยกใบรับรองปลอมมาให้ก็เชื่อ แล้วอ่านได้ทั้งรหัสผ่าน SMTP, รหัส OTP,
-    // และรหัสผ่าน Organizer ที่ระบบสุ่มส่งไปทางอีเมล
-    // ตอนนี้ตรวจเสมอ ยกเว้นตั้ง SMTP_ALLOW_SELF_SIGNED=true เองตอน dev
-    const allowSelfSigned =
-      this.config.get<string>("SMTP_ALLOW_SELF_SIGNED") === "true";
-    if (allowSelfSigned) {
-      this.logger.warn(
-        "SMTP_ALLOW_SELF_SIGNED=true — ปิดการตรวจใบรับรอง TLS ห้ามใช้ค่านี้ใน production",
+  async sendMail({ to, subject, html }: SendMailOptions): Promise<void> {
+    const apiKey = this.config.get<string>("RESEND_API_KEY")?.trim();
+    if (!apiKey) {
+      throw new Error(
+        "RESEND_API_KEY ไม่ได้ถูกตั้งค่า — ขอ API key ได้ที่ https://resend.com/api-keys",
       );
     }
+    const from =
+      this.config.get<string>("MAIL_FROM")?.trim() ||
+      "Comp Active <no-reply@compactive.com>";
 
-    this.defaultFrom = `"Comp Active" <${this.config.get<string>("SMTP_FROM") || "no-reply@compactive.com"}>`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    let res: Response;
+    try {
+      res = await fetch(RESEND_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          from,
+          // ตัด CR/LF ไว้อีกชั้น — ความเสี่ยง header injection เดิมเป็นคลาสของ SMTP ดิบโดยเฉพาะ
+          // (ที่นี่ส่งเป็น JSON field ไม่ใช่ raw header) แต่ไม่มีเหตุผลให้ตัดการป้องกันนี้ทิ้ง
+          to: sanitizeHeaderValue(to),
+          subject: sanitizeHeaderValue(subject),
+          html,
+        }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      const isTimeout = (err as Error).name === "AbortError";
+      const reason = isTimeout
+        ? `หมดเวลา ${FETCH_TIMEOUT_MS / 1000}s`
+        : (err as Error).message;
+      this.logger.error(`ส่งอีเมลไป ${to} ไม่สำเร็จ: ${reason}`);
+      throw new Error(`ส่งอีเมลไม่สำเร็จ: ${reason}`);
+    } finally {
+      clearTimeout(timer);
+    }
 
-    this.transporter = createTransport({
-      host,
-      port,
-      secure,
-      auth: {
-        user: this.config.get<string>("SMTP_USER"),
-        pass: this.config.get<string>("SMTP_PASS"),
-      },
-      requireTLS: !secure,
-      tls: { rejectUnauthorized: !allowSelfSigned, minVersion: "TLSv1.2" },
-    });
-  }
-
-  async sendMail({ to, subject, html }: SendMailOptions) {
-    return this.transporter.sendMail({
-      from: this.defaultFrom,
-      // ตัด CR/LF กัน header injection ก่อนถึง nodemailer เสมอ
-      to: sanitizeHeaderValue(to),
-      subject: sanitizeHeaderValue(subject),
-      html,
-    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      this.logger.error(
+        `Resend ตอบสถานะ ${res.status} ตอนส่งอีเมลไป ${to}: ${body.slice(0, 500)}`,
+      );
+      throw new Error(`ส่งอีเมลไม่สำเร็จ (HTTP ${res.status})`);
+    }
   }
 }

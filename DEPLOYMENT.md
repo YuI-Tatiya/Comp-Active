@@ -117,9 +117,15 @@ You now have all five `R2_*` values for backend env in step 3.2.
          `TRUST_PROXY_HOPS` (Railway's own edge is one hop — verify by
          logging `req.ip` after first deploy rather than guessing a number)
        - `ADMIN_EMAIL` / `ADMIN_PASSWORD` → the real admin account to seed
-       - `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS`
-         / `SMTP_FROM` → real Gmail (or other) SMTP credentials
-       - `SMTP_ALLOW_SELF_SIGNED` → `false` (production — never `true`)
+       - `RESEND_API_KEY` / `MAIL_FROM` → **not SMTP.** Railway (like many
+         PaaS hosts) blocks outbound SMTP ports by default to stop its
+         infrastructure being used to relay spam — a plain SMTP transport
+         (what this originally shipped with) hangs until connection timeout
+         there instead of failing fast. Get the key from
+         resend.com/api-keys, and verify `MAIL_FROM`'s domain in Resend's
+         dashboard *before* relying on this — an unverified domain only
+         delivers to the account owner's own sandbox address, not real
+         students.
        - `CHATBOT_API_KEY` / `CHATBOT_BASE_URL` / `CHATBOT_MODEL` → as before.
          **Known risk, test this early:** `gen.ai.kku.ac.th` may only accept
          traffic from inside KKU's network. Railway's egress IP is *not*
@@ -267,8 +273,8 @@ is misconfigured; check again after waiting.
 ## 6. Smoke test (do this for real, not just "looks fine")
 
 - [ ] Register a new student account on `app.yourdomain.com` → confirm the
-      OTP email actually arrives (real SMTP, not the dev-safe broken
-      override the test suite uses) → verify → confirm you land on a
+      OTP email actually arrives (real Resend send, not a mocked one) →
+      verify → confirm you land on a
       logged-in page, not bounced back to login (this is the exact cookie
       failure mode the architecture section above exists to prevent — if
       it happens, the rewrite or `AUTH_COOKIE_SAMESITE` is wrong, don't
