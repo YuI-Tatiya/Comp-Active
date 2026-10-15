@@ -48,7 +48,14 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
+  // /api และ /uploads ต้องไม่โดนเติม prefix /admin เด็ดขาด ไม่ว่าจะมาจาก host ไหนก็ตาม —
+  // สองเส้นทางนี้ถูก rewrite ไปหา backend ตรง ๆ ใน next.config.ts (ดู backendOrigin rewrites())
+  // และต้องเห็น path เดิมเป๊ะ (`/api/auth/admin/login`) ถ้าปล่อยให้โดนกฎข้างบนรันด้วย จะกลายเป็น
+  // `/admin/api/auth/admin/login` ที่ไม่ตรงกับกฎ rewrite ไหนเลย แล้วเจอ 404 ของ Next เอง —
+  // เกิดขึ้นจริงกับทุก API call จาก admin.* หลังย้ายมาสถาปัตยกรรม Vercel+Railway แยกโฮสต์
+  // (ของเดิมตอนอยู่หลัง nginx ไม่เจอบั๊กนี้ เพราะ nginx ส่ง /api ตรงไป backend container
+  // โดย request ไม่ผ่าน Next middleware เลยด้วยซ้ำ)
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!api/|uploads/|_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };
