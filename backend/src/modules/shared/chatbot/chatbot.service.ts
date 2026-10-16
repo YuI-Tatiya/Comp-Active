@@ -15,7 +15,11 @@ const FALLBACK_EMPTY_REPLY =
   'ขออภัยค่ะ ไม่สามารถประมวลผลคำตอบได้ ลองถามอีกครั้งด้วยคำถามอื่นนะคะ';
 
 const DEFAULT_BASE_URL = 'https://gen.ai.kku.ac.th/api/v1';
-const DEFAULT_MODEL = 'gemini-2.5-flash-lite';
+// gemini-2.5-flash-lite เคยเป็น default แต่ถูกถอดออกจากลิสต์โมเดลของ gen.ai.kku.ac.th แล้ว
+// (เจอจริง: ตอบ 401 "Invalid model") — gemini-3.5-flash-lite คือรุ่น "flash-lite" ตัวล่าสุดที่ยังมีอยู่
+// ตอนนี้ (เช็คได้จากหน้า gen.ai.kku.ac.th/chat → API Platform → Models) แต่ยังมีความเสี่ยงเดิม: ถ้า KKU
+// เลิกใช้รุ่นนี้อีกจะ error แบบเดียวกัน — ตั้ง CHATBOT_MODEL ใน env ทับได้เสมอโดยไม่ต้องแก้โค้ด
+const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 
 /** คุ้มค่าที่จะลองซ้ำแค่ 503 (ต้นทางแน่นชั่วคราว — ทดสอบจริงแล้วว่ามักหายภายในเสี้ยววินาทีถึงไม่กี่วินาที)
  *  429 คือเกินโควตา/rate limit ซึ่งมักต้องรอเป็นสิบวินาทีขึ้นไปถึงจะปลดล็อก การลองซ้ำทันทีภายในคำขอเดียว

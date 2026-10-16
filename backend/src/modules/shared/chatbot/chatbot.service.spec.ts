@@ -77,7 +77,7 @@ describe('ChatbotService.reply', () => {
     ]);
   });
 
-  it('ไม่ตั้ง CHATBOT_MODEL — ใช้ค่า default gemini-2.5-flash-lite', async () => {
+  it('ไม่ตั้ง CHATBOT_MODEL — ใช้ค่า default gemini-3.5-flash-lite', async () => {
     const fetchSpy = mockFetchOnce({
       ok: true,
       json: () => Promise.resolve({ choices: [{ message: { content: 'ok' } }] }),
@@ -87,7 +87,7 @@ describe('ChatbotService.reply', () => {
     await service.reply('หวัดดี', [], null);
 
     const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
-    expect(body.model).toBe('gemini-2.5-flash-lite');
+    expect(body.model).toBe('gemini-3.5-flash-lite');
   });
 
   it('ไม่ตั้ง CHATBOT_BASE_URL — ใช้ gen.ai.kku.ac.th เป็นค่า default', async () => {
