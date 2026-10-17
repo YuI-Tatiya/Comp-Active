@@ -9,8 +9,9 @@ import { Card } from "@/components/ui/card"
 import { Container } from "@/components/layout/container"
 import { registrationsAPI, activitiesAPI, CheckInSelfResult } from "@/lib/api"
 import { CheckCircle2, XCircle, Loader2, Clock, Smartphone } from "lucide-react"
-import { SCAN_MOBILE_ONLY_MESSAGE } from "@/lib/device"
+import { SCAN_MOBILE_ONLY_MESSAGE, IN_APP_BROWSER_MESSAGE } from "@/lib/device"
 import { useScanCapable } from "@/lib/use-scan-capable"
+import { useInAppBrowser } from "@/lib/use-in-app-browser"
 
 type Status = "loading" | "success" | "error"
 
@@ -32,17 +33,25 @@ export default function StudentSelfCheckInPage() {
     const [activityName, setActivityName] = useState("")
     // เช็คอินด้วย QR ทำได้เฉพาะมือถือ/iPad — เปิดลิงก์นี้บนคอมแล้วต้องไม่เช็คอินให้ (ดู lib/device.ts)
     const capable = useScanCapable()
+    // สแกนผ่านแอปอย่าง LINE มักเปิดลิงก์ในเบราว์เซอร์ฝังในแอป ซึ่งคนละที่เก็บคุกกี้กับเบราว์เซอร์หลักของเครื่อง —
+    // ต่อให้ล็อกอินไว้แล้วตามปกติ คำขอเช็คอินก็จะเงียบๆ ได้ 401 เพราะไม่มี session ติดมาด้วย (เจอจริง) กันไว้ก่อน
+    // ไม่ให้ยิง API ไปเปล่าๆ แล้วบอกวิธีแก้ตรงๆ แทน
+    const inAppBrowser = useInAppBrowser()
+    const blockedByInAppBrowser = inAppBrowser === true
 
-    // ไม่มี token ต้องขึ้น error ทันทีโดยไม่ผ่าน "loading" เลย — รวมเป็นค่าเดียวให้ JSX ด้านล่างใช้เส้นทางเดิม
-    const effectiveStatus: Status = tokenMissing ? "error" : status
+    // ไม่มี token หรือเปิดจากเบราว์เซอร์ฝังในแอป ต้องขึ้น error ทันทีโดยไม่ผ่าน "loading" เลย —
+    // รวมเป็นค่าเดียวให้ JSX ด้านล่างใช้เส้นทางเดิม
+    const effectiveStatus: Status = tokenMissing || blockedByInAppBrowser ? "error" : status
     const effectiveErrorMessage = tokenMissing
         ? "ลิงก์นี้ไม่สมบูรณ์ กรุณาสแกน QR code ที่หน้างานใหม่อีกครั้ง"
-        : errorMessage
+        : blockedByInAppBrowser
+          ? IN_APP_BROWSER_MESSAGE
+          : errorMessage
 
     useEffect(() => {
-        // ไม่มี token แนบมา (ลิงก์พิมพ์มือ/เก่า/แชร์ภาพหน้าจอ QR แทนตัวจริง) — ฟันธงได้จาก tokenMissing ตรงๆ
-        // ไม่ต้องยิง API เลย (เช็คที่ JSX ด้านล่างแทน ไม่ใช่ที่นี่ เพราะรู้ผลตั้งแต่ render แรกแล้ว)
-        if (!activityPublicId || capable !== true || tokenMissing) return
+        // ไม่มี token แนบมา (ลิงก์พิมพ์มือ/เก่า/แชร์ภาพหน้าจอ QR แทนตัวจริง) หรือเปิดจากเบราว์เซอร์ฝังในแอป —
+        // ฟันธงได้ตรงๆ ไม่ต้องยิง API เลย (เช็คที่ JSX ด้านล่างแทน ไม่ใช่ที่นี่ เพราะรู้ผลตั้งแต่ render แรกแล้ว)
+        if (!activityPublicId || capable !== true || tokenMissing || blockedByInAppBrowser) return
         let cancelled = false
 
         // ต้อง resolve publicId → เลข id ภายในก่อนเสมอ (sequential ไม่ใช่ยิงคู่ขนานแบบเดิม) เพราะ
@@ -67,7 +76,7 @@ export default function StudentSelfCheckInPage() {
             })
 
         return () => { cancelled = true }
-    }, [activityPublicId, capable, tokenMissing, token])
+    }, [activityPublicId, capable, tokenMissing, token, blockedByInAppBrowser])
 
     return (
         <div className="flex min-h-[70vh] items-center bg-surface">

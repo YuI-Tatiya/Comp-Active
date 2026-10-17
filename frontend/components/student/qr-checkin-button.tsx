@@ -42,12 +42,18 @@ async function decodeQrFromFile(file: File): Promise<string | null> {
     return code?.data ?? null
 }
 
-/** QR ของผู้จัดเข้ารหัสเป็น URL รูปแบบ /student/checkin/:publicId (ดู activity-participant-manager.tsx)
- *  publicId เป็นสตริงสุ่มยาวๆ (ไม่ใช่เลข id ภายในแบบเดิมอีกต่อไป) — จับทุกตัวอักษรก่อน / หรือ ? ถัดไป
- *  แทนที่จะล็อกรูปแบบ UUID ตรงๆ กันพังถ้ารูปแบบ id เปลี่ยนในอนาคต */
-function extractActivityId(text: string): string | null {
-    const match = text.match(/\/student\/checkin\/([^/?]+)/)
-    return match ? match[1] : null
+/**
+ * QR ของผู้จัดเข้ารหัสเป็น URL รูปแบบ /student/checkin/:publicId?token=... (ดู activity-participant-manager.tsx)
+ * publicId เป็นสตริงสุ่มยาวๆ (ไม่ใช่เลข id ภายในแบบเดิมอีกต่อไป) — จับทุกตัวอักษรก่อน / หรือ ? ถัดไป แทนที่จะ
+ * ล็อกรูปแบบ UUID ตรงๆ กันพังถ้ารูปแบบ id เปลี่ยนในอนาคต
+ *
+ * คืน querystring (รวม token) แยกออกมาด้วย — บั๊กเดิม (มีมาก่อนเปลี่ยนมาใช้ publicId): โค้ดนี้ตัดเอาแค่ id
+ * แล้ว router.push ไปด้วย path เปล่าๆ ทำ token หายไปเฉยๆ หน้าเช็คอินเลยเจอ "ลิงก์ไม่สมบูรณ์" ทุกครั้งที่
+ * เช็คอินผ่านปุ่มถ่ายรูปนี้ (ถ่ายรูปสำเร็จ แต่เช็คอินไม่เกิดขึ้นจริงสักที)
+ */
+function parseCheckinUrl(text: string): { id: string; search: string } | null {
+    const match = text.match(/\/student\/checkin\/([^/?]+)(\?[^\s]*)?/)
+    return match ? { id: match[1], search: match[2] ?? "" } : null
 }
 
 /** ปุ่มถ่ายรูป QR code ที่ผู้จัดแสดงหน้างานเพื่อเช็คอิน — ถอดรหัสในเครื่อง แล้วพาไปหน้าเช็คอินจริงที่มีอยู่แล้ว */
@@ -72,16 +78,22 @@ export function QrCheckInButton({ activityId, activityName }: Props) {
                 setError("อ่าน QR code ไม่สำเร็จ ลองถ่ายให้ชัดและอยู่กลางเฟรมอีกครั้ง")
                 return
             }
-            const scannedActivityId = extractActivityId(text)
-            if (!scannedActivityId) {
+            const parsed = parseCheckinUrl(text)
+            if (!parsed) {
                 setError("รูปนี้ไม่ใช่ QR code สำหรับเช็คอินกิจกรรม")
                 return
             }
-            if (scannedActivityId !== activityId) {
+            if (parsed.id !== activityId) {
                 setError(`QR code นี้เป็นของกิจกรรมอื่น ไม่ตรงกับ "${activityName}"`)
                 return
             }
-            router.push(`/student/checkin/${scannedActivityId}`)
+            if (!parsed.search) {
+                // ไม่มี token ติดมาเลย (ภาพไม่ครบ/QR เสียหายบางส่วน) — ไปหน้าเช็คอินเปล่าๆ ก็เจอ
+                // "ลิงก์ไม่สมบูรณ์" อยู่ดี บอกตรงๆ ที่นี่เลยดีกว่าให้เด้งไปแล้วงงว่าทำไมไม่เช็คอินให้
+                setError("อ่าน QR code ไม่ครบ (ไม่มีรหัสยืนยัน) ลองถ่ายให้เห็น QR เต็มรูปอีกครั้ง")
+                return
+            }
+            router.push(`/student/checkin/${parsed.id}${parsed.search}`)
         } catch (err) {
             setError((err as Error).message || "เกิดข้อผิดพลาด กรุณาลองใหม่")
         } finally {
