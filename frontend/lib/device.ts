@@ -23,3 +23,16 @@ export function isScanCapableDevice({ userAgent, maxTouchPoints }: DeviceSignals
     if (/Macintosh/i.test(userAgent) && maxTouchPoints > 1) return true
     return false
 }
+
+export const IN_APP_BROWSER_MESSAGE =
+    "ลิงก์นี้เปิดอยู่ในเบราว์เซอร์ของแอป ซึ่งไม่มีการเข้าสู่ระบบของคุณติดมาด้วย (คนละที่เก็บข้อมูลกับเบราว์เซอร์หลักของเครื่อง) กรุณากดเมนู ··· หรือไอคอนแชร์ที่แถบด้านล่าง/บนแล้วเลือก \"เปิดในเบราว์เซอร์\" ก่อนสแกน QR อีกครั้ง"
+
+/**
+ * true = กำลังเปิดอยู่ในเบราว์เซอร์ฝังในแอป (LINE, Facebook, Instagram, Messenger, WeChat) — เบราว์เซอร์พวกนี้
+ * แยกที่เก็บคุกกี้ออกจาก Safari/Chrome ปกติของเครื่องเป็นคนละก้อนกัน ต่อให้ล็อกอินไว้แล้วในเบราว์เซอร์หลัก
+ * เปิดลิงก์จากแอปพวกนี้ก็ไม่มี session ติดมาด้วย — เช็คอินด้วยตัวเอง (ต้องรู้ว่าใครเช็คอิน) จึงทำไม่ได้จนกว่า
+ * จะกดเปิดในเบราว์เซอร์จริงก่อน (เจอจริง: สแกน QR เช็คอินผ่าน LINE แล้วไม่มีอะไรเกิดขึ้น เพราะเงียบๆ ได้ 401)
+ */
+export function isInAppBrowser(userAgent: string): boolean {
+    return /\bLine\/|FBAN|FBAV|Instagram|MicroMessenger/i.test(userAgent)
+}
