@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { Loader2, Save } from "lucide-react"
 import {
     activitiesAPI,
     eventsAPI,
@@ -16,7 +15,6 @@ import {
 import { uploadPathFromPreview } from "@/lib/api-base"
 import { buildDutyShiftOptions, deriveVolunteerRole, resolveDutyRoleOptions } from "@/lib/duty-shift"
 import { scrollToFirstError } from "@/components/ui/form-field"
-import { StepperSidebar, type StepMeta } from "./_components/stepper-sidebar"
 import { SectionEventBasics } from "./_components/section-1-event-basics"
 import { SectionActivities } from "./_components/section-2-activities"
 import { SectionSurvey } from "./_components/section-3-survey"
@@ -39,13 +37,14 @@ import {
     validateAllActivities,
     countErrors,
 } from "./_components/validation"
-
-const STEPS: StepMeta[] = [
-    { number: 1, title: "ข้อมูลพื้นฐาน", subtitle: "ชื่อและรายละเอียดงาน" },
-    { number: 2, title: "กิจกรรมย่อย", subtitle: "รายละเอียดแต่ละกิจกรรม" },
-    { number: 3, title: "แบบสำรวจ", subtitle: "คำถามหลังจบกิจกรรม" },
-    { number: 4, title: "เผยแพร่", subtitle: "ตรวจสอบและยืนยัน" },
-]
+import {
+    WIZARD_OUTLINE_BUTTON,
+    WIZARD_PRIMARY_BUTTON,
+    WIZARD_STEPS,
+    WizardNextButton,
+    WizardNotice,
+    WizardShell,
+} from "./_components/wizard-ui"
 
 /** เวลาแบบอ่านง่าย ใช้โชว์ตอน "บันทึกฉบับร่างล่าสุดเมื่อ..." — ไม่ทำ relative time (เช่น "5 นาทีที่แล้ว") เพื่อไม่ต้องมี useEffect คอยอัปเดตตัวเลข */
 function formatDraftTime(iso: string): string {
@@ -150,7 +149,9 @@ export default function CreateEventPage() {
         setEvent(restored.event)
         setActivities(restored.activities)
         setActiveActivityKey(restored.activeActivityKey)
-        setStep(Math.min(Math.max(restored.step, 1), STEPS.length))
+        setStep(Math.min(Math.max(restored.step, 1), WIZARD_STEPS.length))
+        // ฉบับร่างนี้มีอยู่บนเซิร์ฟเวอร์จริง — แถบท้ายการ์ดบอกเวลาที่บันทึกไว้ ไม่ใช่ "ยังไม่บันทึก"
+        setDraftSavedAt(draftOffer.updatedAt)
         setDraftOffer(null)
     }
 
@@ -251,7 +252,7 @@ export default function CreateEventPage() {
         }
         // ขั้นที่ 3 (แบบสำรวจ) ไม่มีฟิลด์บังคับ — ไปต่อได้เสมอ
         setError("")
-        setStep((prev) => Math.min(prev + 1, STEPS.length))
+        setStep((prev) => Math.min(prev + 1, WIZARD_STEPS.length))
     }
 
     async function handleSubmit() {
@@ -383,155 +384,103 @@ export default function CreateEventPage() {
         setDraftSavedAt(null)
     }
 
-    return (
-        <div className="bg-surface">
-            <Container className="py-10">
-                {submitted ? (
+    if (submitted) {
+        return (
+            <div className="bg-surface">
+                <Container className="py-10">
                     <SectionSuccess event={event} activities={activities} onCreateAnother={handleCreateAnother} />
-                ) : (
-                    <>
-                        {draftOffer && (
-                            <div className="mb-6 flex flex-col gap-3 rounded-xl border border-brand-200 bg-brand-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-sm text-brand-900">
-                                    พบฉบับร่างที่บันทึกไว้ล่าสุดเมื่อ {formatDraftTime(draftOffer.updatedAt)} — ดำเนินการต่อจากที่ค้างไว้หรือไม่?
-                                </p>
-                                <div className="flex shrink-0 gap-2">
-                                    <Button variant="outline" size="sm" onClick={handleDiscardDraft}>
-                                        เริ่มใหม่
-                                    </Button>
-                                    <Button size="sm" onClick={handleResumeDraft}>
-                                        ดำเนินการต่อ
-                                    </Button>
-                                </div>
-                            </div>
+                </Container>
+            </div>
+        )
+    }
+
+    return (
+        <WizardShell
+            backHref="/organizer/manage"
+            backLabel="กลับไปจัดการกิจกรรม"
+            prompt="~/organizer $ event new --wizard"
+            title="สร้างงานใหม่"
+            subtitle={
+                <>
+                    งานหนึ่งมีได้หลายกิจกรรมย่อย พร้อมตั้งค่าใบจิตอาสาและการให้คะแนน{" "}
+                    <span className="font-semibold text-amber">Soft Skills</span>
+                </>
+            }
+            step={step}
+            event={event}
+            activities={activities}
+            error={error}
+            notice={
+                draftOffer && (
+                    <WizardNotice
+                        actions={
+                            <>
+                                <button type="button" onClick={handleDiscardDraft} className={WIZARD_OUTLINE_BUTTON}>
+                                    เริ่มใหม่
+                                </button>
+                                <button type="button" onClick={handleResumeDraft} className={WIZARD_PRIMARY_BUTTON}>
+                                    ดำเนินการต่อ
+                                </button>
+                            </>
+                        }
+                    >
+                        พบฉบับร่างที่บันทึกไว้ล่าสุดเมื่อ {formatDraftTime(draftOffer.updatedAt)} — ดำเนินการต่อจากที่ค้างไว้หรือไม่?
+                    </WizardNotice>
+                )
+            }
+            onBack={handleBack}
+            backButtonLabel={step === 1 ? "ยกเลิก" : "ก่อนหน้า"}
+            actions={
+                <>
+                    <span role="status" className="text-center font-code text-xs text-denim-muted sm:text-left">
+                        draft: {draftSavedAt ? `บันทึกแล้ว ${formatDraftTime(draftSavedAt)}` : "ยังไม่บันทึก"}
+                    </span>
+                    <button type="button" onClick={handleSaveDraft} disabled={savingDraft || submitting} className={WIZARD_OUTLINE_BUTTON}>
+                        {savingDraft ? (
+                            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                        ) : (
+                            <Save className="size-4" aria-hidden="true" />
                         )}
-
-                        <div className="mb-8">
-                            <Button variant="outline" onClick={handleBack} className="mb-4">
-                                <ArrowLeft className="size-4" />
-                                กลับ
-                            </Button>
-                            <div className="grid grid-cols-1 md:grid-cols-[220px_1fr]">
-                                <div className="hidden md:block" />
-                                <div className="text-center">
-                                    <h1 className="text-2xl font-black text-fg">สร้างงานใหม่</h1>
-                                    <p className="mt-1 text-fg-muted">
-                                        งานหนึ่งมีได้หลายกิจกรรมย่อย พร้อมตั้งค่าใบจิตอาสาและการให้คะแนน Soft Skills
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/*
-                          md:items-start: ปล่อยให้ความสูงแต่ละคอลัมน์เป็นอิสระต่อกัน ไม่งั้น grid จะยืดทั้งคู่
-                          เท่าคอลัมน์ที่สูงที่สุด แล้ว sticky บนแถบขั้นตอนจะไม่มีระยะให้ขยับ (เห็นผลเหมือนไม่ sticky)
-                        */}
-                        <div className="grid grid-cols-1 gap-8 md:grid-cols-[220px_1fr] md:items-start">
-                            {/* top-24 เว้นระยะใต้ AppHeader (sticky top-0 h-16) ไม่ให้แถบขั้นตอนชนขอบบนพอดี */}
-                            <StepperSidebar
-                                steps={STEPS}
-                                currentStep={step}
-                                className="hidden md:sticky md:top-24 md:flex"
-                            />
-
-                            <div>
-                                {/*
-                                  การ์ดฟอร์มเลื่อนในตัวเอง (overflow-y-auto + max-h) แทนที่จะให้ทั้งหน้าเลื่อน —
-                                  กันไม่ให้แถบขั้นตอนทางซ้ายหลุดจอเวลาฟอร์มยาว (รวม 4 หัวข้อย่อยในขั้นตอน "กิจกรรมย่อย" แล้วยาวมาก)
-                                  contain-layout: ไม่งั้นตอนเนื้อหาในการ์ดเปลี่ยนความสูงมากๆ (เช่น เปิด toggle ทักษะที่กิจกรรม
-                                  ช่วยพัฒนาที่ดึงรายการ 12 ทักษะมาแสดง) Chrome จะรายงาน documentElement.scrollHeight ผิด
-                                  เกินจริงหลายร้อยพิกเซล ทำให้เลื่อนหน้าเว็บเกินเนื้อหาจริงไปเจอพื้นที่ว่างใต้ footer ได้
-                                  (ยืนยันแล้วว่า Dialog ปลอดภัย เพราะ components/ui/dialog.tsx พอร์ทัลไป document.body แล้ว
-                                  ไม่งั้น contain-layout จะทำให้ dialog ที่ซ้อนอยู่ข้างในถูกบีบให้เล็กเท่ากรอบการ์ดไปด้วย)
-                                */}
-                                <div className="contain-layout max-h-[calc(100vh-16rem)] min-h-[500px] overflow-y-auto rounded-2xl border border-border bg-bg p-8 shadow-xs">
-                                    {error && (
-                                        <div className="mb-6 rounded-lg border border-danger bg-danger-bg px-4 py-3 text-center text-sm text-danger">
-                                            {error}
-                                        </div>
-                                    )}
-
-                                    {step === 1 && (
-                                        <SectionEventBasics
-                                            data={event}
-                                            errors={eventErrors}
-                                            onChange={patchEvent}
-                                            onFieldBlur={handleEventFieldBlur}
-                                        />
-                                    )}
-                                    {step === 2 && (
-                                        <SectionActivities
-                                            activities={activities}
-                                            activeKey={activeActivityKey}
-                                            errorsByKey={activityErrors}
-                                            isSingleMode={event.type === "single"}
-                                            onActiveKeyChange={setActiveActivityKey}
-                                            onChangeActivity={patchActivity}
-                                            onFieldBlur={handleActivityFieldBlur}
-                                            onAdd={handleAddActivity}
-                                            onRemove={handleRemoveActivity}
-                                            onDuplicate={handleDuplicateActivity}
-                                        />
-                                    )}
-                                    {step === 3 && <SectionSurvey event={event} onChange={patchEvent} />}
-                                    {step === 4 && (
-                                        <SectionPublish
-                                            event={event}
-                                            activities={activities}
-                                            errors={eventErrors}
-                                            onChangeEvent={patchEvent}
-                                            onFieldBlur={handleEventFieldBlur}
-                                        />
-                                    )}
-                                </div>
-
-                                <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-                                    <Button variant="outline" onClick={handleBack}>
-                                        {step === 1 ? "ยกเลิก" : "ก่อนหน้า"}
-                                    </Button>
-                                    <div className="flex flex-wrap items-center gap-3">
-                                        {draftSavedAt && (
-                                            <span className="text-xs text-fg-muted">
-                                                บันทึกฉบับร่างล่าสุดเมื่อ {formatDraftTime(draftSavedAt)}
-                                            </span>
-                                        )}
-                                        <Button
-                                            variant="outline"
-                                            onClick={handleSaveDraft}
-                                            disabled={savingDraft || submitting}
-                                        >
-                                            {savingDraft ? (
-                                                <>
-                                                    <Loader2 className="size-4 animate-spin" />
-                                                    กำลังบันทึก...
-                                                </>
-                                            ) : (
-                                                "บันทึกฉบับร่าง"
-                                            )}
-                                        </Button>
-                                        <Button
-                                            onClick={step === STEPS.length ? handleSubmit : handleNext}
-                                            disabled={submitting}
-                                            className="w-36"
-                                        >
-                                            {submitting ? (
-                                                <>
-                                                    <Loader2 className="size-4 animate-spin" />
-                                                    กำลังสร้าง...
-                                                </>
-                                            ) : step === STEPS.length ? (
-                                                "สร้างงาน"
-                                            ) : (
-                                                "ถัดไป"
-                                            )}
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </>
-                )}
-            </Container>
-        </div>
+                        {savingDraft ? "กำลังบันทึก..." : "บันทึกฉบับร่าง"}
+                    </button>
+                    <WizardNextButton
+                        step={step}
+                        onNext={handleNext}
+                        onFinish={handleSubmit}
+                        finishLabel="สร้างงาน"
+                        busy={submitting}
+                        busyLabel="กำลังสร้าง..."
+                    />
+                </>
+            }
+        >
+            {step === 1 && (
+                <SectionEventBasics data={event} errors={eventErrors} onChange={patchEvent} onFieldBlur={handleEventFieldBlur} />
+            )}
+            {step === 2 && (
+                <SectionActivities
+                    activities={activities}
+                    activeKey={activeActivityKey}
+                    errorsByKey={activityErrors}
+                    isSingleMode={event.type === "single"}
+                    onActiveKeyChange={setActiveActivityKey}
+                    onChangeActivity={patchActivity}
+                    onFieldBlur={handleActivityFieldBlur}
+                    onAdd={handleAddActivity}
+                    onRemove={handleRemoveActivity}
+                    onDuplicate={handleDuplicateActivity}
+                />
+            )}
+            {step === 3 && <SectionSurvey event={event} onChange={patchEvent} />}
+            {step === 4 && (
+                <SectionPublish
+                    event={event}
+                    activities={activities}
+                    errors={eventErrors}
+                    onChangeEvent={patchEvent}
+                    onFieldBlur={handleEventFieldBlur}
+                />
+            )}
+        </WizardShell>
     )
 }

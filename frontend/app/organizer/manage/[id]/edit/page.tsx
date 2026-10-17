@@ -4,12 +4,11 @@ import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
-import { ArrowLeft, Loader2, Edit } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { activitiesAPI, eventsAPI, resolveUploadUrl, type CreateEventActivityBody, type QuestionBody, type SurveyQuestionBody, type EventSummary } from "@/lib/api"
 import { uploadPathFromPreview } from "@/lib/api-base"
 import { buildDutyShiftOptions, deriveVolunteerRole, parseDutyShiftOptions, resolveDutyRoleOptions } from "@/lib/duty-shift"
 import { scrollToFirstError } from "@/components/ui/form-field"
-import { StepperSidebar, type StepMeta } from "../../../create/_components/stepper-sidebar"
 import { SectionEventBasics } from "../../../create/_components/section-1-event-basics"
 import { SectionActivities } from "../../../create/_components/section-2-activities"
 import { SectionSurvey } from "../../../create/_components/section-3-survey"
@@ -20,13 +19,7 @@ import {
     validateAllActivities,
     countErrors,
 } from "../../../create/_components/validation"
-
-const STEPS: StepMeta[] = [
-    { number: 1, title: "ข้อมูลพื้นฐาน", subtitle: "ชื่อและรายละเอียดงาน" },
-    { number: 2, title: "กิจกรรมย่อย", subtitle: "รายละเอียดแต่ละกิจกรรม" },
-    { number: 3, title: "แบบสำรวจ", subtitle: "คำถามหลังจบกิจกรรม" },
-    { number: 4, title: "เผยแพร่", subtitle: "ตรวจสอบและยืนยัน" },
-]
+import { WIZARD_STEPS, WizardNextButton, WizardShell } from "../../../create/_components/wizard-ui"
 
 let activityKeySeq = 0
 function keyFor(activityId: number): string {
@@ -269,7 +262,7 @@ export default function EditEventPage() {
             }
         }
         setError("")
-        setStep((prev) => Math.min(prev + 1, STEPS.length))
+        setStep((prev) => Math.min(prev + 1, WIZARD_STEPS.length))
     }
 
     async function handleSave() {
@@ -404,98 +397,56 @@ export default function EditEventPage() {
     }
 
     return (
-        <div className="bg-surface">
-            <Container className="py-10">
-                <div className="mb-8 flex items-center">
-                    <Button variant="ghost" onClick={handleBack} className="mr-4">
-                        <ArrowLeft className="size-4" />
-                        กลับ
-                    </Button>
-                    <div>
-                        <h1 className="flex items-center gap-2 text-2xl font-black text-fg">
-                            <div className="rounded-lg bg-brand-100 p-2 text-brand-600">
-                                <Edit className="size-5" />
-                            </div>
-                            แก้ไขงาน
-                        </h1>
-                        <p className="mt-1 text-fg-muted">แก้ไขข้อมูลงานและกิจกรรมย่อยทั้งหมด</p>
-                    </div>
-                </div>
-
-                {/*
-                  md:items-start: ปล่อยให้ความสูงแต่ละคอลัมน์เป็นอิสระต่อกัน ไม่งั้น grid จะยืดทั้งคู่
-                  เท่าคอลัมน์ที่สูงที่สุด แล้ว sticky บนแถบขั้นตอนจะไม่มีระยะให้ขยับ (เห็นผลเหมือนไม่ sticky)
-                */}
-                <div className="grid grid-cols-1 gap-8 md:grid-cols-[220px_1fr] md:items-start">
-                    {/* top-24 เว้นระยะใต้ AppHeader (sticky top-0 h-16) ไม่ให้แถบขั้นตอนชนขอบบนพอดี */}
-                    <StepperSidebar steps={STEPS} currentStep={step} className="hidden md:sticky md:top-24 md:flex" />
-
-                    <div>
-                        {/*
-                          การ์ดฟอร์มเลื่อนในตัวเอง (overflow-y-auto + max-h) แทนที่จะให้ทั้งหน้าเลื่อน —
-                          กันไม่ให้แถบขั้นตอนทางซ้ายหลุดจอเวลาฟอร์มยาว (รวม 4 หัวข้อย่อยในขั้นตอน "กิจกรรมย่อย" แล้วยาวมาก)
-                          contain-layout: ไม่งั้นตอนเนื้อหาในการ์ดเปลี่ยนความสูงมากๆ (เช่น เปิด toggle ทักษะที่กิจกรรม
-                          ช่วยพัฒนาที่ดึงรายการ 12 ทักษะมาแสดง) Chrome จะรายงาน documentElement.scrollHeight ผิด
-                          เกินจริงหลายร้อยพิกเซล ทำให้เลื่อนหน้าเว็บเกินเนื้อหาจริงไปเจอพื้นที่ว่างใต้ footer ได้
-                          (ยืนยันแล้วว่า Dialog ปลอดภัย เพราะ components/ui/dialog.tsx พอร์ทัลไป document.body แล้ว
-                          ไม่งั้น contain-layout จะทำให้ dialog ที่ซ้อนอยู่ข้างในถูกบีบให้เล็กเท่ากรอบการ์ดไปด้วย)
-                        */}
-                        <div className="contain-layout max-h-[calc(100vh-16rem)] min-h-[500px] overflow-y-auto rounded-2xl border border-border bg-bg p-8 shadow-xs">
-                            {error && (
-                                <div className="mb-6 rounded-lg border border-danger bg-danger-bg px-4 py-3 text-center text-sm text-danger">
-                                    {error}
-                                </div>
-                            )}
-
-                            {step === 1 && (
-                                <SectionEventBasics data={event} errors={eventErrors} onChange={patchEvent} onFieldBlur={handleEventFieldBlur} />
-                            )}
-                            {step === 2 && (
-                                <SectionActivities
-                                    activities={activities}
-                                    activeKey={activeActivityKey}
-                                    errorsByKey={activityErrors}
-                                    isSingleMode={event.type === "single"}
-                                    onActiveKeyChange={setActiveActivityKey}
-                                    onChangeActivity={patchActivity}
-                                    onFieldBlur={handleActivityFieldBlur}
-                                    onAdd={handleAddActivity}
-                                    onRemove={handleRemoveActivity}
-                                    onDuplicate={handleDuplicateActivity}
-                                />
-                            )}
-                            {step === 3 && <SectionSurvey event={event} onChange={patchEvent} />}
-                            {step === 4 && (
-                                <SectionPublish
-                                    event={event}
-                                    activities={activities}
-                                    errors={eventErrors}
-                                    onChangeEvent={patchEvent}
-                                    onFieldBlur={handleEventFieldBlur}
-                                />
-                            )}
-                        </div>
-
-                        <div className="mt-6 flex justify-between">
-                            <Button variant="outline" onClick={handleBack}>
-                                {step === 1 ? "ยกเลิก" : "ก่อนหน้า"}
-                            </Button>
-                            <Button onClick={step === STEPS.length ? handleSave : handleNext} disabled={submitting} className="w-36">
-                                {submitting ? (
-                                    <>
-                                        <Loader2 className="size-4 animate-spin" />
-                                        กำลังบันทึก...
-                                    </>
-                                ) : step === STEPS.length ? (
-                                    "บันทึกการแก้ไข"
-                                ) : (
-                                    "ถัดไป"
-                                )}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            </Container>
-        </div>
+        <WizardShell
+            backHref="/organizer/manage"
+            backLabel="กลับไปจัดการกิจกรรม"
+            prompt="~/organizer $ event edit --wizard"
+            title="แก้ไขงาน"
+            subtitle="แก้ไขข้อมูลงานและกิจกรรมย่อยทั้งหมด"
+            step={step}
+            event={event}
+            activities={activities}
+            error={error}
+            onBack={handleBack}
+            backButtonLabel={step === 1 ? "ยกเลิก" : "ก่อนหน้า"}
+            actions={
+                <WizardNextButton
+                    step={step}
+                    onNext={handleNext}
+                    onFinish={handleSave}
+                    finishLabel="บันทึกการแก้ไข"
+                    busy={submitting}
+                    busyLabel="กำลังบันทึก..."
+                />
+            }
+        >
+            {step === 1 && (
+                <SectionEventBasics data={event} errors={eventErrors} onChange={patchEvent} onFieldBlur={handleEventFieldBlur} />
+            )}
+            {step === 2 && (
+                <SectionActivities
+                    activities={activities}
+                    activeKey={activeActivityKey}
+                    errorsByKey={activityErrors}
+                    isSingleMode={event.type === "single"}
+                    onActiveKeyChange={setActiveActivityKey}
+                    onChangeActivity={patchActivity}
+                    onFieldBlur={handleActivityFieldBlur}
+                    onAdd={handleAddActivity}
+                    onRemove={handleRemoveActivity}
+                    onDuplicate={handleDuplicateActivity}
+                />
+            )}
+            {step === 3 && <SectionSurvey event={event} onChange={patchEvent} />}
+            {step === 4 && (
+                <SectionPublish
+                    event={event}
+                    activities={activities}
+                    errors={eventErrors}
+                    onChangeEvent={patchEvent}
+                    onFieldBlur={handleEventFieldBlur}
+                />
+            )}
+        </WizardShell>
     )
 }

@@ -1,11 +1,29 @@
 import type { EventFormState, ActivityFormState, EventFormErrors, ActivityFormErrors } from "./types"
 
+/** เพดานความยาวชื่องาน/รายละเอียด — ช่องกรอกตั้ง maxLength ไว้ตามนี้ และแสดงตัวนับ "n/เพดาน" ข้างหัวข้อ */
+export const EVENT_NAME_MAX_LENGTH = 120
+export const EVENT_DESCRIPTION_MAX_LENGTH = 2000
+/** รายละเอียดสั้นกว่านี้มักไม่พอให้นักศึกษารู้ว่างานเกี่ยวกับอะไร ใครควรมา และได้อะไรกลับไป */
+export const EVENT_DESCRIPTION_MIN_LENGTH = 20
+
 export function validateEventField(event: EventFormState, field: keyof EventFormErrors): string | undefined {
     switch (field) {
-        case "name":
-            return event.name.trim() ? undefined : "กรุณากรอกชื่องาน"
-        case "description":
-            return event.description.trim() ? undefined : "กรุณากรอกรายละเอียดงาน"
+        case "name": {
+            const name = event.name.trim()
+            if (!name) return "กรุณากรอกชื่องาน"
+            // maxLength กันพิมพ์เกินอยู่แล้ว — เคสนี้คืองานเก่าที่ตั้งชื่อยาวไว้ก่อนมีเพดาน แล้วเปิดหน้าแก้ไข
+            return name.length > EVENT_NAME_MAX_LENGTH ? `ชื่องานยาวเกิน ${EVENT_NAME_MAX_LENGTH} ตัวอักษร` : undefined
+        }
+        case "description": {
+            const length = event.description.trim().length
+            if (length === 0) return "กรุณากรอกรายละเอียดงาน"
+            if (length < EVENT_DESCRIPTION_MIN_LENGTH) {
+                return `รายละเอียดต้องมีอย่างน้อย ${EVENT_DESCRIPTION_MIN_LENGTH} ตัวอักษร (ตอนนี้ ${length})`
+            }
+            return length > EVENT_DESCRIPTION_MAX_LENGTH
+                ? `รายละเอียดยาวเกิน ${EVENT_DESCRIPTION_MAX_LENGTH} ตัวอักษร`
+                : undefined
+        }
         case "registrationCloseAt": {
             // เช็คเฉพาะตอนตั้งไว้ทั้งสองวัน — ไม่บังคับให้ต้องตั้งวันใดเลย (ทั้งคู่เป็น "ถ้ามี")
             if (!event.registrationOpenAt || !event.registrationCloseAt) return undefined
