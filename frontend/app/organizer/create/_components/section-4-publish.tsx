@@ -13,6 +13,7 @@ import { deriveVolunteerRole } from "@/lib/duty-shift"
 import { cn } from "@/lib/utils"
 import { Calendar, MapPin, Users, Award, Clock } from "lucide-react"
 import type { EventFormState, ActivityFormState, EventFormErrors } from "./types"
+import { WizardBlock, WizardSectionHeader } from "./wizard-ui"
 
 const YEAR_OPTIONS = [1, 2, 3, 4, 5, 6]
 
@@ -33,218 +34,217 @@ function formatDateTimeLocal(value: string): string {
 
 export function SectionPublish({ event, activities, errors, onChangeEvent, onFieldBlur }: Props) {
     return (
-        <div className="space-y-8">
-            <div>
-                <h2 className="text-lg font-bold text-fg">เผยแพร่และตรวจสอบ</h2>
-                <p className="mt-1 text-sm text-fg-muted">ตรวจสอบข้อมูลก่อนสร้างงานจริง</p>
-            </div>
+        <>
+            <WizardSectionHeader step={4} title="เผยแพร่และตรวจสอบ" description="ตรวจสอบข้อมูลก่อนสร้างงานจริง" />
 
-            <div className="space-y-6 border-b border-border pb-8">
-                <p className="text-sm font-bold text-fg">สิทธิ์การเข้าถึงงานนี้</p>
+            <WizardBlock className="space-y-8">
+                <div className="space-y-6 border-b border-border pb-8">
+                    <p className="text-sm font-bold text-fg">สิทธิ์การเข้าถึงงานนี้</p>
 
-                <div className="flex items-start justify-between gap-4">
-                    <div>
-                        <Label>เผยแพร่งานนี้</Label>
-                        <p className="mt-0.5 text-xs text-fg-muted">
-                            ปิด = นักศึกษาจะไม่เห็นงานนี้เลย ไม่ว่าจะถึงวันเปิดรับสมัครแล้วหรือยัง · เปิด = นักศึกษาเห็นงานนี้ทันทีที่ได้รับอนุมัติ
-                            (แต่จะกดลงทะเบียนได้ก็ต่อเมื่อถึงช่วงเวลารับสมัครด้านล่างแล้วเท่านั้น)
-                        </p>
-                    </div>
-                    <Toggle checked={event.isPublic} onCheckedChange={(v) => onChangeEvent({ isPublic: v })} />
-                </div>
-
-                <div className="space-y-3">
-                    <div>
-                        <Label>ใครเห็นได้บ้าง</Label>
-                        <p className="mt-0.5 text-xs text-fg-muted">
-                            จะเห็นเฉพาะนักศึกษาที่ตรงเงื่อนไขสาขา/ชั้นปี/รหัสนักศึกษาด้านล่าง
-                        </p>
-                    </div>
-                    <div className="flex gap-2">
-                        {(["everyone", "restricted"] as const).map((v) => (
-                            <button
-                                key={v}
-                                type="button"
-                                onClick={() => onChangeEvent({ visibility: v })}
-                                aria-pressed={event.visibility === v}
-                                className={cn(
-                                    "rounded-full border px-4 py-2 text-sm font-bold transition-colors",
-                                    event.visibility === v
-                                        ? "border-brand-600 bg-brand-600 text-white shadow-md shadow-brand-500/20"
-                                        : "border-border bg-bg text-fg-muted hover:border-border-strong hover:bg-surface"
-                                )}
-                            >
-                                {v === "everyone" ? "ทุกคน" : "เฉพาะกลุ่มที่กำหนด"}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {event.visibility === "restricted" && (
-                    <div className="space-y-5 rounded-lg border border-border bg-surface p-4">
-                        <div className="space-y-2">
-                            <Label>สาขาที่มีสิทธิ์เห็น (ว่าง = ทุกสาขา)</Label>
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                {PROGRAMS.map((p) => {
-                                    const checked = event.visibilityPrograms.includes(p.code)
-                                    return (
-                                        <label key={p.code} className="flex items-center gap-2 text-sm text-fg-muted">
-                                            <input
-                                                type="checkbox"
-                                                checked={checked}
-                                                onChange={(e) => {
-                                                    const next = e.target.checked
-                                                        ? [...event.visibilityPrograms, p.code]
-                                                        : event.visibilityPrograms.filter((c) => c !== p.code)
-                                                    onChangeEvent({ visibilityPrograms: next })
-                                                }}
-                                                className="size-4 shrink-0 rounded border-border bg-bg text-brand-600 focus:ring-brand-500"
-                                            />
-                                            {p.label}
-                                        </label>
-                                    )
-                                })}
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>ชั้นปีที่มีสิทธิ์เห็น (ว่าง = ทุกชั้นปี)</Label>
-                            <div className="flex flex-wrap gap-2">
-                                {YEAR_OPTIONS.map((year) => {
-                                    const checked = event.visibilityYears.includes(year)
-                                    return (
-                                        <button
-                                            key={year}
-                                            type="button"
-                                            aria-pressed={checked}
-                                            onClick={() => {
-                                                const next = checked
-                                                    ? event.visibilityYears.filter((y) => y !== year)
-                                                    : [...event.visibilityYears, year]
-                                                onChangeEvent({ visibilityYears: next })
-                                            }}
-                                            className={cn(
-                                                "rounded-full border px-4 py-1.5 text-sm font-bold transition-colors",
-                                                checked
-                                                    ? "border-brand-600 bg-brand-600 text-white"
-                                                    : "border-border bg-bg text-fg-muted hover:border-border-strong"
-                                            )}
-                                        >
-                                            ปี {year}
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>ตัวกรองรหัสนักศึกษาเพิ่มเติม (ถ้ามี)</Label>
-                            <Textarea
-                                value={event.visibilityStudentIdFilter}
-                                onChange={(e) => onChangeEvent({ visibilityStudentIdFilter: e.target.value })}
-                                className="min-h-[70px] font-mono text-xs"
-                            />
-                            <p className="text-xs text-fg-subtle">
-                                พิมพ์รหัสเดี่ยวหรือช่วงรหัส คั่นด้วยจุลภาคหรือขึ้นบรรทัดใหม่ เช่น 653380123-4 หรือ
-                                653380001-1..653380100-5
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <Label>เผยแพร่งานนี้</Label>
+                            <p className="mt-0.5 text-xs text-fg-muted">
+                                ปิด = นักศึกษาจะไม่เห็นงานนี้เลย ไม่ว่าจะถึงวันเปิดรับสมัครแล้วหรือยัง · เปิด = นักศึกษาเห็นงานนี้ทันทีที่ได้รับอนุมัติ
+                                (แต่จะกดลงทะเบียนได้ก็ต่อเมื่อถึงช่วงเวลารับสมัครด้านล่างแล้วเท่านั้น)
                             </p>
                         </div>
-                    </div>
-                )}
-            </div>
-
-            <div className="space-y-4 border-b border-border pb-8">
-                <div>
-                    <p className="flex items-center gap-1.5 text-sm font-bold text-fg">
-                        <Clock className="size-4 shrink-0" aria-hidden="true" />
-                        ช่วงเวลารับสมัคร
-                    </p>
-                    <p className="mt-0.5 text-xs text-fg-muted">
-                        ก่อนถึงวันเปิดรับสมัคร นักศึกษาจะเห็นงานนี้ได้ (ถ้าเผยแพร่ไว้) แต่กดลงทะเบียนไม่ได้ — ระบบจะแจ้งว่า
-                        &quot;ยังไม่อยู่ในเวลาเปิดรับสมัคร&quot;
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                        <Label>วันเปิดรับสมัคร (ถ้ามี)</Label>
-                        <Input
-                            type="datetime-local"
-                            value={event.registrationOpenAt}
-                            onChange={(e) => onChangeEvent({ registrationOpenAt: e.target.value })}
-                            // เช็คซ้ำฝั่งวันปิดด้วย — แก้วันเปิดทีหลังจนย้อนวันปิดที่เคยกรอกไว้ถูกต้อง ก็ต้องขึ้น error ทันที ไม่ใช่รอกด "สร้างงาน"
-                            onBlur={() => onFieldBlur("registrationCloseAt")}
-                        />
-                        <p className="text-xs text-fg-subtle">ไม่ระบุ = เปิดรับสมัครได้ทันทีที่เผยแพร่</p>
+                        <Toggle checked={event.isPublic} onCheckedChange={(v) => onChangeEvent({ isPublic: v })} />
                     </div>
 
-                    <FormField name="registrationCloseAt" label="วันปิดรับสมัคร (ถ้ามี)" error={errors.registrationCloseAt}>
-                        <Input
-                            type="datetime-local"
-                            value={event.registrationCloseAt}
-                            onChange={(e) => onChangeEvent({ registrationCloseAt: e.target.value })}
-                            onBlur={() => onFieldBlur("registrationCloseAt")}
-                            className={fieldInputClass(errors.registrationCloseAt)}
-                        />
-                        <p className="text-xs text-fg-subtle">ไม่ระบุ = ไม่มีวันหมดเขต เปิดรับสมัครได้ตลอด</p>
-                    </FormField>
-                </div>
-            </div>
+                    <div className="space-y-3">
+                        <div>
+                            <Label>ใครเห็นได้บ้าง</Label>
+                            <p className="mt-0.5 text-xs text-fg-muted">
+                                จะเห็นเฉพาะนักศึกษาที่ตรงเงื่อนไขสาขา/ชั้นปี/รหัสนักศึกษาด้านล่าง
+                            </p>
+                        </div>
+                        <div className="flex gap-2">
+                            {(["everyone", "restricted"] as const).map((v) => (
+                                <button
+                                    key={v}
+                                    type="button"
+                                    onClick={() => onChangeEvent({ visibility: v })}
+                                    aria-pressed={event.visibility === v}
+                                    className={cn(
+                                        "rounded-full border px-4 py-2 text-sm font-bold transition-colors",
+                                        event.visibility === v
+                                            ? "border-brand-600 bg-brand-600 text-white shadow-md shadow-brand-500/20"
+                                            : "border-border bg-bg text-fg-muted hover:border-border-strong hover:bg-surface"
+                                    )}
+                                >
+                                    {v === "everyone" ? "ทุกคน" : "เฉพาะกลุ่มที่กำหนด"}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
 
-            <div className="space-y-4">
-                <h3 className="text-sm font-bold text-fg">สรุปข้อมูลงาน</h3>
-                <div className="rounded-lg border border-border bg-surface p-4">
-                    <div className="font-bold text-fg">{event.name || "-"}</div>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-fg-muted">{event.description || "-"}</p>
-                </div>
-            </div>
-
-            <div className="space-y-4">
-                <h3 className="text-sm font-bold text-fg">กิจกรรมย่อย ({activities.length})</h3>
-                <div className="space-y-3">
-                    {activities.map((a, i) => (
-                        <div key={a.key} className="rounded-lg border border-border p-4">
-                            <div className="flex items-center justify-between gap-2">
-                                <div className="font-bold text-fg">{`${i + 1}. ${a.name || "-"}`}</div>
-                                <div className="flex flex-wrap justify-end gap-1.5">
-                                    {a.categories.map((c) => (
-                                        <Badge key={c} variant="outline">{categoryLabel(c)}</Badge>
-                                    ))}
+                    {event.visibility === "restricted" && (
+                        <div className="space-y-5 rounded-lg border border-border bg-surface p-4">
+                            <div className="space-y-2">
+                                <Label>สาขาที่มีสิทธิ์เห็น (ว่าง = ทุกสาขา)</Label>
+                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    {PROGRAMS.map((p) => {
+                                        const checked = event.visibilityPrograms.includes(p.code)
+                                        return (
+                                            <label key={p.code} className="flex items-center gap-2 text-sm text-fg-muted">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={(e) => {
+                                                        const next = e.target.checked
+                                                            ? [...event.visibilityPrograms, p.code]
+                                                            : event.visibilityPrograms.filter((c) => c !== p.code)
+                                                        onChangeEvent({ visibilityPrograms: next })
+                                                    }}
+                                                    className="size-4 shrink-0 rounded border-border bg-bg text-brand-600 focus:ring-brand-500"
+                                                />
+                                                {p.label}
+                                            </label>
+                                        )
+                                    })}
                                 </div>
                             </div>
-                            <div className="mt-2 space-y-1 text-sm text-fg-muted">
-                                <div className="flex items-center gap-2">
-                                    <Calendar className="size-3.5 shrink-0" />
-                                    {formatDateTimeLocal(a.startAt)} — {formatDateTimeLocal(a.endAt)}
+
+                            <div className="space-y-2">
+                                <Label>ชั้นปีที่มีสิทธิ์เห็น (ว่าง = ทุกชั้นปี)</Label>
+                                <div className="flex flex-wrap gap-2">
+                                    {YEAR_OPTIONS.map((year) => {
+                                        const checked = event.visibilityYears.includes(year)
+                                        return (
+                                            <button
+                                                key={year}
+                                                type="button"
+                                                aria-pressed={checked}
+                                                onClick={() => {
+                                                    const next = checked
+                                                        ? event.visibilityYears.filter((y) => y !== year)
+                                                        : [...event.visibilityYears, year]
+                                                    onChangeEvent({ visibilityYears: next })
+                                                }}
+                                                className={cn(
+                                                    "rounded-full border px-4 py-1.5 text-sm font-bold transition-colors",
+                                                    checked
+                                                        ? "border-brand-600 bg-brand-600 text-white"
+                                                        : "border-border bg-bg text-fg-muted hover:border-border-strong"
+                                                )}
+                                            >
+                                                ปี {year}
+                                            </button>
+                                        )
+                                    })}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <MapPin className="size-3.5 shrink-0" />
-                                    {a.location || "-"}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>ตัวกรองรหัสนักศึกษาเพิ่มเติม (ถ้ามี)</Label>
+                                <Textarea
+                                    value={event.visibilityStudentIdFilter}
+                                    onChange={(e) => onChangeEvent({ visibilityStudentIdFilter: e.target.value })}
+                                    className="min-h-[70px] font-mono text-xs"
+                                />
+                                <p className="text-xs text-fg-subtle">
+                                    พิมพ์รหัสเดี่ยวหรือช่วงรหัส คั่นด้วยจุลภาคหรือขึ้นบรรทัดใหม่ เช่น 653380123-4 หรือ
+                                    653380001-1..653380100-5
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="space-y-4 border-b border-border pb-8">
+                    <div>
+                        <p className="flex items-center gap-1.5 text-sm font-bold text-fg">
+                            <Clock className="size-4 shrink-0" aria-hidden="true" />
+                            ช่วงเวลารับสมัคร
+                        </p>
+                        <p className="mt-0.5 text-xs text-fg-muted">
+                            ก่อนถึงวันเปิดรับสมัคร นักศึกษาจะเห็นงานนี้ได้ (ถ้าเผยแพร่ไว้) แต่กดลงทะเบียนไม่ได้ — ระบบจะแจ้งว่า
+                            &quot;ยังไม่อยู่ในเวลาเปิดรับสมัคร&quot;
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label>วันเปิดรับสมัคร (ถ้ามี)</Label>
+                            <Input
+                                type="datetime-local"
+                                value={event.registrationOpenAt}
+                                onChange={(e) => onChangeEvent({ registrationOpenAt: e.target.value })}
+                                // เช็คซ้ำฝั่งวันปิดด้วย — แก้วันเปิดทีหลังจนย้อนวันปิดที่เคยกรอกไว้ถูกต้อง ก็ต้องขึ้น error ทันที ไม่ใช่รอกด "สร้างงาน"
+                                onBlur={() => onFieldBlur("registrationCloseAt")}
+                            />
+                            <p className="text-xs text-fg-subtle">ไม่ระบุ = เปิดรับสมัครได้ทันทีที่เผยแพร่</p>
+                        </div>
+
+                        <FormField name="registrationCloseAt" label="วันปิดรับสมัคร (ถ้ามี)" error={errors.registrationCloseAt}>
+                            <Input
+                                type="datetime-local"
+                                value={event.registrationCloseAt}
+                                onChange={(e) => onChangeEvent({ registrationCloseAt: e.target.value })}
+                                onBlur={() => onFieldBlur("registrationCloseAt")}
+                                className={fieldInputClass(errors.registrationCloseAt)}
+                            />
+                            <p className="text-xs text-fg-subtle">ไม่ระบุ = ไม่มีวันหมดเขต เปิดรับสมัครได้ตลอด</p>
+                        </FormField>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-fg">สรุปข้อมูลงาน</h3>
+                    <div className="rounded-lg border border-border bg-surface p-4">
+                        <div className="font-bold text-fg">{event.name || "-"}</div>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-fg-muted">{event.description || "-"}</p>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-fg">กิจกรรมย่อย ({activities.length})</h3>
+                    <div className="space-y-3">
+                        {activities.map((a, i) => (
+                            <div key={a.key} className="rounded-lg border border-border p-4">
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="font-bold text-fg">{`${i + 1}. ${a.name || "-"}`}</div>
+                                    <div className="flex flex-wrap justify-end gap-1.5">
+                                        {a.categories.map((c) => (
+                                            <Badge key={c} variant="outline">{categoryLabel(c)}</Badge>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <Users className="size-3.5 shrink-0" />
-                                    {a.capacityEnabled ? `รับ ${a.capacity || "-"} คน` : "ไม่จำกัดจำนวน"}
-                                </div>
-                                {a.registrationType === "staff_volunteer" && a.certEnabled && (
+                                <div className="mt-2 space-y-1 text-sm text-fg-muted">
                                     <div className="flex items-center gap-2">
-                                        <Award className="size-3.5 shrink-0" />
-                                        ออกใบจิตอาสา — {deriveVolunteerRole(a.dutyRoleOptions) || a.name || "-"}
+                                        <Calendar className="size-3.5 shrink-0" />
+                                        {formatDateTimeLocal(a.startAt)} — {formatDateTimeLocal(a.endAt)}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <MapPin className="size-3.5 shrink-0" />
+                                        {a.location || "-"}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Users className="size-3.5 shrink-0" />
+                                        {a.capacityEnabled ? `รับ ${a.capacity || "-"} คน` : "ไม่จำกัดจำนวน"}
+                                    </div>
+                                    {a.registrationType === "staff_volunteer" && a.certEnabled && (
+                                        <div className="flex items-center gap-2">
+                                            <Award className="size-3.5 shrink-0" />
+                                            ออกใบจิตอาสา — {deriveVolunteerRole(a.dutyRoleOptions) || a.name || "-"}
+                                        </div>
+                                    )}
+                                </div>
+                                {a.softSkillsEnabled && Object.keys(a.softSkillRates).length > 0 && (
+                                    <div className="mt-3 flex flex-wrap gap-1.5">
+                                        {Object.entries(a.softSkillRates).map(([skillType, rate]) => (
+                                            <Badge key={skillType} variant="outline" className="text-xs">
+                                                {softSkillLabel(skillType)} · {softSkillTierLabel(rate)}
+                                            </Badge>
+                                        ))}
                                     </div>
                                 )}
                             </div>
-                            {a.softSkillsEnabled && Object.keys(a.softSkillRates).length > 0 && (
-                                <div className="mt-3 flex flex-wrap gap-1.5">
-                                    {Object.entries(a.softSkillRates).map(([skillType, rate]) => (
-                                        <Badge key={skillType} variant="outline" className="text-xs">
-                                            {softSkillLabel(skillType)} · {softSkillTierLabel(rate)}
-                                        </Badge>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
-            </div>
-        </div>
+            </WizardBlock>
+        </>
     )
 }

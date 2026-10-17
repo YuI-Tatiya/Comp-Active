@@ -7,11 +7,27 @@ import type { DutyShiftMode, DutyShiftRow } from "@/lib/duty-shift"
 export type RegistrationType = "participant" | "staff_volunteer" | "contestant"
 
 /** ตัวเลือกประเภทการรับสมัคร — เลือกครั้งเดียวระดับงาน (ขั้นตอนที่ 1) แล้วทุกกิจกรรมย่อยในงานนี้ใช้ประเภทเดียวกัน
- *  กันไม่ให้งานเดียวมีกิจกรรมย่อยปนกันหลายรูปแบบ (เช่น กิจกรรมหนึ่งเป็นจิตอาสา อีกกิจกรรมเป็นแข่งขัน) */
-export const REGISTRATION_TYPE_OPTIONS: { value: RegistrationType; label: string; desc: string }[] = [
-    { value: "participant", label: "ผู้เข้าร่วมทั่วไป", desc: "ลงทะเบียนเข้าร่วมกิจกรรมตามปกติ" },
-    { value: "staff_volunteer", label: "ผู้สมัครจิตอาสา/สตาฟฟ์", desc: "สมัครเพื่อช่วยงานหรือปฏิบัติหน้าที่ในกิจกรรม" },
-    { value: "contestant", label: "ผู้สมัครแข่งขัน", desc: "สมัครเพื่อเข้าแข่งขันในกิจกรรม" },
+ *  กันไม่ให้งานเดียวมีกิจกรรมย่อยปนกันหลายรูปแบบ (เช่น กิจกรรมหนึ่งเป็นจิตอาสา อีกกิจกรรมเป็นแข่งขัน)
+ *  tag = ป้ายสั้นบนปกการ์ดตัวอย่างในแถบข้างของวิซาร์ด */
+export const REGISTRATION_TYPE_OPTIONS: { value: RegistrationType; label: string; desc: string; tag: string }[] = [
+    {
+        value: "participant",
+        label: "ผู้เข้าร่วมทั่วไป",
+        desc: "เปิดให้นักศึกษาลงทะเบียนเข้าร่วมกิจกรรมตามรอบที่กำหนด",
+        tag: "เปิดรับทั่วไป",
+    },
+    {
+        value: "staff_volunteer",
+        label: "ผู้สมัครจิตอาสา/สตาฟฟ์",
+        desc: "เปิดรับนักศึกษามาช่วยงานตามบทบาทหน้าที่และกะเวลา ออกใบรับรองจิตอาสาให้ได้",
+        tag: "รับสมัครสตาฟฟ์",
+    },
+    {
+        value: "contestant",
+        label: "ผู้สมัครแข่งขัน",
+        desc: "เปิดรับสมัครทีมเข้าแข่งขัน แยกตามประเภทการแข่งขันที่กำหนด",
+        tag: "รับสมัครแข่งขัน",
+    },
 ]
 
 export interface EventFormState {

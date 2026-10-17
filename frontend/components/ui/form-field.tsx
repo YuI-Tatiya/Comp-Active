@@ -12,16 +12,58 @@ interface FormFieldProps {
     error?: string
     children: React.ReactNode
     className?: string
+    /** id ของช่องกรอกข้างใน — ผูก <label> เข้ากับช่อง (คลิกหัวข้อแล้วโฟกัสช่อง, โปรแกรมอ่านจออ่านชื่อช่องได้) */
+    htmlFor?: string
+    labelClassName?: string
+    /** ช่องขวาของหัวข้อ เช่น ตัวนับ "0/120" หรือป้าย "ไม่บังคับ" */
+    aside?: React.ReactNode
+    /** คำแนะนำใต้ช่อง — ถูกแทนด้วยข้อความ error เมื่อมี error */
+    hint?: React.ReactNode
+    /** id ของบรรทัดคำแนะนำ/error — ให้ช่องกรอกอ้างถึงด้วย aria-describedby */
+    messageId?: string
 }
 
-export function FormField({ name, label, required, error, children, className }: FormFieldProps) {
+export function FormField({
+    name,
+    label,
+    required,
+    error,
+    children,
+    className,
+    htmlFor,
+    labelClassName,
+    aside,
+    hint,
+    messageId,
+}: FormFieldProps) {
+    const labelNode = (
+        <Label htmlFor={htmlFor} className={labelClassName}>
+            {label} {required && <span className="text-danger">*</span>}
+        </Label>
+    )
+    // scroll-mt-24: เลื่อนหาฟิลด์ที่ error แล้วไม่ให้หัวข้อไปจมใต้ AppHeader ที่ sticky อยู่ด้านบน (h-16)
     return (
-        <div className={cn("space-y-2", className)} data-field={name}>
-            <Label>
-                {label} {required && <span className="text-danger">*</span>}
-            </Label>
+        <div className={cn("scroll-mt-24 space-y-2", className)} data-field={name}>
+            {aside ? (
+                <div className="flex items-baseline justify-between gap-3">
+                    {labelNode}
+                    {aside}
+                </div>
+            ) : (
+                labelNode
+            )}
             {children}
-            {error && <p className="text-xs text-danger">{error}</p>}
+            {error ? (
+                <p id={messageId} className="text-xs text-danger">
+                    {error}
+                </p>
+            ) : (
+                hint && (
+                    <p id={messageId} className="text-xs text-denim-muted">
+                        {hint}
+                    </p>
+                )
+            )}
         </div>
     )
 }
@@ -34,10 +76,9 @@ export function fieldInputClass(error?: string): string {
 /**
  * เลื่อนจอไปหาฟิลด์แรกที่ error แล้ว focus input ข้างในให้
  *
- * block: "nearest" (ไม่ใช่ "center") — ฟิลด์พวกนี้อยู่ในการ์ดฟอร์มที่เลื่อนในตัวเอง (overflow-y-auto)
- * ของหน้าวิซาร์ดสร้าง/แก้ไขงาน ถ้าใช้ "center" เบราว์เซอร์จะไล่เลื่อนทุกกล่องเลื่อนที่เป็นแม่ (การ์ด แล้วก็หน้าเว็บ)
- * ให้ element อยู่กึ่งกลางของแต่ละกล่อง ทำให้หน้าเว็บขยับลงไปด้วยทั้งที่การ์ดทั้งใบยังเห็นอยู่ในจอปกติ
- * (เคยเจอเป็นพื้นที่ว่างเกินจริงใต้ footer) "nearest" เลื่อนแค่เท่าที่จำเป็นให้เห็น เลยไม่ไปรบกวนสกรอลของหน้าเว็บ
+ * block: "nearest" — เลื่อนแค่เท่าที่จำเป็นให้เห็นฟิลด์ ไม่กระชากทั้งหน้าไปจัดกึ่งกลาง (หน้าวิซาร์ดสร้าง/แก้ไขงาน
+ * เคยใช้การ์ดที่เลื่อนในตัวเอง ซึ่ง "center" ไล่เลื่อนทุกกล่องที่เป็นแม่จนเจอพื้นที่ว่างใต้ footer — ตอนนี้ทั้งหน้าเลื่อนปกติแล้ว
+ * แต่ "nearest" ก็ยังพอดีกว่า) ระยะใต้ AppHeader มาจาก scroll-mt-24 ของ FormField
  */
 export function scrollToFirstError(errors: Record<string, string | undefined>): void {
     const firstKey = Object.keys(errors).find((k) => errors[k])

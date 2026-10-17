@@ -1,14 +1,19 @@
 "use client"
 
-import { useState, type SyntheticEvent } from "react"
+import { useRef, useState, type SyntheticEvent } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./dialog"
 import { Button } from "./button"
 import { Dropzone } from "./dropzone"
-import { X } from "lucide-react"
+import { RefreshCw, Trash2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export const IMAGE_CROP_ASPECT = 16 / 9
 const MAX_SIZE_MB = 5
 const OUTPUT_WIDTH = 1280
+const ACCEPT = "image/jpeg,image/png,image/gif"
+
+const PREVIEW_BUTTON =
+    "inline-flex min-h-9 items-center gap-1.5 rounded-lg border-[1.5px] border-denim-field bg-white px-3 text-xs font-semibold text-denim-deep transition-colors hover:border-denim-dash hover:bg-denim-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim"
 
 /**
  * คำนวณ source rect แบบเดียวกับ CSS object-fit:cover + object-position: X% Y%
@@ -48,16 +53,20 @@ interface ImageCropUploadProps {
     onChange: (file: File, preview: string) => void
     onClear?: () => void
     aspect?: number
+    /** ขนาดกล่องลากวาง เช่น min-h-[220px] สำหรับรูปปกงานที่กินเต็มความกว้างการ์ด */
+    dropzoneClassName?: string
 }
 
 export function ImageCropUpload({
     label,
-    helperText = "แนะนำอัตราส่วน 16:9 (เช่น 1280×720) ไฟล์ไม่เกิน 5MB",
+    helperText = `16:9 · แนะนำ ${OUTPUT_WIDTH}×${Math.round(OUTPUT_WIDTH / IMAGE_CROP_ASPECT)} · JPG/PNG/GIF ไม่เกิน ${MAX_SIZE_MB}MB`,
     preview,
     onChange,
     onClear,
     aspect = IMAGE_CROP_ASPECT,
+    dropzoneClassName,
 }: ImageCropUploadProps) {
+    const replaceInputRef = useRef<HTMLInputElement>(null)
     const [rawUrl, setRawUrl] = useState<string | null>(null)
     const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 })
     const [posX, setPosX] = useState(50)
@@ -109,26 +118,41 @@ export function ImageCropUpload({
 
     return (
         <div className="space-y-2">
-            <Dropzone accept="image/jpeg,image/png,image/gif" onFileSelected={processFile} />
-            <p className="text-xs text-fg-subtle">{helperText}</p>
-            {error && <p className="text-xs text-danger">{error}</p>}
-
-            {preview && (
-                <div className="relative mt-2 w-full max-w-sm overflow-hidden rounded-lg border border-border">
+            {/* มีรูปแล้ว → แสดงรูปแทนกล่องลากวาง พร้อมปุ่มเปลี่ยน/ลบ (เดิมกล่องลากวางค้างอยู่เหนือรูปตลอด) */}
+            {preview ? (
+                <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-denim-line bg-white">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={preview} alt={label} className="w-full object-cover" style={{ aspectRatio: aspect }} />
-                    {onClear && (
-                        <button
-                            type="button"
-                            onClick={onClear}
-                            aria-label="ลบรูปภาพ"
-                            className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
-                        >
-                            <X className="size-3.5" />
+                    <div className="flex flex-wrap items-center justify-end gap-2 border-t border-denim-line px-3 py-2.5">
+                        <button type="button" onClick={() => replaceInputRef.current?.click()} className={PREVIEW_BUTTON}>
+                            <RefreshCw className="size-3.5" aria-hidden="true" />
+                            เปลี่ยนรูป
                         </button>
-                    )}
+                        {onClear && (
+                            <button type="button" onClick={onClear} className={cn(PREVIEW_BUTTON, "text-danger-fg hover:border-danger/50 hover:bg-danger-bg")}>
+                                <Trash2 className="size-3.5" aria-hidden="true" />
+                                ลบรูป
+                            </button>
+                        )}
+                    </div>
+                    <input
+                        ref={replaceInputRef}
+                        type="file"
+                        accept={ACCEPT}
+                        tabIndex={-1}
+                        aria-hidden="true"
+                        className="sr-only"
+                        onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            e.target.value = ""
+                            if (file) processFile(file)
+                        }}
+                    />
                 </div>
+            ) : (
+                <Dropzone accept={ACCEPT} onFileSelected={processFile} hint={helperText} className={dropzoneClassName} />
             )}
+            {error && <p className="text-xs text-danger">{error}</p>}
 
             <Dialog
                 open={!!rawUrl}
