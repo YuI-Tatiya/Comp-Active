@@ -34,11 +34,12 @@ function makeActivity(overrides: Partial<any> = {}) {
 
 describe('ActivitiesService.markCompleted', () => {
   let service: ActivitiesService;
-  let repo: { findById: jest.Mock; markCompleted: jest.Mock };
+  let repo: { findById: jest.Mock; markCompleted: jest.Mock ; findIdByPublicId: jest.Mock };
 
   beforeEach(async () => {
     repo = {
       findById: jest.fn().mockResolvedValue(makeActivity()),
+      findIdByPublicId: jest.fn().mockImplementation((p: string) => Promise.resolve(Number(p))),
       markCompleted: jest.fn().mockResolvedValue({ id: 5, status: ActivityStatus.COMPLETED }),
     };
     const module = await Test.createTestingModule({
@@ -61,61 +62,61 @@ describe('ActivitiesService.markCompleted', () => {
   });
 
   it('marks a finished activity as completed for its owner', async () => {
-    await service.markCompleted(5, 7, UserRole.ORGANIZER);
+    await service.markCompleted('5', 7, UserRole.ORGANIZER);
     expect(repo.markCompleted).toHaveBeenCalledWith(5);
   });
 
   it('lets an admin complete an activity they do not own', async () => {
-    await service.markCompleted(5, 999, UserRole.ADMIN);
+    await service.markCompleted('5', 999, UserRole.ADMIN);
     expect(repo.markCompleted).toHaveBeenCalledWith(5);
   });
 
   it('throws NotFoundException when the activity does not exist', async () => {
     repo.findById.mockResolvedValue(null);
-    await expect(service.markCompleted(5, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
+    await expect(service.markCompleted('5', 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
     expect(repo.markCompleted).not.toHaveBeenCalled();
   });
 
   it('throws ForbiddenException when another organizer tries to complete it', async () => {
-    await expect(service.markCompleted(5, 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
+    await expect(service.markCompleted('5', 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
     expect(repo.markCompleted).not.toHaveBeenCalled();
   });
 
   it('rejects completing an activity that is already completed', async () => {
     repo.findById.mockResolvedValue(makeActivity({ status: ActivityStatus.COMPLETED }));
-    await expect(service.markCompleted(5, 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
+    await expect(service.markCompleted('5', 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
     expect(repo.markCompleted).not.toHaveBeenCalled();
   });
 
   it('rejects completing an activity that was cancelled', async () => {
     repo.findById.mockResolvedValue(makeActivity({ approvalStatus: ApprovalStatus.CANCELLED }));
-    await expect(service.markCompleted(5, 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
+    await expect(service.markCompleted('5', 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
     expect(repo.markCompleted).not.toHaveBeenCalled();
   });
 
   // ค่าเก่าก่อนแยก enum — REJECTED เคยถูกใช้แทนความหมาย "ผู้จัดยกเลิกเอง" ต้องยัง guard ไว้
   it('also rejects completing an activity carrying the legacy REJECTED value', async () => {
     repo.findById.mockResolvedValue(makeActivity({ approvalStatus: ApprovalStatus.REJECTED }));
-    await expect(service.markCompleted(5, 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
+    await expect(service.markCompleted('5', 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
     expect(repo.markCompleted).not.toHaveBeenCalled();
   });
 
   it('rejects completing an activity that has not finished yet', async () => {
     repo.findById.mockResolvedValue(makeActivity({ endAt: FUTURE }));
-    await expect(service.markCompleted(5, 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
+    await expect(service.markCompleted('5', 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
     expect(repo.markCompleted).not.toHaveBeenCalled();
   });
 
   // กิจกรรมรุ่นเก่าไม่มี startAt/endAt — ต้องถอยไปใช้ date + endTime แทน
   it('falls back to date + endTime when endAt is null (legacy activity, already finished)', async () => {
     repo.findById.mockResolvedValue(makeActivity({ endAt: null, date: PAST, endTime: '12:00' }));
-    await service.markCompleted(5, 7, UserRole.ORGANIZER);
+    await service.markCompleted('5', 7, UserRole.ORGANIZER);
     expect(repo.markCompleted).toHaveBeenCalledWith(5);
   });
 
   it('falls back to date + endTime when endAt is null (legacy activity, still upcoming)', async () => {
     repo.findById.mockResolvedValue(makeActivity({ endAt: null, date: FUTURE, endTime: '12:00' }));
-    await expect(service.markCompleted(5, 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
+    await expect(service.markCompleted('5', 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
     expect(repo.markCompleted).not.toHaveBeenCalled();
   });
 });
@@ -258,13 +259,14 @@ function makeRegistration(overrides: Partial<any> = {}) {
 
 describe('ActivitiesService student-notification side effects', () => {
   let service: ActivitiesService;
-  let activitiesRepo: { findById: jest.Mock; markCompleted: jest.Mock; cancelByOrganizer: jest.Mock };
+  let activitiesRepo: { findById: jest.Mock; markCompleted: jest.Mock; cancelByOrganizer: jest.Mock ; findIdByPublicId: jest.Mock };
   let registrationsRepo: { findByActivity: jest.Mock };
   let mail: { sendActivityCompleted: jest.Mock; sendActivityCancelled: jest.Mock };
 
   beforeEach(async () => {
     activitiesRepo = {
       findById: jest.fn().mockResolvedValue(makeActivity()),
+      findIdByPublicId: jest.fn().mockImplementation((p: string) => Promise.resolve(Number(p))),
       markCompleted: jest.fn().mockResolvedValue({ id: 5, status: ActivityStatus.COMPLETED }),
       cancelByOrganizer: jest.fn().mockResolvedValue({ id: 5, approvalStatus: ApprovalStatus.CANCELLED }),
     };
@@ -291,7 +293,7 @@ describe('ActivitiesService student-notification side effects', () => {
       makeRegistration({ attendance: 'absent', student: { email: 'skipped@kku.ac.th', name: 'Skipped' } }),
     ]);
 
-    await service.markCompleted(5, 7, UserRole.ORGANIZER);
+    await service.markCompleted('5', 7, UserRole.ORGANIZER);
     await flush();
 
     expect(mail.sendActivityCompleted).toHaveBeenCalledTimes(1);
@@ -304,7 +306,7 @@ describe('ActivitiesService student-notification side effects', () => {
       makeRegistration({ attendance: 'absent', student: { email: 'b@kku.ac.th', name: 'B' } }),
     ]);
 
-    const saved = await service.requestCancellation(5, 7, 'ฝนตกหนัก');
+    const saved = await service.requestCancellation('5', 7, 'ฝนตกหนัก');
     await flush();
 
     // ต้องใช้ CANCELLED ไม่ใช่ REJECTED — REJECTED สงวนไว้สำหรับแอดมิน/ระบบปฏิเสธ
@@ -318,7 +320,7 @@ describe('ActivitiesService student-notification side effects', () => {
   it('does not let a notification failure surface as an error from the caller-facing method', async () => {
     registrationsRepo.findByActivity.mockRejectedValue(new Error('db down'));
 
-    await expect(service.markCompleted(5, 7, UserRole.ORGANIZER)).resolves.toEqual({
+    await expect(service.markCompleted('5', 7, UserRole.ORGANIZER)).resolves.toEqual({
       id: 5,
       status: ActivityStatus.COMPLETED,
     });
@@ -328,11 +330,12 @@ describe('ActivitiesService student-notification side effects', () => {
 
 describe('ActivitiesService.delete', () => {
   let service: ActivitiesService;
-  let activitiesRepo: { findById: jest.Mock; delete: jest.Mock };
+  let activitiesRepo: { findById: jest.Mock; delete: jest.Mock ; findIdByPublicId: jest.Mock };
 
   beforeEach(async () => {
     activitiesRepo = {
       findById: jest.fn().mockResolvedValue(makeActivity()),
+      findIdByPublicId: jest.fn().mockImplementation((p: string) => Promise.resolve(Number(p))),
       delete: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -351,30 +354,31 @@ describe('ActivitiesService.delete', () => {
   });
 
   it('deletes an activity with no registrations', async () => {
-    await service.delete(5, 7, UserRole.ORGANIZER);
+    await service.delete('5', 7, UserRole.ORGANIZER);
     expect(activitiesRepo.delete).toHaveBeenCalledWith(5);
   });
 
   it('refuses to delete an activity that already has registrations', async () => {
     activitiesRepo.findById.mockResolvedValue(makeActivity({ _count: { registrations: 3 } }));
 
-    await expect(service.delete(5, 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
+    await expect(service.delete('5', 7, UserRole.ORGANIZER)).rejects.toThrow(BadRequestException);
     expect(activitiesRepo.delete).not.toHaveBeenCalled();
   });
 
   it('throws ForbiddenException when another organizer tries to delete it', async () => {
-    await expect(service.delete(5, 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
+    await expect(service.delete('5', 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
     expect(activitiesRepo.delete).not.toHaveBeenCalled();
   });
 });
 
 describe('ActivitiesService.findByIdForOrganizer', () => {
   let service: ActivitiesService;
-  let activitiesRepo: { findByIdForOrganizer: jest.Mock };
+  let activitiesRepo: { findByIdForOrganizer: jest.Mock; findIdByPublicId: jest.Mock };
 
   beforeEach(async () => {
     activitiesRepo = {
       findByIdForOrganizer: jest.fn().mockResolvedValue(makeActivity({ registrations: [{ id: 1 }] })),
+      findIdByPublicId: jest.fn().mockImplementation((p: string) => Promise.resolve(Number(p))),
     };
 
     const module = await Test.createTestingModule({
@@ -392,33 +396,34 @@ describe('ActivitiesService.findByIdForOrganizer', () => {
   });
 
   it('returns the full activity (with registrations) for its owner', async () => {
-    const result = await service.findByIdForOrganizer(5, 7, UserRole.ORGANIZER);
+    const result = await service.findByIdForOrganizer('5', 7, UserRole.ORGANIZER);
     expect(result.registrations).toEqual([{ id: 1 }]);
   });
 
   it('allows an admin to view an activity they do not own', async () => {
-    await expect(service.findByIdForOrganizer(5, 999, UserRole.ADMIN)).resolves.toBeDefined();
+    await expect(service.findByIdForOrganizer('5', 999, UserRole.ADMIN)).resolves.toBeDefined();
   });
 
   it('throws ForbiddenException when a non-owning organizer requests it', async () => {
-    await expect(service.findByIdForOrganizer(5, 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
+    await expect(service.findByIdForOrganizer('5', 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
   });
 
   it('throws NotFoundException when the activity does not exist', async () => {
     activitiesRepo.findByIdForOrganizer.mockResolvedValue(null);
-    await expect(service.findByIdForOrganizer(5, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
+    await expect(service.findByIdForOrganizer('5', 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
   });
 });
 
 describe('ActivitiesService.getSurveyResults — ownership', () => {
   let service: ActivitiesService;
-  let activitiesRepo: { findByIdWithSurveyAnswers: jest.Mock };
+  let activitiesRepo: { findByIdWithSurveyAnswers: jest.Mock; findIdByPublicId: jest.Mock };
 
   beforeEach(async () => {
     activitiesRepo = {
       findByIdWithSurveyAnswers: jest
         .fn()
         .mockResolvedValue({ id: 5, organizerId: 7, eventId: null, surveyQuestions: [] }),
+      findIdByPublicId: jest.fn().mockImplementation((p: string) => Promise.resolve(Number(p))),
     };
 
     const module = await Test.createTestingModule({
@@ -436,30 +441,31 @@ describe('ActivitiesService.getSurveyResults — ownership', () => {
   });
 
   it('returns results to the owning organizer', async () => {
-    await expect(service.getSurveyResults(5, 7, UserRole.ORGANIZER)).resolves.toBeDefined();
+    await expect(service.getSurveyResults('5', 7, UserRole.ORGANIZER)).resolves.toBeDefined();
   });
 
   it('allows an admin who does not own the activity', async () => {
-    await expect(service.getSurveyResults(5, 999, UserRole.ADMIN)).resolves.toBeDefined();
+    await expect(service.getSurveyResults('5', 999, UserRole.ADMIN)).resolves.toBeDefined();
   });
 
   it('throws ForbiddenException (not BadRequest) for a non-owning organizer', async () => {
-    await expect(service.getSurveyResults(5, 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
+    await expect(service.getSurveyResults('5', 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
   });
 
   it('throws NotFoundException when the activity does not exist', async () => {
     activitiesRepo.findByIdWithSurveyAnswers.mockResolvedValue(null);
-    await expect(service.getSurveyResults(5, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
+    await expect(service.getSurveyResults('5', 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
   });
 });
 
 describe('ActivitiesService.duplicate', () => {
   let service: ActivitiesService;
-  let activitiesRepo: { findById: jest.Mock; duplicate: jest.Mock };
+  let activitiesRepo: { findById: jest.Mock; duplicate: jest.Mock ; findIdByPublicId: jest.Mock };
 
   beforeEach(async () => {
     activitiesRepo = {
       findById: jest.fn().mockResolvedValue(makeActivity()),
+      findIdByPublicId: jest.fn().mockImplementation((p: string) => Promise.resolve(Number(p))),
       duplicate: jest.fn(),
     };
 
@@ -484,7 +490,7 @@ describe('ActivitiesService.duplicate', () => {
       _count: { registrations: 0 },
     });
 
-    const result = await service.duplicate(5, 7, UserRole.ORGANIZER);
+    const result = await service.duplicate('5', 7, UserRole.ORGANIZER);
 
     expect(activitiesRepo.duplicate).toHaveBeenCalledWith(5, 7);
     expect(result.id).toBe(6);
@@ -494,28 +500,29 @@ describe('ActivitiesService.duplicate', () => {
 
   it('allows an admin who does not own the activity, copying to the admin', async () => {
     activitiesRepo.duplicate.mockResolvedValue({ id: 6, _count: { registrations: 0 } });
-    await service.duplicate(5, 999, UserRole.ADMIN);
+    await service.duplicate('5', 999, UserRole.ADMIN);
     expect(activitiesRepo.duplicate).toHaveBeenCalledWith(5, 999);
   });
 
   it('throws ForbiddenException for a non-owning organizer', async () => {
-    await expect(service.duplicate(5, 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
+    await expect(service.duplicate('5', 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
     expect(activitiesRepo.duplicate).not.toHaveBeenCalled();
   });
 
   it('throws NotFoundException if the activity is deleted between the ownership check and the copy', async () => {
     activitiesRepo.duplicate.mockResolvedValue(null);
-    await expect(service.duplicate(5, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
+    await expect(service.duplicate('5', 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
   });
 });
 
 describe('ActivitiesService.setStatus', () => {
   let service: ActivitiesService;
-  let activitiesRepo: { findById: jest.Mock; updateStatus: jest.Mock };
+  let activitiesRepo: { findById: jest.Mock; updateStatus: jest.Mock ; findIdByPublicId: jest.Mock };
 
   beforeEach(async () => {
     activitiesRepo = {
       findById: jest.fn().mockResolvedValue(makeActivity()),
+      findIdByPublicId: jest.fn().mockImplementation((p: string) => Promise.resolve(Number(p))),
       updateStatus: jest.fn(),
     };
 
@@ -535,37 +542,38 @@ describe('ActivitiesService.setStatus', () => {
 
   it('closes registration for the owning organizer', async () => {
     activitiesRepo.updateStatus.mockResolvedValue({ id: 5, status: 'closed', _count: { registrations: 0 } });
-    const result = await service.setStatus(5, 7, UserRole.ORGANIZER, 'closed');
+    const result = await service.setStatus('5', 7, UserRole.ORGANIZER, 'closed');
     expect(activitiesRepo.updateStatus).toHaveBeenCalledWith(5, 'closed');
     expect(result.registeredCount).toBe(0);
   });
 
   it('reopens registration for the owning organizer', async () => {
     activitiesRepo.updateStatus.mockResolvedValue({ id: 5, status: 'open', _count: { registrations: 0 } });
-    await service.setStatus(5, 7, UserRole.ORGANIZER, 'open');
+    await service.setStatus('5', 7, UserRole.ORGANIZER, 'open');
     expect(activitiesRepo.updateStatus).toHaveBeenCalledWith(5, 'open');
   });
 
   it('allows an admin who does not own the activity', async () => {
     activitiesRepo.updateStatus.mockResolvedValue({ id: 5, _count: { registrations: 0 } });
-    await service.setStatus(5, 999, UserRole.ADMIN, 'closed');
+    await service.setStatus('5', 999, UserRole.ADMIN, 'closed');
     expect(activitiesRepo.updateStatus).toHaveBeenCalledWith(5, 'closed');
   });
 
   it('throws ForbiddenException for a non-owning organizer', async () => {
-    await expect(service.setStatus(5, 999, UserRole.ORGANIZER, 'closed')).rejects.toThrow(ForbiddenException);
+    await expect(service.setStatus('5', 999, UserRole.ORGANIZER, 'closed')).rejects.toThrow(ForbiddenException);
     expect(activitiesRepo.updateStatus).not.toHaveBeenCalled();
   });
 });
 
 describe('ActivitiesService.getCheckInSession / setSelfCheckIn — QR เช็คอินหมุนรหัส', () => {
   let service: ActivitiesService;
-  let activitiesRepo: { findById: jest.Mock; updateSelfCheckIn: jest.Mock };
+  let activitiesRepo: { findById: jest.Mock; updateSelfCheckIn: jest.Mock ; findIdByPublicId: jest.Mock };
   const SECRET = 'test-secret-at-least-32-characters-long';
 
   beforeEach(async () => {
     activitiesRepo = {
       findById: jest.fn().mockResolvedValue(makeActivity({ selfCheckInEnabled: false })),
+      findIdByPublicId: jest.fn().mockImplementation((p: string) => Promise.resolve(Number(p))),
       updateSelfCheckIn: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -586,58 +594,58 @@ describe('ActivitiesService.getCheckInSession / setSelfCheckIn — QR เช็�
   describe('getCheckInSession', () => {
     it("returns the activity's current enabled flag plus a freshly computed token", async () => {
       activitiesRepo.findById.mockResolvedValue(makeActivity({ selfCheckInEnabled: true }));
-      const result = await service.getCheckInSession(5, 7, UserRole.ORGANIZER);
+      const result = await service.getCheckInSession('5', 7, UserRole.ORGANIZER);
       expect(result.enabled).toBe(true);
       expect(typeof result.token).toBe('string');
       expect(result.expiresAt).toBeInstanceOf(Date);
     });
 
     it('reports enabled:false without error when the organizer has not opened check-in', async () => {
-      const result = await service.getCheckInSession(5, 7, UserRole.ORGANIZER);
+      const result = await service.getCheckInSession('5', 7, UserRole.ORGANIZER);
       expect(result.enabled).toBe(false);
     });
 
     it('throws ForbiddenException for a non-owning organizer', async () => {
-      await expect(service.getCheckInSession(5, 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
+      await expect(service.getCheckInSession('5', 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
     });
 
     it('allows an admin who does not own the activity', async () => {
-      await expect(service.getCheckInSession(5, 999, UserRole.ADMIN)).resolves.toBeDefined();
+      await expect(service.getCheckInSession('5', 999, UserRole.ADMIN)).resolves.toBeDefined();
     });
   });
 
   describe('setSelfCheckIn', () => {
     it('enables check-in for the owning organizer and returns a usable token', async () => {
-      const result = await service.setSelfCheckIn(5, 7, UserRole.ORGANIZER, true);
+      const result = await service.setSelfCheckIn('5', 7, UserRole.ORGANIZER, true);
       expect(activitiesRepo.updateSelfCheckIn).toHaveBeenCalledWith(5, true);
       expect(result).toMatchObject({ enabled: true });
       expect(typeof result.token).toBe('string');
     });
 
     it('disables check-in for the owning organizer', async () => {
-      await service.setSelfCheckIn(5, 7, UserRole.ORGANIZER, false);
+      await service.setSelfCheckIn('5', 7, UserRole.ORGANIZER, false);
       expect(activitiesRepo.updateSelfCheckIn).toHaveBeenCalledWith(5, false);
     });
 
     it('throws ForbiddenException for a non-owning organizer', async () => {
-      await expect(service.setSelfCheckIn(5, 999, UserRole.ORGANIZER, true)).rejects.toThrow(ForbiddenException);
+      await expect(service.setSelfCheckIn('5', 999, UserRole.ORGANIZER, true)).rejects.toThrow(ForbiddenException);
       expect(activitiesRepo.updateSelfCheckIn).not.toHaveBeenCalled();
     });
 
     it('allows an admin to toggle an activity they do not own', async () => {
-      await expect(service.setSelfCheckIn(5, 999, UserRole.ADMIN, true)).resolves.toBeDefined();
+      await expect(service.setSelfCheckIn('5', 999, UserRole.ADMIN, true)).resolves.toBeDefined();
     });
 
     // เปิดเช็คอินกิจกรรมที่จบไปแล้วไม่มีความหมาย — กันผู้จัดกดเปิดหลงจากกิจกรรมจบแล้ว
     it('refuses to enable check-in once the activity is already completed', async () => {
       activitiesRepo.findById.mockResolvedValue(makeActivity({ status: ActivityStatus.COMPLETED }));
-      await expect(service.setSelfCheckIn(5, 7, UserRole.ORGANIZER, true)).rejects.toThrow(BadRequestException);
+      await expect(service.setSelfCheckIn('5', 7, UserRole.ORGANIZER, true)).rejects.toThrow(BadRequestException);
       expect(activitiesRepo.updateSelfCheckIn).not.toHaveBeenCalled();
     });
 
     it('still allows disabling check-in on a completed activity (closing down is always safe)', async () => {
       activitiesRepo.findById.mockResolvedValue(makeActivity({ status: ActivityStatus.COMPLETED, selfCheckInEnabled: true }));
-      await expect(service.setSelfCheckIn(5, 7, UserRole.ORGANIZER, false)).resolves.toMatchObject({ enabled: false });
+      await expect(service.setSelfCheckIn('5', 7, UserRole.ORGANIZER, false)).resolves.toMatchObject({ enabled: false });
       expect(activitiesRepo.updateSelfCheckIn).toHaveBeenCalledWith(5, false);
     });
   });
@@ -715,7 +723,7 @@ describe('ActivitiesService.getOrganizerStats', () => {
 
 describe('ActivitiesService public reads — unpublished events and organizer email', () => {
   let service: ActivitiesService;
-  let repo: { findAllApproved: jest.Mock; findById: jest.Mock };
+  let repo: { findAllApproved: jest.Mock; findById: jest.Mock; findIdByPublicId: jest.Mock };
 
   const student = { id: 5, role: 'student', studentId: '653380001-1', program: 'IT' };
   const owner = { id: 7, role: 'organizer' };
@@ -729,7 +737,11 @@ describe('ActivitiesService public reads — unpublished events and organizer em
     });
 
   beforeEach(async () => {
-    repo = { findAllApproved: jest.fn(), findById: jest.fn() };
+    repo = {
+      findAllApproved: jest.fn(),
+      findById: jest.fn(),
+      findIdByPublicId: jest.fn().mockImplementation((p: string) => Promise.resolve(Number(p))),
+    };
     const module = await Test.createTestingModule({
       providers: [
         ActivitiesService,
@@ -764,18 +776,18 @@ describe('ActivitiesService public reads — unpublished events and organizer em
   it('findByIdPublic is a 404 for a student on an unpublished event, but opens for the owner and admins', async () => {
     repo.findById.mockResolvedValue(inEvent(2, false));
 
-    await expect(service.findByIdPublic(2, null)).rejects.toThrow(NotFoundException);
-    await expect(service.findByIdPublic(2, student)).rejects.toThrow(NotFoundException);
-    await expect(service.findByIdPublic(2, owner)).resolves.toMatchObject({ id: 2 });
-    await expect(service.findByIdPublic(2, { id: 1, role: 'admin' })).resolves.toMatchObject({ id: 2 });
+    await expect(service.findByIdPublic('2', null)).rejects.toThrow(NotFoundException);
+    await expect(service.findByIdPublic('2', student)).rejects.toThrow(NotFoundException);
+    await expect(service.findByIdPublic('2', owner)).resolves.toMatchObject({ id: 2 });
+    await expect(service.findByIdPublic('2', { id: 1, role: 'admin' })).resolves.toMatchObject({ id: 2 });
   });
 
   it('findByIdPublic is a 404 for a missing activity and strips the organizer email', async () => {
     repo.findById.mockResolvedValue(null);
-    await expect(service.findByIdPublic(9, null)).rejects.toThrow(NotFoundException);
+    await expect(service.findByIdPublic('9', null)).rejects.toThrow(NotFoundException);
 
     repo.findById.mockResolvedValue(inEvent(1, true));
-    const a = await service.findByIdPublic(1, null);
+    const a = await service.findByIdPublic('1', null);
     expect(a.organizer).toEqual({ id: 7, name: 'Org' });
     expect(a.registeredCount).toBe(4);
   });

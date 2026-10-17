@@ -30,14 +30,14 @@ export default function OrganizerEventViewPage() {
 
     useEffect(() => {
         if (params.id) {
-            fetchEventDetails(Number(params.id))
+            fetchEventDetails(String(params.id))
         }
     }, [params.id])
 
-    const fetchEventDetails = async (id: number) => {
+    const fetchEventDetails = async (publicId: string) => {
         try {
             setLoading(true)
-            const data = await eventsAPI.getPublicById(id)
+            const data = await eventsAPI.getPublicById(publicId)
             setEvent(data)
             setActiveActivityId((prev) => prev ?? data.activities[0]?.id ?? null)
         } catch (err: unknown) {
@@ -87,7 +87,7 @@ export default function OrganizerEventViewPage() {
             onSelectActivity={setActiveActivityId}
             registrationOpenAt={event.registrationOpenAt}
             registrationCloseAt={event.registrationCloseAt}
-            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.id}`}
+            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.publicId}`}
             onShareCopied={() => alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")}
             backHref="/organizer"
             showActivityImage

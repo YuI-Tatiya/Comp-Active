@@ -33,7 +33,7 @@ interface EventsBrowserProps {
     prompt: string
     subtitle: string
     /** ลิงก์ของการ์ด — ต้องเป็นค่าคงที่ระดับโมดูล (ใช้เป็น dependency ของ useMemo) */
-    hrefs: { event: (id: number) => string; activity: (id: number) => string }
+    hrefs: { event: (id: string) => string; activity: (id: string) => string }
 }
 
 function EventsHero({

@@ -191,7 +191,7 @@ function eventSeatsLeft(ev: EventSummary): number | null {
 export function buildFeaturedCards(
     events: EventSummary[],
     standalone: Activity[],
-    hrefFor: { event: (id: number) => string; activity: (id: number) => string }
+    hrefFor: { event: (publicId: string) => string; activity: (publicId: string) => string }
 ): FeaturedCardItem[] {
     const fromEvents = events.map((ev): FeaturedCardItem => {
         return {
@@ -207,7 +207,7 @@ export function buildFeaturedCards(
             createdAt: new Date(ev.createdAt).getTime(),
             seats: eventSeatsLeft(ev),
             hasCert: ev.activities.some((a) => !!a.volunteerRole),
-            href: hrefFor.event(ev.id),
+            href: hrefFor.event(ev.publicId ?? ""),
             registrationOpenAt: ev.registrationOpenAt ?? null,
             registrationCloseAt: ev.registrationCloseAt ?? null,
         }
@@ -222,7 +222,7 @@ export function buildFeaturedCards(
                 key: `activity-${a.id}`,
                 imageUrl: a.imageUrl || null,
                 description: a.description,
-                href: hrefFor.activity(a.id),
+                href: hrefFor.activity(a.publicId ?? ""),
                 // กิจกรรมเดี่ยว = วันเดียว (endDate เท่ากับ sortDate) และไม่มีช่วงรับสมัครในสคีมา
                 endDate: fields.sortDate,
                 registrationOpenAt: null,

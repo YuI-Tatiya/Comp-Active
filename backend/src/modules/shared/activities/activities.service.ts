@@ -111,16 +111,27 @@ export class ActivitiesService {
     return visible.map((a: any) => toPublicActivity(a));
   }
 
+  /** แปลง publicId (จาก URL) เป็น id ตัวเลขภายใน — ไม่เจอ = throw NotFoundException เดียวกับที่ใช้ตอนไม่พบกิจกรรมทุกจุด */
+  private async resolveId(publicId: string): Promise<number> {
+    const id = await this.activitiesRepository.findIdByPublicId(publicId);
+    if (id === null) throw new NotFoundException('ไม่พบกิจกรรม');
+    return id;
+  }
+
   /**
    * GET /api/activities/:id (สาธารณะ) — เช็คทั้ง restricted และการเผยแพร่ของงานแม่ (canViewerSeeEvent):
    * งานที่ไม่เผยแพร่เห็นได้เฉพาะเจ้าของ (ดูตัวอย่าง) และแอดมิน — 404 เดียวกันทั้งไม่พบจริงและไม่มีสิทธิ์เห็น
    * แยกจาก findById ที่เมธอดภายใน (update/ลบ/เปลี่ยนสถานะ ฯลฯ) เรียกใช้ เพราะพวกนั้นเช็คความเป็นเจ้าของเองอยู่แล้ว
    * ผู้จัดต้องจัดการกิจกรรมของงานที่ตัวเองปิดการเผยแพร่ได้ตามปกติ
+   *
+   * publicId ไม่เจอ ก็ถือเป็น "ไม่พบ" เหมือนกรณีอื่น (ไม่ throw แยกจาก resolveId — กันข้อความ error
+   * หลุดบอกว่า publicId รูปแบบถูกไหม เอนด์พอยท์นี้ไม่มี auth เลย)
    */
-  async findByIdPublic(id: number, viewer: Viewer | null) {
-    const activity = await this.activitiesRepository.findById(id);
+  async findByIdPublic(publicId: string, viewer: Viewer | null) {
+    const id = await this.activitiesRepository.findIdByPublicId(publicId);
+    const activity = id !== null ? await this.activitiesRepository.findById(id) : null;
     if (!activity || !canViewerSeeEvent(viewer, (activity as any).event)) {
-      throw new NotFoundException(`ไม่พบกิจกรรม ID: ${id}`);
+      throw new NotFoundException('ไม่พบกิจกรรม');
     }
     return toPublicActivity(activity);
   }
@@ -139,10 +150,11 @@ export class ActivitiesService {
   }
 
   /** รายละเอียดเต็ม (รวมรายชื่อผู้ลงทะเบียน+คำตอบตอนลงทะเบียน) — เฉพาะ organizer เจ้าของกิจกรรม/admin */
-  async findByIdForOrganizer(id: number, callerId: number, callerRole: UserRole) {
+  async findByIdForOrganizer(publicId: string, callerId: number, callerRole: UserRole) {
+    const id = await this.resolveId(publicId);
     const activity = await this.activitiesRepository.findByIdForOrganizer(id);
 
-    if (!activity) throw new NotFoundException(`ไม่พบกิจกรรม ID: ${id}`);
+    if (!activity) throw new NotFoundException('ไม่พบกิจกรรม');
     if (callerRole !== UserRole.ADMIN && (activity as any).organizerId !== callerId) {
       throw new ForbiddenException('คุณไม่มีสิทธิ์ดูข้อมูลกิจกรรมนี้');
     }
@@ -175,7 +187,8 @@ export class ActivitiesService {
     return activities.map(({ _count, ...a }: any) => ({ ...a, registeredCount: _count.registrations }));
   }
 
-  async update(activityId: number, userId: number, userRole: UserRole, updateDto: UpdateActivityDto) {
+  async update(publicId: string, userId: number, userRole: UserRole, updateDto: UpdateActivityDto) {
+    const activityId = await this.resolveId(publicId);
     const activity = await this.findById(activityId);
 
     if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
@@ -241,7 +254,8 @@ export class ActivitiesService {
     return updated;
   }
 
-  async delete(activityId: number, userId: number, userRole: UserRole) {
+  async delete(publicId: string, userId: number, userRole: UserRole) {
+    const activityId = await this.resolveId(publicId);
     const activity = await this.findById(activityId);
 
     if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
@@ -256,7 +270,8 @@ export class ActivitiesService {
   }
 
   /** คัดลอกกิจกรรมเดี่ยวทั้งใบเป็นแถวใหม่ (ไม่คัดลอกผู้ลงทะเบียน) — ตั้งชื่อต่อท้ายด้วย "(สำเนา)" */
-  async duplicate(activityId: number, userId: number, userRole: UserRole) {
+  async duplicate(publicId: string, userId: number, userRole: UserRole) {
+    const activityId = await this.resolveId(publicId);
     const activity = await this.findById(activityId);
 
     if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
@@ -265,7 +280,7 @@ export class ActivitiesService {
 
     // organizerId ของสำเนาเป็นของผู้ที่กดคัดลอก ไม่ใช่เจ้าของเดิมเสมอไป (แอดมินคัดลอกแทนผู้จัดได้)
     const copy = await this.activitiesRepository.duplicate(activityId, userId);
-    if (!copy) throw new NotFoundException(`ไม่พบกิจกรรม ID: ${activityId}`);
+    if (!copy) throw new NotFoundException('ไม่พบกิจกรรม');
 
     this.logger.log(`Activity duplicated: "${activity.name}" (ID: ${activityId}) → new ID ${copy.id}`);
     const { _count, ...rest } = copy as any;
@@ -276,7 +291,8 @@ export class ActivitiesService {
    * เปิด/ปิดรับสมัครชั่วคราว — ย้อนกลับได้ คนละอย่างกับ markCompleted (จบถาวร) หรือ
    * requestCancellation (ยกเลิกถาวร ต้องมีเหตุผล แจ้งอีเมลผู้ลงทะเบียน)
    */
-  async setStatus(activityId: number, userId: number, userRole: UserRole, status: 'open' | 'closed') {
+  async setStatus(publicId: string, userId: number, userRole: UserRole, status: 'open' | 'closed') {
+    const activityId = await this.resolveId(publicId);
     const activity = await this.findById(activityId);
 
     if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
@@ -290,7 +306,8 @@ export class ActivitiesService {
   }
 
   /** โทเค็นปัจจุบันสำหรับ QR เช็คอิน — คำนวณสดทุกครั้ง ไม่ผูกกับว่าเปิดสวิตช์ไว้หรือไม่ (ฝั่งแสดงผลเป็นผู้ตัดสินว่าจะโชว์ QR ไหม) */
-  async getCheckInSession(activityId: number, userId: number, userRole: UserRole) {
+  async getCheckInSession(publicId: string, userId: number, userRole: UserRole) {
+    const activityId = await this.resolveId(publicId);
     const activity = await this.findById(activityId);
     if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
       throw new ForbiddenException('คุณไม่มีสิทธิ์ดูการเช็คอินของกิจกรรมนี้');
@@ -305,7 +322,8 @@ export class ActivitiesService {
    * เปิด/ปิดการเช็คอินด้วยตัวเองผ่าน QR — ปิดแล้ว QR ที่หน้างานใช้เช็คอินไม่ได้ทันที (เช็คที่ checkInSelf)
    * ไม่ให้เปิดถ้ากิจกรรมจบไปแล้ว (เปิดเช็คอินกิจกรรมที่จบแล้วไม่มีความหมาย)
    */
-  async setSelfCheckIn(activityId: number, userId: number, userRole: UserRole, enabled: boolean) {
+  async setSelfCheckIn(publicId: string, userId: number, userRole: UserRole, enabled: boolean) {
+    const activityId = await this.resolveId(publicId);
     const activity = await this.findById(activityId);
     if (userRole !== UserRole.ADMIN && activity.organizerId !== userId) {
       throw new ForbiddenException('คุณไม่มีสิทธิ์แก้ไขการเช็คอินของกิจกรรมนี้');
@@ -330,7 +348,8 @@ export class ActivitiesService {
    * ปิดกิจกรรมว่า "จบแล้ว" — ปลดล็อกให้นักศึกษาทำแบบสำรวจ และหยุดรับสมัคร
    * ต้องเลยเวลาสิ้นสุดจริงก่อน ไม่งั้นผู้จัดจะจบกิจกรรมที่ยังไม่ได้จัดได้
    */
-  async markCompleted(activityId: number, organizerId: number, callerRole: UserRole) {
+  async markCompleted(publicId: string, organizerId: number, callerRole: UserRole) {
+    const activityId = await this.resolveId(publicId);
     const activity = await this.findById(activityId);
 
     if (callerRole !== UserRole.ADMIN && activity.organizerId !== organizerId) {
@@ -418,7 +437,8 @@ export class ActivitiesService {
     }
   }
 
-  async requestCancellation(activityId: number, organizerId: number, reason: string) {
+  async requestCancellation(publicId: string, organizerId: number, reason: string) {
+    const activityId = await this.resolveId(publicId);
     const activity = await this.findById(activityId);
 
     if (activity.organizerId !== organizerId) {
@@ -483,7 +503,8 @@ export class ActivitiesService {
    * ใบเดียวใช้ร่วมกันทุกกิจกรรมย่อย จึงคืนผลของ "งานแม่" ทั้งก้อน (รวมผู้ตอบจากทุกกิจกรรมย่อย)
    * ไม่ใช่คืนค่าว่างเปล่าเหมือนเดิม
    */
-  async getSurveyResults(activityId: number, callerId: number, callerRole: UserRole) {
+  async getSurveyResults(publicId: string, callerId: number, callerRole: UserRole) {
+    const activityId = await this.resolveId(publicId);
     const activity = await this.activitiesRepository.findByIdWithSurveyAnswers(activityId);
 
     if (!activity) throw new NotFoundException('ไม่พบกิจกรรม');

@@ -115,7 +115,7 @@ function activityToFormState(a: EventSummary["activities"][number]): ActivityFor
 export default function EditEventPage() {
     const router = useRouter()
     const params = useParams()
-    const eventId = Number(params?.id)
+    const eventId = String(params?.id ?? "")
 
     const [step, setStep] = useState(1)
     const [loadingData, setLoadingData] = useState(true)
@@ -130,7 +130,7 @@ export default function EditEventPage() {
     const [activityErrors, setActivityErrors] = useState<Record<string, ActivityFormErrors>>({})
 
     useEffect(() => {
-        if (!eventId || Number.isNaN(eventId)) return
+        if (!eventId) return
         eventsAPI
             .getById(eventId)
             .then((data) => {

@@ -83,7 +83,7 @@ function toRow(a: Activity<Registration>): ActivityRowData {
         statusText: STATUS_TEXT[a.status] ?? a.status,
         pendingConfirm: a.registrations?.filter((r) => r.status === "pending").length ?? 0,
         pendingEval: a.registrations?.filter((r) => r.attendance === "attended" && !r.evaluation).length ?? 0,
-        href: `/organizer/activities/${a.id}/dashboard`,
+        href: `/organizer/activities/${a.publicId}/dashboard`,
     }
 }
 

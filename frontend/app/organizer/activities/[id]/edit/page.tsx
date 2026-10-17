@@ -61,7 +61,7 @@ const suggestedTags = ["Programming", "Web Development", "AI", "Machine Learning
 export default function EditActivityPage() {
     const router = useRouter()
     const params = useParams()
-    const id = Number(params?.id)
+    const id = String(params?.id ?? "")
     const [step, setStep] = useState(1)
     const [formData, setFormData] = useState<ActivityFormData>(initialData)
     const [loadingData, setLoadingData] = useState(true)
@@ -74,7 +74,7 @@ export default function EditActivityPage() {
     const [imagePreview, setImagePreview] = useState<string | null>(null)
 
     useEffect(() => {
-        if (!id || isNaN(id)) return;
+        if (!id) return;
 
         const fetchActivity = async () => {
             try {

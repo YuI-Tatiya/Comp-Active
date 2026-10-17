@@ -527,7 +527,7 @@ export function ActivityParticipantManager({
                         <div className="space-y-6">
                             <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
                                 <div className={cn(DASHBOARD_CARD, "p-0 sm:p-0")}>
-                                    <ActivityCheckinQr activityId={activity.id} completed={activity.status === "completed"} />
+                                    <ActivityCheckinQr activityId={activity.publicId ?? ""} completed={activity.status === "completed"} />
                                 </div>
 
                                 <div className="space-y-6">

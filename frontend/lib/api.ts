@@ -70,7 +70,13 @@ export interface ActivityQuestion {
 
 export interface Activity<T = unknown> {
   id: number;
+  /** ใช้แทน id ตรงๆ ใน URL สาธารณะทุกจุด (เดาเลขถัดไปแล้วเปิดกิจกรรมคนอื่นไม่ได้) — id เดิมยังใช้ภายใน
+   * (เช่น ยิง API ที่ยังเป็นเลขภายในบางจุด) อาจเป็น undefined ชั่วคราวระหว่างแถวยังไม่ทัน backfill */
+  publicId?: string;
   eventId?: number | null;
+  /** เฉพาะกิจกรรมย่อยของงาน (eventId ไม่ null) — publicId ของงานแม่ ใช้สร้างลิงก์ไปหน้าแก้ไขงาน
+   * (/organizer/manage/:publicId/edit) เพราะ eventId (เลขภายใน) ใช้สร้าง URL ไม่ได้แล้ว */
+  event?: { publicId?: string } | null;
   name: string;
   /** เลือกได้มากกว่า 1 หมวดหมู่ */
   categories: string[];
@@ -301,40 +307,40 @@ export const activitiesAPI = {
     const query = new URLSearchParams(params as Record<string, string>).toString();
     return fetchAPI<Activity[]>(`/api/activities${query ? `?${query}` : ''}`);
   },
-  getById: (id: number) => fetchAPI<Activity>(`/api/activities/${id}`),
+  getById: (publicId: string) => fetchAPI<Activity>(`/api/activities/${publicId}`),
   /** เจ้าของกิจกรรม/admin เท่านั้น — ต่างจาก getById (public) ตรงที่มีรายชื่อผู้ลงทะเบียนพร้อมคำตอบตอนลงทะเบียนแนบมาด้วย */
-  getByIdForOrganizer: (id: number) => fetchAPI<Activity>(`/api/activities/my/${id}`),
+  getByIdForOrganizer: (publicId: string) => fetchAPI<Activity>(`/api/activities/my/${publicId}`),
   create: (body: unknown) => fetchAPI<Activity>('/api/activities', { method: 'POST', body: JSON.stringify(body) }),
-  update: (id: number, body: unknown) =>
-    fetchAPI<Activity>(`/api/activities/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
-  delete: (id: number) => fetchAPI<void>(`/api/activities/${id}`, { method: 'DELETE' }),
+  update: (publicId: string, body: unknown) =>
+    fetchAPI<Activity>(`/api/activities/${publicId}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  delete: (publicId: string) => fetchAPI<void>(`/api/activities/${publicId}`, { method: 'DELETE' }),
   getMy: () => fetchAPI<Activity[]>('/api/activities/my'),
-  requestCancel: (id: number, reason: string) =>
-    fetchAPI<void>(`/api/activities/${id}/request-cancel`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  requestCancel: (publicId: string, reason: string) =>
+    fetchAPI<void>(`/api/activities/${publicId}/request-cancel`, { method: 'POST', body: JSON.stringify({ reason }) }),
   /** จบกิจกรรม — ทำได้เฉพาะเมื่อเลยเวลาสิ้นสุดแล้ว (backend บังคับ) */
-  markCompleted: (id: number) =>
-    fetchAPI<Activity>(`/api/activities/${id}/complete`, { method: 'PATCH' }),
+  markCompleted: (publicId: string) =>
+    fetchAPI<Activity>(`/api/activities/${publicId}/complete`, { method: 'PATCH' }),
   /** คัดลอกกิจกรรมทั้งใบเป็นกิจกรรมใหม่ (ชื่อต่อท้ายด้วย "(สำเนา)") — ไม่คัดลอกผู้ลงทะเบียน */
-  duplicate: (id: number) => fetchAPI<Activity>(`/api/activities/${id}/duplicate`, { method: 'POST' }),
+  duplicate: (publicId: string) => fetchAPI<Activity>(`/api/activities/${publicId}/duplicate`, { method: 'POST' }),
   /** เปิด/ปิดรับสมัครชั่วคราว — ย้อนกลับได้ คนละอย่างกับ markCompleted/requestCancel ที่เป็นถาวร */
-  setStatus: (id: number, status: 'open' | 'closed') =>
-    fetchAPI<Activity>(`/api/activities/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  setStatus: (publicId: string, status: 'open' | 'closed') =>
+    fetchAPI<Activity>(`/api/activities/${publicId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   /**
    * โทเค็น QR เช็คอินปัจจุบัน + สถานะเปิด/ปิด — เรียกตอนเปิดแท็บคิวอาร์โค้ด และเรียกซ้ำเมื่อ token ใกล้หมดอายุ
    * (คืน token ใหม่แม้ตอนนี้ปิดอยู่ ไว้แสดงพร้อมทันทีถ้าเปิดสวิตช์)
    */
-  getCheckInSession: (id: number) =>
-    fetchAPI<CheckInSessionResult>(`/api/activities/${id}/self-checkin`),
+  getCheckInSession: (publicId: string) =>
+    fetchAPI<CheckInSessionResult>(`/api/activities/${publicId}/self-checkin`),
   /** เปิด/ปิดการเช็คอินด้วยตนเองผ่าน QR — ปิดแล้วนักศึกษาสแกนไม่ติดจนกว่าจะเปิดใหม่ */
-  setSelfCheckIn: (id: number, enabled: boolean) =>
-    fetchAPI<CheckInSessionResult>(`/api/activities/${id}/self-checkin`, {
+  setSelfCheckIn: (publicId: string, enabled: boolean) =>
+    fetchAPI<CheckInSessionResult>(`/api/activities/${publicId}/self-checkin`, {
       method: 'PATCH',
       body: JSON.stringify({ enabled }),
     }),
   getPlatformStats: () => fetchAPI<PlatformStats>('/api/activities/stats/platform'),
   getOrganizerStats: () => fetchAPI<OrganizerStats>('/api/activities/stats/organizer'),
   /** ผลสรุปแบบสำรวจของกิจกรรมเดี่ยว — โครงสร้างตรงกับ eventsAPI.getSurveyResults */
-  getSurveyResults: (id: number) => fetchAPI<EventSurveyResultsResponse>(`/api/activities/${id}/survey-results`),
+  getSurveyResults: (publicId: string) => fetchAPI<EventSurveyResultsResponse>(`/api/activities/${publicId}/survey-results`),
   uploadImage: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -460,6 +466,8 @@ export interface EventSurveyResultsResponse {
 
 export interface EventSummary {
   id: number;
+  /** ใช้แทน id ตรงๆ ใน URL สาธารณะทุกจุด — ดูหมายเหตุเดียวกันที่ Activity.publicId */
+  publicId?: string;
   organizerId: number;
   name: string;
   description: string;
@@ -486,20 +494,20 @@ export const eventsAPI = {
   create: (body: CreateEventBody) =>
     fetchAPI<EventSummary>('/api/events', { method: 'POST', body: JSON.stringify(body) }),
   getMy: () => fetchAPI<EventSummary[]>('/api/events/my'),
-  getById: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}`),
-  update: (id: number, body: Partial<CreateEventBody> & { activities: (CreateEventActivityBody & { id?: number })[] }) =>
-    fetchAPI<EventSummary>(`/api/events/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
-  setPublic: (id: number, isPublic: boolean) =>
-    fetchAPI<{ id: number; isPublic: boolean }>(`/api/events/${id}/publish`, {
+  getById: (publicId: string) => fetchAPI<EventSummary>(`/api/events/${publicId}`),
+  update: (publicId: string, body: Partial<CreateEventBody> & { activities: (CreateEventActivityBody & { id?: number })[] }) =>
+    fetchAPI<EventSummary>(`/api/events/${publicId}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  setPublic: (publicId: string, isPublic: boolean) =>
+    fetchAPI<{ id: number; isPublic: boolean }>(`/api/events/${publicId}/publish`, {
       method: 'PATCH',
       body: JSON.stringify({ isPublic }),
     }),
-  delete: (id: number) => fetchAPI<void>(`/api/events/${id}`, { method: 'DELETE' }),
+  delete: (publicId: string) => fetchAPI<void>(`/api/events/${publicId}`, { method: 'DELETE' }),
   /** คัดลอกงานทั้งงานพร้อมกิจกรรมย่อยเป็นงานใหม่ (ชื่อต่อท้ายด้วย "(สำเนา)", ไม่เผยแพร่อัตโนมัติ) — ไม่คัดลอกผู้ลงทะเบียน */
-  duplicate: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}/duplicate`, { method: 'POST' }),
+  duplicate: (publicId: string) => fetchAPI<EventSummary>(`/api/events/${publicId}/duplicate`, { method: 'POST' }),
   /** เปิด/ปิดรับสมัครกิจกรรมย่อยทั้งหมดในงานนี้พร้อมกันชั่วคราว — ย้อนกลับได้ คนละอย่างกับ setPublic */
-  setActivitiesStatus: (id: number, status: 'open' | 'closed') =>
-    fetchAPI<{ count: number }>(`/api/events/${id}/activities-status`, {
+  setActivitiesStatus: (publicId: string, status: 'open' | 'closed') =>
+    fetchAPI<{ count: number }>(`/api/events/${publicId}/activities-status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     }),
@@ -509,8 +517,8 @@ export const eventsAPI = {
     fetchAPI<EventDraftResponse>('/api/events/draft', { method: 'PUT', body: JSON.stringify({ payload }) }),
   clearDraft: () => fetchAPI<void>('/api/events/draft', { method: 'DELETE' }),
   getAllPublic: () => fetchAPI<EventSummary[]>('/api/events'),
-  getPublicById: (id: number) => fetchAPI<EventSummary>(`/api/events/${id}/public`),
-  getSurveyResults: (id: number) => fetchAPI<EventSurveyResultsResponse>(`/api/events/${id}/survey-results`),
+  getPublicById: (publicId: string) => fetchAPI<EventSummary>(`/api/events/${publicId}/public`),
+  getSurveyResults: (publicId: string) => fetchAPI<EventSurveyResultsResponse>(`/api/events/${publicId}/survey-results`),
   uploadAttachment: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);

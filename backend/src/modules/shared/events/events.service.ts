@@ -138,7 +138,15 @@ export class EventsService {
     return this.mapRegisteredCount(event);
   }
 
-  async update(organizerId: number, callerRole: UserRole, eventId: number, dto: UpdateEventDto) {
+  /** แปลง publicId (จาก URL) เป็น id ตัวเลขภายใน — ไม่เจอ = throw NotFoundException เดียวกับที่ใช้ตอนไม่พบงานทุกจุด */
+  private async resolveId(publicId: string): Promise<number> {
+    const id = await this.eventsRepository.findIdByPublicId(publicId);
+    if (id === null) throw new NotFoundException('ไม่พบงาน');
+    return id;
+  }
+
+  async update(organizerId: number, callerRole: UserRole, publicId: string, dto: UpdateEventDto) {
+    const eventId = await this.resolveId(publicId);
     const event = await this.eventsRepository.findById(eventId);
     if (!event) throw new NotFoundException('ไม่พบงาน');
     if (callerRole !== UserRole.ADMIN && event.organizerId !== organizerId) {
@@ -248,7 +256,8 @@ export class EventsService {
   }
 
   /** สลับสถานะเผยแพร่ของงาน — แยกจาก update() เพราะ update() ต้องส่ง activities ทั้งชุดมาด้วยเสมอ */
-  async setPublic(organizerId: number, callerRole: UserRole, eventId: number, isPublic: boolean) {
+  async setPublic(organizerId: number, callerRole: UserRole, publicId: string, isPublic: boolean) {
+    const eventId = await this.resolveId(publicId);
     const event = await this.eventsRepository.findById(eventId);
     if (!event) throw new NotFoundException('ไม่พบงาน');
     if (callerRole !== UserRole.ADMIN && (event as any).organizerId !== organizerId) {
@@ -261,7 +270,8 @@ export class EventsService {
   }
 
   /** เปิด/ปิดรับสมัครกิจกรรมย่อยทั้งหมดในงานนี้พร้อมกันชั่วคราว — ย้อนกลับได้ */
-  async setActivitiesStatus(organizerId: number, callerRole: UserRole, eventId: number, status: 'open' | 'closed') {
+  async setActivitiesStatus(organizerId: number, callerRole: UserRole, publicId: string, status: 'open' | 'closed') {
+    const eventId = await this.resolveId(publicId);
     const event = await this.eventsRepository.findById(eventId);
     if (!event) throw new NotFoundException('ไม่พบงาน');
     if (callerRole !== UserRole.ADMIN && (event as any).organizerId !== organizerId) {
@@ -274,7 +284,8 @@ export class EventsService {
   }
 
   /** ลบงานทั้งงานพร้อมกิจกรรมย่อย — บล็อกถ้ามีกิจกรรมย่อยตัวใดตัวหนึ่งมีผู้ลงทะเบียนแล้ว */
-  async delete(organizerId: number, callerRole: UserRole, eventId: number) {
+  async delete(organizerId: number, callerRole: UserRole, publicId: string) {
+    const eventId = await this.resolveId(publicId);
     const event = await this.eventsRepository.findById(eventId);
     if (!event) throw new NotFoundException('ไม่พบงาน');
     if (callerRole !== UserRole.ADMIN && (event as any).organizerId !== organizerId) {
@@ -291,7 +302,8 @@ export class EventsService {
   }
 
   /** คัดลอกงานทั้งงานพร้อมกิจกรรมย่อยทุกตัวเป็นงานใหม่ (ไม่เผยแพร่, ไม่คัดลอกผู้ลงทะเบียน) */
-  async duplicate(organizerId: number, callerRole: UserRole, eventId: number) {
+  async duplicate(organizerId: number, callerRole: UserRole, publicId: string) {
+    const eventId = await this.resolveId(publicId);
     const event = await this.eventsRepository.findById(eventId);
     if (!event) throw new NotFoundException('ไม่พบงาน');
     if (callerRole !== UserRole.ADMIN && (event as any).organizerId !== organizerId) {
@@ -312,7 +324,8 @@ export class EventsService {
   }
 
   /** เส้นทาง organizer/admin authenticated แล้ว — ตรวจสิทธิ์ความเป็นเจ้าของก่อนคืนข้อมูลเต็ม */
-  async findByIdForOrganizer(id: number, callerId: number, callerRole: UserRole) {
+  async findByIdForOrganizer(publicId: string, callerId: number, callerRole: UserRole) {
+    const id = await this.resolveId(publicId);
     const event = await this.eventsRepository.findById(id);
     if (!event) throw new NotFoundException('ไม่พบงาน');
     if (callerRole !== UserRole.ADMIN && (event as any).organizerId !== callerId) {
@@ -332,14 +345,20 @@ export class EventsService {
     return events.filter((e: any) => canViewerSeeEvent(viewer, e as any)).map((e: any) => this.toPublicEvent(e));
   }
 
-  async findByIdPublic(id: number, viewer: Viewer | null) {
-    const event = await this.eventsRepository.findByIdPublicSafe(id);
+  async findByIdPublic(publicId: string, viewer: Viewer | null) {
+    // เส้นทาง publicId ไม่เจอ ก็ถือเป็น "ไม่พบ" เหมือนกรณีอื่นทั้งหมดด้านล่าง (event = null ไหลต่อตามปกติ)
+    // ไม่ throw แยกที่นี่ — กันข้อความ error หลุดบอกว่า publicId รูปแบบถูกไหม (ไม่ใช่ fail-closed เท่ากัน)
+    const id = await this.eventsRepository.findIdByPublicId(publicId);
+    const event = id !== null ? await this.eventsRepository.findByIdPublicSafe(id) : null;
     const hasApprovedActivity = (event as any)?.activities?.some(
       (a: any) => a.approvalStatus === ApprovalStatus.APPROVED,
     );
     // ให้ error เดียวกับ "ไม่พบ" เสมอ ไม่ว่าจะไม่มีจริงๆ, ไม่มีกิจกรรมย่อยที่อนุมัติแล้ว, ไม่เผยแพร่, หรือมีแต่ไม่มีสิทธิ์เห็น
     if (!event || !hasApprovedActivity || !canViewerSeeEvent(viewer, event as any)) {
-      throw new NotFoundException(`ไม่พบงาน ID: ${id}`);
+      // ไม่ใส่ id/publicId ต่อท้ายเหมือนเดิมอีกต่อไป — endpoint นี้ไม่มี auth เลย ข้อความ error ไม่ควร
+      // ยืนยัน/ปฏิเสธรูปแบบใดๆ ของค่าที่ส่งมา (เดิม echo กลับเป็นเลข id ตรงๆ ซึ่งไม่เป็นปัญหา แต่เปลี่ยนมาเป็น
+      // publicId ตรงๆ ก็ไม่มีประโยชน์เพิ่ม ตัดทิ้งง่ายกว่า)
+      throw new NotFoundException('ไม่พบงาน');
     }
     return this.toPublicEvent(event);
   }
@@ -370,7 +389,8 @@ export class EventsService {
     };
   }
 
-  async getSurveyResults(eventId: number, callerId: number, callerRole: UserRole) {
+  async getSurveyResults(publicId: string, callerId: number, callerRole: UserRole) {
+    const eventId = await this.resolveId(publicId);
     const event = await this.eventsRepository.findByIdWithSurveyAnswers(eventId);
 
     if (!event) throw new NotFoundException('ไม่พบงาน');

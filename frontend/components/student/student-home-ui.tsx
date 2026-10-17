@@ -26,6 +26,7 @@ export interface HomeRegistration extends UpcomingCandidate {
     id: number
     activity: UpcomingCandidate["activity"] & {
         id: number
+        publicId?: string
         name: string
         location: string
         categories?: string[]
@@ -126,7 +127,7 @@ export function UpcomingCard({ reg, now }: { reg: HomeRegistration; now: Date })
 
     return (
         <Link
-            href={`/student/activities/${a.id}`}
+            href={`/student/activities/${a.publicId}`}
             className="group flex min-w-0 overflow-hidden rounded-[18px] border border-denim-line bg-white transition-[border-color,box-shadow] hover:border-denim-dash hover:shadow-[0_14px_28px_-20px_rgb(18_34_61/0.5)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
         >
             <div

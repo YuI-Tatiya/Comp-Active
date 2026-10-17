@@ -236,8 +236,8 @@ function matchesStatusFilter(bucket: StatusBucket, filterValue: string): boolean
 const DEFAULT_STATUS = ""
 
 type DeleteTarget =
-    | { kind: "event"; id: number; name: string }
-    | { kind: "activity"; id: number; name: string }
+    | { kind: "event"; id: string; name: string }
+    | { kind: "activity"; id: string; name: string }
     | { kind: "draft"; name: string }
 
 /**
@@ -386,46 +386,51 @@ export default function OrganizerManagePage() {
     }
 
     async function closeEventTemporarily(ev: EventSummary) {
-        await eventsAPI.setActivitiesStatus(ev.id, "closed")
+        if (!ev.publicId) return
+        await eventsAPI.setActivitiesStatus(ev.publicId, "closed")
         showToast("ปิดรับสมัครชั่วคราวแล้ว", `"${ev.name}" จะไม่แสดงปุ่มลงทะเบียนให้นักศึกษาจนกว่าจะเปิดอีกครั้ง`)
         loadData()
     }
 
     async function unpublishEventPermanently(ev: EventSummary) {
-        await eventsAPI.setPublic(ev.id, false)
+        if (!ev.publicId) return
+        await eventsAPI.setPublic(ev.publicId, false)
         showToast("ปิดการใช้งานถาวรแล้ว", `"${ev.name}" จะไม่แสดงให้นักศึกษาเห็นอีก จนกว่าจะเผยแพร่ใหม่ด้วยตัวเอง`)
         loadData()
     }
 
     /** "เปิด" แก้ทั้งสถานะรับสมัครและการเผยแพร่พร้อมกันเสมอ — ไม่ว่าเดิมถูกปิดมาด้วยวิธีไหน กลับมาเปิดปกติทั้งหมด */
     async function reopenEvent(ev: EventSummary) {
+        if (!ev.publicId) return
         await Promise.all([
-            eventsAPI.setActivitiesStatus(ev.id, "open"),
-            ev.isPublic ? Promise.resolve() : eventsAPI.setPublic(ev.id, true),
+            eventsAPI.setActivitiesStatus(ev.publicId, "open"),
+            ev.isPublic ? Promise.resolve() : eventsAPI.setPublic(ev.publicId, true),
         ])
         showToast("เปิดกิจกรรมแล้ว", `"${ev.name}" กลับมาเปิดรับสมัครตามปกติ`)
         loadData()
     }
 
     async function closeActivityTemporarily(a: Activity) {
-        await activitiesAPI.setStatus(a.id, "closed")
+        if (!a.publicId) return
+        await activitiesAPI.setStatus(a.publicId, "closed")
         showToast("ปิดรับสมัครชั่วคราวแล้ว", `"${a.name}" จะไม่แสดงปุ่มลงทะเบียนให้นักศึกษาจนกว่าจะเปิดอีกครั้ง`)
         loadData()
     }
 
     async function reopenActivity(a: Activity) {
-        await activitiesAPI.setStatus(a.id, "open")
+        if (!a.publicId) return
+        await activitiesAPI.setStatus(a.publicId, "open")
         showToast("เปิดกิจกรรมแล้ว", `"${a.name}" กลับมาเปิดรับสมัครตามปกติ`)
         loadData()
     }
 
     function shareEvent(ev: EventSummary) {
-        navigator.clipboard.writeText(`${window.location.origin}/events/${ev.id}`)
+        navigator.clipboard.writeText(`${window.location.origin}/events/${ev.publicId}`)
         showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")
     }
 
     function shareActivity(a: Activity) {
-        navigator.clipboard.writeText(`${window.location.origin}/events/activities/${a.id}`)
+        navigator.clipboard.writeText(`${window.location.origin}/events/activities/${a.publicId}`)
         showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")
     }
 
@@ -535,7 +540,7 @@ export default function OrganizerManagePage() {
             {
                 label: "แก้ไขกิจกรรม",
                 icon: Pencil,
-                onClick: () => router.push(`/organizer/manage/${ev.id}/edit`),
+                onClick: () => router.push(`/organizer/manage/${ev.publicId}/edit`),
             },
             {
                 label: "แก้สถานะกิจกรรม",
@@ -545,12 +550,12 @@ export default function OrganizerManagePage() {
             {
                 label: "ดูรายละเอียดกิจกรรมเพิ่มเติม",
                 icon: ClipboardList,
-                onClick: () => router.push(`/organizer/events/${ev.id}`),
+                onClick: () => router.push(`/organizer/events/${ev.publicId}`),
             },
             {
                 label: "ดูตัวอย่าง",
                 icon: Eye,
-                onClick: () => window.open(`/events/${ev.id}`, "_blank", "noopener,noreferrer"),
+                onClick: () => window.open(`/events/${ev.publicId}`, "_blank", "noopener,noreferrer"),
             },
             {
                 label: "แชร์กิจกรรม",
@@ -562,7 +567,7 @@ export default function OrganizerManagePage() {
                 icon: Trash2,
                 tone: "danger",
                 disabled: eventHasRegistrations(ev),
-                onClick: () => setDeleteTarget({ kind: "event", id: ev.id, name: ev.name }),
+                onClick: () => ev.publicId && setDeleteTarget({ kind: "event", id: ev.publicId, name: ev.name }),
             },
         ]
     }
@@ -572,7 +577,7 @@ export default function OrganizerManagePage() {
             {
                 label: "แก้ไขกิจกรรม",
                 icon: Pencil,
-                onClick: () => router.push(`/organizer/activities/${a.id}/edit`),
+                onClick: () => router.push(`/organizer/activities/${a.publicId}/edit`),
             },
             {
                 label: "แก้สถานะกิจกรรม",
@@ -582,12 +587,12 @@ export default function OrganizerManagePage() {
             {
                 label: "ดูรายละเอียดกิจกรรมเพิ่มเติม",
                 icon: ClipboardList,
-                onClick: () => router.push(`/organizer/activities/${a.id}`),
+                onClick: () => router.push(`/organizer/activities/${a.publicId}`),
             },
             {
                 label: "ดูตัวอย่าง",
                 icon: Eye,
-                onClick: () => window.open(`/events/activities/${a.id}`, "_blank", "noopener,noreferrer"),
+                onClick: () => window.open(`/events/activities/${a.publicId}`, "_blank", "noopener,noreferrer"),
             },
             {
                 label: "แชร์กิจกรรม",
@@ -599,7 +604,7 @@ export default function OrganizerManagePage() {
                 icon: Trash2,
                 tone: "danger",
                 disabled: (a.registeredCount ?? 0) > 0,
-                onClick: () => setDeleteTarget({ kind: "activity", id: a.id, name: a.name }),
+                onClick: () => a.publicId && setDeleteTarget({ kind: "activity", id: a.publicId, name: a.name }),
             },
         ]
     }
@@ -732,7 +737,7 @@ export default function OrganizerManagePage() {
                                             { label: "DATE", value: formatCompactDateSpan(earliestDate(ev), latestDate(ev)) },
                                             registeredStat(ev.activities),
                                         ]}
-                                        action={{ href: `/organizer/events/${ev.id}`, label: "รายละเอียดเพิ่มเติม", icon: ClipboardList }}
+                                        action={{ href: `/organizer/events/${ev.publicId}`, label: "รายละเอียดเพิ่มเติม", icon: ClipboardList }}
                                         menu={
                                             <ActionMenu
                                                 items={eventMenuItems(ev)}
@@ -767,7 +772,7 @@ export default function OrganizerManagePage() {
                                                 registeredStat([a]),
                                             ]}
                                             action={{
-                                                href: `/organizer/activities/${a.id}`,
+                                                href: `/organizer/activities/${a.publicId}`,
                                                 label: "รายละเอียดเพิ่มเติม",
                                                 icon: ClipboardList,
                                             }}

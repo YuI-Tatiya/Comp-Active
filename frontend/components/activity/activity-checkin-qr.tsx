@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { activitiesAPI, type CheckInSessionResult } from "@/lib/api"
 
 interface Props {
-    activityId: number
+    /** publicId ของกิจกรรม — ไม่ใช่เลข id ภายใน (เดาเลขถัดไปแล้วเปิดกิจกรรมคนอื่นไม่ได้) */
+    activityId: string
     /** กิจกรรมจบไปแล้ว — ปิดปุ่ม "เปิดการเช็คอิน" ไว้ก่อนเลย กัน error จาก backend มาโผล่ทีหลัง (backend ก็เช็คซ้ำอีกชั้น) */
     completed: boolean
 }

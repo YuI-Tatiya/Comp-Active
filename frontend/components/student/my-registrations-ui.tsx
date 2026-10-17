@@ -53,6 +53,7 @@ export interface MyRegistration {
     evaluation?: RegistrationEvaluationData | null
     activity: {
         id: number
+        publicId?: string
         name: string
         date: string
         startTime: string
@@ -500,15 +501,15 @@ export function RegistrationCard({
 
                 <div className="flex flex-wrap items-center gap-2 border-t border-denim-line bg-denim-paper/70 px-5 py-3 sm:px-6">
                     <Link
-                        href={`/student/activities/${reg.activity.id}`}
+                        href={`/student/activities/${reg.activity.publicId}`}
                         className="inline-flex min-h-10 items-center gap-2 rounded-[10px] bg-denim-deep px-4 text-sm font-semibold text-white transition-colors hover:bg-denim focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
                     >
                         ดูรายละเอียดกิจกรรม
                         <ArrowRight className="size-4 text-amber" aria-hidden="true" />
                     </Link>
 
-                    {bucket === "confirmed" && !attended && (
-                        <QrCheckInButton activityId={reg.activity.id} activityName={reg.activity.name} />
+                    {bucket === "confirmed" && !attended && reg.activity.publicId && (
+                        <QrCheckInButton activityId={reg.activity.publicId} activityName={reg.activity.name} />
                     )}
 
                     {attended && (
