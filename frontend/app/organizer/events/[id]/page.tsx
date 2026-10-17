@@ -87,7 +87,7 @@ function SubActivitySwitcher({
 
 export default function OrganizerEventDetailsPage() {
     const params = useParams()
-    const id = Number(params?.id)
+    const id = String(params?.id ?? "")
     const [event, setEvent] = useState<EventSummary | null>(null)
     const [activeActivityId, setActiveActivityId] = useState<number | null>(null)
     const [loading, setLoading] = useState(true)
@@ -103,7 +103,7 @@ export default function OrganizerEventDetailsPage() {
 
     // silent=true ใช้ตอน refetch หลังทำ action (ยืนยัน/เช็คอิน/ยกเลิก ฯลฯ) — ไม่ toggle loading เพื่อไม่ให้ทั้งหน้าถูก unmount
     // จนเสีย state ของแท็บที่เลือกอยู่ (สำคัญมากสำหรับหน้าเช็คอิน ที่ organizer จะกดเช็คชื่อรัวๆ ต่อเนื่องหน้างาน)
-    const fetchEventDetails = async (eventId: number, silent = false) => {
+    const fetchEventDetails = async (eventId: string, silent = false) => {
         try {
             if (!silent) setLoading(true)
             const data = await eventsAPI.getById(eventId)
@@ -127,9 +127,10 @@ export default function OrganizerEventDetailsPage() {
             alert("กรุณาระบุเหตุผลในการยกเลิก")
             return
         }
+        if (!activeActivity.publicId) return
         try {
             setSubmitting(true)
-            await activitiesAPI.requestCancel(activeActivity.id, cancelReason)
+            await activitiesAPI.requestCancel(activeActivity.publicId, cancelReason)
             alert("ยกเลิกกิจกรรมสำเร็จ")
             setIsCancelOpen(false)
             fetchEventDetails(id)
@@ -142,11 +143,11 @@ export default function OrganizerEventDetailsPage() {
     }
 
     const handleMarkCompleted = async () => {
-        if (!activeActivity) return
+        if (!activeActivity?.publicId) return
         if (!confirm(`ยืนยันจบกิจกรรม "${activeActivity.name}"? ระบบจะปิดรับสมัครและปลดล็อกแบบสำรวจให้ผู้เข้าร่วม`)) return
         try {
             setSubmitting(true)
-            await activitiesAPI.markCompleted(activeActivity.id)
+            await activitiesAPI.markCompleted(activeActivity.publicId)
             alert("จบกิจกรรมเรียบร้อยแล้ว")
             fetchEventDetails(id)
         } catch (err: unknown) {
@@ -191,7 +192,7 @@ export default function OrganizerEventDetailsPage() {
                 ปุ่มจบ/ยกเลิกกิจกรรมทำกับกิจกรรมย่อยที่เลือกอยู่เช่นกัน */}
             <OrganizerActivityHero
                 backHref="/organizer/manage"
-                prompt={`~/organizer/events/${event.id} $ manage`}
+                prompt={`~/organizer/events/${event.publicId} $ manage`}
                 imagePath={eventImagePathFor(event, activeActivity)}
                 imageAlt={event.name}
                 categories={categories}
@@ -216,7 +217,7 @@ export default function OrganizerEventDetailsPage() {
                 }
                 actions={
                     <>
-                        <Link href={`/organizer/manage/${event.id}/edit`} className={HERO_PRIMARY_BUTTON}>
+                        <Link href={`/organizer/manage/${event.publicId}/edit`} className={HERO_PRIMARY_BUTTON}>
                             <Edit className="size-4" aria-hidden="true" /> แก้ไขงาน
                         </Link>
                         {activeActivity && !activeCancelled && activeActivity.status !== "completed" && (
@@ -225,7 +226,7 @@ export default function OrganizerEventDetailsPage() {
                             </button>
                         )}
                         <ShareMenu
-                            url={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.id}`}
+                            url={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.publicId}`}
                             title={event.name}
                             onCopied={() => alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")}
                             variant="ghost"
@@ -295,12 +296,14 @@ export default function OrganizerEventDetailsPage() {
                 )}
 
                 {/* แบบสำรวจเป็นข้อมูลระดับงาน ไม่ผูกกับกิจกรรมย่อยตัวใดตัวหนึ่ง จึงอยู่นอกตัวจัดการกิจกรรมย่อย */}
-                <EventSurveyResults
-                    id={event.id}
-                    fetchResults={eventsAPI.getSurveyResults}
-                    editHref={`/organizer/manage/${event.id}/edit`}
-                    subjectName={event.name}
-                />
+                {event.publicId && (
+                    <EventSurveyResults
+                        id={event.publicId}
+                        fetchResults={eventsAPI.getSurveyResults}
+                        editHref={`/organizer/manage/${event.publicId}/edit`}
+                        subjectName={event.name}
+                    />
+                )}
             </Container>
 
             <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>

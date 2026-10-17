@@ -57,8 +57,7 @@ export default function StudentActivityDetailsPage() {
 
     useEffect(() => {
         if (params.id) {
-            const id = Number(params.id)
-            fetchEventDetails(id)
+            fetchEventDetails(String(params.id))
             loadMyRegistrations()
         }
     }, [params.id])
@@ -82,7 +81,7 @@ export default function StudentActivityDetailsPage() {
             setCancelConfirmOpen(false)
             showToast("ยกเลิกการลงทะเบียนแล้ว")
             loadMyRegistrations()
-            if (event) fetchEventDetails(event.id)
+            if (event?.publicId) fetchEventDetails(event.publicId)
         } catch (err: unknown) {
             showToast("ยกเลิกไม่สำเร็จ", (err as Error).message)
         } finally {
@@ -128,10 +127,10 @@ export default function StudentActivityDetailsPage() {
         }
     }, [loading, event, searchParams, openRegisterDialog])
 
-    const fetchEventDetails = async (id: number) => {
+    const fetchEventDetails = async (publicId: string) => {
         try {
             setLoading(true)
-            const data = await activitiesAPI.getById(id)
+            const data = await activitiesAPI.getById(publicId)
             setEvent(data)
         } catch (err: unknown) {
             const e = err as Error
@@ -228,7 +227,7 @@ export default function StudentActivityDetailsPage() {
             await registrationsAPI.create(event.id, answerPayload, undefined, registrationTypeFieldsPayload)
             setIsRegisterOpen(false)
             showToast("ลงทะเบียนสำเร็จ!", "ติดตามสถานะได้ที่หน้ากิจกรรมของฉัน")
-            fetchEventDetails(event.id)
+            if (event.publicId) fetchEventDetails(event.publicId)
             loadMyRegistrations()
         } catch (err: unknown) {
             const e = err as Error
@@ -276,7 +275,7 @@ export default function StudentActivityDetailsPage() {
             myRegistrations={myRegistrations}
             onRegister={openRegisterDialog}
             onCancel={() => setCancelConfirmOpen(true)}
-            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${event.id}`}
+            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${event.publicId}`}
             onShareCopied={() => showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")}
             backHref="/student/events"
         >

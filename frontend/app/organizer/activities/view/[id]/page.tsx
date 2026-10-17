@@ -28,14 +28,14 @@ export default function OrganizerActivityViewPage() {
 
     useEffect(() => {
         if (params.id) {
-            fetchActivity(Number(params.id))
+            fetchActivity(String(params.id))
         }
     }, [params.id])
 
-    const fetchActivity = async (id: number) => {
+    const fetchActivity = async (publicId: string) => {
         try {
             setLoading(true)
-            const data = await activitiesAPI.getById(id)
+            const data = await activitiesAPI.getById(publicId)
             setActivity(data)
         } catch (err: unknown) {
             const e = err as Error
@@ -79,7 +79,7 @@ export default function OrganizerActivityViewPage() {
             activities={[activity]}
             activeId={activity.id}
             onSelectActivity={() => {}}
-            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${activity.id}`}
+            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${activity.publicId}`}
             onShareCopied={() => alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")}
             backHref="/organizer"
         />

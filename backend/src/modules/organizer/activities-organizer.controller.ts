@@ -7,7 +7,6 @@ import {
   Body,
   Param,
   UseGuards,
-  ParseIntPipe,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
@@ -74,7 +73,7 @@ export class ActivitiesOrganizerController {
       "ดูรายละเอียดกิจกรรมเดี่ยวแบบเต็ม รวมรายชื่อผู้ลงทะเบียน (เจ้าของ / Admin)",
   })
   async findMyActivityById(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
   ) {
@@ -91,7 +90,7 @@ export class ActivitiesOrganizerController {
   async getSurveyResults(
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
   ) {
     return this.activitiesService.getSurveyResults(id, userId, userRole);
   }
@@ -114,7 +113,7 @@ export class ActivitiesOrganizerController {
   @Patch(":id")
   @ApiOperation({ summary: "แก้ไขกิจกรรม (เจ้าของ / Admin)" })
   async update(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
     @Body() updateDto: UpdateActivityDto,
@@ -130,7 +129,7 @@ export class ActivitiesOrganizerController {
     summary: "คัดลอกกิจกรรมเดี่ยวทั้งใบเป็นกิจกรรมใหม่ (เจ้าของ / Admin)",
   })
   async duplicate(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
   ) {
@@ -145,7 +144,7 @@ export class ActivitiesOrganizerController {
     summary: "เปิด/ปิดรับสมัครกิจกรรมชั่วคราว (เจ้าของ / Admin)",
   })
   async setStatus(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
     @Body() dto: SetActivityStatusDto,
@@ -161,7 +160,7 @@ export class ActivitiesOrganizerController {
     summary: "ดูสถานะ + โทเค็น QR เช็คอินปัจจุบัน (เจ้าของ / Admin)",
   })
   async getCheckInSession(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
   ) {
@@ -176,7 +175,7 @@ export class ActivitiesOrganizerController {
     summary: "เปิด/ปิดการเช็คอินด้วยตัวเองผ่าน QR (เจ้าของ / Admin)",
   })
   async setSelfCheckIn(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
     @Body() dto: SetSelfCheckInDto,
@@ -239,7 +238,7 @@ export class ActivitiesOrganizerController {
   @Delete(":id")
   @ApiOperation({ summary: "ลบกิจกรรม (เจ้าของ / Admin)" })
   async delete(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
   ) {
@@ -255,7 +254,7 @@ export class ActivitiesOrganizerController {
     summary: "จบกิจกรรม — ปิดรับสมัครและปลดล็อกแบบสำรวจ (เจ้าของ / Admin)",
   })
   async markCompleted(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
   ) {
@@ -268,7 +267,7 @@ export class ActivitiesOrganizerController {
   @Post(":id/request-cancel")
   @ApiOperation({ summary: "ร้องขอการยกเลิกกิจกรรม (Organizer)" })
   async requestCancellation(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
     @CurrentUser("id") userId: number,
     @Body("reason") reason: string,
   ) {

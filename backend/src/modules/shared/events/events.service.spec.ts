@@ -248,10 +248,14 @@ describe('EventsService.create — derived date/startTime/endTime are Thai time'
 
 describe('EventsService.update', () => {
   let service: EventsService;
-  let repo: { findById: jest.Mock; update: jest.Mock };
+  let repo: { findById: jest.Mock; update: jest.Mock; findIdByPublicId: jest.Mock };
 
   beforeEach(async () => {
-    repo = { findById: jest.fn(), update: jest.fn().mockResolvedValue({ id: 1 }) };
+    repo = {
+      findById: jest.fn(),
+      update: jest.fn().mockResolvedValue({ id: 1 }),
+      findIdByPublicId: jest.fn().mockImplementation((p: string) => Promise.resolve(Number(p))),
+    };
     const module = await Test.createTestingModule({
       providers: [EventsService, { provide: EventsRepository, useValue: repo }],
     }).compile();
@@ -260,17 +264,17 @@ describe('EventsService.update', () => {
 
   it('throws NotFoundException when the event does not exist', async () => {
     repo.findById.mockResolvedValue(null);
-    await expect(service.update(7, UserRole.ORGANIZER, 1, makeDto())).rejects.toThrow(NotFoundException);
+    await expect(service.update(7, UserRole.ORGANIZER, '1', makeDto())).rejects.toThrow(NotFoundException);
   });
 
   it('throws ForbiddenException when the caller does not own the event', async () => {
     repo.findById.mockResolvedValue(makeEvent());
-    await expect(service.update(999, UserRole.ORGANIZER, 1, makeDto())).rejects.toThrow(ForbiddenException);
+    await expect(service.update(999, UserRole.ORGANIZER, '1', makeDto())).rejects.toThrow(ForbiddenException);
   });
 
   it('allows an admin to update an event they do not own', async () => {
     repo.findById.mockResolvedValue(makeEvent());
-    await service.update(999, UserRole.ADMIN, 1, makeDto());
+    await service.update(999, UserRole.ADMIN, '1', makeDto());
     expect(repo.update).toHaveBeenCalled();
   });
 
@@ -281,7 +285,7 @@ describe('EventsService.update', () => {
       service.update(
         7,
         UserRole.ORGANIZER,
-        1,
+        '1',
         makeDto([
           {
             id: 10,
@@ -303,7 +307,7 @@ describe('EventsService.update', () => {
     await service.update(
       7,
       UserRole.ORGANIZER,
-      1,
+      '1',
       makeDto([
         {
           id: 11,
@@ -322,10 +326,13 @@ describe('EventsService.update', () => {
 
 describe('EventsService.findByIdPublic', () => {
   let service: EventsService;
-  let repo: { findByIdPublicSafe: jest.Mock };
+  let repo: { findByIdPublicSafe: jest.Mock; findIdByPublicId: jest.Mock };
 
   beforeEach(async () => {
-    repo = { findByIdPublicSafe: jest.fn() };
+    repo = {
+      findByIdPublicSafe: jest.fn(),
+      findIdByPublicId: jest.fn().mockImplementation((p: string) => Promise.resolve(Number(p))),
+    };
     const module = await Test.createTestingModule({
       providers: [EventsService, { provide: EventsRepository, useValue: repo }],
     }).compile();
@@ -334,7 +341,7 @@ describe('EventsService.findByIdPublic', () => {
 
   it('throws NotFoundException when the event does not exist', async () => {
     repo.findByIdPublicSafe.mockResolvedValue(null);
-    await expect(service.findByIdPublic(1, null)).rejects.toThrow(NotFoundException);
+    await expect(service.findByIdPublic('1', null)).rejects.toThrow(NotFoundException);
   });
 
   it('throws NotFoundException when the viewer is not eligible for a restricted event', async () => {
@@ -347,7 +354,7 @@ describe('EventsService.findByIdPublic', () => {
       activities: [{ id: 10, approvalStatus: 'approved' }],
     });
     await expect(
-      service.findByIdPublic(1, { role: 'student', studentId: '653380001-1', program: 'IT' }),
+      service.findByIdPublic('1', { role: 'student', studentId: '653380001-1', program: 'IT' }),
     ).rejects.toThrow(NotFoundException);
   });
 
@@ -362,7 +369,7 @@ describe('EventsService.findByIdPublic', () => {
       activities: [{ id: 10, approvalStatus: 'approved', _count: { registrations: 3 } }],
     };
     repo.findByIdPublicSafe.mockResolvedValue(event);
-    const result = await service.findByIdPublic(1, null);
+    const result = await service.findByIdPublic('1', null);
     expect(result.activities[0].registeredCount).toBe(3);
   });
 
@@ -374,7 +381,7 @@ describe('EventsService.findByIdPublic', () => {
       visibilityYears: [],
       activities: [{ id: 10, approvalStatus: 'pending_approval' }],
     });
-    await expect(service.findByIdPublic(1, null)).rejects.toThrow(NotFoundException);
+    await expect(service.findByIdPublic('1', null)).rejects.toThrow(NotFoundException);
   });
 
   it('strips registrations, organizer.email, and unapproved sibling activities from the response', async () => {
@@ -397,7 +404,7 @@ describe('EventsService.findByIdPublic', () => {
       ],
     });
 
-    const result = await service.findByIdPublic(1, null);
+    const result = await service.findByIdPublic('1', null);
 
     expect(result.activities).toHaveLength(1);
     expect(result.activities[0].id).toBe(10);
@@ -422,22 +429,22 @@ describe('EventsService.findByIdPublic', () => {
 
     it('is a 404 for guests, students and other organizers — the same answer as a missing event', async () => {
       repo.findByIdPublicSafe.mockResolvedValue(hidden());
-      await expect(service.findByIdPublic(1, null)).rejects.toThrow(NotFoundException);
+      await expect(service.findByIdPublic('1', null)).rejects.toThrow(NotFoundException);
       await expect(
-        service.findByIdPublic(1, { id: 5, role: 'student', studentId: '653380001-1', program: 'IT' }),
+        service.findByIdPublic('1', { id: 5, role: 'student', studentId: '653380001-1', program: 'IT' }),
       ).rejects.toThrow(NotFoundException);
-      await expect(service.findByIdPublic(1, { id: 8, role: 'organizer' })).rejects.toThrow(NotFoundException);
+      await expect(service.findByIdPublic('1', { id: 8, role: 'organizer' })).rejects.toThrow(NotFoundException);
     });
 
     it('still opens for its own organizer (preview) and for admins', async () => {
       repo.findByIdPublicSafe.mockResolvedValue(hidden());
-      await expect(service.findByIdPublic(1, { id: 7, role: 'organizer' })).resolves.toMatchObject({ id: 1 });
-      await expect(service.findByIdPublic(1, { id: 1, role: 'admin' })).resolves.toMatchObject({ id: 1 });
+      await expect(service.findByIdPublic('1', { id: 7, role: 'organizer' })).resolves.toMatchObject({ id: 1 });
+      await expect(service.findByIdPublic('1', { id: 1, role: 'admin' })).resolves.toMatchObject({ id: 1 });
     });
 
     it('fails closed when the publish state was not loaded at all', async () => {
       repo.findByIdPublicSafe.mockResolvedValue(hidden({ isPublic: undefined }));
-      await expect(service.findByIdPublic(1, null)).rejects.toThrow(NotFoundException);
+      await expect(service.findByIdPublic('1', null)).rejects.toThrow(NotFoundException);
     });
   });
 });
@@ -505,10 +512,13 @@ describe('EventsService.findAllPublic', () => {
 
 describe('EventsService.findByIdForOrganizer', () => {
   let service: EventsService;
-  let repo: { findById: jest.Mock };
+  let repo: { findById: jest.Mock; findIdByPublicId: jest.Mock };
 
   beforeEach(async () => {
-    repo = { findById: jest.fn() };
+    repo = {
+      findById: jest.fn(),
+      findIdByPublicId: jest.fn().mockImplementation((p: string) => Promise.resolve(Number(p))),
+    };
     const module = await Test.createTestingModule({
       providers: [EventsService, { provide: EventsRepository, useValue: repo }],
     }).compile();
@@ -517,17 +527,17 @@ describe('EventsService.findByIdForOrganizer', () => {
 
   it('throws NotFoundException when the event does not exist', async () => {
     repo.findById.mockResolvedValue(null);
-    await expect(service.findByIdForOrganizer(1, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
+    await expect(service.findByIdForOrganizer('1', 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
   });
 
   it('throws NotFoundException (not Forbidden) when the caller does not own the event', async () => {
     repo.findById.mockResolvedValue({ id: 1, organizerId: 7, activities: [] });
-    await expect(service.findByIdForOrganizer(1, 999, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
+    await expect(service.findByIdForOrganizer('1', 999, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
   });
 
   it('allows an admin to view an event they do not own', async () => {
     repo.findById.mockResolvedValue({ id: 1, organizerId: 7, activities: [] });
-    await expect(service.findByIdForOrganizer(1, 999, UserRole.ADMIN)).resolves.toEqual(
+    await expect(service.findByIdForOrganizer('1', 999, UserRole.ADMIN)).resolves.toEqual(
       expect.objectContaining({ id: 1 }),
     );
   });
@@ -544,7 +554,7 @@ describe('EventsService.findByIdForOrganizer', () => {
         },
       ],
     });
-    const result = await service.findByIdForOrganizer(1, 7, UserRole.ORGANIZER);
+    const result = await service.findByIdForOrganizer('1', 7, UserRole.ORGANIZER);
     expect(result.activities[0].registeredCount).toBe(1);
     expect(result.activities[0].registrations[0].student.name).toBe('A');
     expect(result.activities[0]._count).toBeUndefined();
@@ -553,10 +563,13 @@ describe('EventsService.findByIdForOrganizer', () => {
 
 describe('EventsService.getSurveyResults — ownership', () => {
   let service: EventsService;
-  let repo: { findByIdWithSurveyAnswers: jest.Mock };
+  let repo: { findByIdWithSurveyAnswers: jest.Mock; findIdByPublicId: jest.Mock };
 
   beforeEach(async () => {
-    repo = { findByIdWithSurveyAnswers: jest.fn().mockResolvedValue({ id: 1, organizerId: 7, surveyQuestions: [] }) };
+    repo = {
+      findByIdWithSurveyAnswers: jest.fn().mockResolvedValue({ id: 1, organizerId: 7, surveyQuestions: [] }),
+      findIdByPublicId: jest.fn().mockImplementation((p: string) => Promise.resolve(Number(p))),
+    };
     const module = await Test.createTestingModule({
       providers: [EventsService, { provide: EventsRepository, useValue: repo }],
     }).compile();
@@ -564,30 +577,31 @@ describe('EventsService.getSurveyResults — ownership', () => {
   });
 
   it('returns results to the owning organizer', async () => {
-    await expect(service.getSurveyResults(1, 7, UserRole.ORGANIZER)).resolves.toBeDefined();
+    await expect(service.getSurveyResults('1', 7, UserRole.ORGANIZER)).resolves.toBeDefined();
   });
 
   it('allows an admin who does not own the event', async () => {
-    await expect(service.getSurveyResults(1, 999, UserRole.ADMIN)).resolves.toBeDefined();
+    await expect(service.getSurveyResults('1', 999, UserRole.ADMIN)).resolves.toBeDefined();
   });
 
   it('throws ForbiddenException (not BadRequest) for a non-owning organizer', async () => {
-    await expect(service.getSurveyResults(1, 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
+    await expect(service.getSurveyResults('1', 999, UserRole.ORGANIZER)).rejects.toThrow(ForbiddenException);
   });
 
   it('throws NotFoundException when the event does not exist', async () => {
     repo.findByIdWithSurveyAnswers.mockResolvedValue(null);
-    await expect(service.getSurveyResults(1, 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
+    await expect(service.getSurveyResults('1', 7, UserRole.ORGANIZER)).rejects.toThrow(NotFoundException);
   });
 });
 
 describe('EventsService.duplicate', () => {
   let service: EventsService;
-  let repo: { findById: jest.Mock; duplicateEvent: jest.Mock };
+  let repo: { findById: jest.Mock; duplicateEvent: jest.Mock ; findIdByPublicId: jest.Mock };
 
   beforeEach(async () => {
     repo = {
       findById: jest.fn().mockResolvedValue({ id: 1, organizerId: 7, name: 'Camp' }),
+      findIdByPublicId: jest.fn().mockImplementation((p: string) => Promise.resolve(Number(p))),
       duplicateEvent: jest.fn(),
     };
     const module = await Test.createTestingModule({
@@ -603,7 +617,7 @@ describe('EventsService.duplicate', () => {
       activities: [{ id: 20, _count: { registrations: 0 } }],
     });
 
-    const result = await service.duplicate(7, UserRole.ORGANIZER, 1);
+    const result = await service.duplicate(7, UserRole.ORGANIZER, '1');
 
     expect(repo.duplicateEvent).toHaveBeenCalledWith(1, 7);
     expect(result.id).toBe(2);
@@ -613,33 +627,34 @@ describe('EventsService.duplicate', () => {
 
   it('allows an admin who does not own the event, copying to the admin', async () => {
     repo.duplicateEvent.mockResolvedValue({ id: 2, activities: [] });
-    await service.duplicate(999, UserRole.ADMIN, 1);
+    await service.duplicate(999, UserRole.ADMIN, '1');
     expect(repo.duplicateEvent).toHaveBeenCalledWith(1, 999);
   });
 
   it('throws ForbiddenException for a non-owning organizer', async () => {
-    await expect(service.duplicate(999, UserRole.ORGANIZER, 1)).rejects.toThrow(ForbiddenException);
+    await expect(service.duplicate(999, UserRole.ORGANIZER, '1')).rejects.toThrow(ForbiddenException);
     expect(repo.duplicateEvent).not.toHaveBeenCalled();
   });
 
   it('throws NotFoundException when the event does not exist', async () => {
     repo.findById.mockResolvedValue(null);
-    await expect(service.duplicate(7, UserRole.ORGANIZER, 1)).rejects.toThrow(NotFoundException);
+    await expect(service.duplicate(7, UserRole.ORGANIZER, '1')).rejects.toThrow(NotFoundException);
   });
 
   it('throws NotFoundException if the event is deleted between the ownership check and the copy', async () => {
     repo.duplicateEvent.mockResolvedValue(null);
-    await expect(service.duplicate(7, UserRole.ORGANIZER, 1)).rejects.toThrow(NotFoundException);
+    await expect(service.duplicate(7, UserRole.ORGANIZER, '1')).rejects.toThrow(NotFoundException);
   });
 });
 
 describe('EventsService.setActivitiesStatus', () => {
   let service: EventsService;
-  let repo: { findById: jest.Mock; updateActivitiesStatus: jest.Mock };
+  let repo: { findById: jest.Mock; updateActivitiesStatus: jest.Mock ; findIdByPublicId: jest.Mock };
 
   beforeEach(async () => {
     repo = {
       findById: jest.fn().mockResolvedValue({ id: 1, organizerId: 7, name: 'Camp' }),
+      findIdByPublicId: jest.fn().mockImplementation((p: string) => Promise.resolve(Number(p))),
       updateActivitiesStatus: jest.fn(),
     };
     const module = await Test.createTestingModule({
@@ -650,19 +665,19 @@ describe('EventsService.setActivitiesStatus', () => {
 
   it('closes every sub-activity for the owning organizer', async () => {
     repo.updateActivitiesStatus.mockResolvedValue({ count: 2 });
-    const result = await service.setActivitiesStatus(7, UserRole.ORGANIZER, 1, 'closed');
+    const result = await service.setActivitiesStatus(7, UserRole.ORGANIZER, '1', 'closed');
     expect(repo.updateActivitiesStatus).toHaveBeenCalledWith(1, 'closed');
     expect(result.count).toBe(2);
   });
 
   it('allows an admin who does not own the event', async () => {
     repo.updateActivitiesStatus.mockResolvedValue({ count: 1 });
-    await service.setActivitiesStatus(999, UserRole.ADMIN, 1, 'open');
+    await service.setActivitiesStatus(999, UserRole.ADMIN, '1', 'open');
     expect(repo.updateActivitiesStatus).toHaveBeenCalledWith(1, 'open');
   });
 
   it('throws ForbiddenException for a non-owning organizer', async () => {
-    await expect(service.setActivitiesStatus(999, UserRole.ORGANIZER, 1, 'closed')).rejects.toThrow(
+    await expect(service.setActivitiesStatus(999, UserRole.ORGANIZER, '1', 'closed')).rejects.toThrow(
       ForbiddenException,
     );
     expect(repo.updateActivitiesStatus).not.toHaveBeenCalled();
@@ -670,7 +685,7 @@ describe('EventsService.setActivitiesStatus', () => {
 
   it('throws NotFoundException when the event does not exist', async () => {
     repo.findById.mockResolvedValue(null);
-    await expect(service.setActivitiesStatus(7, UserRole.ORGANIZER, 1, 'closed')).rejects.toThrow(
+    await expect(service.setActivitiesStatus(7, UserRole.ORGANIZER, '1', 'closed')).rejects.toThrow(
       NotFoundException,
     );
   });

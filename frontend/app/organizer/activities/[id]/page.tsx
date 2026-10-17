@@ -25,7 +25,7 @@ import {
 
 export default function OrganizerActivityDetailsPage() {
     const params = useParams()
-    const id = Number(params?.id)
+    const id = String(params?.id ?? "")
     const [event, setEvent] = useState<Activity<RegistrationRow> | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
@@ -41,7 +41,7 @@ export default function OrganizerActivityDetailsPage() {
 
     // silent=true ใช้ตอน refetch หลังทำ action (ยืนยัน/เช็คอิน ฯลฯ) — ไม่ toggle loading เพื่อไม่ให้ทั้งหน้าถูก unmount
     // จนเสีย state ของแท็บ/ตัวกรองที่เลือกอยู่ (สำคัญมากสำหรับหน้าเช็คอิน ที่ organizer จะกดเช็คชื่อรัวๆ ต่อเนื่องหน้างาน)
-    const fetchEventDetails = async (activityId: number, silent = false) => {
+    const fetchEventDetails = async (activityId: string, silent = false) => {
         try {
             if (!silent) setLoading(true)
             const data = await activitiesAPI.getByIdForOrganizer(activityId)
@@ -117,10 +117,11 @@ export default function OrganizerActivityDetailsPage() {
     }
 
     // กิจกรรมย่อยของงาน (มี eventId) แก้ผ่าน wizard ของงานแม่ — กิจกรรมเดี่ยวใช้ฟอร์มของตัวเอง
+    // publicId ของงานแม่มากับ event.event (ไม่ใช่ event.eventId ซึ่งเป็นเลขภายในที่สร้าง URL ไม่ได้แล้ว)
     const isEventActivity = event.eventId != null
     const editHref = isEventActivity
-        ? `/organizer/manage/${event.eventId}/edit`
-        : `/organizer/activities/${event.id}/edit`
+        ? `/organizer/manage/${event.event?.publicId}/edit`
+        : `/organizer/activities/${event.publicId}/edit`
 
     const cancelled = isCancelledByOrganizer(event.approvalStatus)
     const tag = categoryTag(event.categories)
@@ -139,7 +140,7 @@ export default function OrganizerActivityDetailsPage() {
         <div className="bg-surface pb-16">
             <OrganizerActivityHero
                 backHref="/organizer/manage"
-                prompt={`~/organizer/activities/${event.id} $ manage`}
+                prompt={`~/organizer/activities/${event.publicId} $ manage`}
                 imagePath={event.imageUrl}
                 imageAlt={event.name}
                 categories={event.categories}
@@ -170,7 +171,7 @@ export default function OrganizerActivityDetailsPage() {
                             </button>
                         )}
                         <ShareMenu
-                            url={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${event.id}`}
+                            url={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${event.publicId}`}
                             title={event.name}
                             onCopied={() => alert("คัดลอกลิงก์สำหรับแชร์ให้บุคคลทั่วไปเรียบร้อยแล้ว!")}
                             variant="ghost"
@@ -194,19 +195,21 @@ export default function OrganizerActivityDetailsPage() {
                     showActivityImage={false}
                 />
 
-                <EventSurveyResults
-                    id={event.id}
-                    fetchResults={activitiesAPI.getSurveyResults}
-                    editHref={editHref}
-                    subjectLabel={isEventActivity ? "งาน" : "กิจกรรม"}
-                    subjectName={event.name}
-                    // แบบสำรวจของกิจกรรมย่อยเป็นของงานแม่ใบเดียวใช้ร่วมกัน ผลที่เห็นจึงรวมผู้ตอบจากทุกกิจกรรมย่อย
-                    scopeNote={
-                        isEventActivity
-                            ? "กิจกรรมนี้เป็นกิจกรรมย่อยของงาน — แบบสำรวจเป็นใบเดียวของทั้งงาน ผลด้านล่างจึงรวมผู้ตอบจากทุกกิจกรรมย่อยในงานเดียวกัน"
-                            : undefined
-                    }
-                />
+                {event.publicId && (
+                    <EventSurveyResults
+                        id={event.publicId}
+                        fetchResults={activitiesAPI.getSurveyResults}
+                        editHref={editHref}
+                        subjectLabel={isEventActivity ? "งาน" : "กิจกรรม"}
+                        subjectName={event.name}
+                        // แบบสำรวจของกิจกรรมย่อยเป็นของงานแม่ใบเดียวใช้ร่วมกัน ผลที่เห็นจึงรวมผู้ตอบจากทุกกิจกรรมย่อย
+                        scopeNote={
+                            isEventActivity
+                                ? "กิจกรรมนี้เป็นกิจกรรมย่อยของงาน — แบบสำรวจเป็นใบเดียวของทั้งงาน ผลด้านล่างจึงรวมผู้ตอบจากทุกกิจกรรมย่อยในงานเดียวกัน"
+                                : undefined
+                        }
+                    />
+                )}
             </Container>
 
             {/* Cancellation Dialog */}

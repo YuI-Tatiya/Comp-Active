@@ -72,15 +72,15 @@ export default function StudentEventDetailsPage() {
 
     useEffect(() => {
         if (params.id) {
-            fetchEventDetails(Number(params.id))
+            fetchEventDetails(String(params.id))
             loadMyRegistrations()
         }
     }, [params.id])
 
-    const fetchEventDetails = async (id: number) => {
+    const fetchEventDetails = async (publicId: string) => {
         try {
             setLoading(true)
-            const data = await eventsAPI.getPublicById(id)
+            const data = await eventsAPI.getPublicById(publicId)
             setEvent(data)
             setActiveActivityId((prev) => prev ?? data.activities[0]?.id ?? null)
         } catch (err: unknown) {
@@ -110,7 +110,7 @@ export default function StudentEventDetailsPage() {
             await registrationsAPI.cancel(myRegistrationForActive.id)
             setCancelConfirmOpen(false)
             showToast("ยกเลิกการลงทะเบียนแล้ว")
-            if (event) fetchEventDetails(event.id)
+            if (event?.publicId) fetchEventDetails(event.publicId)
             loadMyRegistrations()
         } catch (err: unknown) {
             showToast("ยกเลิกไม่สำเร็จ", (err as Error).message)
@@ -231,7 +231,7 @@ export default function StudentEventDetailsPage() {
             )
             setIsRegisterOpen(false)
             showToast("ลงทะเบียนสำเร็จ!", "ติดตามสถานะได้ที่หน้ากิจกรรมของฉัน")
-            fetchEventDetails(event!.id)
+            if (event?.publicId) fetchEventDetails(event.publicId)
             loadMyRegistrations()
         } catch (err: unknown) {
             const e = err as Error
@@ -282,7 +282,7 @@ export default function StudentEventDetailsPage() {
             myRegistrations={myRegistrations}
             onRegister={openRegisterDialog}
             onCancel={() => setCancelConfirmOpen(true)}
-            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.id}`}
+            shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.publicId}`}
             onShareCopied={() => showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")}
             backHref="/student/events"
             showActivityImage

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { EventsService } from './events.service';
 import { OptionalJwtAuthGuard } from '../../../common/guards/optional-jwt-auth.guard';
@@ -28,7 +28,7 @@ export class EventsPublicController {
   @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'ดูรายละเอียดงาน (Public)' })
-  async findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() viewer: Viewer | null) {
+  async findOne(@Param('id') id: string, @CurrentUser() viewer: Viewer | null) {
     return this.eventsService.findByIdPublic(id, viewer);
   }
 }

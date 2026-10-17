@@ -203,7 +203,7 @@ export default function OrganizerDashboardPage() {
       isPublic: ev.isPublic,
       imageUrl: eventImagePath(ev),
       hasCert: eventHasCert(ev),
-      href: `/organizer/events/view/${ev.id}`,
+      href: `/organizer/events/view/${ev.publicId}`,
       searchText: [ev.name, ...ev.activities.map((a) => a.name)].join(" ").toLowerCase(),
       sortDate: earliestDate(ev),
       endDate: latestDate(ev),
@@ -225,7 +225,7 @@ export default function OrganizerDashboardPage() {
       isPublic: undefined,
       imageUrl: a.imageUrl || null,
       hasCert: !!a.volunteerRole,
-      href: `/organizer/activities/view/${a.id}`,
+      href: `/organizer/activities/view/${a.publicId}`,
       searchText: a.name.toLowerCase(),
       sortDate: +new Date(a.date),
       // กิจกรรมเดี่ยว = วันเดียว (endDate เท่ากับ sortDate) และไม่มีช่วงรับสมัครในสคีมา

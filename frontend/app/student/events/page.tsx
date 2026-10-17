@@ -4,8 +4,8 @@ import { EventsBrowser } from "@/components/events/events-browser"
 
 // ค่าคงที่ระดับโมดูล — EventsBrowser ใช้เป็น dependency ของ useMemo ถ้าสร้างใหม่ทุก render การ์ดจะถูกประกอบใหม่ทุกครั้ง
 const HREFS = {
-    event: (id: number) => `/student/events/${id}`,
-    activity: (id: number) => `/student/activities/${id}`,
+    event: (id: string) => `/student/events/${id}`,
+    activity: (id: string) => `/student/activities/${id}`,
 }
 
 /** หน้ารายการกิจกรรมฝั่งนักศึกษา — หน้าตา/ตัวกรองอยู่ใน EventsBrowser (ใช้ร่วมกับ /events) */

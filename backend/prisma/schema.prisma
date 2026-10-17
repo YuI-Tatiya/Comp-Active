@@ -198,6 +198,14 @@ model AdminInvite {
 
 model Event {
   id                        Int             @id @default(autoincrement())
+  // ใช้แทน id ตรงๆ ใน URL สาธารณะทุกจุด (เดาเลขถัดไปแล้วเปิดงานคนอื่นไม่ได้) — id เดิมยังใช้ภายในระบบ
+  // (FK, join, logic ทุกจุด) เหมือนเดิมทั้งหมด ไม่แตะ
+  //
+  // nullable เพราะ Prisma generate ค่า uuid() ฝั่ง client เท่านั้น ไม่ backfill แถวเก่าให้ตอน db push
+  // (ทดสอบแล้วจริงกับ Prisma 7.8.0 — ตารางที่มีแถวอยู่ก่อนจะถูกปฏิเสธถ้าตั้งเป็น non-null ตรงๆ)
+  // แถวเก่า backfill ด้วย prisma/backfills/events-activities-public-id.sql (gen_random_uuid() ของ Postgres เอง)
+  // แถวใหม่ได้ค่าอัตโนมัติจาก @default(uuid()) โดย service ไม่ต้องตั้งเองเลย
+  publicId                  String?         @unique @default(uuid()) @map("public_id")
   organizerId               Int             @map("organizer_id")
   name                      String          @db.VarChar(255)
   description               String
@@ -256,6 +264,9 @@ model EventVisibilityYear {
 
 model Activity {
   id                         Int              @id @default(autoincrement())
+  // เหมือน Event.publicId เป๊ะ — ดูคอมเมนต์ที่นั่น (ใช้แทน id ใน URL สาธารณะ, nullable เพราะ backfill
+  // แยกต่างหาก, id เดิมยังใช้ภายในระบบทุกจุดเหมือนเดิม)
+  publicId                   String?          @unique @default(uuid()) @map("public_id")
   organizerId                Int              @map("organizer_id")
   eventId                    Int?             @map("event_id")
   name                       String           @db.VarChar(255)

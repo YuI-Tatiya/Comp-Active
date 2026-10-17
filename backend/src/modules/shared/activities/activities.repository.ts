@@ -22,6 +22,9 @@ export const activityInclude = {
       // canViewerSeeEvent ต้องใช้ (fail-closed: ไม่ select มา = ถือว่าไม่เผยแพร่)
       isPublic: true,
       organizerId: true,
+      // กิจกรรมย่อยของงานต้องแก้ผ่าน wizard ของงานแม่ (/organizer/manage/:publicId/edit) — eventId (FK ตัวเลข
+      // บน Activity เอง) ใช้สร้างลิงก์นั้นไม่ได้แล้วเพราะ route เปลี่ยนไปใช้ publicId ของ Event ทั้งหมด
+      publicId: true,
     },
   },
 } as const;
@@ -70,6 +73,16 @@ export class ActivitiesRepository {
       where: { id },
       include: { ...activityInclude, _count: { select: { registrations: true } } },
     });
+  }
+
+  /**
+   * แปลง publicId (จาก URL สาธารณะ) กลับเป็น id ตัวเลขภายใน — คืน null ถ้าไม่เจอ (ผู้เรียก throw
+   * NotFoundException เอง ด้วยข้อความเดียวกับตอนไม่พบกิจกรรมกรณีอื่นๆ) แถวไหนยังไม่ทัน backfill
+   * (ดู prisma/backfills/events-activities-public-id.sql) ก็แค่หาไม่เจอ ไม่ throw ผิดที่
+   */
+  async findIdByPublicId(publicId: string): Promise<number | null> {
+    const row = await this.prisma.activity.findUnique({ where: { publicId }, select: { id: true } });
+    return row?.id ?? null;
   }
 
   /** ใช้กับ organizer เจ้าของกิจกรรม/admin เท่านั้น — ส่งรายชื่อผู้ลงทะเบียนพร้อมคำตอบตอนลงทะเบียนมาด้วย */

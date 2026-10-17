@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ActivitiesService } from './activities.service';
 import { ActivityFilterDto } from './dto/activity-filter.dto';
@@ -35,7 +35,7 @@ export class ActivitiesPublicController {
   @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'ดูรายละเอียดกิจกรรม' })
-  async findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() viewer: Viewer | null) {
+  async findOne(@Param('id') id: string, @CurrentUser() viewer: Viewer | null) {
     return this.activitiesService.findByIdPublic(id, viewer);
   }
 }

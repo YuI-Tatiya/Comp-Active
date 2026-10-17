@@ -48,7 +48,7 @@ const STATUS_TEXT: Record<string, string> = { confirmed: "ยืนยันแ�
  */
 export default function ActivityDashboardPage() {
     const params = useParams()
-    const id = Number(params?.id)
+    const id = String(params?.id ?? "")
     const [activity, setActivity] = useState<Activity<RegistrationRow> | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
@@ -57,7 +57,7 @@ export default function ActivityDashboardPage() {
         if (id) fetchData(id)
     }, [id])
 
-    const fetchData = async (activityId: number) => {
+    const fetchData = async (activityId: string) => {
         try {
             setLoading(true)
             const data = await activitiesAPI.getByIdForOrganizer(activityId)
@@ -107,11 +107,12 @@ export default function ActivityDashboardPage() {
     const attendanceRate = total > 0 ? Math.round((attended / total) * 100) : 0
     const certRequesters = registrations.filter((r) => r.wantsCertLoanFund || r.wantsCertScholarship)
 
+    // publicId ของงานแม่มากับ activity.event (ไม่ใช่ activity.eventId ซึ่งเป็นเลขภายในที่สร้าง URL ไม่ได้แล้ว)
     const isEventActivity = activity.eventId != null
-    const editHref = isEventActivity ? `/organizer/manage/${activity.eventId}/edit` : `/organizer/activities/${activity.id}/edit`
-    const manageHref = isEventActivity ? `/organizer/events/${activity.eventId}` : `/organizer/activities/${activity.id}`
+    const editHref = isEventActivity ? `/organizer/manage/${activity.event?.publicId}/edit` : `/organizer/activities/${activity.publicId}/edit`
+    const manageHref = isEventActivity ? `/organizer/events/${activity.event?.publicId}` : `/organizer/activities/${activity.publicId}`
     const shareUrl = `${typeof window !== "undefined" ? window.location.origin : ""}${
-        isEventActivity ? `/events/${activity.eventId}` : `/events/activities/${activity.id}`
+        isEventActivity ? `/events/${activity.event?.publicId}` : `/events/activities/${activity.publicId}`
     }`
 
     // วัน-เวลาตามเวลาไทยจาก startAt/endAt (รองรับหลายวัน) — ชิปบนแถบหัวหน้าไม่ต้องมีชื่อวัน
@@ -285,7 +286,7 @@ export default function ActivityDashboardPage() {
     return (
         <div className="bg-surface pb-16">
             <ActivityDashboardHero
-                activityId={activity.id}
+                activityId={activity.publicId ?? ""}
                 title={activity.name}
                 kindLabel={isEventActivity ? "กิจกรรมย่อยของงาน" : "กิจกรรมเดี่ยว"}
                 dateLabel={dateChip}
@@ -303,7 +304,7 @@ export default function ActivityDashboardPage() {
 
                 <EventSurveyResults
                     className=""
-                    id={activity.id}
+                    id={activity.publicId ?? ""}
                     fetchResults={activitiesAPI.getSurveyResults}
                     editHref={editHref}
                     subjectLabel={isEventActivity ? "งาน" : "กิจกรรม"}

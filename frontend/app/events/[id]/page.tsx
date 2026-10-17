@@ -50,14 +50,14 @@ export default function PublicEventDetailsPage() {
 
     useEffect(() => {
         if (params.id) {
-            fetchEventDetails(Number(params.id))
+            fetchEventDetails(String(params.id))
         }
     }, [params.id])
 
-    const fetchEventDetails = async (id: number) => {
+    const fetchEventDetails = async (publicId: string) => {
         try {
             setLoading(true)
-            const data = await eventsAPI.getPublicById(id)
+            const data = await eventsAPI.getPublicById(publicId)
             setEvent(data)
             setActiveActivityId((prev) => prev ?? data.activities[0]?.id ?? null)
         } catch (err: unknown) {
@@ -122,7 +122,7 @@ export default function PublicEventDetailsPage() {
                 myRegistrations={[]}
                 onRegister={handleRegisterClick}
                 onCancel={() => {}}
-                shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.id}`}
+                shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${event.publicId}`}
                 onShareCopied={() => showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")}
                 backHref="/events"
                 showActivityImage

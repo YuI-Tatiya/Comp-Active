@@ -18,7 +18,9 @@ type Status = "loading" | "success" | "error"
 export default function StudentSelfCheckInPage() {
     const params = useParams()
     const searchParams = useSearchParams()
-    const activityId = Number(params?.activityId)
+    // publicId จาก URL — ไม่ใช่เลข id ภายในอีกต่อไป ต้อง resolve เป็นเลขจริงผ่าน activitiesAPI.getById()
+    // ก่อนค่อยเรียก checkInSelf (token ของ checkin-token.util.ts ผูกกับเลข id ภายในโดยตรง เปลี่ยนไม่ได้)
+    const activityPublicId = String(params?.activityId ?? "")
     // QR หมุนรหัสทุก 5 นาที (ดู ActivityCheckinQr ฝั่งผู้จัด) — token มาจากลิงก์ที่สแกนเท่านั้น ไม่มี fallback
     const token = searchParams?.get("token") ?? ""
     // รู้ได้จากลิงก์ตรงๆ ตั้งแต่ render แรก ไม่ต้องรอ effect/เรียก API เลยถ้าไม่มี token มาด้วย
@@ -40,18 +42,20 @@ export default function StudentSelfCheckInPage() {
     useEffect(() => {
         // ไม่มี token แนบมา (ลิงก์พิมพ์มือ/เก่า/แชร์ภาพหน้าจอ QR แทนตัวจริง) — ฟันธงได้จาก tokenMissing ตรงๆ
         // ไม่ต้องยิง API เลย (เช็คที่ JSX ด้านล่างแทน ไม่ใช่ที่นี่ เพราะรู้ผลตั้งแต่ render แรกแล้ว)
-        if (!activityId || capable !== true || tokenMissing) return
+        if (!activityPublicId || capable !== true || tokenMissing) return
         let cancelled = false
 
+        // ต้อง resolve publicId → เลข id ภายในก่อนเสมอ (sequential ไม่ใช่ยิงคู่ขนานแบบเดิม) เพราะ
+        // checkInSelf ผูกกับเลข id ภายในโดยตรงผ่าน token (ดู checkin-token.util.ts ฝั่ง backend)
         activitiesAPI
-            .getById(activityId)
-            .then((a) => { if (!cancelled) setActivityName(a.name) })
-            .catch(() => {})
-
-        registrationsAPI
-            .checkInSelf(activityId, token)
-            .then((res) => {
+            .getById(activityPublicId)
+            .then((a) => {
                 if (cancelled) return
+                setActivityName(a.name)
+                return registrationsAPI.checkInSelf(a.id, token)
+            })
+            .then((res) => {
+                if (cancelled || !res) return
                 setResult(res)
                 setStatus("success")
             })
@@ -63,7 +67,7 @@ export default function StudentSelfCheckInPage() {
             })
 
         return () => { cancelled = true }
-    }, [activityId, capable, tokenMissing, token])
+    }, [activityPublicId, capable, tokenMissing, token])
 
     return (
         <div className="flex min-h-[70vh] items-center bg-surface">

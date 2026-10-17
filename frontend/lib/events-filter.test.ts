@@ -4,10 +4,10 @@ import assert from "node:assert/strict"
 import type { Activity, EventSummary } from "./api.ts"
 import { buildFeaturedCards, eventImagePath, facetCounts, filterAndSortItems, groupByCategory, INITIAL_FILTERS } from "./events-filter.ts"
 
-const HREFS = { event: (id: number) => `/events/${id}`, activity: (id: number) => `/events/activities/${id}` }
+const HREFS = { event: (id: string) => `/events/${id}`, activity: (id: string) => `/events/activities/${id}` }
 
 function subActivity(overrides: Record<string, unknown> = {}) {
-    return {
+    const merged = {
         id: 1,
         name: "Day 1",
         categories: ["Technology"],
@@ -18,11 +18,14 @@ function subActivity(overrides: Record<string, unknown> = {}) {
         volunteerRole: null,
         ...overrides,
     }
+    // publicId ตาม id เสมอ (จำลองพฤติกรรมจริง: publicId คู่กับ id แถวเดียวกันตลอด)
+    return { ...merged, publicId: (overrides.publicId as string | undefined) ?? String(merged.id) }
 }
 
 function event(id: number, activities: Record<string, unknown>[], overrides: Record<string, unknown> = {}) {
     return {
         id,
+        publicId: String(id),
         name: `Event ${id}`,
         description: "d",
         createdAt: "2026-10-01T00:00:00.000Z",

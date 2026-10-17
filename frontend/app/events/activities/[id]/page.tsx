@@ -31,7 +31,7 @@ export default function PublicActivityDetailsPage() {
 
     useEffect(() => {
         if (params.id) {
-            fetchEventDetails(Number(params.id))
+            fetchEventDetails(String(params.id))
         }
     }, [params.id])
 
@@ -47,10 +47,10 @@ export default function PublicActivityDetailsPage() {
         toastTimer.current = setTimeout(() => setToast((prev) => ({ ...prev, open: false })), 2500)
     }
 
-    const fetchEventDetails = async (id: number) => {
+    const fetchEventDetails = async (publicId: string) => {
         try {
             setLoading(true)
-            const data = await activitiesAPI.getById(id)
+            const data = await activitiesAPI.getById(publicId)
             setEvent(data)
         } catch (err: unknown) {
             const e = err as Error
@@ -109,7 +109,7 @@ export default function PublicActivityDetailsPage() {
                 myRegistrations={[]}
                 onRegister={handleRegisterClick}
                 onCancel={() => {}}
-                shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${event.id}`}
+                shareUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/events/activities/${event.publicId}`}
                 onShareCopied={() => showToast("คัดลอกลิงก์แล้ว!", "วางลิงก์เพื่อแชร์กิจกรรมนี้ให้เพื่อนได้เลย")}
                 backHref="/events"
             >

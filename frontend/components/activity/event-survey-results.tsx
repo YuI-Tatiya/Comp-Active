@@ -93,9 +93,9 @@ function computeDisplayQuestion(question: SurveyResult, respondents: SurveyRespo
 }
 
 interface EventSurveyResultsProps {
-    /** id ของ Event หรือ Activity เดี่ยว — ใช้แค่เป็น dependency ให้ effect โหลดใหม่เมื่อเปลี่ยนหน้า */
-    id: number
-    fetchResults: (id: number) => Promise<EventSurveyResultsResponse>
+    /** publicId ของ Event หรือ Activity เดี่ยว — ใช้แค่เป็น dependency ให้ effect โหลดใหม่เมื่อเปลี่ยนหน้า */
+    id: string
+    fetchResults: (id: string) => Promise<EventSurveyResultsResponse>
     /** หน้าแก้ไขของงาน/กิจกรรมนี้ — ใช้พาไปเพิ่มแบบสำรวจเมื่อยังไม่มีคำถามสักข้อ */
     editHref?: string
     /** คำเรียกหน่วยที่กำลังดูอยู่ ใช้ในข้อความ ("งาน" หรือ "กิจกรรม") */

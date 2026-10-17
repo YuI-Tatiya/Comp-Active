@@ -6,8 +6,8 @@ import { SiteFooter } from "@/components/layout/site-footer"
 
 // ค่าคงที่ระดับโมดูล — EventsBrowser ใช้เป็น dependency ของ useMemo
 const HREFS = {
-    event: (id: number) => `/events/${id}`,
-    activity: (id: number) => `/events/activities/${id}`,
+    event: (id: string) => `/events/${id}`,
+    activity: (id: string) => `/events/activities/${id}`,
 }
 
 /** หน้ารายการกิจกรรมสาธารณะ — หน้าตาเดียวกับ /student/events (EventsBrowser) ต่างแค่ข้อความสำหรับผู้ที่ยังไม่ได้เข้าสู่ระบบ */

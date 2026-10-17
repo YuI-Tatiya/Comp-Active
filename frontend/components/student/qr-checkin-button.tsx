@@ -9,7 +9,8 @@ import { SCAN_MOBILE_ONLY_MESSAGE } from "@/lib/device"
 import { useScanCapable } from "@/lib/use-scan-capable"
 
 interface Props {
-    activityId: number
+    /** publicId ของกิจกรรม — ไม่ใช่เลข id ภายใน */
+    activityId: string
     activityName: string
 }
 
@@ -41,12 +42,12 @@ async function decodeQrFromFile(file: File): Promise<string | null> {
     return code?.data ?? null
 }
 
-/** QR ของผู้จัดเข้ารหัสเป็น URL รูปแบบ /student/checkin/:activityId (ดู activity-participant-manager.tsx) */
-function extractActivityId(text: string): number | null {
-    const match = text.match(/\/student\/checkin\/(\d+)/)
-    if (!match) return null
-    const id = Number(match[1])
-    return Number.isFinite(id) ? id : null
+/** QR ของผู้จัดเข้ารหัสเป็น URL รูปแบบ /student/checkin/:publicId (ดู activity-participant-manager.tsx)
+ *  publicId เป็นสตริงสุ่มยาวๆ (ไม่ใช่เลข id ภายในแบบเดิมอีกต่อไป) — จับทุกตัวอักษรก่อน / หรือ ? ถัดไป
+ *  แทนที่จะล็อกรูปแบบ UUID ตรงๆ กันพังถ้ารูปแบบ id เปลี่ยนในอนาคต */
+function extractActivityId(text: string): string | null {
+    const match = text.match(/\/student\/checkin\/([^/?]+)/)
+    return match ? match[1] : null
 }
 
 /** ปุ่มถ่ายรูป QR code ที่ผู้จัดแสดงหน้างานเพื่อเช็คอิน — ถอดรหัสในเครื่อง แล้วพาไปหน้าเช็คอินจริงที่มีอยู่แล้ว */

@@ -455,6 +455,16 @@ export class EventsRepository {
     return this.prisma.event.findUnique({ where: { id }, include: eventOrganizerInclude });
   }
 
+  /**
+   * แปลง publicId (จาก URL สาธารณะ) กลับเป็น id ตัวเลขภายใน — คืน null ถ้าไม่เจอ (ผู้เรียก throw
+   * NotFoundException เอง ด้วยข้อความเดียวกับตอนไม่พบงานกรณีอื่นๆ) แถวไหนยังไม่ทัน backfill
+   * (ดู prisma/backfills/events-activities-public-id.sql) ก็แค่หาไม่เจอ ไม่ throw ผิดที่
+   */
+  async findIdByPublicId(publicId: string): Promise<number | null> {
+    const row = await this.prisma.event.findUnique({ where: { publicId }, select: { id: true } });
+    return row?.id ?? null;
+  }
+
   /** ใช้กับเส้นทางสาธารณะ/ยังไม่ยืนยันตัวตน — ไม่มี student/evaluation บน registrations */
   findByIdPublicSafe(id: number) {
     return this.prisma.event.findUnique({ where: { id }, include: eventInclude });

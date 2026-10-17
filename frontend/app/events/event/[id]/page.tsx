@@ -29,14 +29,14 @@ export default function PublicEventGroupPage() {
 
     useEffect(() => {
         if (params.id) {
-            fetchEvent(Number(params.id))
+            fetchEvent(String(params.id))
         }
     }, [params.id])
 
-    const fetchEvent = async (id: number) => {
+    const fetchEvent = async (publicId: string) => {
         try {
             setLoading(true)
-            const data = await eventsAPI.getPublicById(id)
+            const data = await eventsAPI.getPublicById(publicId)
             setEvent(data)
         } catch (err: unknown) {
             const e = err as Error
@@ -117,8 +117,10 @@ export default function PublicEventGroupPage() {
                 <h2 className="text-xl font-bold text-fg mb-5">กิจกรรมย่อย ({event.activities.length})</h2>
 
                 <div className={EVENT_CARD_GRID}>
+                    {/* แก้บั๊กเดิม: การ์ดนี้คือ "กิจกรรมย่อย" (Activity) ไม่ใช่ "งาน" (Event) — ต้องลิงก์ไปหน้า
+                        รายละเอียดกิจกรรม /events/activities/:publicId ไม่ใช่ /events/:publicId (หน้างานแม่) */}
                     {event.activities.map((a) => (
-                        <Link key={a.id} href={`/events/${a.id}`} className="block">
+                        <Link key={a.id} href={`/events/activities/${a.publicId}`} className="block">
                             <EventCard
                                 activity={a}
                                 badgeLeft={<EventCardBadge variant="light">{categoriesBadgeLabel(a.categories)}</EventCardBadge>}

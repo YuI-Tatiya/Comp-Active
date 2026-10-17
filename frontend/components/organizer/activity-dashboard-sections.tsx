@@ -27,7 +27,7 @@ function MetaChip({ icon: Icon, children }: { icon: LucideIcon; children: React.
 }
 
 interface DashboardHeroProps {
-    activityId: number
+    activityId: string
     title: string
     /** "กิจกรรมย่อยของงาน" / "กิจกรรมเดี่ยว" */
     kindLabel: string

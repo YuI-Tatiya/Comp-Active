@@ -8,7 +8,6 @@ import {
   Body,
   Param,
   UseGuards,
-  ParseIntPipe,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
@@ -62,7 +61,7 @@ export class EventsOrganizerController {
     return this.eventsService.findByOrganizer(userId);
   }
 
-  // เส้นทางฉบับร่างทั้ง 3 ต้องอยู่ก่อน ":id" เสมอ — ไม่งั้น Nest จะจับ "draft" เป็นค่า :id แทน (ParseIntPipe พัง)
+  // เส้นทางฉบับร่างทั้ง 3 ต้องอยู่ก่อน ":id" เสมอ — ไม่งั้น Nest จะจับ "draft" เป็นค่า publicId แทน แล้ว resolveId หาไม่เจอ (404)
 
   /**
    * GET /api/events/draft - ดูฉบับร่างงานที่บันทึกไว้ล่าสุดของฉัน (Organizer) — ไม่มี = null
@@ -102,7 +101,7 @@ export class EventsOrganizerController {
   @Get(":id")
   @ApiOperation({ summary: "ดูรายละเอียดงาน (เจ้าของ / Admin)" })
   async findById(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
   ) {
@@ -117,7 +116,7 @@ export class EventsOrganizerController {
   async getSurveyResults(
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
   ) {
     return this.eventsService.getSurveyResults(id, userId, userRole);
   }
@@ -128,7 +127,7 @@ export class EventsOrganizerController {
   @Patch(":id")
   @ApiOperation({ summary: "แก้ไขงาน (เจ้าของ / Admin)" })
   async update(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
     @Body() updateDto: UpdateEventDto,
@@ -142,7 +141,7 @@ export class EventsOrganizerController {
   @Patch(":id/publish")
   @ApiOperation({ summary: "สลับสถานะเผยแพร่ของงาน (เจ้าของ / Admin)" })
   async setPublic(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
     @Body() dto: SetEventPublicDto,
@@ -159,7 +158,7 @@ export class EventsOrganizerController {
       "เปิด/ปิดรับสมัครกิจกรรมย่อยทั้งหมดในงานนี้ชั่วคราว (เจ้าของ / Admin)",
   })
   async setActivitiesStatus(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
     @Body() dto: SetActivityStatusDto,
@@ -180,7 +179,7 @@ export class EventsOrganizerController {
     summary: "คัดลอกงานทั้งงานพร้อมกิจกรรมย่อยเป็นงานใหม่ (เจ้าของ / Admin)",
   })
   async duplicate(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
   ) {
@@ -193,7 +192,7 @@ export class EventsOrganizerController {
   @Delete(":id")
   @ApiOperation({ summary: "ลบงานทั้งงานพร้อมกิจกรรมย่อย (เจ้าของ / Admin)" })
   async remove(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id") id: string,
     @CurrentUser("id") userId: number,
     @CurrentUser("role") userRole: UserRole,
   ) {
