@@ -231,7 +231,7 @@ export default function OrganizerRegisterPage() {
                         </div>
                         <div>
                             <AuthLabel htmlFor="org-email" required>อีเมล</AuthLabel>
-                            <Input {...fieldProps("email")} type="email" autoComplete="email" placeholder="example@kkumail.com" onChange={(e) => set("email", e.target.value)} className={AUTH_INPUT} />
+                            <Input {...fieldProps("email")} type="email" autoComplete="email" placeholder="หากป็นนักศึกษากรุณาใช้ Personal mail" onChange={(e) => set("email", e.target.value)} className={AUTH_INPUT} />
                             {fieldError("email")}
                         </div>
                         <div>
