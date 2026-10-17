@@ -97,6 +97,7 @@
   --animate-dialog-pop: dialog-pop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   --animate-dialog-backdrop: dialog-backdrop 0.2s ease-out;
   --animate-icon-pop: icon-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+  --animate-scan-sweep: scan-sweep 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
 /* ฟอนต์ทั้งระบบ — โหลดผ่าน next/font ใน lib/denim-fonts.ts ตัวแปรผูกไว้บน <html> (app/layout.tsx)
@@ -174,6 +175,17 @@
   }
   to {
     opacity: 1;
+  }
+}
+
+/* เส้นกวาดในกรอบสแกน QR สด (qr-scanner-modal.tsx) — ขึ้นลงวนซ้ำ บอกว่ากล้องกำลังทำงานอยู่ ไม่ใช่ภาพค้าง */
+@keyframes scan-sweep {
+  0%,
+  100% {
+    transform: translateY(0%);
+  }
+  50% {
+    transform: translateY(calc(100% - 2px));
   }
 }
 
