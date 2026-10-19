@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ChevronDown, LogOut, Settings } from "lucide-react"
+import { nameInitial } from "@/components/denim/denim-ui"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
 
@@ -12,6 +13,8 @@ interface UserMenuProps {
   accountHref: string
   /** ป้ายบทบาท เช่น "นักศึกษา" / "ผู้จัดกิจกรรม" */
   roleLabel: string
+  /** pill = อวตาร + ชื่อ + บทบาท (หัวหน้าจอกว้าง) · avatar = วงกลมอวตารอย่างเดียว (แถบหัวมือถือ MobileAppBar) */
+  variant?: "pill" | "avatar"
 }
 
 /**
@@ -19,7 +22,7 @@ interface UserMenuProps {
  * เขียนเองด้วย useState + useRef ตามแพตเทิร์นเดียวกับ dialog.tsx / tabs.tsx
  * (โปรเจกต์นี้ไม่ได้ติดตั้ง headless dropdown library ไว้)
  */
-export function UserMenu({ accountHref, roleLabel }: UserMenuProps) {
+export function UserMenu({ accountHref, roleLabel, variant = "pill" }: UserMenuProps) {
   const { user, logout } = useAuth()
   const pathname = usePathname()
   const [open, setOpen] = React.useState(false)
@@ -56,7 +59,8 @@ export function UserMenu({ accountHref, roleLabel }: UserMenuProps) {
   }, [open])
 
   const name = user?.name || "ผู้ใช้งาน"
-  const initial = name.trim().charAt(0).toUpperCase()
+  // ข้ามสระหน้า (เ แ โ ใ ไ) — ไม่งั้นชื่ออย่าง "เกศินี" ได้ "เ" ลอยอยู่บนอวตาร
+  const initial = nameInitial(name)
 
   return (
     <div ref={containerRef} className="relative">
@@ -68,19 +72,26 @@ export function UserMenu({ accountHref, roleLabel }: UserMenuProps) {
         aria-expanded={open}
         aria-label={`เมนูของ ${name}`}
         className={cn(
-          "flex min-h-11 items-center gap-2.5 rounded-full border bg-denim-paper py-1 pl-1 pr-3.5 transition-colors hover:border-denim-field",
-          open ? "border-denim-field" : "border-denim-line"
+          variant === "avatar"
+            ? "grid size-11 place-items-center rounded-full focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
+            : "flex min-h-11 items-center gap-2.5 rounded-full border bg-denim-paper py-1 pl-1 pr-3.5 transition-colors hover:border-denim-field",
+          variant === "pill" && (open ? "border-denim-field" : "border-denim-line")
         )}
       >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber font-display font-bold text-denim-deep">
+        <span
+          className={cn(
+            "flex shrink-0 items-center justify-center rounded-full bg-amber font-display font-bold text-denim-deep",
+            variant === "avatar" ? "size-10 border-[2.5px] border-denim-deep text-lg" : "size-9"
+          )}
+        >
           {initial}
         </span>
-        <span className="flex min-w-0 flex-col items-start leading-[1.15]">
+        <span className={cn("flex min-w-0 flex-col items-start leading-[1.15]", variant === "avatar" && "hidden")}>
           <span className="max-w-40 truncate text-sm font-semibold text-denim-deep">{name}</span>
           <span className="text-xs text-denim-muted">{roleLabel}</span>
         </span>
         <ChevronDown
-          className={cn("size-4 text-denim-muted transition-transform", open && "rotate-180")}
+          className={cn("size-4 text-denim-muted transition-transform", open && "rotate-180", variant === "avatar" && "hidden")}
           aria-hidden="true"
         />
       </button>

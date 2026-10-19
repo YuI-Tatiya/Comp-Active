@@ -17,6 +17,7 @@ export default function StudentEventsPage() {
                 prompt="~/comp-active/student $ ls events/"
                 subtitle="เลือกงานที่สนใจ กดเข้าไปดูรายละเอียดเพื่อลงทะเบียนเข้าร่วม"
                 hrefs={HREFS}
+                appBarOnMobile
             />
         </div>
     )

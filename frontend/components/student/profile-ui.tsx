@@ -22,10 +22,19 @@ export type ProfileTab = "softskills" | "edit"
 
 /* ── แถบหัวโปรไฟล์ ───────────────────────────────────────────────────────── */
 
-const TABS: { value: ProfileTab; label: string; icon: LucideIcon }[] = [
-    { value: "softskills", label: "Soft Skills", icon: BarChart3 },
-    { value: "edit", label: "แก้ไขข้อมูลส่วนตัว", icon: UserRound },
+const TABS: { value: ProfileTab; label: string; shortLabel: string; icon: LucideIcon }[] = [
+    { value: "softskills", label: "Soft Skills", shortLabel: "Soft Skills", icon: BarChart3 },
+    { value: "edit", label: "แก้ไขข้อมูลส่วนตัว", shortLabel: "แก้ไขข้อมูล", icon: UserRound },
 ]
+
+/** สถิติ 3 ช่องในการ์ดโปรไฟล์บนมือถือ (จอกว้างแสดงเป็นการ์ดสถิติใต้หัวข้อ Soft Skills Dashboard แทน) */
+export interface ProfileSummaryItem {
+    code: string
+    value: string
+    note: string
+    /** ชื่อสถิติภาษาไทยสำหรับ screen reader (ป้ายโค้ดภาษาอังกฤษซ่อนไว้) */
+    label: string
+}
 
 export const profileTabId = (tab: ProfileTab) => `profile-tab-${tab}`
 export const profilePanelId = (tab: ProfileTab) => `profile-panel-${tab}`
@@ -40,17 +49,23 @@ export function ProfileHero({
     email,
     tab,
     onTabChange,
+    summary,
 }: {
     name: string
     studentId?: string | null
     email?: string | null
     tab: ProfileTab
     onTabChange: (tab: ProfileTab) => void
+    summary: ProfileSummaryItem[]
 }) {
     return (
-        <section className="denim-weave relative overflow-hidden">
-            <Container className="relative pt-8 sm:pt-10">
-                <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6 lg:pr-60">
+        // จอแคบ: ไม่มีแถบยีนส์เต็มจอ (ชื่อหน้าอยู่บน MobileAppBar) — เหลือการ์ดยีนส์ในหน้า + แท็บเต็มความกว้าง
+        // แท็บเป็นชุดเดียวกันทุกจอ (id ของแท็บ/แผงต้องไม่ซ้ำ) จัดหน้าตาต่างกันด้วยคลาสตามจอ
+        <section className="denim-weave relative overflow-hidden max-lg:bg-transparent max-lg:bg-none">
+            <Container className="relative pt-4 sm:pt-6 lg:pt-10">
+                <ProfileMobileCard name={name} studentId={studentId} email={email} summary={summary} />
+
+                <div className="flex flex-col gap-5 max-lg:hidden sm:flex-row sm:items-center sm:gap-6 lg:pr-60">
                     <AmberAvatarPatch initial={nameInitial(name)} framed />
                     <div className="flex min-w-0 flex-col gap-2">
                         <TerminalPrompt>~/comp-active/student $ cat profile</TerminalPrompt>
@@ -67,9 +82,9 @@ export function ProfileHero({
                 <div
                     role="tablist"
                     aria-label="ส่วนของโปรไฟล์"
-                    className="relative z-[1] mt-8 inline-flex max-w-full gap-1 rounded-[20px] bg-white p-1.5 shadow-[0_18px_34px_-18px_rgb(18_34_61/0.6)]"
+                    className="relative z-[1] mt-4 flex w-full gap-1 rounded-[20px] border border-denim-line bg-white p-1.5 lg:mt-8 lg:inline-flex lg:w-auto lg:max-w-full lg:border-0 lg:shadow-[0_18px_34px_-18px_rgb(18_34_61/0.6)]"
                 >
-                    {TABS.map(({ value, label, icon: Icon }) => {
+                    {TABS.map(({ value, label, shortLabel, icon: Icon }) => {
                         const active = tab === value
                         return (
                             <button
@@ -81,12 +96,13 @@ export function ProfileHero({
                                 aria-controls={profilePanelId(value)}
                                 onClick={() => onTabChange(value)}
                                 className={cn(
-                                    "inline-flex min-h-12 items-center gap-2 whitespace-nowrap rounded-[14px] px-4 text-sm font-semibold transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim sm:px-6",
+                                    "inline-flex min-h-12 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-[14px] px-4 text-sm font-semibold transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim sm:px-6 lg:flex-none",
                                     active ? "bg-denim-deep text-white" : "text-denim-ink hover:bg-denim-paper hover:text-denim-deep"
                                 )}
                             >
-                                <Icon className={cn("size-4 shrink-0", active && "text-amber")} aria-hidden="true" />
-                                {label}
+                                <Icon className={cn("size-4 shrink-0 max-lg:hidden", active && "text-amber")} aria-hidden="true" />
+                                <span className="lg:hidden">{shortLabel}</span>
+                                <span className="max-lg:hidden">{label}</span>
                             </button>
                         )
                     })}
@@ -103,6 +119,48 @@ export function ProfileHero({
                 />
             </Container>
         </section>
+    )
+}
+
+/** การ์ดโปรไฟล์บนจอแคบ — อวตารอำพัน + ชื่อ/รหัส/อีเมล + สถิติ 3 ช่องบนพื้นยีนส์ (จอกว้างใช้แถบยีนส์เต็มจอแทน) */
+function ProfileMobileCard({
+    name,
+    studentId,
+    email,
+    summary,
+}: {
+    name: string
+    studentId?: string | null
+    email?: string | null
+    summary: ProfileSummaryItem[]
+}) {
+    return (
+        <div className="denim-weave rounded-[26px] p-5 text-white shadow-[0_18px_34px_-22px_rgb(18_34_61/0.7)] lg:hidden">
+            <div className="flex items-center gap-4">
+                <AmberAvatarPatch initial={nameInitial(name)} className="size-[72px] rounded-[20px] text-[34px] sm:text-[34px]" />
+                <div className="min-w-0">
+                    <h1 className="break-words font-display text-[22px] font-bold leading-tight">{name}</h1>
+                    <p className="mt-1 truncate font-code text-xs text-denim-on">
+                        <span className="text-amber">id</span> {studentId || "ไม่ระบุ"}
+                    </p>
+                    <p className="truncate font-code text-xs text-denim-on">{email || "ไม่ระบุอีเมล"}</p>
+                </div>
+            </div>
+            <ul className="mt-5 grid grid-cols-3 gap-2">
+                {summary.map((item) => (
+                    <li key={item.code} className="min-w-0 rounded-2xl border border-white/10 bg-denim-deep/45 px-3 py-2.5">
+                        <span className="block truncate font-code text-[10px] tracking-[0.06em] text-denim-on-soft" aria-hidden="true">
+                            {item.code}
+                        </span>
+                        <span className="mt-0.5 block font-display text-[22px] font-bold leading-none tabular-nums text-white">
+                            <span className="sr-only">{item.label} </span>
+                            {item.value}
+                        </span>
+                        <span className="mt-1 block truncate text-[11px] text-denim-on">{item.note}</span>
+                    </li>
+                ))}
+            </ul>
+        </div>
     )
 }
 
@@ -170,26 +228,58 @@ export function SkillRadarPanel({ skills, loading }: { skills: SkillsData | null
     const domainMax = Math.max(MAX_SOFT_SKILL_LEVEL, top)
     const count = skills?.count ?? 0
     const data = SOFT_SKILLS.map((s, i) => ({ n: pad2(i + 1), v: values[i] }))
+    // จุดเด่น/ควรพัฒนา = ทักษะค่าเฉลี่ยสูงสุด/ต่ำสุด (ต่ำสุดนับทักษะที่ยังไม่เคยได้คะแนนด้วย) — ทุกด้านเท่ากันไม่มีอะไรเด่น ไม่แสดง
+    const strongest = values.indexOf(top)
+    const weakest = values.indexOf(Math.min(...values))
+    const hasHighlights = !loading && count > 0 && values[strongest] > values[weakest]
 
     return (
         <section
             aria-labelledby="skills-table-heading"
             className="grid overflow-hidden rounded-[24px] border border-denim-line bg-white shadow-[0_14px_34px_-28px_rgb(18_34_61/0.45)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)]"
         >
-            {/* เรดาร์บนพื้นยีนส์เข้ม — ตัวเลขรอบกราฟตรงกับลำดับในตาราง (ตารางคือข้อมูลชุดเดียวกันที่ screen reader อ่านได้) */}
-            <div className="denim-weave-deep flex flex-col p-5 text-white sm:p-6" aria-hidden="true">
-                <div className="flex items-center justify-between gap-3 font-code text-xs">
-                    <span className="text-amber">{"// radar(skills[12])"}</span>
-                    <span className="text-denim-on-soft">max {top > 0 ? formatAverage(top) : "—"}</span>
+            {/* เรดาร์ — ตัวเลขรอบกราฟตรงกับลำดับในตาราง (ตารางคือข้อมูลชุดเดียวกันที่ screen reader อ่านได้)
+                จอกว้าง: พื้นยีนส์เข้ม · จอแคบ: พื้นขาวต่อกับหัวการ์ด (สีของกราฟสลับด้วยตัวแปร CSS — กราฟชุดเดียว ไม่วาดสองรอบ) */}
+            <div
+                className="denim-weave-deep flex flex-col p-5 text-white [--radar-dot:var(--color-denim-deep)] [--radar-grid:rgb(18_34_61/0.12)] [--radar-strong:#047857] [--radar-tick:var(--color-denim-muted)] [--radar-weak:var(--color-amber-ink)] max-lg:bg-white max-lg:bg-none max-lg:pb-2 max-lg:text-denim-deep sm:p-6 lg:[--radar-dot:var(--color-amber)] lg:[--radar-grid:rgb(255_255_255/0.2)] lg:[--radar-strong:#6ee7b7] lg:[--radar-tick:var(--color-denim-on-soft)] lg:[--radar-weak:var(--color-amber)]"
+                aria-hidden="true"
+            >
+                <div className="flex items-start justify-between gap-3 font-code text-xs">
+                    <span className="text-denim-accent lg:text-amber">{"// radar(skills[12])"}</span>
+                    <span className="text-denim-muted lg:text-denim-on-soft">max {top > 0 ? formatAverage(top) : "—"}</span>
                 </div>
+                <p className="mt-1 font-display text-xl font-bold lg:hidden">Soft Skills Dashboard</p>
                 <div className="h-[280px] sm:h-[340px]">
                     {!loading && (
                         <ResponsiveContainer width="100%" height="100%">
                             <RadarChart data={data} outerRadius="74%">
-                                <PolarGrid stroke="rgb(255 255 255 / 0.2)" />
+                                <PolarGrid stroke="var(--radar-grid)" />
                                 <PolarAngleAxis
                                     dataKey="n"
-                                    tick={{ fill: "var(--color-denim-on-soft)", fontSize: 11, fontFamily: "var(--font-code)" }}
+                                    tick={(props: { x: number | string; y: number | string; textAnchor: string; index: number; payload: { value: unknown } }) => {
+                                        const i = props.index
+                                        const fill = !hasHighlights
+                                            ? "var(--radar-tick)"
+                                            : i === strongest
+                                              ? "var(--radar-strong)"
+                                              : i === weakest
+                                                ? "var(--radar-weak)"
+                                                : "var(--radar-tick)"
+                                        return (
+                                            <text
+                                                x={props.x}
+                                                y={props.y}
+                                                textAnchor={props.textAnchor as "start" | "middle" | "end"}
+                                                dominantBaseline="central"
+                                                fill={fill}
+                                                fontSize={11}
+                                                fontWeight={hasHighlights && (i === strongest || i === weakest) ? 700 : 400}
+                                                fontFamily="var(--font-code)"
+                                            >
+                                                {String(props.payload.value)}
+                                            </text>
+                                        )
+                                    }}
                                 />
                                 <PolarRadiusAxis domain={[0, domainMax]} tick={false} axisLine={false} />
                                 <Radar
@@ -198,13 +288,13 @@ export function SkillRadarPanel({ skills, loading }: { skills: SkillsData | null
                                     strokeWidth={2}
                                     fill="var(--color-amber)"
                                     fillOpacity={0.25}
-                                    dot={{ r: 3, fill: "var(--color-amber)", strokeWidth: 0 }}
+                                    dot={{ r: 3, fill: "var(--radar-dot)", strokeWidth: 0 }}
                                 />
                             </RadarChart>
                         </ResponsiveContainer>
                     )}
                 </div>
-                <p className="mt-auto text-center text-[13px] text-denim-on">
+                <p className="mt-auto text-center text-[13px] text-denim-muted lg:text-denim-on">
                     {loading
                         ? "กำลังโหลด..."
                         : count === 0
@@ -212,6 +302,22 @@ export function SkillRadarPanel({ skills, loading }: { skills: SkillsData | null
                           : `ค่าเฉลี่ยจาก ${count.toLocaleString("th-TH")} กิจกรรม · เต็ม ${MAX_SOFT_SKILL_LEVEL}`}
                 </p>
             </div>
+
+            {/* จอแคบ: สรุปจุดเด่น/ควรพัฒนาใต้เรดาร์ — จอกว้างเห็นตารางคู่กับกราฟอยู่แล้ว */}
+            {hasHighlights && (
+                <div className="grid grid-cols-2 gap-3 px-5 pb-1 pt-2 sm:px-6 lg:hidden">
+                    <div className="min-w-0 rounded-2xl border border-emerald-100 bg-emerald-50 px-3.5 py-3">
+                        <p className="font-code text-[11px] text-emerald-700">จุดเด่น · {pad2(strongest + 1)}</p>
+                        <p className="mt-0.5 text-sm font-semibold leading-snug text-denim-deep">{SOFT_SKILLS[strongest].label}</p>
+                        <p className="mt-1 font-code text-xs font-semibold text-emerald-700">เฉลี่ย {formatAverage(values[strongest])}</p>
+                    </div>
+                    <div className="min-w-0 rounded-2xl border border-amber/30 bg-amber/10 px-3.5 py-3">
+                        <p className="font-code text-[11px] text-amber-ink">ควรพัฒนา · {pad2(weakest + 1)}</p>
+                        <p className="mt-0.5 text-sm font-semibold leading-snug text-denim-deep">{SOFT_SKILLS[weakest].label}</p>
+                        <p className="mt-1 font-code text-xs font-semibold text-amber-ink">เฉลี่ย {formatAverage(values[weakest])}</p>
+                    </div>
+                </div>
+            )}
 
             <div className="p-5 sm:p-6">
                 <h3 id="skills-table-heading" className="sr-only">

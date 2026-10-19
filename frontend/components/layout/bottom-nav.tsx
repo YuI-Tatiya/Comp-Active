@@ -47,12 +47,17 @@ export function useClaimBottomSlot(claim: boolean) {
     }, [ctx, claim])
 }
 
-function useBottomSlotClaimed(): boolean {
+/** มีอะไรจองพื้นที่ล่างจออยู่ไหม (เช่น MobileActionBar) — BottomNav/BottomNavSpacer หลบ, MascotWidget ยกตัวขึ้นพ้น */
+export function useBottomSlotClaimed(): boolean {
     return useContext(BottomSlotContext)?.claimed ?? false
 }
 
 export interface BottomNavTab extends AppNavLink {
     icon: NonNullable<AppNavLink["icon"]>
+    /** ตัวเลขบนไอคอน (เช่น จำนวนกิจกรรมที่กำลังจะถึง) — 0/ไม่ส่ง = ไม่แสดง */
+    badge?: number
+    /** อ่านต่อท้ายชื่อแท็บให้ screen reader เข้าใจว่าตัวเลขคืออะไร เช่น "กิจกรรมที่กำลังจะถึง" */
+    badgeLabel?: string
 }
 
 export function BottomNav({ tabs }: { tabs: BottomNavTab[] }) {
@@ -69,20 +74,38 @@ export function BottomNav({ tabs }: { tabs: BottomNavTab[] }) {
                 {tabs.map((tab) => {
                     const active = isNavLinkActive(pathname, tab)
                     const Icon = tab.icon
+                    const badge = tab.badge && tab.badge > 0 ? tab.badge : 0
                     return (
                         <Link
                             key={tab.href}
                             href={tab.href}
                             aria-current={active ? "page" : undefined}
-                            className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2 text-[11px] font-medium transition-colors"
+                            className="group flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2 text-[11px] transition-colors focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-denim"
                         >
-                            <Icon
-                                className={cn("size-5 transition-colors", active ? "text-denim" : "text-denim-muted")}
-                                strokeWidth={active ? 2.5 : 2}
-                                aria-hidden="true"
-                            />
-                            <span className={cn("max-w-full truncate px-1", active ? "text-denim-deep" : "text-denim-muted")}>
-                                {tab.label}
+                            {/* แท็บที่อยู่: ไอคอนอำพันบนแคปซูลกรมท่า — เห็นชัดกว่าแค่เปลี่ยนสีไอคอน */}
+                            <span
+                                className={cn(
+                                    "relative grid h-8 w-14 place-items-center rounded-full transition-colors",
+                                    active ? "bg-denim-deep" : "group-hover:bg-denim-chip"
+                                )}
+                            >
+                                <Icon
+                                    className={cn("size-5", active ? "text-amber" : "text-denim-muted")}
+                                    strokeWidth={active ? 2.4 : 2}
+                                    aria-hidden="true"
+                                />
+                                {badge > 0 && (
+                                    <span
+                                        aria-hidden="true"
+                                        className="absolute -top-1 right-1.5 grid min-w-[18px] place-items-center rounded-full bg-amber px-1 font-code text-[10px] font-bold leading-[18px] text-denim-deep ring-2 ring-white"
+                                    >
+                                        {badge > 9 ? "9+" : badge}
+                                    </span>
+                                )}
+                            </span>
+                            <span className={cn("max-w-full truncate px-1", active ? "font-bold text-denim-deep" : "font-medium text-denim-muted")}>
+                                {tab.shortLabel ?? tab.label}
+                                {badge > 0 && <span className="sr-only">{` (${badge} ${tab.badgeLabel ?? "รายการ"})`}</span>}
                             </span>
                         </Link>
                     )

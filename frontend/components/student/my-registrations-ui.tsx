@@ -20,7 +20,7 @@ import {
     XCircle,
 } from "lucide-react"
 import { Container } from "@/components/layout/container"
-import { TerminalPrompt, coverPattern, PHOTO_SCRIM, PHOTO_TEXT_SHADOW, useUploadImage } from "@/components/denim/denim-ui"
+import { DateTile, TerminalPrompt, coverPattern, PHOTO_SCRIM, PHOTO_TEXT_SHADOW, useUploadImage } from "@/components/denim/denim-ui"
 import { formatEventDate } from "@/components/ui/event-card"
 import { QrCheckInButton } from "@/components/student/qr-checkin-button"
 import { RegistrationEvaluation } from "@/components/student/registration-evaluation"
@@ -80,7 +80,8 @@ export interface MyRegistration {
  */
 export function MyRegistrationsHero() {
     return (
-        <section className="denim-weave relative overflow-hidden">
+        // จอแคบ: ชื่อหน้าอยู่บน MobileAppBar ส่วนตัวกรองสถานะเป็น PipelineTabsMobile
+        <section className="denim-weave relative overflow-hidden max-lg:hidden">
             <Container className="relative pb-32 pt-10 sm:pt-12">
                 <div className="flex max-w-2xl flex-col gap-3">
                     <TerminalPrompt>~/comp-active/student $ ls --mine</TerminalPrompt>
@@ -151,7 +152,7 @@ export function PipelineCard({ value, counts, loading, onChange }: PipelineCardP
     const helpId = useId()
 
     return (
-        <section aria-labelledby="pipeline-heading" className="relative z-[1] -mt-24">
+        <section aria-labelledby="pipeline-heading" className="relative z-[1] -mt-24 max-lg:hidden">
             <Container>
                 <div className="rounded-[24px] border border-denim-line bg-white p-4 shadow-[0_24px_60px_-30px_rgb(18_34_61/0.45)] sm:p-5">
                     <h2 id="pipeline-heading" className="font-code text-[11px] text-denim-accent sm:text-xs">
@@ -277,6 +278,71 @@ export function PipelineCard({ value, counts, loading, onChange }: PipelineCardP
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+            </Container>
+        </section>
+    )
+}
+
+/**
+ * ตัวกรองสถานะบนจอแคบ — แคปซูลเลื่อนแนวนอน (ชื่อ + จำนวน) แทนการ์ด 4 ใบ แล้วอธิบายสถานะที่เลือกในกล่องเส้นประใต้แถว
+ * (คำอธิบายบนการ์ดของจอกว้างถูกซ่อนบนมือถือ — ย้ายมาแสดงเฉพาะของสถานะที่เลือกแทน ไม่ให้ดันรายการตกจอ)
+ */
+export function PipelineTabsMobile({ value, counts, loading, onChange }: PipelineCardProps) {
+    const index = Math.max(0, PIPELINE.findIndex((s) => s.key === value))
+    const step = PIPELINE[index]
+    const isCancel = step.key === "cancelled"
+    return (
+        <section aria-label="สถานะการลงทะเบียน" className="lg:hidden">
+            <Container className="pt-4">
+                <div
+                    role="group"
+                    aria-label="กรองตามสถานะ"
+                    className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:-mx-6 sm:px-6 [&::-webkit-scrollbar]:hidden"
+                >
+                    {PIPELINE.map((s) => {
+                        const active = s.key === value
+                        return (
+                            <button
+                                key={s.key}
+                                type="button"
+                                aria-pressed={active}
+                                onClick={() => onChange(s.key)}
+                                // relative: มี sr-only (position:absolute) อยู่ข้างใน — ต้องมีกรอบอ้างอิงในแถวเลื่อน ไม่งั้นหลุดออกไปขยายความกว้างหน้า
+                                className={cn(
+                                    "relative inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 text-sm font-bold transition-colors focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-denim",
+                                    active ? "border-denim-deep bg-denim-deep text-white" : "border-denim-line bg-white text-denim-deep"
+                                )}
+                            >
+                                {s.title}
+                                <span
+                                    className={cn(
+                                        "grid h-6 min-w-6 place-items-center rounded-full px-1.5 font-code text-xs font-bold tabular-nums",
+                                        active ? "bg-amber text-denim-deep" : "bg-denim-paper text-denim-muted"
+                                    )}
+                                >
+                                    {loading ? "–" : counts[s.key]}
+                                    <span className="sr-only"> รายการ</span>
+                                </span>
+                            </button>
+                        )
+                    })}
+                </div>
+
+                <div className="mt-3 flex items-start gap-3 rounded-[18px] border-2 border-dashed border-denim-line bg-white/70 px-4 py-3.5" aria-live="polite">
+                    <span
+                        className={cn(
+                            "grid size-7 shrink-0 place-items-center rounded-full font-code text-xs font-bold",
+                            isCancel ? "bg-red-100 text-red-600" : "bg-amber text-denim-deep"
+                        )}
+                        aria-hidden="true"
+                    >
+                        {isCancel ? <X className="size-3.5" strokeWidth={3} /> : index + 1}
+                    </span>
+                    <div className="min-w-0">
+                        <p className="text-sm leading-relaxed text-denim-deep">{step.body}</p>
+                        <p className={cn("mt-1 font-code text-xs", isCancel ? "text-red-600" : "text-amber-ink")}>rule: {step.note}</p>
                     </div>
                 </div>
             </Container>
@@ -453,83 +519,225 @@ export function RegistrationCard({
     const evalPanelId = `reg-${reg.id}-evaluation`
 
     return (
-        <article className="flex flex-col overflow-hidden rounded-[20px] border border-denim-line bg-white shadow-[0_14px_34px_-24px_rgb(18_34_61/0.5)] sm:flex-row">
-            <DatePanel reg={reg} cancelled={bucket === "cancelled"} />
+        <>
+            <RegistrationCardMobile
+                reg={reg}
+                bucket={bucket}
+                pill={pill}
+                evaluationOpen={evaluationOpen}
+                onToggleEvaluation={onToggleEvaluation}
+                onOpenSurvey={onOpenSurvey}
+                onOpenAssessment={onOpenAssessment}
+                onCancel={onCancel}
+            />
+            <article className="flex flex-col overflow-hidden rounded-[20px] border border-denim-line bg-white shadow-[0_14px_34px_-24px_rgb(18_34_61/0.5)] max-lg:hidden sm:flex-row">
+                <DatePanel reg={reg} cancelled={bucket === "cancelled"} />
 
-            <div className="flex min-w-0 flex-1 flex-col">
-                <div className="flex-1 p-5 sm:p-6">
-                    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
-                        <StatusStepper bucket={bucket} />
-                        <span className={cn("shrink-0 rounded-full px-3 py-1 text-xs font-semibold", pill.className)}>{pill.label}</span>
-                    </div>
-
-                    <h3 className="mt-3 font-display text-xl font-bold leading-snug text-denim-deep sm:text-[22px]">{reg.activity.name}</h3>
-
-                    {/* เหตุผลที่ผู้จัดยกเลิก — "ดูเหตุผลในการ์ด" บนการ์ดสถานะชี้มาที่นี่ */}
-                    {cancelledByOrganizer && (
-                        <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm">
-                            <p className="font-semibold text-red-700">ผู้จัดยกเลิกกิจกรรมนี้</p>
-                            <p className="mt-0.5 text-denim-ink">
-                                {reg.activity.cancellationReason ? `เหตุผล: ${reg.activity.cancellationReason}` : "ผู้จัดไม่ได้ระบุเหตุผล"}
-                            </p>
+                <div className="flex min-w-0 flex-1 flex-col">
+                    <div className="flex-1 p-5 sm:p-6">
+                        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
+                            <StatusStepper bucket={bucket} />
+                            <span className={cn("shrink-0 rounded-full px-3 py-1 text-xs font-semibold", pill.className)}>{pill.label}</span>
                         </div>
-                    )}
 
-                    <div className="mt-3.5 flex flex-wrap gap-2">
-                        <InfoChip icon={Calendar}>{formatEventDate(reg.activity.date)}</InfoChip>
-                        <InfoChip icon={Clock}>
-                            {reg.activity.startTime} – {reg.activity.endTime}
-                        </InfoChip>
-                        <InfoChip icon={MapPin}>{reg.activity.location}</InfoChip>
-                        {reg.checkInTime && <InfoChip icon={CheckCircle2}>เช็คอิน {formatDateTime(reg.checkInTime)}</InfoChip>}
-                        {/* ชั่วโมงจิตอาสา — นับสะสมจริงเมื่อเช็คอินแล้วเท่านั้น */}
-                        {reg.activity.volunteerHours && (
-                            <InfoChip icon={HeartHandshake}>
-                                จิตอาสา {Number(reg.activity.volunteerHours)} ชม.
-                                {reg.activity.volunteerRole ? ` · ${reg.activity.volunteerRole}` : ""}
+                        <h3 className="mt-3 font-display text-xl font-bold leading-snug text-denim-deep sm:text-[22px]">{reg.activity.name}</h3>
+
+                        {/* เหตุผลที่ผู้จัดยกเลิก — "ดูเหตุผลในการ์ด" บนการ์ดสถานะชี้มาที่นี่ */}
+                        {cancelledByOrganizer && (
+                            <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm">
+                                <p className="font-semibold text-red-700">ผู้จัดยกเลิกกิจกรรมนี้</p>
+                                <p className="mt-0.5 text-denim-ink">
+                                    {reg.activity.cancellationReason ? `เหตุผล: ${reg.activity.cancellationReason}` : "ผู้จัดไม่ได้ระบุเหตุผล"}
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="mt-3.5 flex flex-wrap gap-2">
+                            <InfoChip icon={Calendar}>{formatEventDate(reg.activity.date)}</InfoChip>
+                            <InfoChip icon={Clock}>
+                                {reg.activity.startTime} – {reg.activity.endTime}
                             </InfoChip>
+                            <InfoChip icon={MapPin}>{reg.activity.location}</InfoChip>
+                            {reg.checkInTime && <InfoChip icon={CheckCircle2}>เช็คอิน {formatDateTime(reg.checkInTime)}</InfoChip>}
+                            {/* ชั่วโมงจิตอาสา — นับสะสมจริงเมื่อเช็คอินแล้วเท่านั้น */}
+                            {reg.activity.volunteerHours && (
+                                <InfoChip icon={HeartHandshake}>
+                                    จิตอาสา {Number(reg.activity.volunteerHours)} ชม.
+                                    {reg.activity.volunteerRole ? ` · ${reg.activity.volunteerRole}` : ""}
+                                </InfoChip>
+                            )}
+                        </div>
+
+                        {/* ผลประเมินของกิจกรรมนี้ — กางในการ์ด ไม่ใช่กระโดดไปหน้าโปรไฟล์ที่แสดงค่าเฉลี่ยรวม */}
+                        {reg.evaluation && evaluationOpen && (
+                            <div id={evalPanelId}>
+                                <RegistrationEvaluation scores={reg.evaluation} comment={reg.evaluation.comment} status={reg.evaluation.status} />
+                            </div>
                         )}
                     </div>
 
-                    {/* ผลประเมินของกิจกรรมนี้ — กางในการ์ด ไม่ใช่กระโดดไปหน้าโปรไฟล์ที่แสดงค่าเฉลี่ยรวม */}
-                    {reg.evaluation && evaluationOpen && (
-                        <div id={evalPanelId}>
-                            <RegistrationEvaluation scores={reg.evaluation} comment={reg.evaluation.comment} status={reg.evaluation.status} />
-                        </div>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2 border-t border-denim-line bg-denim-paper/70 px-5 py-3 sm:px-6">
+                        <Link
+                            href={`/student/activities/${reg.activity.publicId}`}
+                            className="inline-flex min-h-10 items-center gap-2 rounded-[10px] bg-denim-deep px-4 text-sm font-semibold text-white transition-colors hover:bg-denim focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
+                        >
+                            ดูรายละเอียดกิจกรรม
+                            <ArrowRight className="size-4 text-amber" aria-hidden="true" />
+                        </Link>
+
+                        {bucket === "confirmed" && !attended && reg.activity.publicId && (
+                            <QrCheckInButton activityId={reg.activity.publicId} activityName={reg.activity.name} />
+                        )}
+
+                        {attended && (
+                            <button type="button" className={CARD_ACTION} onClick={onOpenSurvey}>
+                                <Star className="size-4" aria-hidden="true" />
+                                ให้คะแนนกิจกรรม
+                            </button>
+                        )}
+
+                        {attended && reg.activity.status === "completed" && reg.activity.peerAssessmentEnabled && (
+                            <button type="button" className={CARD_ACTION} onClick={onOpenAssessment}>
+                                <Users className="size-4" aria-hidden="true" />
+                                ประเมินตนเองและเพื่อน
+                            </button>
+                        )}
+
+                        {reg.evaluation && (
+                            <button
+                                type="button"
+                                className={CARD_ACTION}
+                                aria-expanded={evaluationOpen}
+                                aria-controls={evaluationOpen ? evalPanelId : undefined}
+                                onClick={onToggleEvaluation}
+                            >
+                                <ChevronDown className={cn("size-4 transition-transform", evaluationOpen && "rotate-180")} aria-hidden="true" />
+                                {evaluationOpen ? "ซ่อนผลประเมิน" : "ดูผลประเมินกิจกรรมนี้"}
+                            </button>
+                        )}
+
+                        {reg.evaluation && (
+                            <Link
+                                href="/student/profile"
+                                className="inline-flex min-h-10 items-center rounded-[10px] px-3 text-sm font-semibold text-denim underline-offset-4 hover:underline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
+                            >
+                                ดูภาพรวมทักษะ
+                            </Link>
+                        )}
+
+                        {/* ยกเลิกได้เฉพาะก่อนเช็คอิน และกิจกรรมยังไม่ถูกผู้จัดยกเลิกทั้งงาน */}
+                        {(bucket === "pending" || bucket === "confirmed") && (
+                            <button
+                                type="button"
+                                onClick={onCancel}
+                                className="ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
+                            >
+                                <XCircle className="size-4" aria-hidden="true" />
+                                ยกเลิกกิจกรรม
+                            </button>
+                        )}
+                    </div>
                 </div>
+            </article>
+        </>
+    )
+}
 
-                <div className="flex flex-wrap items-center gap-2 border-t border-denim-line bg-denim-paper/70 px-5 py-3 sm:px-6">
-                    <Link
-                        href={`/student/activities/${reg.activity.publicId}`}
-                        className="inline-flex min-h-10 items-center gap-2 rounded-[10px] bg-denim-deep px-4 text-sm font-semibold text-white transition-colors hover:bg-denim focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
-                    >
-                        ดูรายละเอียดกิจกรรม
-                        <ArrowRight className="size-4 text-amber" aria-hidden="true" />
-                    </Link>
+/** คำอธิบายขั้นปัจจุบันใต้แถบความคืบหน้า 3 ขั้นของการ์ดบนมือถือ */
+function stepCaption(reg: MyRegistration, bucket: Exclude<RegistrationBucket, "cancelled">): string {
+    if (bucket === "evaluated") return reg.evaluation?.status === "pending_approval" ? "รอผู้จัดอนุมัติผล" : "เข้าร่วมสำเร็จ"
+    if (reg.activity.status === "completed") return "กิจกรรมจบแล้ว"
+    return bucket === "confirmed" ? "ไปเช็คอินวันงาน" : "รอผู้จัดยืนยันที่นั่ง"
+}
 
-                    {bucket === "confirmed" && !attended && reg.activity.publicId && (
-                        <QrCheckInButton activityId={reg.activity.publicId} activityName={reg.activity.name} />
-                    )}
+/**
+ * การ์ดรายการบนจอแคบ (< lg) — ข้อมูลและปุ่มเดียวกับการ์ดจอกว้าง จัดใหม่ให้กระชับแบบแอป: แผ่นวันที่ + ป้าย + ชื่อ + เวลา·สถานที่,
+ * แถบความคืบหน้า 3 ขั้น (ผ่านแล้ว = กรมท่า, ขั้นปัจจุบัน = อำพัน), ปุ่มหลักของขั้นนั้น (เช่น สแกน QR เช็คอิน)
+ * แล้วลิงก์ดูรายละเอียด / ยกเลิก แยกไว้แถวล่างสุด (ปุ่มอันตรายไม่อยู่ติดปุ่มหลัก)
+ */
+function RegistrationCardMobile({
+    reg,
+    bucket,
+    pill,
+    evaluationOpen,
+    onToggleEvaluation,
+    onOpenSurvey,
+    onOpenAssessment,
+    onCancel,
+}: Omit<RegistrationCardProps, "reg"> & {
+    reg: MyRegistration
+    bucket: RegistrationBucket
+    pill: { label: string; className: string }
+}) {
+    const a = reg.activity
+    const cancelled = bucket === "cancelled"
+    const attended = reg.attendance === "attended"
+    const step = bucket === "evaluated" ? 3 : bucket === "confirmed" ? 2 : 1
+    const evalPanelId = `reg-${reg.id}-evaluation-mobile`
+    const canCancel = bucket === "pending" || bucket === "confirmed"
+    const showSurvey = attended
+    const showAssessment = attended && a.status === "completed" && a.peerAssessmentEnabled
 
-                    {attended && (
-                        <button type="button" className={CARD_ACTION} onClick={onOpenSurvey}>
-                            <Star className="size-4" aria-hidden="true" />
-                            ให้คะแนนกิจกรรม
-                        </button>
-                    )}
+    return (
+        // min-w-0: อยู่ในกริดของหน้า — ไม่งั้นผลประเมินที่กางออก (ชื่อทักษะตัดท้ายแบบ nowrap) ดันการ์ดให้กว้างเกินจอ
+        <article className="min-w-0 rounded-[22px] border border-denim-line bg-white p-4 shadow-[0_12px_28px_-24px_rgb(18_34_61/0.6)] lg:hidden">
+            <div className="flex gap-3.5">
+                <DateTile date={a.date} categories={a.categories} muted={cancelled} />
+                <div className="min-w-0 flex-1">
+                    <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold", pill.className)}>{pill.label}</span>
+                    <h3 className="mt-1.5 line-clamp-2 font-display text-[17px] font-bold leading-snug text-denim-deep">{a.name}</h3>
+                    <p className="mt-0.5 truncate text-[13px] text-denim-muted">
+                        {a.startTime} – {a.endTime} · {a.location || "ไม่ระบุสถานที่"}
+                    </p>
+                </div>
+            </div>
 
-                    {attended && reg.activity.status === "completed" && reg.activity.peerAssessmentEnabled && (
-                        <button type="button" className={CARD_ACTION} onClick={onOpenAssessment}>
-                            <Users className="size-4" aria-hidden="true" />
-                            ประเมินตนเองและเพื่อน
-                        </button>
-                    )}
+            {isCancelledByOrganizer(a.approvalStatus) && (
+                <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm">
+                    <p className="font-semibold text-red-700">ผู้จัดยกเลิกกิจกรรมนี้</p>
+                    <p className="mt-0.5 text-denim-ink">{a.cancellationReason ? `เหตุผล: ${a.cancellationReason}` : "ผู้จัดไม่ได้ระบุเหตุผล"}</p>
+                </div>
+            )}
 
+            {!cancelled && (
+                <div className="mt-4">
+                    <div className="flex gap-1.5" aria-hidden="true">
+                        {[1, 2, 3].map((n) => (
+                            <span
+                                key={n}
+                                className={cn(
+                                    "h-1.5 flex-1 rounded-full",
+                                    n < step || bucket === "evaluated" ? "bg-denim-deep" : n === step ? "bg-amber" : "bg-denim-chip"
+                                )}
+                            />
+                        ))}
+                    </div>
+                    <p className="mt-2 font-code text-xs text-denim-muted">
+                        step {step}/3 · {stepCaption(reg, bucket)}
+                    </p>
+                </div>
+            )}
+
+            {(reg.checkInTime || a.volunteerHours) && (
+                <p className="mt-2 text-xs text-denim-muted">
+                    {reg.checkInTime && <>เช็คอิน {formatDateTime(reg.checkInTime)}</>}
+                    {reg.checkInTime && a.volunteerHours && " · "}
+                    {a.volunteerHours && <>จิตอาสา {Number(a.volunteerHours)} ชม.</>}
+                </p>
+            )}
+
+            {bucket === "confirmed" && !attended && a.publicId && (
+                <div className="mt-4">
+                    <QrCheckInButton activityId={a.publicId} activityName={a.name} variant="block" />
+                </div>
+            )}
+
+            {(showSurvey || showAssessment || reg.evaluation) && (
+                <div className="mt-4 grid grid-cols-2 gap-2">
                     {reg.evaluation && (
                         <button
                             type="button"
-                            className={CARD_ACTION}
+                            className={cn(CARD_ACTION, "col-span-2 justify-center")}
                             aria-expanded={evaluationOpen}
                             aria-controls={evaluationOpen ? evalPanelId : undefined}
                             onClick={onToggleEvaluation}
@@ -538,28 +746,43 @@ export function RegistrationCard({
                             {evaluationOpen ? "ซ่อนผลประเมิน" : "ดูผลประเมินกิจกรรมนี้"}
                         </button>
                     )}
-
-                    {reg.evaluation && (
-                        <Link
-                            href="/student/profile"
-                            className="inline-flex min-h-10 items-center rounded-[10px] px-3 text-sm font-semibold text-denim underline-offset-4 hover:underline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
-                        >
-                            ดูภาพรวมทักษะ
-                        </Link>
+                    {showSurvey && (
+                        <button type="button" className={cn(CARD_ACTION, "justify-center", !showAssessment && "col-span-2")} onClick={onOpenSurvey}>
+                            <Star className="size-4" aria-hidden="true" />
+                            ให้คะแนนกิจกรรม
+                        </button>
                     )}
-
-                    {/* ยกเลิกได้เฉพาะก่อนเช็คอิน และกิจกรรมยังไม่ถูกผู้จัดยกเลิกทั้งงาน */}
-                    {(bucket === "pending" || bucket === "confirmed") && (
-                        <button
-                            type="button"
-                            onClick={onCancel}
-                            className="ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
-                        >
-                            <XCircle className="size-4" aria-hidden="true" />
-                            ยกเลิกกิจกรรม
+                    {showAssessment && (
+                        <button type="button" className={cn(CARD_ACTION, "justify-center")} onClick={onOpenAssessment}>
+                            <Users className="size-4" aria-hidden="true" />
+                            ประเมินตนเองและเพื่อน
                         </button>
                     )}
                 </div>
+            )}
+
+            {reg.evaluation && evaluationOpen && (
+                <div id={evalPanelId}>
+                    <RegistrationEvaluation scores={reg.evaluation} comment={reg.evaluation.comment} status={reg.evaluation.status} />
+                </div>
+            )}
+
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-dashed border-denim-line pt-2">
+                <Link
+                    href={`/student/activities/${a.publicId}`}
+                    className="inline-flex min-h-11 items-center text-sm font-semibold text-denim-deep underline decoration-denim-dash underline-offset-4 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
+                >
+                    ดูรายละเอียด
+                </Link>
+                {canCancel && (
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="inline-flex min-h-11 items-center rounded-lg px-1 text-sm font-semibold text-red-600 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
+                    >
+                        ยกเลิกการลงทะเบียน
+                    </button>
+                )}
             </div>
         </article>
     )

@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/select"
 import type { FilterSpec } from "@/components/ui/filter-bar"
 import { cn } from "@/lib/utils"
 import { resolveUploadUrl } from "@/lib/api"
+import { getCategory } from "@/lib/categories"
 
 /* ชิ้นส่วนธีม Denim Varsity ที่ใช้ร่วมกันหลายหน้า — พอร์ทัลผู้จัด (หน้าหลัก /organizer, จัดการ /organizer/manage,
    แดชบอร์ด /organizer/dashboard) และหน้าแรกฝั่ง public (/)
@@ -258,13 +259,15 @@ function ProgressRing({ value, onDark }: { value: number; onDark: boolean }) {
 export function OrganizerStatCards({
     stats,
     strongLabels = false,
+    className,
 }: {
     stats: OrganizerStat[]
     /** ป้ายตัวหนาทุกใบ แม้ไม่มี caption (แดชบอร์ดของกิจกรรม) — ปกติตัวหนาเฉพาะใบที่มี caption */
     strongLabels?: boolean
+    className?: string
 }) {
     return (
-        <section aria-label="สรุปภาพรวม" className="relative z-[1] -mt-16">
+        <section aria-label="สรุปภาพรวม" className={cn("relative z-[1] -mt-16", className)}>
             <Container>
                 {/* มือถือ 2x2 แทนเรียงเดี่ยว 4 ใบ (ใบละ ~170px = กินจอไปเกือบ 700px ก่อนถึงรายการกิจกรรม) */}
                 <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
@@ -570,6 +573,70 @@ export function coverPattern(tone: CoverTone, categories: string[]): string {
         default:
             return "denim-weave"
     }
+}
+
+/* ── แผ่นวันที่ของรายการแบบแถว (มือถือ) ───────────────────────────────────── */
+
+/** "16" + "ต.ค." ตามเวลาไทย — null = ไม่มีวันที่/วันที่ใช้ไม่ได้ */
+export function tileDate(value: number | string | null | undefined): { day: string; month: string } | null {
+    if (value === null || value === undefined) return null
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return null
+    return {
+        day: new Intl.DateTimeFormat("th-TH", { day: "numeric", timeZone: "Asia/Bangkok" }).format(d),
+        month: new Intl.DateTimeFormat("th-TH", { month: "short", timeZone: "Asia/Bangkok" }).format(d),
+    }
+}
+
+/**
+ * แผ่นวันที่สี่เหลี่ยมกรมท่า ("16" + "ต.ค.") หัวแถวรายการบนมือถือ — การ์ดกำลังจะถึง, แถวกิจกรรม, การ์ดกิจกรรมของฉัน
+ * แถบสีล่างบอกหมวดหมู่ (สูงสุด 3 สี) เหมือนจุดสีของหมวดหมู่ที่อื่น · muted = ปิดรับ/จบ/ยกเลิก (เทา แยกออกในพริบตา)
+ */
+export function DateTile({
+    date,
+    categories = [],
+    muted = false,
+    className,
+}: {
+    date: number | string | null | undefined
+    categories?: string[]
+    muted?: boolean
+    className?: string
+}) {
+    const parts = tileDate(date)
+    const stripes = categories.map((c) => getCategory(c)?.dot).filter((dot): dot is string => !!dot).slice(0, 3)
+    return (
+        <span
+            className={cn(
+                "relative flex h-[66px] w-[60px] shrink-0 flex-col items-center justify-center overflow-hidden rounded-2xl text-white",
+                muted ? "bg-denim-closed" : "bg-denim-deep",
+                className
+            )}
+        >
+            <span className="font-display text-[26px] font-bold leading-none tabular-nums">{parts?.day ?? "–"}</span>
+            <span className="mt-1 text-[11px] font-semibold text-white/75">{parts?.month}</span>
+            {stripes.length > 0 && (
+                <span className={cn("absolute inset-x-0 bottom-0 flex h-[5px]", muted && "opacity-50")} aria-hidden="true">
+                    {stripes.map((dot, i) => (
+                        <span key={i} className={cn("flex-1", dot)} />
+                    ))}
+                </span>
+            )}
+        </span>
+    )
+}
+
+/** ป้ายสถานะเล็กบนแถวรายการ (กำลังเปิด/ปิดรับ/รอยืนยัน ...) — tone คุมคู่สีพื้น/ตัวอักษร */
+export const ROW_PILL_TONE = {
+    amber: "bg-amber/20 text-amber-ink",
+    green: "bg-emerald-50 text-emerald-700",
+    denim: "bg-denim-chip text-denim-deep",
+    grey: "bg-slate-100 text-slate-600",
+    red: "bg-red-50 text-red-700",
+} as const
+
+export function RowPill({ tone, children }: { tone: keyof typeof ROW_PILL_TONE; children: React.ReactNode }) {
+    return <span className={cn("inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold", ROW_PILL_TONE[tone])}>{children}</span>
 }
 
 /** วันที่ตัวใหญ่บนปก — "18" + "ต.ค. 69" ตามเวลาไทย (เหมือน formatEventDate ของการ์ดอื่น) */

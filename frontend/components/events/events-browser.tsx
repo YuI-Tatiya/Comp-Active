@@ -8,8 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@
 import { EventsFilterSidebar, activePanelFilterCount } from "@/components/ui/events-filter-sidebar"
 import { HorizontalScrollSection } from "@/components/ui/horizontal-scroll-section"
 import { PublicActivityCard } from "@/components/denim/public-activity-card"
+import { ActivityListRow, ActivityListRowSkeleton } from "@/components/denim/activity-list-row"
 import { ACTIVITY_GRID, ACTIVITY_GRID_COLUMN, ActivityCardSkeleton, TerminalPrompt } from "@/components/denim/denim-ui"
 import { eventsAPI, activitiesAPI, type EventSummary, type Activity } from "@/lib/api"
+import { CATEGORIES } from "@/lib/categories"
 import {
     INITIAL_FILTERS,
     buildFeaturedCards,
@@ -34,6 +36,11 @@ interface EventsBrowserProps {
     subtitle: string
     /** ลิงก์ของการ์ด — ต้องเป็นค่าคงที่ระดับโมดูล (ใช้เป็น dependency ของ useMemo) */
     hrefs: { event: (id: string) => string; activity: (id: string) => string }
+    /**
+     * จอแคบ (< lg) มีแถบหัวของแอปบอกชื่อหน้าแล้ว (พอร์ทัลนักศึกษา — MobileAppBar) — ซ่อนแถบยีนส์ แล้วย้ายช่องค้นหา+ปุ่มตัวกรอง
+     * มาเป็นแถวบนสุดของเนื้อหาแทน พร้อมป้ายมาสคอต "เปิดรับสมัครอยู่ N กิจกรรม" หน้า public (/events) ไม่มีแถบแบบนั้น จึงคงแถบยีนส์ไว้
+     */
+    appBarOnMobile?: boolean
 }
 
 function EventsHero({
@@ -42,6 +49,7 @@ function EventsHero({
     search,
     onSearch,
     openCount,
+    className,
 }: {
     prompt: string
     subtitle: string
@@ -49,9 +57,10 @@ function EventsHero({
     onSearch: (value: string) => void
     /** null = ยังโหลดไม่เสร็จ (ซ่อนบับเบิล ไม่ให้ขึ้น "0 กิจกรรม" หลอกๆ) */
     openCount: number | null
+    className?: string
 }) {
     return (
-        <section className="denim-weave relative overflow-hidden">
+        <section className={cn("denim-weave relative overflow-hidden", className)}>
             <Container className="relative pb-10 pt-10 sm:pt-12 lg:pb-12">
                 <div className="flex max-w-2xl flex-col gap-3 lg:max-w-[calc(100%-20rem)]">
                     <TerminalPrompt>{prompt}</TerminalPrompt>
@@ -113,7 +122,56 @@ const VIEW_OPTIONS: { value: ViewMode; label: string; icon: typeof LayoutGrid }[
     { value: "category", label: "ตามหมวดหมู่", icon: List },
 ]
 
-export function EventsBrowser({ prompt, subtitle, hrefs }: EventsBrowserProps) {
+/** ชิปหมวดหมู่เลื่อนแนวนอน (จอแคบ) — กดสลับเลือก/ไม่เลือกได้หลายหมวด ค่าเดียวกับช่องติ๊กหมวดหมู่ในแผงตัวกรอง */
+function CategoryChips({ selected, onToggle }: { selected: string[]; onToggle: (value: string) => void }) {
+    return (
+        <div role="group" aria-label="กรองตามหมวดหมู่" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:hidden [&::-webkit-scrollbar]:hidden">
+            {CATEGORIES.map((c) => {
+                const active = selected.includes(c.value)
+                return (
+                    <button
+                        key={c.value}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => onToggle(c.value)}
+                        className={cn(
+                            "inline-flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3.5 text-sm font-semibold transition-colors focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-denim",
+                            active ? "border-denim-deep bg-denim-deep text-white" : "border-denim-line bg-white text-denim-deep hover:border-denim-dash"
+                        )}
+                    >
+                        <span className={cn("size-2 rounded-full", c.dot, active && "ring-2 ring-white/70")} aria-hidden="true" />
+                        {c.label}
+                    </button>
+                )
+            })}
+        </div>
+    )
+}
+
+/** ป้ายยีนส์พร้อมมาสคอต "ตอนนี้มี N กิจกรรม เปิดรับสมัครอยู่" — จอแคบที่ไม่มีแถบยีนส์ (บับเบิลของมาสคอตในแถบอยู่แค่จอ lg+) */
+function OpenNowBanner({ count }: { count: number }) {
+    return (
+        <p className="denim-weave relative flex min-h-[84px] items-center overflow-hidden rounded-[22px] py-3 pl-[92px] pr-4 text-[15px] font-semibold leading-snug text-white">
+            <Image
+                src="/mascot-laptop.png"
+                alt=""
+                width={476}
+                height={1033}
+                sizes="48px"
+                className="pointer-events-none absolute -bottom-3 left-4 h-[104px] w-auto"
+            />
+            {count > 0 ? (
+                <span>
+                    ตอนนี้มี <span className="text-amber">{count} กิจกรรม</span> เปิดรับสมัครอยู่ รีบจองก่อนเต็ม!
+                </span>
+            ) : (
+                <span>ตอนนี้ยังไม่มีกิจกรรมเปิดรับสมัคร แวะมาดูใหม่นะ!</span>
+            )}
+        </p>
+    )
+}
+
+export function EventsBrowser({ prompt, subtitle, hrefs, appBarOnMobile = false }: EventsBrowserProps) {
     const [events, setEvents] = useState<EventSummary[]>([])
     const [standalone, setStandalone] = useState<Activity[]>([])
     const [loading, setLoading] = useState(true)
@@ -161,9 +219,57 @@ export function EventsBrowser({ prompt, subtitle, hrefs }: EventsBrowserProps) {
                 search={filters.search}
                 onSearch={(search) => setFilters((prev) => ({ ...prev, search }))}
                 openCount={openCount}
+                className={appBarOnMobile ? "max-lg:hidden" : undefined}
             />
 
-            <Container className="py-10">
+            <Container className={cn("py-10", appBarOnMobile && "max-lg:pt-4")}>
+                {/* ── ส่วนบนของจอแคบ: ค้นหา+ตัวกรอง (เมื่อไม่มีแถบยีนส์) → ชิปหมวดหมู่ → ป้ายเปิดรับสมัคร ── */}
+                <div className="mb-5 flex flex-col gap-3.5 lg:hidden">
+                    {appBarOnMobile && (
+                        <form role="search" aria-label="ค้นหากิจกรรม" onSubmit={(e) => e.preventDefault()} className="flex gap-2.5">
+                            <label htmlFor="events-search-mobile" className="sr-only">
+                                ค้นหาชื่องานหรือกิจกรรม
+                            </label>
+                            <div className="relative min-w-0 flex-1">
+                                <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-denim-muted" aria-hidden="true" />
+                                <input
+                                    id="events-search-mobile"
+                                    type="search"
+                                    placeholder="ค้นหาชื่องานหรือกิจกรรม..."
+                                    value={filters.search}
+                                    onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+                                    className="h-[52px] w-full rounded-2xl border border-denim-line bg-white pl-12 pr-4 text-[15px] text-denim-deep placeholder:text-denim-muted/80 focus-visible:border-denim focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-denim"
+                                />
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setMobileFiltersOpen(true)}
+                                aria-label={panelActive > 0 ? `ตัวกรอง (เลือกอยู่ ${panelActive})` : "ตัวกรอง"}
+                                className="relative grid size-[52px] shrink-0 place-items-center rounded-2xl border border-denim-line bg-white text-denim-deep transition-colors hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-denim"
+                            >
+                                <SlidersHorizontal className="size-5" aria-hidden="true" />
+                                {panelActive > 0 && (
+                                    <span className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-full bg-amber px-1 font-code text-[11px] font-bold leading-5 text-denim-deep" aria-hidden="true">
+                                        {panelActive}
+                                    </span>
+                                )}
+                            </button>
+                        </form>
+                    )}
+                    <CategoryChips
+                        selected={filters.categories}
+                        onToggle={(value) =>
+                            setFilters((prev) => ({
+                                ...prev,
+                                categories: prev.categories.includes(value)
+                                    ? prev.categories.filter((c) => c !== value)
+                                    : [...prev.categories, value],
+                            }))
+                        }
+                    />
+                    {appBarOnMobile && openCount !== null && <OpenNowBanner count={openCount} />}
+                </div>
+
                 {/* @container: ความกว้างการ์ดในแถวเลื่อน (ACTIVITY_GRID_COLUMN) คิดจากความกว้างเต็มของตัวห่อนี้ */}
                 <div className="@container">
                     <div className="lg:grid lg:grid-cols-3 lg:gap-6">
@@ -175,14 +281,28 @@ export function EventsBrowser({ prompt, subtitle, hrefs }: EventsBrowserProps) {
 
                         <div className="min-w-0 lg:col-span-2">
                             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                                <p className="font-code text-xs text-denim-muted" aria-live="polite">
+                                <p className="font-code text-xs text-denim-muted max-lg:hidden" aria-live="polite">
                                     {loading ? "→ กำลังโหลด..." : `→ พบ ${filtered.length} รายการ`}
+                                </p>
+                                {/* จอแคบ: นับเป็น "6 กิจกรรม" ตัวหนา (แถวรายการ ไม่ใช่การ์ด) */}
+                                <p className="text-[15px] text-denim-muted lg:hidden" aria-live="polite">
+                                    {loading ? (
+                                        "กำลังโหลด..."
+                                    ) : (
+                                        <>
+                                            <strong className="font-display text-lg font-bold text-denim-deep">{filtered.length}</strong> กิจกรรม
+                                        </>
+                                    )}
                                 </p>
                                 <div className="flex items-center gap-2">
                                     <button
                                         type="button"
                                         onClick={() => setMobileFiltersOpen(true)}
-                                        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-denim-line bg-white px-3.5 text-sm font-semibold text-denim-deep transition-colors hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim lg:hidden"
+                                        className={cn(
+                                            "inline-flex min-h-11 items-center gap-2 rounded-xl border border-denim-line bg-white px-3.5 text-sm font-semibold text-denim-deep transition-colors hover:bg-denim-paper focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim lg:hidden",
+                                            // มีปุ่มตัวกรองข้างช่องค้นหาด้านบนแล้ว
+                                            appBarOnMobile && "hidden"
+                                        )}
                                     >
                                         <SlidersHorizontal className="size-4" aria-hidden="true" />
                                         ตัวกรอง
@@ -190,7 +310,8 @@ export function EventsBrowser({ prompt, subtitle, hrefs }: EventsBrowserProps) {
                                             <span className="rounded-full bg-amber px-1.5 font-code text-xs text-denim-deep">{panelActive}</span>
                                         )}
                                     </button>
-                                    <div role="group" aria-label="รูปแบบการแสดงผล" className="inline-flex gap-1 rounded-xl border border-denim-line bg-white p-1">
+                                    {/* จอแคบแสดงเป็นแถวรายการเสมอ (กรองหมวดหมู่ด้วยชิปด้านบนแทนมุมมอง "ตามหมวดหมู่") */}
+                                    <div role="group" aria-label="รูปแบบการแสดงผล" className="inline-flex gap-1 rounded-xl border border-denim-line bg-white p-1 max-lg:hidden">
                                         {VIEW_OPTIONS.map(({ value, label, icon: Icon }) => {
                                             const active = view === value
                                             return (
@@ -214,11 +335,18 @@ export function EventsBrowser({ prompt, subtitle, hrefs }: EventsBrowserProps) {
                             </div>
 
                             {loading ? (
-                                <div className={cn(ACTIVITY_GRID, "lg:grid-cols-2")} aria-busy="true">
+                                <div aria-busy="true">
                                     <span className="sr-only">กำลังโหลดกิจกรรม</span>
-                                    {Array.from({ length: 4 }).map((_, i) => (
-                                        <ActivityCardSkeleton key={i} />
-                                    ))}
+                                    <div className="flex flex-col gap-3 lg:hidden">
+                                        {Array.from({ length: 4 }).map((_, i) => (
+                                            <ActivityListRowSkeleton key={i} />
+                                        ))}
+                                    </div>
+                                    <div className={cn(ACTIVITY_GRID, "lg:grid-cols-2 max-lg:hidden")}>
+                                        {Array.from({ length: 4 }).map((_, i) => (
+                                            <ActivityCardSkeleton key={i} />
+                                        ))}
+                                    </div>
                                 </div>
                             ) : filtered.length === 0 ? (
                                 <div className="rounded-[20px] border-2 border-dashed border-denim-field bg-white px-6 py-14 text-center">
@@ -237,23 +365,37 @@ export function EventsBrowser({ prompt, subtitle, hrefs }: EventsBrowserProps) {
                                         ล้างคำค้นหาและตัวกรองทั้งหมด
                                     </button>
                                 </div>
-                            ) : view === "all" ? (
-                                // จอแคบกว่า lg = กริดเดียวกับหน้าแรกทุกประการ · lg+ = 2 คอลัมน์ของผังหน้า 3 คอลัมน์ (กว้างเท่าการ์ดหน้าแรก)
-                                <div className={cn(ACTIVITY_GRID, "lg:grid-cols-2")}>
-                                    {filtered.map((item) => (
-                                        <PublicActivityCard key={item.key} item={item} />
-                                    ))}
-                                </div>
                             ) : (
-                                <div className="space-y-10">
-                                    {grouped.map(({ category, items }) => (
-                                        <HorizontalScrollSection key={category.value} title={category.label} count={items.length}>
-                                            {items.map((item) => (
-                                                <PublicActivityCard key={item.key} item={item} className={cn("shrink-0 snap-start", ACTIVITY_GRID_COLUMN)} />
-                                            ))}
-                                        </HorizontalScrollSection>
-                                    ))}
-                                </div>
+                                <>
+                                    {/* จอแคบ: แถวรายการ (ดู ActivityListRow) — ไม่ขึ้นกับมุมมองที่เลือก (ปุ่มเลือกมุมมองซ่อนบนจอแคบ) */}
+                                    <ul className="flex flex-col gap-3 lg:hidden">
+                                        {filtered.map((item) => (
+                                            <li key={item.key}>
+                                                <ActivityListRow item={item} />
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <div className="max-lg:hidden">
+                                        {view === "all" ? (
+                                            // lg+ = 2 คอลัมน์ของผังหน้า 3 คอลัมน์ (กว้างเท่าการ์ดหน้าแรก)
+                                            <div className={cn(ACTIVITY_GRID, "lg:grid-cols-2")}>
+                                                {filtered.map((item) => (
+                                                    <PublicActivityCard key={item.key} item={item} />
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-10">
+                                                {grouped.map(({ category, items }) => (
+                                                    <HorizontalScrollSection key={category.value} title={category.label} count={items.length}>
+                                                        {items.map((item) => (
+                                                            <PublicActivityCard key={item.key} item={item} className={cn("shrink-0 snap-start", ACTIVITY_GRID_COLUMN)} />
+                                                        ))}
+                                                    </HorizontalScrollSection>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
                             )}
                         </div>
                     </div>

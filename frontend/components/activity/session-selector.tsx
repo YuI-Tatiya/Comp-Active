@@ -75,7 +75,7 @@ export function SessionSelector({ sessions, activeId, onSelect }: SessionSelecto
                         onClick={() => onSelect(s.id)}
                         onKeyDown={(e) => onKeyDown(e, index)}
                         className={cn(
-                            "relative flex min-h-[7.5rem] flex-col gap-1.5 rounded-2xl border-[1.5px] p-4 text-left transition-[background-color,border-color,box-shadow] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim",
+                            "relative flex flex-col gap-1.5 rounded-2xl border-[1.5px] p-4 text-left lg:min-h-[7.5rem] transition-[background-color,border-color,box-shadow] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim",
                             selected
                                 ? "border-denim-deep bg-denim-deep text-white shadow-[0_12px_28px_-16px_rgb(18_34_61/0.8)]"
                                 : "border-denim-line bg-white text-denim-deep hover:border-denim-dash",
@@ -85,10 +85,13 @@ export function SessionSelector({ sessions, activeId, onSelect }: SessionSelecto
                         <span className={cn("font-code text-[11px] font-semibold tracking-[0.06em]", selected ? "text-amber" : "text-denim-accent")}>
                             {roundLabel(index)}
                         </span>
-                        {selected && (
+                        {/* วงกลมว่าง = เลือกได้ (แบบปุ่มเรดิโอ) · วงอำพันมีเครื่องหมายถูก = รอบที่เลือกอยู่ */}
+                        {selected ? (
                             <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full bg-amber text-denim-deep" aria-hidden="true">
                                 <Check className="size-3.5" strokeWidth={3} />
                             </span>
+                        ) : (
+                            <span className="absolute right-3 top-3 size-6 rounded-full border-[1.5px] border-denim-field bg-white" aria-hidden="true" />
                         )}
                         <span className="line-clamp-2 pr-7 text-sm font-semibold leading-snug">{s.name}</span>
                         <span className={cn("text-xs", selected ? "text-denim-on" : "text-denim-muted")}>{s.schedule}</span>

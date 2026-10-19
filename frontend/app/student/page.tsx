@@ -14,14 +14,17 @@ import {
 } from "@/components/denim/denim-ui"
 import { PublicActivityCard } from "@/components/denim/public-activity-card"
 import {
+  CompactStatGrid,
   HeadingLink,
   NoSkillScoresNotice,
   SkillTiles,
   SkillTilesSkeleton,
   StudentHomeHero,
+  StudentHomeMobileHero,
   UpcomingCard,
   UpcomingCardSkeleton,
   UpcomingEmpty,
+  UpcomingMobileSection,
   scoredSkillCount,
   type HomeRegistration,
 } from "@/components/student/student-home-ui"
@@ -146,11 +149,27 @@ export default function StudentDashboardPage() {
     // ไม่ใส่ min-h-screen — app/student/layout.tsx จัดการให้แล้ว
     <div className="bg-surface pb-16">
       <StudentHomeHero name={user?.name || "นักศึกษา"} daysToNext={daysToNext} />
-      <OrganizerStatCards stats={stats} strongLabels />
+      <OrganizerStatCards stats={stats} strongLabels className="max-lg:hidden" />
 
-      <Container className="mt-8 flex flex-col gap-8">
+      {/* จอแคบ: การ์ดทักทาย + สถิติ 2x2 แบบย่อ (ไม่ทับแถบหัว) และ "กำลังจะถึง" แบบเลื่อนแนวนอน — ข้อมูลชุดเดียวกับจอกว้าง */}
+      <StudentHomeMobileHero
+        name={user?.name || "นักศึกษา"}
+        next={
+          loadingMine
+            ? undefined
+            : allUpcoming.length > 0 && daysToNext !== null && daysToNext !== undefined
+              ? { days: daysToNext, reg: allUpcoming[0] }
+              : null
+        }
+      />
+
+      <Container className="mt-5 flex flex-col gap-8 lg:mt-8">
+        <CompactStatGrid stats={stats} className="lg:hidden" />
+
+        <UpcomingMobileSection loading={loadingMine} upcoming={upcoming} total={allUpcoming.length} />
+
         {/* ── กำลังจะถึง ─────────────────────────────────────────────────── */}
-        <DenimPanel labelledBy="upcoming-heading">
+        <DenimPanel labelledBy="upcoming-heading" className="max-lg:hidden">
           <DenimSectionHeading
             id="upcoming-heading"
             comment="upcoming"
