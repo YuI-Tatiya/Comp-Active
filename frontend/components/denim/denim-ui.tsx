@@ -269,7 +269,13 @@ export function OrganizerStatCards({
                 {/* มือถือ 2x2 แทนเรียงเดี่ยว 4 ใบ (ใบละ ~170px = กินจอไปเกือบ 700px ก่อนถึงรายการกิจกรรม) */}
                 <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                     {stats.map((stat) => (
-                        <DenimStatCard key={stat.code} stat={stat} strongLabel={strongLabels} />
+                        <DenimStatCard
+                            key={stat.code}
+                            stat={stat}
+                            strongLabel={strongLabels}
+                            // ใบเด่น (พื้นยีนส์) ทับขอบล่างของแถบหัวหน้าที่เป็นยีนส์เหมือนกัน — ขอบขาวตัดไม่ให้ครึ่งบนกลืนไปกับพื้น
+                            className={stat.highlight ? "border-2 border-white" : undefined}
+                        />
                     ))}
                 </div>
             </Container>
