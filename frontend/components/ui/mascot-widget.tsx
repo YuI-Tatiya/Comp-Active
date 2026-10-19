@@ -10,7 +10,7 @@ import { chatbotAPI } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { PUBLIC_ADMIN_HOSTS, isAdminHostname } from "@/lib/admin-host"
 import { chatbotFaqs, faqsToShow, toHistoryItem, type ChatFaq, type ChatMessage } from "@/lib/chatbot-faq"
-import { BOTTOM_NAV_CLEARANCE } from "@/components/layout/bottom-nav"
+import { BOTTOM_NAV_CLEARANCE, useBottomSlotClaimed } from "@/components/layout/bottom-nav"
 
 type Corner = "br" | "bl" | "tr" | "tl"
 
@@ -121,7 +121,10 @@ export function MascotWidget() {
         mq.addEventListener("change", update)
         return () => mq.removeEventListener("change", update)
     }, [])
-    const clearBottomNav = isAppPortalRoute && isBelowLg
+    // หน้าที่มีแถบติดขอบล่างของตัวเองนอกโซนนั้น (หน้ารายละเอียดกิจกรรมฝั่ง public มี MobileActionBar) จองพื้นที่ไว้ — ยกขึ้นเหมือนกัน
+    // ไม่งั้นปุ่มแชทวางทับปุ่ม "ลงทะเบียน" พอดี
+    const bottomSlotClaimed = useBottomSlotClaimed()
+    const clearBottomNav = isBelowLg && (isAppPortalRoute || bottomSlotClaimed)
 
     const faqs = chatbotFaqs(user?.role)
 

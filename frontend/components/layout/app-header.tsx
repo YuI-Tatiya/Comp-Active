@@ -20,6 +20,8 @@ export interface AppNavLink {
     alsoMatches?: string[]
     /** ไอคอนประจำเมนู — เมนูบนใช้แค่ข้อความ ไม่ใช้ไอคอนนี้ ใช้เฉพาะ BottomNav (components/layout/bottom-nav.tsx) */
     icon?: LucideIcon
+    /** ชื่อสั้นบน BottomNav (ช่องแคบ ~90px) เช่น "ของฉัน" แทน "กิจกรรมของฉัน" — ไม่ส่ง = ใช้ label */
+    shortLabel?: string
 }
 
 /** นับว่าแท็บนี้ active ไหม — ใช้ร่วมกันทั้งเมนูบน (ที่นี่) และแถบเมนูล่างมือถือ (BottomNav) */
@@ -37,6 +39,11 @@ interface AppHeaderProps {
     roleLabel: string
     /** ลิงก์หน้าแก้ข้อมูลตัวเอง — student: /student/profile · organizer: /organizer/settings */
     accountHref: string
+    /**
+     * ซ่อนทั้งแถบบนจอแคบ (< lg) — พอร์ทัลนักศึกษาใช้ MobileAppBar (components/student/mobile-app-bar.tsx) แทน
+     * ซึ่งเปลี่ยนหัวตามหน้า (ชื่อหน้า/ปุ่มของหน้านั้น) แบบแอปมือถือ
+     */
+    hideBelowLg?: boolean
 }
 
 /**
@@ -46,12 +53,12 @@ interface AppHeaderProps {
  * จอแคบ (< lg) ไม่มีเมนูแฮมเบอร์เกอร์แล้ว — ลิงก์หลักทุกอันย้ายไปอยู่ที่ BottomNav (แถบเมนูล่างติดขอบจอ)
  * ของแต่ละ layout แทน เหลือแค่ปุ่มออกจากระบบตรงนี้ (เข้าถึงบัญชี/โปรไฟล์ไปทาง BottomNav แทนเช่นกัน)
  */
-export function AppHeader({ links, roleLabel, accountHref }: AppHeaderProps) {
+export function AppHeader({ links, roleLabel, accountHref, hideBelowLg = false }: AppHeaderProps) {
     const { logout } = useAuth()
     const pathname = usePathname()
 
     return (
-        <header className="sticky top-0 z-50 border-b border-denim-line bg-white/95 font-plex backdrop-blur">
+        <header className={cn("sticky top-0 z-50 border-b border-denim-line bg-white/95 font-plex backdrop-blur", hideBelowLg && "max-lg:hidden")}>
             <Container>
                 <div className="flex h-[72px] items-center gap-4">
                     <Link href={links[0]?.href ?? "/"} className="rounded-md">

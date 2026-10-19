@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
-import { X, Trophy, TrendingUp, CalendarCheck, Search } from "lucide-react"
+import { X, Trophy, TrendingUp, CalendarCheck, Search, LogOut } from "lucide-react"
 import { Toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +17,7 @@ import {
     DenimStatCard,
     type OrganizerStat,
 } from "@/components/denim/denim-ui"
+import { MobileAppBar, MobileAppBarPill } from "@/components/student/mobile-app-bar"
 import {
     AssessmentRow,
     AssessmentsEmpty,
@@ -49,7 +50,7 @@ const EMPTY_FORM = {
 }
 
 export default function StudentProfilePage() {
-    const { user, refreshUser } = useAuth()
+    const { user, refreshUser, logout } = useAuth()
     const router = useRouter()
     const [tab, setTab] = useState<ProfileTab>("softskills")
     const [skillsData, setSkillsData] = useState<SkillsData | null>(null)
@@ -290,18 +291,42 @@ export default function StudentProfilePage() {
         }
     }
 
+    // การ์ดโปรไฟล์บนมือถือ — ตัวเลขชุดเดียวกับ stats ของจอกว้าง แต่ป้ายสั้นพอดีช่องแคบ
+    const summary = [
+        {
+            code: "RANK",
+            label: "อันดับในระบบ",
+            value: loading || !skillsData ? "–" : `#${skillsData.rank}`,
+            note: loading || !skillsData ? "" : `จาก ${skillsData.totalStudents.toLocaleString("th-TH")} คน`,
+        },
+        {
+            code: "POINTS",
+            label: "แต้มสะสม",
+            value: loading ? "–" : (skillsData?.totalScore ?? 0).toLocaleString("th-TH"),
+            note: "แต้มสะสม",
+        },
+        { code: "JOINED", label: "กิจกรรมที่เข้าร่วม", value: loading ? "–" : String(skillsData?.count ?? 0), note: "กิจกรรม" },
+    ]
+
     return (
         // ไม่ใส่ min-h-screen — app/student/layout.tsx จัดการให้แล้ว
         <div className="bg-surface pb-16">
+            {/* แถบหัวมือถือของหน้านี้วาดเองที่นี่ (layout เว้นไว้ให้) เพราะป้ายอันดับขวามือต้องใช้ข้อมูลของหน้า */}
+            <MobileAppBar
+                prompt="~/student $ cat profile"
+                title="โปรไฟล์"
+                action={!loading && skillsData ? <MobileAppBarPill>RANK #{skillsData.rank}</MobileAppBarPill> : <span />}
+            />
             <ProfileHero
                 name={user?.name || "ผู้ใช้งาน"}
                 studentId={user?.studentId}
                 email={user?.email}
+                summary={summary}
                 tab={tab}
                 onTabChange={setTab}
             />
 
-            <Container className="mt-8">
+            <Container className="mt-5 lg:mt-8">
                 {tab === "softskills" ? (
                     <div
                         role="tabpanel"
@@ -309,34 +334,34 @@ export default function StudentProfilePage() {
                         aria-labelledby={profileTabId("softskills")}
                         className="flex flex-col gap-6"
                     >
-                        <DenimSectionHeading
-                            id="dashboard-heading"
-                            comment="soft_skills.dashboard"
-                            title="Soft Skills Dashboard"
-                            description="ติดตามและพัฒนาทักษะของคุณผ่านการเข้าร่วมกิจกรรม"
-                            action={
-                                <ExportTranscriptButton
-                                    canExport={canExport}
-                                    loading={loading}
-                                    exporting={exporting}
-                                    onExport={handleExport}
-                                />
-                            }
-                        />
+                        {/* จอแคบ: หัวข้อย้ายเข้าไปในการ์ดเรดาร์ สถิติอยู่ในการ์ดโปรไฟล์ด้านบน ปุ่มส่งออกอยู่ใต้เรดาร์ */}
+                        <div className="max-lg:hidden">
+                            <DenimSectionHeading
+                                id="dashboard-heading"
+                                comment="soft_skills.dashboard"
+                                title="Soft Skills Dashboard"
+                                description="ติดตามและพัฒนาทักษะของคุณผ่านการเข้าร่วมกิจกรรม"
+                                action={
+                                    <ExportTranscriptButton
+                                        canExport={canExport}
+                                        loading={loading}
+                                        exporting={exporting}
+                                        onExport={handleExport}
+                                    />
+                                }
+                            />
+                        </div>
 
-                        {/* มือถือ: อันดับเต็มแถวบน แต้ม/กิจกรรมคู่กันแถวล่าง */}
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+                        <div className="grid grid-cols-3 gap-4 max-lg:hidden">
                             {stats.map((stat) => (
-                                <DenimStatCard
-                                    key={stat.code}
-                                    stat={stat}
-                                    strongLabel
-                                    className={stat.highlight ? "col-span-2 sm:col-span-1" : undefined}
-                                />
+                                <DenimStatCard key={stat.code} stat={stat} strongLabel />
                             ))}
                         </div>
 
                         <SkillRadarPanel skills={skillsData} loading={loading} />
+                        <div className="lg:hidden">
+                            <ExportTranscriptButton canExport={canExport} loading={loading} exporting={exporting} onExport={handleExport} />
+                        </div>
 
                         {/* ประวัติการประเมินรายกิจกรรม */}
                         <DenimPanel labelledBy="assessments-heading">
@@ -596,6 +621,16 @@ export default function StudentProfilePage() {
                         </DenimPanel>
                     </div>
                 )}
+
+                {/* จอแคบ: หน้านี้ไม่มีอวตาร (เมนูผู้ใช้) บนแถบหัว — ออกจากระบบตรงนี้แทน */}
+                <button
+                    type="button"
+                    onClick={logout}
+                    className="mt-8 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-red-200 bg-white text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim lg:hidden"
+                >
+                    <LogOut className="size-4" aria-hidden="true" />
+                    ออกจากระบบ
+                </button>
             </Container>
 
             {/* Dialog ยืนยันด้วยรหัสผ่าน */}

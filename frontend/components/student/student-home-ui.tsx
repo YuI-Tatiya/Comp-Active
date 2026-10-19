@@ -2,9 +2,9 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight, CalendarX, Clock, Info, MapPin } from "lucide-react"
+import { ArrowRight, CalendarX, ChevronRight, Clock, Info, MapPin, Search } from "lucide-react"
 import { Container } from "@/components/layout/container"
-import { TerminalPrompt, coverPattern } from "@/components/denim/denim-ui"
+import { DateTile, RowPill, TerminalPrompt, coverPattern, tileDate, type OrganizerStat } from "@/components/denim/denim-ui"
 import type { SkillScores } from "@/lib/api"
 import { categoriesBadgeLabel, getCategory } from "@/lib/categories"
 import { registrationBucket } from "@/lib/registration-bucket"
@@ -45,7 +45,8 @@ export interface HomeRegistration extends UpcomingCandidate {
 export function StudentHomeHero({ name, daysToNext }: { name: string; daysToNext: number | null | undefined }) {
     const line = daysToNext === undefined ? null : mascotLine(daysToNext)
     return (
-        <section className="denim-weave relative overflow-hidden">
+        // จอแคบใช้ StudentHomeMobileHero (การ์ดยีนส์ในหน้า) แทน — ชื่อหน้าอยู่บน MobileAppBar แล้ว
+        <section className="denim-weave relative overflow-hidden max-lg:hidden">
             <Container className="relative flex flex-col justify-end pb-28 pt-10 sm:pt-12 lg:min-h-[340px]">
                 <div className="flex max-w-2xl flex-col gap-3 lg:max-w-[calc(100%-20rem)]">
                     <TerminalPrompt>~/comp-active/student $ whoami</TerminalPrompt>
@@ -81,6 +82,195 @@ export function StudentHomeHero({ name, daysToNext }: { name: string; daysToNext
                     />
                 </div>
             </Container>
+        </section>
+    )
+}
+
+/* ── หน้าหลักบนจอแคบ (< lg) ─────────────────────────────────────────────────── */
+
+/** ชื่อเล่น/ชื่อต้นสำหรับคำทักทายบนมือถือ — ชื่อเต็ม + นามสกุลยาวเกินบรรทัดเดียวข้างมาสคอต */
+function firstName(name: string): string {
+    return name.trim().split(/\s+/)[0] || name
+}
+
+interface NextActivity {
+    /** วันถึงกิจกรรมถัดไปตามปฏิทินไทย */
+    days: number
+    reg: HomeRegistration
+}
+
+/**
+ * การ์ดทักทายบนมือถือ (การ์ดยีนส์ในหน้า ไม่ใช่แถบเต็มจอ) — คำทักทาย + มาสคอตโบกมือ + แถบอำพันนับถอยหลังถึงกิจกรรมถัดไป
+ * แถบอำพันเป็นลิงก์: มีกิจกรรมที่จะถึง = ไปหน้ากิจกรรมนั้น, ไม่มี = ไปหากิจกรรม · next: undefined = ยังโหลดอยู่
+ */
+export function StudentHomeMobileHero({ name, next }: { name: string; next: NextActivity | null | undefined }) {
+    return (
+        <Container className="pt-4 lg:hidden">
+            <section className="denim-weave relative overflow-hidden rounded-[26px] p-5 pb-4 shadow-[0_18px_34px_-22px_rgb(18_34_61/0.7)]">
+                <Image
+                    src="/mascot-wave.png"
+                    alt=""
+                    width={421}
+                    height={900}
+                    sizes="90px"
+                    priority
+                    className="pointer-events-none absolute -right-1 top-6 h-[168px] w-auto drop-shadow-[0_14px_20px_rgb(0_0_0/0.35)]"
+                />
+                <div className="relative max-w-[66%]">
+                    <TerminalPrompt>~/student $ whoami</TerminalPrompt>
+                    <h1 className="mt-2 break-words font-display text-[30px] font-bold leading-[1.15] text-white">
+                        สวัสดี <span className="text-amber">{firstName(name)}</span>
+                    </h1>
+                    <p className="mt-2 text-sm leading-relaxed text-denim-on">เลือกกิจกรรม สะสม Soft Skills แล้วดูตัวเองเก่งขึ้นทุกวัน</p>
+                </div>
+                <NextActivityBar next={next} />
+            </section>
+        </Container>
+    )
+}
+
+function NextActivityBar({ next }: { next: NextActivity | null | undefined }) {
+    const bar =
+        "relative z-[1] mt-5 flex min-h-[60px] items-center gap-3 rounded-2xl bg-amber px-4 py-2.5 text-denim-deep shadow-[0_4px_0_var(--color-amber-deep)] transition-transform active:translate-y-0.5 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-white"
+    if (next === undefined) {
+        return <div className="relative z-[1] mt-5 h-[60px] animate-pulse rounded-2xl bg-amber/50" aria-hidden="true" />
+    }
+    if (next === null) {
+        return (
+            <Link href="/student/events" className={bar}>
+                <Search className="size-6 shrink-0" strokeWidth={2.4} aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold">ยังไม่มีกิจกรรมที่จะถึง</span>
+                    <span className="block truncate text-xs">หากิจกรรมที่สนใจแล้วลงทะเบียนเลย</span>
+                </span>
+                <ChevronRight className="size-5 shrink-0" aria-hidden="true" />
+            </Link>
+        )
+    }
+    const a = next.reg.activity
+    const date = tileDate(activityStart(a))
+    return (
+        <Link href={`/student/activities/${a.publicId}`} className={bar}>
+            {next.days <= 0 ? (
+                <span className="shrink-0 font-display text-lg font-bold leading-none">วันนี้</span>
+            ) : (
+                <span className="shrink-0 font-display text-[30px] font-bold leading-none tabular-nums">{next.days}</span>
+            )}
+            <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold">{next.days <= 0 ? "มีกิจกรรมวันนี้!" : "วันก่อนถึงกิจกรรมถัดไป"}</span>
+                <span className="block truncate text-xs">
+                    {a.name}
+                    {date && ` · ${date.day} ${date.month}`}
+                    {a.startTime && ` ${a.startTime}`}
+                </span>
+            </span>
+            <ChevronRight className="size-5 shrink-0" aria-hidden="true" />
+        </Link>
+    )
+}
+
+/** สถิติ 4 ช่องแบบย่อ 2x2 บนมือถือ (ไม่มีไอคอน ไม่มีใบเด่น) — ข้อมูลชุดเดียวกับ OrganizerStatCards ของจอกว้าง */
+export function CompactStatGrid({ stats, className }: { stats: OrganizerStat[]; className?: string }) {
+    return (
+        <section aria-label="สรุปภาพรวม" className={className}>
+            <ul className="grid grid-cols-2 gap-3">
+                {stats.map((stat) => (
+                    <li key={stat.code} className="flex min-w-0 flex-col rounded-[18px] border border-denim-line bg-white px-4 py-3.5 shadow-[0_10px_24px_-22px_rgb(18_34_61/0.6)]">
+                        <span className="truncate font-code text-[11px] tracking-[0.04em] text-denim-accent" aria-hidden="true">
+                            {stat.code}
+                        </span>
+                        <span className="mt-1 font-display text-[26px] font-bold leading-none tabular-nums text-denim-deep">
+                            {/* ป้ายโค้ดภาษาอังกฤษซ่อนจาก screen reader — อ่านชื่อสถิติภาษาไทยแทน */}
+                            <span className="sr-only">{stat.label} </span>
+                            {stat.value}
+                        </span>
+                        {/* ไม่มี caption = บรรทัดนี้คือชื่อสถิติซ้ำกับ sr-only ข้างบน — ซ่อนไม่ให้อ่านสองรอบ */}
+                        <span className="mt-1.5 truncate text-xs text-denim-muted" aria-hidden={stat.caption ? undefined : true}>
+                            {stat.caption ?? stat.label}
+                        </span>
+                    </li>
+                ))}
+            </ul>
+        </section>
+    )
+}
+
+/** การ์ด "กำลังจะถึง" แบบย่อบนมือถือ (เลื่อนแนวนอน) — แผ่นวันที่ + ป้ายสถานะ + ชื่อ + เวลา·สถานที่ + ขั้นถัดไป */
+export function UpcomingMiniCard({ reg, className }: { reg: HomeRegistration; className?: string }) {
+    const a = reg.activity
+    const bucket = registrationBucket(reg) === "confirmed" ? "confirmed" : "pending"
+    return (
+        <Link
+            href={`/student/activities/${a.publicId}`}
+            className={cn(
+                "flex flex-col rounded-[20px] border border-denim-line bg-white p-4 shadow-[0_12px_28px_-24px_rgb(18_34_61/0.6)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim",
+                className
+            )}
+        >
+            <span className="flex gap-3.5">
+                <DateTile date={activityStart(a)} categories={a.categories} />
+                <span className="min-w-0 flex-1">
+                    <RowPill tone={bucket === "confirmed" ? "green" : "amber"}>{PILL[bucket].label}</RowPill>
+                    <span className="mt-1.5 block truncate font-display text-[17px] font-bold leading-snug text-denim-deep">{a.name}</span>
+                    <span className="mt-0.5 block truncate text-[13px] text-denim-muted">
+                        {a.startTime ? `${a.startTime} · ` : ""}
+                        {a.location || "ไม่ระบุสถานที่"}
+                    </span>
+                </span>
+            </span>
+            <span className="mt-3.5 flex items-baseline gap-2 border-t border-dashed border-denim-line pt-3 text-[13px] text-denim-ink">
+                <span className="font-code text-xs font-semibold text-amber-ink">next</span>
+                <span className="min-w-0 truncate">{nextStepLabel(bucket)}</span>
+            </span>
+        </Link>
+    )
+}
+
+/** ส่วน "กำลังจะถึง" บนมือถือ — การ์ดเลื่อนแนวนอน (snap) ไม่ใช่แผงขาวเรียงลงมาแบบจอกว้าง */
+export function UpcomingMobileSection({
+    loading,
+    upcoming,
+    total,
+}: {
+    loading: boolean
+    upcoming: HomeRegistration[]
+    /** จำนวนที่จะถึงทั้งหมด (upcoming อาจถูกตัดเหลือไม่กี่ใบ) */
+    total: number
+}) {
+    return (
+        <section aria-labelledby="upcoming-heading-mobile" className="lg:hidden">
+            <div className="flex items-end justify-between gap-3">
+                <div>
+                    <p className="font-code text-xs text-denim-accent" aria-hidden="true">
+                        {"// upcoming"}
+                    </p>
+                    <h2 id="upcoming-heading-mobile" className="mt-1 font-display text-2xl font-bold text-denim-deep">
+                        กำลังจะถึง
+                    </h2>
+                </div>
+                <Link
+                    href="/student/my-registrations"
+                    className="inline-flex min-h-11 items-center text-sm font-semibold text-denim-deep underline decoration-denim-dash underline-offset-4 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-denim"
+                >
+                    ทั้งหมด{!loading && total > 0 ? ` (${total})` : ""}
+                </Link>
+            </div>
+            <div className="mt-3">
+                {loading ? (
+                    <div className="h-[150px] animate-pulse rounded-[20px] bg-denim-chip" aria-hidden="true" />
+                ) : upcoming.length === 0 ? (
+                    <UpcomingEmpty />
+                ) : (
+                    // เลื่อนแนวนอนชนขอบจอ (ยกเลิก padding ของ Container) — ใบถัดไปโผล่ขอบขวาให้รู้ว่าเลื่อนได้
+                    <ul className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:-mx-6 sm:scroll-px-6 sm:px-6 [&::-webkit-scrollbar]:hidden">
+                        {upcoming.map((r) => (
+                            <li key={r.id} className={cn("shrink-0 snap-start", upcoming.length > 1 ? "w-[84%] max-w-[360px]" : "w-full")}>
+                                <UpcomingMiniCard reg={r} className="h-full" />
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
         </section>
     )
 }

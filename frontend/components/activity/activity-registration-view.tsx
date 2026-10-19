@@ -4,7 +4,7 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { Container } from "@/components/layout/container"
 import { TerminalPrompt } from "@/components/denim/denim-ui"
-import { ActivityDetailHero, type DetailStatusTone } from "@/components/activity/activity-detail-hero"
+import { ActivityDetailHero, MobileDetailCover, type DetailStatusTone } from "@/components/activity/activity-detail-hero"
 import { PreviewBar, RegistrationBar } from "@/components/activity/activity-detail-bars"
 import {
     AboutSection,
@@ -32,6 +32,7 @@ import {
     type MyRegistrationLike,
 } from "@/lib/activity-view"
 import type { Activity } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 /** ป้ายสถานะบนปกตามสถานะการสมัครของรอบที่เลือก — ข้อความสั้นพอดีแคปซูล (ข้อความเต็มอยู่ในแถบสมัคร) */
 function coverStatus(view: ActionView): { label: string; tone: DetailStatusTone } {
@@ -176,10 +177,26 @@ export function ActivityRegistrationView({
               : null
         : null
 
+    // ปกของการ์ดหัวเรื่อง — ใช้ทั้งปกในการ์ด (จอกว้าง) และปกเต็มจอด้านบน (จอแคบ)
+    const cover =
+        view && active
+            ? {
+                  imagePath,
+                  // ลายปกบอกสถานะของรอบเอง (ปิดรับ/จบ/เต็ม = เทา) ไม่ขึ้นกับว่าฉันสมัครแล้วหรือยัง
+                  tone: active.closed || active.seat.level === "full" ? ("closed" as const) : ("open" as const),
+                  statusLabel: coverStatus(view).label,
+                  statusTone: coverStatus(view).tone,
+                  code,
+                  date: coverDateParts(active.activity),
+              }
+            : null
+
     return (
         // ไม่ใส่ min-h-screen — layout ของแต่ละพอร์ทัลดัน footer ลงล่างเองอยู่แล้ว
         <div className={preview ? "bg-surface pb-16" : "bg-surface pb-28 lg:pb-16"}>
-            <section className="denim-weave">
+            {cover && <MobileDetailCover {...cover} categories={categories} title={title} backHref={backHref} />}
+            {/* จอแคบมีปกเต็มจอ (ปุ่มกลับอยู่บนปก) แทนแถบนี้ — ยังไม่มีข้อมูลรอบให้วาดปกก็ใช้แถบนี้ทุกจอ */}
+            <section className={cn("denim-weave", cover && "max-lg:hidden")}>
                 <Container className="flex flex-wrap items-center justify-between gap-3 pb-20 pt-6 sm:pb-24">
                     <Link
                         href={backHref}
@@ -191,10 +208,10 @@ export function ActivityRegistrationView({
                 </Container>
             </section>
 
-            <Container className="-mt-14 space-y-8 sm:-mt-16">
+            <Container className={cn("space-y-8 lg:-mt-16", cover ? "-mt-7" : "-mt-14 sm:-mt-16")}>
                 {notice}
 
-                {view && active && (
+                {view && active && cover && (
                     <ActivityDetailHero
                         id="registration-card"
                         title={title}
@@ -202,15 +219,8 @@ export function ActivityRegistrationView({
                         organizerName={organizerName}
                         schedule={formatActivitySchedule(active.activity)}
                         location={active.activity.location}
-                        cover={{
-                            imagePath,
-                            // ลายปกบอกสถานะของรอบเอง (ปิดรับ/จบ/เต็ม = เทา) ไม่ขึ้นกับว่าฉันสมัครแล้วหรือยัง
-                            tone: active.closed || active.seat.level === "full" ? "closed" : "open",
-                            statusLabel: coverStatus(view).label,
-                            statusTone: coverStatus(view).tone,
-                            code,
-                            date: coverDateParts(active.activity),
-                        }}
+                        seatsLabel={active.seat.label}
+                        cover={cover}
                         rounds={isProject ? { sessions, activeId, activeIndex, onSelect: onSelectActivity } : null}
                         footer={
                             preview ? (
@@ -290,7 +300,12 @@ export function ActivityRegistrationView({
             {!preview && view && active && (
                 <MobileActionBar
                     view={view}
-                    sessionName={isProject ? active.activity.name : null}
+                    sessionName={isProject ? active.activity.name : title}
+                    meta={
+                        isProject
+                            ? `${roundLabel(activeIndex)} · ${formatScheduleShort(active.activity)}`
+                            : formatScheduleShort(active.activity)
+                    }
                     statusLine={view.headline ?? (view.primary?.disabled ? view.primary.label : active.seat.label)}
                     onRegister={onRegister}
                     onOpenCard={() => scrollTo("registration-card")}

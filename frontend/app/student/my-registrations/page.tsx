@@ -15,6 +15,7 @@ import {
   BUCKET_LABEL,
   MyRegistrationsHero,
   PipelineCard,
+  PipelineTabsMobile,
   RegistrationCard,
   RegistrationCardSkeleton,
   type MyRegistration,
@@ -225,8 +226,9 @@ export default function MyRegistrationsPage() {
     <div className="bg-surface pb-16">
       <MyRegistrationsHero />
       <PipelineCard value={activeTab} counts={counts} loading={loading} onChange={selectTab} />
+      <PipelineTabsMobile value={activeTab} counts={counts} loading={loading} onChange={selectTab} />
 
-      <Container className="pt-6">
+      <Container className="pt-5 lg:pt-6">
         {message && (
           <div
             role="alert"
@@ -274,10 +276,11 @@ export default function MyRegistrationsPage() {
           role="search"
           aria-label="ค้นหากิจกรรมของฉัน"
           onSubmit={(e) => e.preventDefault()}
-          className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+          className="flex items-center justify-between gap-2.5 sm:gap-3"
         >
-          {/* min-w-0 + flex-1: ช่องค้นหาต้องหดได้ ไม่งั้นช่วง ~768px มันกันที่จนช่องเรียงลำดับล้นขอบขวา */}
-          <div className="relative w-full min-w-0 sm:max-w-md sm:flex-1">
+          {/* min-w-0 + flex-1: ช่องค้นหาต้องหดได้ ไม่งั้นช่วง ~768px มันกันที่จนช่องเรียงลำดับล้นขอบขวา
+              มือถือ: ค้นหา + เรียงลำดับอยู่แถวเดียว (ป้าย "เรียงลำดับ" ซ่อนไว้ให้ screen reader) ไม่ดันรายการลงไปอีกแถว */}
+          <div className="relative min-w-0 flex-1 sm:max-w-md">
             <Search className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-denim-muted" aria-hidden="true" />
             <input
               type="search"
@@ -288,13 +291,13 @@ export default function MyRegistrationsPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-3 sm:shrink-0">
-            <label htmlFor="my-reg-sort" className="shrink-0 text-sm font-semibold text-denim-ink">
+          <div className="flex shrink-0 items-center gap-3">
+            <label htmlFor="my-reg-sort" className="shrink-0 text-sm font-semibold text-denim-ink max-sm:sr-only">
               เรียงลำดับ
             </label>
             <Select
               id="my-reg-sort"
-              className={cn(FIELD, "w-full pl-4 sm:w-64")}
+              className={cn(FIELD, "w-36 pl-3 sm:w-64 sm:pl-4")}
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortKey)}
             >
