@@ -8,9 +8,11 @@ import { BottomNav, BottomNavSpacer, type BottomNavTab } from "@/components/layo
 import { SiteFooter } from "@/components/layout/site-footer"
 import { RoleGuard } from "@/components/auth/role-guard"
 import { StudentMobileAppBar } from "@/components/student/mobile-app-bar"
+import { QuickScanButton } from "@/components/student/quick-scan-button"
 import { registrationsAPI } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { selectUpcoming, type UpcomingCandidate } from "@/lib/student-home"
+import { useScanCapable } from "@/lib/use-scan-capable"
 
 const LINKS: AppNavLink[] = [
   { href: "/student", label: "หน้าหลัก", exact: true, icon: Home },
@@ -52,6 +54,10 @@ export default function StudentLayout({
 }) {
   const pathname = usePathname()
   const upcoming = useUpcomingCount(pathname)
+  // ปุ่มสแกน QR ด่วนกลางแถบเมนูล่าง — เฉพาะอุปกรณ์ที่เช็คอินด้วยการสแกนได้ (มือถือ/iPad ดู lib/device.ts)
+  // โน้ตบุ๊กที่ย่อหน้าต่างจนแคบกว่า lg ได้แถบ 4 แท็บตามเดิม
+  const scanCapable = useScanCapable()
+  const showQuickScan = scanCapable !== false
 
   // 3 เมนูหลัก + โปรไฟล์ — ไม่รวม "เกี่ยวกับเรา" (ดูเหตุผลที่ LINKS ด้านบน)
   const bottomTabs: BottomNavTab[] = [
@@ -73,8 +79,11 @@ export default function StudentLayout({
         <StudentMobileAppBar pathname={pathname} />
         <main className="flex-1">{children}</main>
         <SiteFooter />
-        <BottomNavSpacer />
-        <BottomNav tabs={bottomTabs} />
+        <BottomNavSpacer raisedAction={showQuickScan} />
+        <BottomNav
+          tabs={bottomTabs}
+          centerAction={showQuickScan ? <QuickScanButton disabled={scanCapable === null} /> : undefined}
+        />
       </div>
     </RoleGuard>
   )

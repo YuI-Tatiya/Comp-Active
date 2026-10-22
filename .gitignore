@@ -95,3 +95,6 @@ pnpm-debug.log*
 tmp/
 temp/
 .worktrees/
+CLAUDE.md
+DEPLOYMENT.md
+.gitatributes

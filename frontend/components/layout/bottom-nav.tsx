@@ -60,10 +60,21 @@ export interface BottomNavTab extends AppNavLink {
     badgeLabel?: string
 }
 
-export function BottomNav({ tabs }: { tabs: BottomNavTab[] }) {
+/** ปุ่มกลมที่ยกลอยเหนือขอบบนของแถบ (centerAction) สูงเกินแถบขึ้นไปเท่านี้ — BottomNavSpacer เผื่อที่ให้ด้วย */
+export const RAISED_ACTION_OVERHANG_PX = 20
+
+export function BottomNav({
+    tabs,
+    centerAction,
+}: {
+    tabs: BottomNavTab[]
+    /** ปุ่มกลางแถบ (เช่น สแกน QR ด่วนของนักศึกษา) — แทรกกึ่งกลางระหว่างแท็บ ครึ่งแรก | ปุ่มนี้ | ครึ่งหลัง */
+    centerAction?: React.ReactNode
+}) {
     const pathname = usePathname()
     const claimed = useBottomSlotClaimed()
     if (claimed) return null
+    const half = Math.ceil(tabs.length / 2)
 
     return (
         <nav
@@ -71,11 +82,11 @@ export function BottomNav({ tabs }: { tabs: BottomNavTab[] }) {
             className="fixed inset-x-0 bottom-0 z-40 border-t border-denim-line bg-white/95 backdrop-blur [padding-bottom:env(safe-area-inset-bottom,0px)] lg:hidden"
         >
             <div className="mx-auto flex max-w-xl items-stretch justify-around">
-                {tabs.map((tab) => {
+                {tabs.map((tab, i) => {
                     const active = isNavLinkActive(pathname, tab)
                     const Icon = tab.icon
                     const badge = tab.badge && tab.badge > 0 ? tab.badge : 0
-                    return (
+                    const link = (
                         <Link
                             key={tab.href}
                             href={tab.href}
@@ -109,6 +120,7 @@ export function BottomNav({ tabs }: { tabs: BottomNavTab[] }) {
                             </span>
                         </Link>
                     )
+                    return centerAction && i === half ? [<div key="center-action" className="flex min-w-0 flex-1">{centerAction}</div>, link] : link
                 })}
             </div>
         </nav>
@@ -119,10 +131,12 @@ export function BottomNav({ tabs }: { tabs: BottomNavTab[] }) {
  * ช่องว่างจริงในโฟลว์ (ไม่ใช่ padding คงที่บน wrapper) กันเนื้อหา/footer โดนแถบเมนูล่างบัง — วางไว้ท้ายสุด
  * ของ layout ก่อน BottomNav ไม่แสดงเมื่อหน้านั้นจองพื้นที่ล่างไปเอง (BottomNav ก็ซ่อนไปพร้อมกัน จึงไม่มีอะไรให้เว้น)
  */
-export function BottomNavSpacer() {
+export function BottomNavSpacer({ raisedAction = false }: { raisedAction?: boolean }) {
     const claimed = useBottomSlotClaimed()
     if (claimed) return null
+    // raisedAction: แถบมีปุ่มกลางที่ลอยเหนือขอบบน — เผื่อที่เพิ่ม ไม่งั้นท้ายเนื้อหา (footer) โดนปุ่มบังตอนเลื่อนสุดหน้า
+    const height = BAR_HEIGHT_PX + (raisedAction ? RAISED_ACTION_OVERHANG_PX : 0)
     // style={{height}} ไม่ใช่ Tailwind class — ค่าประกอบจาก BAR_HEIGHT_PX ตอน runtime, Tailwind สแกนหา
     // class จากซอร์สโค้ดตรงๆ ไม่ใช่ string ที่ต่อกันตอนรัน จะใส่เป็น className เฉยๆ แล้วไม่มีผลอะไรเลย
-    return <div aria-hidden="true" className="lg:hidden" style={{ height: `calc(${BAR_HEIGHT_PX}px + env(safe-area-inset-bottom, 0px))` }} />
+    return <div aria-hidden="true" className="lg:hidden" style={{ height: `calc(${height}px + env(safe-area-inset-bottom, 0px))` }} />
 }

@@ -5,15 +5,30 @@ import { createPortal } from "react-dom"
 import jsQR from "jsqr"
 import { useRouter } from "next/navigation"
 import { AlertTriangle, Camera, ImageUp, Loader2, X } from "lucide-react"
-import { parseCheckinUrl } from "@/lib/checkin-qr"
+import { checkinScanVerdict, type CheckinScanVerdict } from "@/lib/checkin-qr"
 import { cn } from "@/lib/utils"
 
 interface Props {
     open: boolean
     onOpenChange: (open: boolean) => void
-    /** publicId ของกิจกรรม — ไว้เทียบว่า QR ที่สแกนได้เป็นของกิจกรรมนี้จริงไหม */
-    activityId: string
-    activityName: string
+    /**
+     * publicId ของกิจกรรม — ไว้เทียบว่า QR ที่สแกนได้เป็นของกิจกรรมนี้จริงไหม
+     * ไม่ส่ง (ปุ่มสแกนด่วนกลางแถบเมนูล่าง) = รับ QR เช็คอินของกิจกรรมใดก็ได้ หน้าเช็คอินตรวจสิทธิ์ต่อเอง
+     */
+    activityId?: string
+    activityName?: string
+}
+
+/** ข้อความเมื่อสแกนแล้วใช้ไม่ได้ — แสดงค้างไว้ชั่วครู่แล้วสแกนต่อ (กล้อง) หรือแสดงใต้ปุ่มเลือกรูป (ทางสำรอง) */
+function rejectMessage(reason: Exclude<CheckinScanVerdict, { ok: true }>["reason"], activityName?: string): string {
+    switch (reason) {
+        case "other-activity":
+            return `QR code นี้เป็นของกิจกรรมอื่น ไม่ตรงกับ "${activityName ?? "กิจกรรมนี้"}" — ลองสแกน QR ที่ถูกต้องอีกครั้ง`
+        case "no-token":
+            return "QR code นี้ไม่มีรหัสยืนยัน — สแกน QR ตัวจริงที่ผู้จัดแสดงอยู่หน้างาน"
+        default:
+            return "นี่ไม่ใช่ QR code สำหรับเช็คอินกิจกรรม"
+    }
 }
 
 type CameraState =
@@ -96,20 +111,16 @@ export function QrScannerModal({ open, onOpenChange, activityId, activityName }:
 
     const handleDecoded = useCallback(
         (text: string) => {
-            const parsed = parseCheckinUrl(text)
-            if (!parsed || parsed.id !== activityIdRef.current) {
-                setMismatchMessage(
-                    parsed
-                        ? `QR code นี้เป็นของกิจกรรมอื่น ไม่ตรงกับ "${activityName}" — ลองสแกน QR ที่ถูกต้องอีกครั้ง`
-                        : "นี่ไม่ใช่ QR code สำหรับเช็คอินกิจกรรม"
-                )
+            const verdict = checkinScanVerdict(text, activityIdRef.current)
+            if (!verdict.ok) {
+                setMismatchMessage(rejectMessage(verdict.reason, activityName))
                 if (mismatchTimerRef.current) clearTimeout(mismatchTimerRef.current)
                 mismatchTimerRef.current = setTimeout(() => setMismatchMessage(""), MISMATCH_MESSAGE_MS)
                 return
             }
             stopCamera()
             onOpenChange(false)
-            router.push(`/student/checkin/${parsed.id}${parsed.search}`)
+            router.push(verdict.href)
         },
         [activityName, onOpenChange, router, stopCamera]
     )
@@ -199,21 +210,17 @@ export function QrScannerModal({ open, onOpenChange, activityId, activityName }:
                 setFallbackError("อ่าน QR code ไม่สำเร็จ ลองถ่ายให้ชัดและอยู่กลางเฟรมอีกครั้ง")
                 return
             }
-            const parsed = parseCheckinUrl(text)
-            if (!parsed) {
-                setFallbackError("รูปนี้ไม่ใช่ QR code สำหรับเช็คอินกิจกรรม")
-                return
-            }
-            if (parsed.id !== activityId) {
-                setFallbackError(`QR code นี้เป็นของกิจกรรมอื่น ไม่ตรงกับ "${activityName}"`)
-                return
-            }
-            if (!parsed.search) {
-                setFallbackError("อ่าน QR code ไม่ครบ (ไม่มีรหัสยืนยัน) ลองถ่ายให้เห็น QR เต็มรูปอีกครั้ง")
+            const verdict = checkinScanVerdict(text, activityId)
+            if (!verdict.ok) {
+                setFallbackError(
+                    verdict.reason === "no-token"
+                        ? "อ่าน QR code ไม่ครบ (ไม่มีรหัสยืนยัน) ลองถ่ายให้เห็น QR เต็มรูปอีกครั้ง"
+                        : rejectMessage(verdict.reason, activityName)
+                )
                 return
             }
             onOpenChange(false)
-            router.push(`/student/checkin/${parsed.id}${parsed.search}`)
+            router.push(verdict.href)
         } catch (err) {
             setFallbackError((err as Error).message || "เกิดข้อผิดพลาด กรุณาลองใหม่")
         } finally {
@@ -228,7 +235,7 @@ export function QrScannerModal({ open, onOpenChange, activityId, activityName }:
     return createPortal(
         <div className="fixed inset-0 z-[60] flex flex-col bg-black" style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
             <div className="flex items-center justify-between px-4 py-3">
-                <p className="truncate pr-3 text-sm font-medium text-white/90">{activityName}</p>
+                <p className="truncate pr-3 text-sm font-medium text-white/90">{activityName ?? "สแกน QR เช็คอิน"}</p>
                 <button
                     type="button"
                     onClick={() => {
